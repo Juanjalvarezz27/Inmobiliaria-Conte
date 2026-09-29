@@ -8,24 +8,27 @@
 
   /* Colores Base de la Marca */
   --color-brand-navy: #1C2539;
+  --color-conte-navy: #1C2539;
   --color-navy: #1C2539;
   --color-brand-gray: #707378;
   --color-corporate-gray: #707378;
 
   /* Colores de Acento y Estados */
   --color-brand-green: #175E38;
+  --color-conte-green: #175E38;
   --color-estate-green: #175E38;
   --color-brand-red: #CC1A22;
   --color-estate-red: #CC1A22;
 
   /* Colores Neutros y Estructura */
   --color-brand-light: #F8FAFC;
+  --color-conte-bg: #F1F5F9;
   --color-brand-white: #FFFFFF;
 }
 
 body {
   font-family: var(--font-montserrat), sans-serif;
-  background-color: var(--color-brand-light);
+  background-color: var(--color-conte-bg);
   color: var(--color-brand-navy);
 }
 
@@ -41,14 +44,29 @@ h6 {
 @keyframes fadeIn {
   from {
     opacity: 0;
-    transform: translateY(-4px);
   }
+
   to {
     opacity: 1;
-    transform: translateY(0);
   }
 }
 
 .animate-fadeIn {
-  animation: fadeIn 0.25s ease-out forwards;
+  animation: fadeIn 0.2s ease-out forwards;
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.98);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.animate-slideUp {
+  animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }

@@ -1,7 +1,7 @@
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
-import { logoutAction } from "@/lib/actions/auth-actions";
 import { Rol } from "@prisma/client";
+import { LogoutButton } from "@/components/auth/logout-button";
 
 export default async function DashboardPage() {
   const session = await auth();
@@ -39,7 +39,7 @@ export default async function DashboardPage() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col font-sans">
+    <div className="flex-1 bg-slate-50 flex flex-col font-sans">
       {/* Barra superior de navegación */}
       <header className="bg-brand-navy text-white px-6 lg:px-12 py-4 shadow-sm flex items-center justify-between sticky top-0 z-30">
         <div className="flex items-center gap-3">
@@ -48,7 +48,7 @@ export default async function DashboardPage() {
           </div>
           <div>
             <span className="font-heading font-bold text-lg tracking-tight block leading-tight">
-              Inmobiliaria Conte
+              Inmobiliaria CONTÉ
             </span>
             <span className="text-[11px] text-slate-300 font-medium tracking-wide">
               Panel del Sistema
@@ -65,27 +65,7 @@ export default async function DashboardPage() {
             <span className="text-xs text-slate-300">{user.email}</span>
           </div>
 
-          <form action={logoutAction}>
-            <button
-              type="submit"
-              className="px-3.5 py-1.5 rounded-lg border border-white/20 hover:bg-white/10 text-white text-xs font-medium transition-all duration-150 flex items-center gap-1.5 cursor-pointer"
-            >
-              <svg
-                className="w-4 h-4"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
-                />
-              </svg>
-              Cerrar Sesión
-            </button>
-          </form>
+          <LogoutButton />
         </div>
       </header>
 

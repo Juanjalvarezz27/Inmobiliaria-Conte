@@ -27,7 +27,7 @@ export function LoginForm() {
         <div className="flex justify-center mb-4">
           <Image
             src="/Logo.png"
-            alt="Inmobiliaria Conté C.A"
+            alt="Inmobiliaria CONTÉ C.A"
             width={160}
             height={153}
             priority
