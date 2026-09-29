@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { montserrat, poppins } from "./fonts";
+import { montserrat, poppins } from "@/lib/fonts";
 import "./globals.css";
 
 export const metadata: Metadata = {

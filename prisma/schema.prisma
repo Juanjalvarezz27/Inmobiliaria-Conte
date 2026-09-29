@@ -1,6 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -10,15 +7,27 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// ============================================================
-// AGREGA TUS MODELOS AQUÍ
-// Ejemplo:
-// model Propiedad {
-//   id          String   @id @default(cuid())
-//   titulo      String
-//   descripcion String?
-//   precio      Decimal
-//   createdAt   DateTime @default(now())
-//   updatedAt   DateTime @updatedAt
-// }
-// ============================================================
+enum Rol {
+  ADMIN
+  EMPLEADO
+  INQUILINO
+}
+
+model Usuario {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  nombre       String
+  apellido     String?
+  cedula       String?  @unique
+  telefono     String?
+  direccion    String?
+  ubicacion    String?  // Coordenadas o zona (para tracking de empleados)
+  rol          Rol      @default(INQUILINO)
+  activo       Boolean  @default(true)
+
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@map("usuarios")
+}
