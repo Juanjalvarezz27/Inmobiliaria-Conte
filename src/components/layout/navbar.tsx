@@ -7,6 +7,7 @@ import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { Rol } from "@prisma/client";
 import { LogoutButton } from "@/components/auth/logout-button";
+import { notify } from "@/lib/notifications";
 
 const emptySubscribe = () => () => {};
 const useIsMounted = () => useSyncExternalStore(emptySubscribe, () => true, () => false);
@@ -21,7 +22,7 @@ interface NavbarUser {
 }
 
 interface NavbarProps {
-  user: NavbarUser;
+  user?: NavbarUser | null;
 }
 
 interface NavItem {
@@ -35,13 +36,101 @@ interface NavGroup {
   items: NavItem[];
 }
 
-export function Navbar({ user }: NavbarProps) {
+export function Navbar({ user }: NavbarProps = {}) {
   const pathname = usePathname();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
+  const [isVisible, setIsVisible] = useState(true);
+  const lastScrollY = useRef(0);
   const isMounted = useIsMounted();
 
   const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // Notificación de bienvenida al iniciar sesión exitosamente
+  useEffect(() => {
+    if (!user || typeof window === "undefined") return;
+
+    // 1. Notificación de Inicio de Sesión
+    const justLoggedIn = sessionStorage.getItem("just_logged_in");
+    if (justLoggedIn === "true") {
+      sessionStorage.removeItem("just_logged_in");
+      const rolLabel =
+        user.rol === "ADMIN"
+          ? "Administrador"
+          : user.rol === "EMPLEADO"
+          ? "Personal"
+          : "Inquilino";
+      const saludoNombre = user.nombre
+        ? `Bienvenido de nuevo, ${user.nombre}`
+        : "Bienvenido al sistema";
+      notify.success(
+        "¡Inicio de sesión exitoso!",
+        `${saludoNombre}. Acceso concedido con rol de ${rolLabel}.`
+      );
+    }
+
+    // 2. Notificación si fue redirigido por intentar entrar a una sección sin permisos
+    const urlParams = new URLSearchParams(window.location.search);
+    const unauthorizedSection = urlParams.get("unauthorized");
+    if (unauthorizedSection) {
+      const sectionName =
+        unauthorizedSection === "admin"
+          ? "Administración"
+          : unauthorizedSection === "empleado"
+          ? "Personal"
+          : "Inquilino";
+      notify.warning(
+        "Acceso no autorizado",
+        `Tu cuenta no dispone de permisos para ingresar al módulo de ${sectionName}. Te hemos redirigido a tu panel.`
+      );
+      window.history.replaceState(null, "", window.location.pathname);
+    }
+  }, [user]);
+
+  // Control de scroll inteligente (autohide al bajar, reaparecer al subir)
+  useEffect(() => {
+    let ticking = false;
+
+    const handleScroll = () => {
+      const currentScrollY = window.scrollY;
+
+      if (!ticking) {
+        window.requestAnimationFrame(() => {
+          // Si el menú móvil está abierto, mantener siempre visible el navbar
+          if (mobileMenuOpen) {
+            setIsVisible(true);
+            lastScrollY.current = currentScrollY;
+            ticking = false;
+            return;
+          }
+
+          // En el tope superior de la página siempre visible
+          if (currentScrollY <= 80) {
+            setIsVisible(true);
+          } else {
+            const diff = currentScrollY - lastScrollY.current;
+            // Sensibilidad umbral para evitar parpadeos
+            if (diff > 8) {
+              // Scroll hacia abajo -> ocultar suavemente
+              setIsVisible(false);
+              setActiveDropdown(null);
+            } else if (diff < -8) {
+              // Scroll hacia arriba -> mostrar inmediatamente
+              setIsVisible(true);
+            }
+          }
+
+          lastScrollY.current = currentScrollY;
+          ticking = false;
+        });
+
+        ticking = true;
+      }
+    };
+
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, [mobileMenuOpen]);
 
   // Cerrar menús al hacer click afuera
   useEffect(() => {
@@ -140,7 +229,7 @@ export function Navbar({ user }: NavbarProps) {
     },
   };
 
-  const currentRoleStyle = roleBadges[user.rol] || roleBadges.ADMIN;
+  const currentRoleStyle = user ? (roleBadges[user.rol] || roleBadges.ADMIN) : roleBadges.ADMIN;
 
   const isLinkActive = (href: string) => {
     return (
@@ -157,7 +246,11 @@ export function Navbar({ user }: NavbarProps) {
   const inactiveRouteClasses = "text-slate-200 hover:text-white hover:bg-[#202E4A]/70 hover:border-[#334B76]/50 border border-transparent transition-all";
 
   return (
-    <header className="sticky top-0 z-50 bg-[#1C2539] text-white border-b border-white/10 shadow-lg">
+    <header
+      className={`sticky top-0 z-50 bg-[#1C2539] text-white border-b border-white/10 shadow-lg transition-transform duration-300 ease-in-out will-change-transform ${
+        isVisible ? "translate-y-0" : "-translate-y-full"
+      }`}
+    >
       {/* Contenedor fluido de ancho completo con padding lateral generoso */}
       <div className="w-full px-4 sm:px-6 lg:px-10 xl:px-12">
         <div className="flex items-center justify-between h-20">
@@ -179,7 +272,7 @@ export function Navbar({ user }: NavbarProps) {
             </div>
 
             {/* 2. Navegación Desktop - ADMIN con la paleta de color oficial */}
-            {user.rol === "ADMIN" && (
+            {user?.rol === "ADMIN" && (
               <nav className="hidden lg:flex items-center gap-2" ref={dropdownRef}>
                 <Link
                   href="/admin/dashboard"
@@ -248,7 +341,7 @@ export function Navbar({ user }: NavbarProps) {
             )}
 
             {/* Navegación Desktop - EMPLEADO */}
-            {user.rol === "EMPLEADO" && (
+            {user?.rol === "EMPLEADO" && (
               <nav className="hidden lg:flex items-center gap-2">
                 {empleadoItems.map((item) => {
                   const active = isLinkActive(item.href);
@@ -268,7 +361,7 @@ export function Navbar({ user }: NavbarProps) {
             )}
 
             {/* Navegación Desktop - INQUILINO */}
-            {user.rol === "INQUILINO" && (
+            {user?.rol === "INQUILINO" && (
               <nav className="hidden lg:flex items-center gap-2">
                 {inquilinoItems.map((item) => {
                   const active = isLinkActive(item.href);
@@ -289,46 +382,50 @@ export function Navbar({ user }: NavbarProps) {
           </div>
 
           {/* 3. Área de Usuario y Botón de Salir Rojo #CC1A22 */}
-          <div className="hidden lg:flex items-center gap-4">
-            <div className="flex flex-col text-right pl-4 border-l border-white/10 select-none">
-              <span className="text-sm font-semibold text-white leading-tight">
-                {user.nombre} {user.apellido || ""}
-              </span>
-              <span
-                className={`inline-block text-[9px] font-bold px-1.5 py-0.5 rounded tracking-wider border w-fit mt-1 self-end ${currentRoleStyle.bg} ${currentRoleStyle.border} ${currentRoleStyle.text}`}
-              >
-                {currentRoleStyle.label}
-              </span>
-            </div>
+          {user && (
+            <div className="hidden lg:flex items-center gap-4">
+              <div className="flex flex-col text-right pl-4 border-l border-white/10 select-none">
+                <span className="text-sm font-semibold text-white leading-tight">
+                  {user.nombre} {user.apellido || ""}
+                </span>
+                <span
+                  className={`inline-block text-[9px] font-bold px-1.5 py-0.5 rounded tracking-wider border w-fit mt-1 self-end ${currentRoleStyle.bg} ${currentRoleStyle.border} ${currentRoleStyle.text}`}
+                >
+                  {currentRoleStyle.label}
+                </span>
+              </div>
 
-            {/* Botón de Cerrar Sesión en Rojo vibrante institucional #CC1A22 */}
-            <LogoutButton variant="red" />
-          </div>
+              {/* Botón de Cerrar Sesión en Rojo vibrante institucional #CC1A22 */}
+              <LogoutButton variant="red" />
+            </div>
+          )}
 
           {/* 4. Botón Hamburger Móvil */}
-          <div className="flex lg:hidden items-center gap-2">
-            <button
-              type="button"
-              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="p-2.5 rounded-xl text-slate-300 hover:text-white hover:bg-white/10 focus:outline-none cursor-pointer border border-white/10"
-              aria-label="Abrir menú"
-            >
-              {mobileMenuOpen ? (
-                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              ) : (
-                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-                </svg>
-              )}
-            </button>
-          </div>
+          {user && (
+            <div className="flex lg:hidden items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                className="p-2.5 rounded-xl text-slate-300 hover:text-white hover:bg-white/10 focus:outline-none cursor-pointer border border-white/10"
+                aria-label="Abrir menú"
+              >
+                {mobileMenuOpen ? (
+                  <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                ) : (
+                  <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                  </svg>
+                )}
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
       {/* Drawer Móvil montado en Portal para garantizar visibilidad libre de Stacking Context */}
-      {isMounted && mobileMenuOpen && createPortal(
+      {isMounted && user && mobileMenuOpen && createPortal(
         <div className="lg:hidden fixed inset-x-0 top-20 bottom-0 z-40 bg-[#1C2539] border-t border-white/10 overflow-y-auto animate-fadeIn">
           <div className="p-4 sm:p-6 space-y-5 max-w-md mx-auto pb-24">
             

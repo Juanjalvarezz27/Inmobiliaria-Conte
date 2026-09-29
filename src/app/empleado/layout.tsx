@@ -16,7 +16,7 @@ export default async function EmpleadoLayout({
 
   // Permitir acceso a EMPLEADO y ADMIN
   if (session.user.rol !== "EMPLEADO" && session.user.rol !== "ADMIN") {
-    redirect("/inquilino/dashboard");
+    redirect("/inquilino/dashboard?unauthorized=empleado");
   }
 
   return (

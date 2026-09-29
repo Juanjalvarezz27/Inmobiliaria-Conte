@@ -1,8 +1,9 @@
 "use client";
 
 import { useState } from "react";
+import { signOut } from "next-auth/react";
 import { Modal } from "@/components/ui/modal";
-import { logoutAction } from "@/lib/actions/auth-actions";
+import { notify } from "@/lib/notifications";
 
 interface LogoutButtonProps {
   variant?: "pill" | "icon" | "menuItem" | "red";
@@ -12,6 +13,23 @@ interface LogoutButtonProps {
 export function LogoutButton({ variant = "red", className = "" }: LogoutButtonProps) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+
+  const handleLogout = async () => {
+    try {
+      setIsLoggingOut(true);
+      if (typeof window !== "undefined") {
+        sessionStorage.setItem("just_logged_out", "true");
+      }
+      await signOut({ callbackUrl: "/home/login?status=logged_out" });
+    } catch (error) {
+      console.error("Error al cerrar sesión:", error);
+      setIsLoggingOut(false);
+      notify.error(
+        "Error al cerrar sesión",
+        "Ocurrió un problema inesperado al finalizar la sesión. Por favor intenta de nuevo."
+      );
+    }
+  };
 
   return (
     <>
@@ -102,13 +120,7 @@ export function LogoutButton({ variant = "red", className = "" }: LogoutButtonPr
           ¿Estás seguro de que deseas cerrar sesión? Tendrás que volver a ingresar tus credenciales la próxima vez que accedas.
         </p>
 
-        <form
-          action={() => {
-            setIsLoggingOut(true);
-            logoutAction();
-          }}
-          className="flex items-center justify-center gap-3.5 pt-1"
-        >
+        <div className="flex items-center justify-center gap-3.5 pt-1">
           <button
             type="button"
             onClick={() => setIsModalOpen(false)}
@@ -118,7 +130,8 @@ export function LogoutButton({ variant = "red", className = "" }: LogoutButtonPr
             Cancelar
           </button>
           <button
-            type="submit"
+            type="button"
+            onClick={handleLogout}
             disabled={isLoggingOut}
             className="px-5 py-2.5 text-sm font-semibold text-white bg-brand-red hover:bg-red-700 rounded-xl transition-colors flex items-center gap-2 disabled:opacity-70 shadow-sm shadow-red-600/20 cursor-pointer"
           >
@@ -138,7 +151,7 @@ export function LogoutButton({ variant = "red", className = "" }: LogoutButtonPr
               "Sí, cerrar sesión"
             )}
           </button>
-        </form>
+        </div>
       </Modal>
     </>
   );

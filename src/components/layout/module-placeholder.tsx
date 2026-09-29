@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Rol } from "@prisma/client";
+import { ModuleActionButtons } from "./module-action-buttons";
 
 interface ModulePlaceholderProps {
   title: string;
@@ -165,12 +166,13 @@ export async function ModulePlaceholder({
           </div>
         </div>
 
-        {/* Mensaje de estado amigable */}
-        <div className="pt-4 border-t border-slate-100 flex items-center gap-3 text-xs text-slate-500">
-          <div className="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></div>
-          <span>
-            Esta vista ya forma parte de la navegación oficial y se irá habilitando paso a paso según el plan de trabajo.
-          </span>
+        {/* Acciones interactivas con notificaciones claras */}
+        <div className="pt-4 border-t border-slate-100 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <ModuleActionButtons title={title} />
+          <div className="flex items-center gap-2 text-xs text-slate-500 shrink-0">
+            <div className="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></div>
+            <span>En desarrollo activo</span>
+          </div>
         </div>
       </div>
     </div>

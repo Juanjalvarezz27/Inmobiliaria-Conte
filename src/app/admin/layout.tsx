@@ -17,8 +17,8 @@ export default async function AdminLayout({
   if (session.user.rol !== "ADMIN") {
     redirect(
       session.user.rol === "EMPLEADO"
-        ? "/empleado/dashboard"
-        : "/inquilino/dashboard"
+        ? "/empleado/dashboard?unauthorized=admin"
+        : "/inquilino/dashboard?unauthorized=admin"
     );
   }
 

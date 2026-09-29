@@ -58,17 +58,23 @@ export const authConfig: NextAuthConfig = {
 
         // Rutas de Administrador: Acceso exclusivo a ADMIN
         if (pathname.startsWith("/admin") && userRole !== "ADMIN") {
-          return Response.redirect(new URL(getRoleDashboard(userRole), nextUrl));
+          const url = new URL(getRoleDashboard(userRole), nextUrl);
+          url.searchParams.set("unauthorized", "admin");
+          return Response.redirect(url);
         }
 
         // Rutas de Empleado: Acceso a EMPLEADO y ADMIN
         if (pathname.startsWith("/empleado") && userRole !== "EMPLEADO" && userRole !== "ADMIN") {
-          return Response.redirect(new URL(getRoleDashboard(userRole), nextUrl));
+          const url = new URL(getRoleDashboard(userRole), nextUrl);
+          url.searchParams.set("unauthorized", "empleado");
+          return Response.redirect(url);
         }
 
         // Rutas de Inquilino: Acceso a INQUILINO y ADMIN
         if (pathname.startsWith("/inquilino") && userRole !== "INQUILINO" && userRole !== "ADMIN") {
-          return Response.redirect(new URL(getRoleDashboard(userRole), nextUrl));
+          const url = new URL(getRoleDashboard(userRole), nextUrl);
+          url.searchParams.set("unauthorized", "inquilino");
+          return Response.redirect(url);
         }
       }
 

@@ -1,8 +1,9 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useState, useEffect } from "react";
 import Image from "next/image";
 import { loginAction, type LoginState } from "@/lib/actions/auth-actions";
+import { notify } from "@/lib/notifications";
 
 export function LoginForm() {
   const [state, formAction, isPending] = useActionState<LoginState, FormData>(
@@ -13,15 +14,100 @@ export function LoginForm() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [isDevHelperOpen, setIsDevHelperOpen] = useState(true);
 
-  // Helper para autocompletar credenciales de prueba con un solo clic
-  const fillCredentials = (testEmail: string, testPass: string) => {
+  // Notificación reactiva con título y causa ante errores de autenticación
+  useEffect(() => {
+    if (state?.error) {
+      if (typeof window !== "undefined") {
+        sessionStorage.removeItem("just_logged_in");
+      }
+      notify.error("Error al iniciar sesión", state.error);
+    }
+  }, [state?.error]);
+
+  // Notificación reactiva ante estado de sesión, redirecciones protegidas o errores en URL
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const hasLogoutParam = urlParams.get("status") === "logged_out" || urlParams.get("logout") === "true";
+    const hasLogoutStorage = sessionStorage.getItem("just_logged_out") === "true";
+
+    // 1. Notificación de Cierre de Sesión Exitoso
+    if (hasLogoutParam || hasLogoutStorage) {
+      sessionStorage.removeItem("just_logged_out");
+      notify.success(
+        "Sesión cerrada correctamente",
+        "Has salido del sistema de forma segura. ¡Hasta pronto!"
+      );
+      if (window.location.search) {
+        window.history.replaceState(null, "", window.location.pathname);
+      }
+      return;
+    }
+
+    // 2. Notificación si intentó entrar a una ruta privada sin sesión
+    const callbackUrl = urlParams.get("callbackUrl");
+    if (callbackUrl && !callbackUrl.includes("/home/login")) {
+      notify.warning(
+        "Acceso restringido",
+        "Debes iniciar sesión con tus credenciales para acceder a la sección solicitada."
+      );
+      return;
+    }
+
+    // 3. Notificación ante errores directos del proveedor de autenticación
+    const authError = urlParams.get("error");
+    if (authError) {
+      if (authError === "SessionRequired") {
+        notify.warning(
+          "Sesión requerida",
+          "Tu sesión ha caducado. Por favor ingresa tus credenciales nuevamente."
+        );
+      } else if (authError === "AccessDenied") {
+        notify.error(
+          "Acceso denegado",
+          "No dispones de las autorizaciones requeridas para acceder con esta cuenta."
+        );
+      } else {
+        notify.error(
+          "Error de autenticación",
+          "Ocurrió un problema de comunicación con el servicio de autenticación."
+        );
+      }
+    }
+  }, []);
+
+  const handleFormSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+    if (!email.trim() || !password.trim()) {
+      e.preventDefault();
+      notify.warning(
+        "Campos incompletos",
+        "Por favor ingresa tanto tu correo electrónico como tu contraseña antes de continuar."
+      );
+      return;
+    }
+    if (typeof window !== "undefined") {
+      sessionStorage.setItem("just_logged_in", "true");
+    }
+  };
+
+  // Helper para autocompletar credenciales de prueba con notificación de feedback
+  const fillCredentials = (testEmail: string, testPass: string, roleName?: string) => {
     setEmail(testEmail);
     setPassword(testPass);
+    if (roleName) {
+      notify.info(
+        `Credenciales de ${roleName} cargadas`,
+        `Se autocompletaron los datos de acceso para ${testEmail}.`
+      );
+    }
   };
 
   return (
-    <div className="w-full max-w-md mx-auto">
+    <>
+      <div className="w-full max-w-md mx-auto">
       {/* Cabecera del formulario con el logotipo oficial */}
       <div className="text-center mb-8">
         <div className="flex justify-center mb-4">
@@ -63,7 +149,7 @@ export function LoginForm() {
       )}
 
       {/* Formulario */}
-      <form action={formAction} className="space-y-4">
+      <form action={formAction} onSubmit={handleFormSubmit} className="space-y-4">
         {/* Campo Correo */}
         <div>
           <label
@@ -175,41 +261,84 @@ export function LoginForm() {
           )}
         </button>
       </form>
+    </div>
 
-      {/* Acceso Rápido con Credenciales de Prueba */}
-      <div className="mt-8 pt-6 border-t border-slate-200">
-        <p className="text-xs font-medium text-slate-500 text-center mb-3">
-          Credenciales de prueba rápidas:
-        </p>
-        <div className="grid grid-cols-3 gap-2">
+    {/* Widget flotante temporal a la derecha con accesos de prueba */}
+    {isDevHelperOpen ? (
+      <aside
+        aria-label="Credenciales de prueba para desarrollo"
+        className="fixed bottom-6 right-6 z-50 bg-[#1C2539]/95 backdrop-blur-md border border-[#2D4166] rounded-2xl p-4 shadow-2xl w-72 text-white animate-fadeIn"
+      >
+        <div className="flex items-center justify-between pb-2 mb-2.5 border-b border-white/10">
+          <div className="flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+            <span className="text-xs font-bold text-slate-200 uppercase tracking-wider">Accesos Demo</span>
+          </div>
           <button
             type="button"
-            onClick={() => fillCredentials("admin@conte.com", "admin123")}
-            className="px-2 py-2 rounded-lg border border-slate-200 hover:border-slate-400 bg-white hover:bg-slate-50 text-center transition-colors cursor-pointer"
+            onClick={() => setIsDevHelperOpen(false)}
+            className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-white/10 transition-colors cursor-pointer"
+            title="Minimizar panel demo"
           >
-            <span className="block text-xs font-semibold text-slate-900">Admin</span>
-            <span className="block text-[10px] text-slate-500 truncate">admin@conte.com</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => fillCredentials("empleado@conte.com", "empleado123")}
-            className="px-2 py-2 rounded-lg border border-slate-200 hover:border-slate-400 bg-white hover:bg-slate-50 text-center transition-colors cursor-pointer"
-          >
-            <span className="block text-xs font-semibold text-slate-900">Empleado</span>
-            <span className="block text-[10px] text-slate-500 truncate">empleado@conte.com</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => fillCredentials("inquilino@conte.com", "inquilino123")}
-            className="px-2 py-2 rounded-lg border border-slate-200 hover:border-slate-400 bg-white hover:bg-slate-50 text-center transition-colors cursor-pointer"
-          >
-            <span className="block text-xs font-semibold text-slate-900">Inquilino</span>
-            <span className="block text-[10px] text-slate-500 truncate">inquilino@conte.com</span>
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
           </button>
         </div>
-      </div>
-    </div>
-  );
+
+        <p className="text-[11px] text-slate-300 mb-2.5 leading-snug">
+          Clic para rellenar credenciales automáticamente:
+        </p>
+
+        <div className="space-y-1.5">
+          <button
+            type="button"
+            onClick={() => fillCredentials("admin@conte.com", "admin123", "Administrador")}
+            className="w-full flex items-center justify-between px-3 py-2 rounded-xl bg-white/5 hover:bg-[#253758] border border-white/10 hover:border-[#3C588A]/60 transition-all text-left cursor-pointer group"
+          >
+            <div>
+              <span className="block text-xs font-bold text-amber-300">Admin</span>
+              <span className="block text-[11px] text-slate-400 font-mono">admin@conte.com</span>
+            </div>
+            <span className="text-[10px] bg-amber-400/10 text-amber-300 px-2 py-0.5 rounded border border-amber-400/30 font-semibold">Auto</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => fillCredentials("empleado@conte.com", "empleado123", "Personal")}
+            className="w-full flex items-center justify-between px-3 py-2 rounded-xl bg-white/5 hover:bg-[#253758] border border-white/10 hover:border-[#3C588A]/60 transition-all text-left cursor-pointer group"
+          >
+            <div>
+              <span className="block text-xs font-bold text-sky-300">Personal</span>
+              <span className="block text-[11px] text-slate-400 font-mono">empleado@conte.com</span>
+            </div>
+            <span className="text-[10px] bg-sky-400/10 text-sky-300 px-2 py-0.5 rounded border border-sky-400/30 font-semibold">Auto</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => fillCredentials("inquilino@conte.com", "inquilino123", "Inquilino")}
+            className="w-full flex items-center justify-between px-3 py-2 rounded-xl bg-white/5 hover:bg-[#253758] border border-white/10 hover:border-[#3C588A]/60 transition-all text-left cursor-pointer group"
+          >
+            <div>
+              <span className="block text-xs font-bold text-emerald-300">Inquilino</span>
+              <span className="block text-[11px] text-slate-400 font-mono">inquilino@conte.com</span>
+            </div>
+            <span className="text-[10px] bg-emerald-400/10 text-emerald-300 px-2 py-0.5 rounded border border-emerald-400/30 font-semibold">Auto</span>
+          </button>
+        </div>
+      </aside>
+    ) : (
+      <button
+        type="button"
+        onClick={() => setIsDevHelperOpen(true)}
+        className="fixed bottom-6 right-6 z-50 bg-[#1C2539] hover:bg-[#253758] border border-[#2D4166] text-white text-xs font-semibold px-3.5 py-2.5 rounded-full shadow-xl flex items-center gap-2 cursor-pointer transition-all animate-fadeIn"
+        title="Ver credenciales de prueba"
+      >
+        <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+        <span>Accesos Demo</span>
+      </button>
+    )}
+  </>
+);
 }

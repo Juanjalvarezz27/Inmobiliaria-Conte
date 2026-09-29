@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { montserrat, poppins } from "@/lib/fonts";
 import { Footer } from "@/components/layout/footer";
+import { AppToaster } from "@/components/ui/app-toaster";
+import { NetworkStatusNotifier } from "@/components/ui/network-status-notifier";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -19,6 +21,8 @@ export default function RootLayout({
       className={`${montserrat.variable} ${poppins.variable} h-full antialiased`}
     >
       <body className="min-h-screen flex flex-col font-sans bg-slate-100 text-slate-800">
+        <AppToaster />
+        <NetworkStatusNotifier />
         <div className="flex-1 flex flex-col">{children}</div>
         <Footer />
       </body>
