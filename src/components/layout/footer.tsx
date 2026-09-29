@@ -35,15 +35,6 @@ export function Footer() {
               Soluciones inmobiliarias integrales, administración transparente de propiedades, 
               control de contratos de arrendamiento y atención de primer nivel.
             </p>
-
-            <div className="flex flex-wrap gap-2 pt-1">
-              <span className="px-3 py-1 rounded-full text-xs font-semibold bg-emerald-950/70 border border-emerald-500/30 text-emerald-300">
-                Residencial & Comercial
-              </span>
-              <span className="px-3 py-1 rounded-full text-xs font-semibold bg-slate-800/80 border border-slate-700/60 text-slate-200">
-                Transparencia & Respaldo
-              </span>
-            </div>
           </div>
 
           {/* Columna 2: Tarjeta del Desarrollador y Contacto */}

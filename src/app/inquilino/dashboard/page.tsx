@@ -9,7 +9,7 @@ export default async function InquilinoDashboardPage() {
       {/* Banner de Bienvenida Inquilino */}
       <div className="bg-gradient-to-r from-emerald-900 to-slate-900 rounded-2xl p-6 sm:p-8 text-white shadow-md">
         <span className="inline-block text-[11px] font-bold tracking-widest text-emerald-400 uppercase bg-emerald-500/20 border border-emerald-400/30 px-2.5 py-1 rounded-md mb-3">
-          Portal del Arrendatario
+          Portal del Inquilino
         </span>
         <h1 className="text-2xl sm:text-3xl font-bold font-heading tracking-tight">
           Bienvenido, {session?.user?.nombre || "Inquilino"}
