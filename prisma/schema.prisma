@@ -13,6 +13,13 @@ enum Rol {
   INQUILINO
 }
 
+enum EstadoLocal {
+  DISPONIBLE
+  OCUPADO
+  MANTENIMIENTO
+  INACTIVO
+}
+
 model Usuario {
   id           String   @id @default(cuid())
   email        String   @unique
@@ -31,3 +38,40 @@ model Usuario {
 
   @@map("usuarios")
 }
+
+model CentroComercial {
+  id          String   @id @default(cuid())
+  nombre      String
+  direccion   String
+  ciudad      String
+  descripcion String?
+  imagenUrl   String?  // Foto principal del centro comercial
+  activo      Boolean  @default(true)
+
+  locales     Local[]
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("centros_comerciales")
+}
+
+model Local {
+  id                String      @id @default(cuid())
+  codigo            String      // Ej: "Local 12-B"
+  piso              String?     // Ej: "Planta baja", "Nivel 2"
+  areaMt2           Float?      // Área en m²
+  precioAlquiler    Float?      // Precio mensual en la moneda base
+  descripcion       String?
+  estado            EstadoLocal @default(DISPONIBLE)
+  imagenes          String[]    // Array de URLs de fotos del local
+
+  centroComercialId String
+  centroComercial   CentroComercial @relation(fields: [centroComercialId], references: [id])
+
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+
+  @@map("locales")
+}
+
