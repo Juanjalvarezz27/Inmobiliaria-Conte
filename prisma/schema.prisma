@@ -3,8 +3,9 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 enum Rol {
@@ -13,7 +14,27 @@ enum Rol {
   INQUILINO
 }
 
-enum EstadoLocal {
+enum TipoPropiedad {
+  CENTRO_COMERCIAL // Complejos con locales o kioskos
+  EDIFICIO         // Edificios residenciales o corporativos con apartamentos u oficinas
+  CASA             // Casas o quintas independientes
+  APARTAMENTO      // Apartamento independiente
+  LOCAL            // Local comercial independiente a pie de calle
+  TERRENO          // Terreno o lote
+  GALPON           // Galpón o nave industrial
+  OTRO
+}
+
+enum TipoUnidad {
+  LOCAL
+  APARTAMENTO
+  OFICINA
+  DEPOSITO
+  CASA
+  OTRO
+}
+
+enum EstadoUnidad {
   DISPONIBLE
   OCUPADO
   MANTENIMIENTO
@@ -39,39 +60,43 @@ model Usuario {
   @@map("usuarios")
 }
 
-model CentroComercial {
-  id          String   @id @default(cuid())
-  nombre      String
-  direccion   String
-  ciudad      String
-  descripcion String?
-  imagenUrl   String?  // Foto principal del centro comercial
-  activo      Boolean  @default(true)
+model Propiedad {
+  id              String        @id @default(cuid())
+  nombre          String
+  tipo            TipoPropiedad @default(CENTRO_COMERCIAL)
+  direccion       String
+  ciudad          String
+  descripcion     String?
+  numPisos        Int?          // Número de pisos (para Edificio, Centro Comercial, etc.)
+  areaTotalM2     Float?        // Área total de construcción o terreno en m²
+  propietario      String?       // Propietario o empresa dueña (opcional: si es nulo es de la inmobiliaria/Fabián)
+  telefonoContacto String?       // Teléfono de contacto o administración del inmueble
 
-  locales     Local[]
+  unidades    Unidad[]
 
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
 
-  @@map("centros_comerciales")
+  @@map("propiedades")
 }
 
-model Local {
-  id                String      @id @default(cuid())
-  codigo            String      // Ej: "Local 12-B"
-  piso              String?     // Ej: "Planta baja", "Nivel 2"
-  areaMt2           Float?      // Área en m²
-  precioAlquiler    Float?      // Precio mensual en la moneda base
-  descripcion       String?
-  estado            EstadoLocal @default(DISPONIBLE)
-  imagenes          String[]    // Array de URLs de fotos del local
+model Unidad {
+  id             String       @id @default(cuid())
+  codigo         String       // Ej: "Local 12-B", "Apto 4A", "Principal"
+  tipo           TipoUnidad   @default(LOCAL)
+  piso           String?      // Ej: "Planta Baja", "Piso 4"
+  areaMt2        Float?       // Área en m²
+  precioAlquiler Float?       // Canon de arrendamiento mensual
+  descripcion    String?
+  estado         EstadoUnidad @default(DISPONIBLE)
+  imagenes       String[]     // Fotos de la unidad
 
-  centroComercialId String
-  centroComercial   CentroComercial @relation(fields: [centroComercialId], references: [id])
+  propiedadId    String
+  propiedad      Propiedad    @relation(fields: [propiedadId], references: [id], onDelete: Cascade)
 
-  createdAt         DateTime    @default(now())
-  updatedAt         DateTime    @updatedAt
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
 
-  @@map("locales")
+  @@map("unidades")
 }
 

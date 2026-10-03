@@ -79,14 +79,14 @@ export function PageHeader({
       {/* Fila principal: Título con ícono y badges + Acciones */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         {/* Lado izquierdo: Ícono + Título + Descripción */}
-        <div className="flex items-start gap-3.5 min-w-0">
+        <div className={`flex ${description ? "items-start" : "items-center"} gap-3.5 min-w-0`}>
           {icon && (
-            <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-xl bg-[#1C2539] text-white flex items-center justify-center shadow-xs shrink-0 mt-0.5">
+            <div className={`w-11 h-11 sm:w-12 sm:h-12 rounded-xl bg-[#1C2539] text-white flex items-center justify-center shadow-xs shrink-0 ${description ? "mt-0.5" : ""}`}>
               {icon}
             </div>
           )}
 
-          <div className="space-y-1 min-w-0 flex-1">
+          <div className={`${description ? "space-y-1" : ""} min-w-0 flex-1`}>
             <div className="flex items-center gap-2.5 flex-wrap">
               <h1 className="text-xl sm:text-2xl font-bold font-heading text-slate-900 tracking-tight leading-tight truncate">
                 {title}
@@ -104,7 +104,7 @@ export function PageHeader({
 
         {/* Lado derecho: Slot de Botones de Acción */}
         {actions && (
-          <div className="flex items-center gap-2.5 flex-wrap sm:flex-nowrap shrink-0 self-start sm:self-center">
+          <div className="flex items-center justify-center sm:justify-end gap-2.5 flex-wrap sm:flex-nowrap w-full sm:w-auto shrink-0">
             {actions}
           </div>
         )}

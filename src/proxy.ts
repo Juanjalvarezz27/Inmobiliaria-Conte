@@ -4,7 +4,6 @@ import { authConfig } from "./auth.config";
 export default NextAuth(authConfig).auth;
 
 export const config = {
-  // Interceptar TODO: páginas, api y rutas arbitrarias.
-  // Solo excluir assets internos de Next.js que nunca necesitan autenticación.
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)"],
+  // Excluir assets de Next.js y las rutas de UploadThing (sus callbacks son server-to-server, sin cookie de sesión)
+  matcher: ["/((?!_next/static|_next/image|favicon.ico|api/uploadthing|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)"],
 };

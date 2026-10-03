@@ -1,24 +1,24 @@
-import { getCentrosComerciales } from "@/lib/actions/centros-comerciales";
-import { getLocales, getEstadisticasLocales } from "@/lib/actions/locales";
+import { getPropiedades } from "@/lib/actions/propiedades";
+import { getUnidades, getEstadisticasPropiedades } from "@/lib/actions/unidades";
 import { PropiedadesClient } from "./PropiedadesClient";
 
 export const metadata = {
-  title: "Propiedades | Inmobiliaria Conté",
-  description: "Gestiona los centros comerciales y locales de Inmobiliaria Conté.",
+  title: "Propiedades y Espacios | Inmobiliaria Conté",
+  description: "Gestión integral del parque inmobiliario: complejos, edificios, unidades y locales.",
 };
 
 export default async function PropiedadesPage() {
-  // Carga paralela de todos los datos necesarios
-  const [centros, locales, stats] = await Promise.all([
-    getCentrosComerciales(),
-    getLocales(),
-    getEstadisticasLocales(),
+  // Carga paralela y optimizada de datos
+  const [propiedades, unidades, stats] = await Promise.all([
+    getPropiedades(),
+    getUnidades(),
+    getEstadisticasPropiedades(),
   ]);
 
   return (
     <PropiedadesClient
-      centros={centros}
-      locales={locales}
+      propiedades={propiedades}
+      unidades={unidades}
       stats={stats}
     />
   );
