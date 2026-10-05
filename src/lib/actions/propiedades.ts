@@ -60,6 +60,7 @@ export async function getPropiedades() {
           select: { unidades: true },
         },
       },
+      take: 100,
     });
   } catch (error) {
     console.error("Error al obtener propiedades:", error);

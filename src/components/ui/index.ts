@@ -10,3 +10,4 @@ export * from "./skeleton";
 export * from "./stat-card";
 export * from "./select";
 export * from "./phone-input";
+export * from "./confirm-action-modal";

@@ -472,6 +472,7 @@ export function UnidadForm({ propiedades, initialData, onSubmit, onCancel, isLoa
                       alt="Foto 1"
                       fill
                       sizes="(max-width: 640px) 100vw, 260px"
+                      unoptimized
                       className="object-cover group-hover:scale-105 transition-transform duration-300"
                     />
                     <div className="absolute top-1.5 left-1.5 z-10 flex items-center gap-1 bg-[#175E38]/90 text-white text-[9px] font-bold px-2 py-0.5 rounded-md backdrop-blur-xs shadow-xs">
@@ -504,6 +505,7 @@ export function UnidadForm({ propiedades, initialData, onSubmit, onCancel, isLoa
                       alt={`Foto ${idx + 1}`}
                       fill
                       sizes="(max-width: 640px) 50vw, 240px"
+                      unoptimized
                       className="object-cover group-hover:scale-105 transition-transform duration-300"
                     />
                     {idx === 0 && (
@@ -538,6 +540,7 @@ export function UnidadForm({ propiedades, initialData, onSubmit, onCancel, isLoa
                       alt={`Foto ${idx + 1}`}
                       fill
                       sizes="(max-width: 640px) 33vw, 180px"
+                      unoptimized
                       className="object-cover group-hover:scale-105 transition-transform duration-300"
                     />
                     {idx === 0 && (

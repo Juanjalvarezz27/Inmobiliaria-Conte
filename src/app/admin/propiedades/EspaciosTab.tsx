@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import Image from "next/image";
+import Link from "next/link";
 import { TipoPropiedad, EstadoUnidad } from "@prisma/client";
 import {
   Store,
@@ -19,6 +20,8 @@ import {
   ArrowLeft,
   Camera,
   MapPin,
+  UserCheck,
+  ArrowUpRight,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -26,6 +29,8 @@ import {
   tipoPropiedadCornerSun,
   TIPO_UNIDAD_LABEL,
   formatCurrency,
+  WhatsAppIcon,
+  getWhatsAppUrl,
 } from "./constants";
 import type { PropiedadConConteo, UnidadConPropiedad } from "./types";
 
@@ -181,6 +186,7 @@ export function EspaciosTab({
             fill
             sizes="(max-width: 768px) 100vw, (max-width: 1280px) 50vw, 33vw"
             loading="lazy"
+            unoptimized
             className="object-cover group-hover/unitcard:scale-105 transition-transform duration-300"
           />
 
@@ -287,13 +293,159 @@ export function EspaciosTab({
           )}
         </div>
 
-        {/* Caja destacada de Precio Mensual */}
-        <div className="bg-slate-50/90 rounded-xl p-3 border border-slate-200/70 flex items-center justify-between shadow-[inset_0_1px_2px_rgba(0,0,0,0.03)]">
-          <span className="text-xs text-slate-500 font-medium">Precio Mensual</span>
-          <span className="text-base sm:text-lg font-black text-slate-900 font-heading">
-            {formatCurrency(unidad.precioAlquiler)}
-          </span>
-        </div>
+        {/* Relación con Arrendatario y Contrato */}
+        {(() => {
+          const contratoActivo = unidad.contratos && unidad.contratos.length > 0 ? unidad.contratos[0] : null;
+
+          if (contratoActivo) {
+            const nombreInquilino = `${contratoActivo.inquilino.nombre} ${contratoActivo.inquilino.apellido ?? ""}`.trim();
+            const fFin = new Date(contratoActivo.fechaFin).toLocaleDateString("es-VE", {
+              day: "2-digit",
+              month: "short",
+              year: "numeric",
+            });
+
+            return (
+              <div className="rounded-xl border border-emerald-200/90 bg-gradient-to-br from-emerald-50/70 via-white to-slate-50/80 p-3 space-y-2 shadow-2xs">
+                {/* Cabecera del Arrendatario */}
+                <div className="flex items-center justify-between gap-1.5">
+                  <span className="inline-flex items-center gap-1.5 text-[11px] font-bold text-[#175E38] tracking-tight">
+                    <UserCheck className="w-3.5 h-3.5 text-[#175E38] shrink-0 stroke-[2.5]" />
+                    <span>Alquilado a:</span>
+                  </span>
+
+                  {/* Chip de Contrato con salto interactivo */}
+                  <Link
+                    href={`/admin/contratos?search=${encodeURIComponent(contratoActivo.codigo)}`}
+                    onClick={(e) => e.stopPropagation()}
+                    title="Ver contrato oficial"
+                    className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-white hover:bg-emerald-50 text-[10px] font-mono font-bold text-slate-700 hover:text-[#175E38] border border-slate-200/90 hover:border-emerald-300 shadow-2xs transition-all shrink-0 group/link"
+                  >
+                    <span>{contratoActivo.codigo}</span>
+                    <ArrowUpRight className="w-3 h-3 text-slate-400 group-hover/link:text-[#175E38] group-hover/link:translate-x-0.5 group-hover/link:-translate-y-0.5 transition-all" />
+                  </Link>
+                </div>
+
+                {/* Nombre y Documento */}
+                <div className="flex items-center justify-between gap-2">
+                  <span
+                    className="font-extrabold text-slate-900 text-xs sm:text-sm truncate"
+                    title={nombreInquilino}
+                  >
+                    {nombreInquilino}
+                  </span>
+                  <span className="text-[10px] font-semibold text-slate-500 shrink-0 font-mono">
+                    {contratoActivo.inquilino.documentoIdentidad}
+                  </span>
+                </div>
+
+                {/* WhatsApp y Vigencia */}
+                <div className="flex items-center justify-between gap-2 pt-1 border-t border-emerald-100/70 text-[11px]">
+                  <a
+                    href={getWhatsAppUrl(contratoActivo.inquilino.telefono)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={(e) => e.stopPropagation()}
+                    title="Contactar al arrendatario vía WhatsApp"
+                    className="inline-flex items-center gap-1 font-bold text-emerald-800 hover:text-emerald-950 transition-colors"
+                  >
+                    <WhatsAppIcon className="w-3.5 h-3.5 text-[#25D366] shrink-0" />
+                    <span className="underline decoration-emerald-300 underline-offset-2">
+                      {contratoActivo.inquilino.telefono}
+                    </span>
+                  </a>
+
+                  <span className="text-[10px] font-medium text-slate-500 shrink-0">
+                    Hasta {fFin}
+                  </span>
+                </div>
+              </div>
+            );
+          }
+
+          // Sin contrato activo: bloque estructurado y equilibrado
+          return (
+            <div className="rounded-xl border border-slate-200/90 bg-gradient-to-br from-slate-50/90 via-white to-slate-50/70 p-3 space-y-2 shadow-2xs">
+              {/* Cabecera de Estado */}
+              <div className="flex items-center justify-between gap-1.5">
+                <span className="inline-flex items-center gap-1.5 text-[11px] font-bold text-slate-600 tracking-tight">
+                  <span
+                    className={`w-2 h-2 rounded-full shrink-0 ${
+                      unidad.estado === "DISPONIBLE"
+                        ? "bg-emerald-500 animate-pulse"
+                        : unidad.estado === "MANTENIMIENTO"
+                        ? "bg-amber-500"
+                        : "bg-slate-400"
+                    }`}
+                  />
+                  <span>Arrendamiento:</span>
+                </span>
+                <span
+                  className={`inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold border ${
+                    unidad.estado === "DISPONIBLE"
+                      ? "bg-emerald-50 text-[#175E38] border-emerald-200/80"
+                      : unidad.estado === "MANTENIMIENTO"
+                      ? "bg-amber-50 text-amber-700 border-amber-200/80"
+                      : "bg-slate-100 text-slate-600 border-slate-200"
+                  }`}
+                >
+                  {unidad.estado === "DISPONIBLE"
+                    ? "Disponible"
+                    : unidad.estado === "MANTENIMIENTO"
+                    ? "Mantenimiento"
+                    : "Inactivo"}
+                </span>
+              </div>
+
+              {/* Contenido descriptivo */}
+              <div className="py-0.5">
+                <span className="font-extrabold text-slate-800 text-xs sm:text-sm">
+                  {unidad.estado === "DISPONIBLE"
+                    ? "Sin inquilino asignado"
+                    : unidad.estado === "MANTENIMIENTO"
+                    ? "En mantenimiento"
+                    : "Espacio inactivo"}
+                </span>
+              </div>
+
+              {/* Botón de acción directo para Arrendar */}
+              <div className="pt-1.5 border-t border-slate-100 flex items-center justify-between gap-2">
+                <span className="text-[10px] font-medium text-slate-400">
+                  {unidad.estado === "DISPONIBLE" ? "Entrega inmediata" : "Fuera de servicio"}
+                </span>
+                {unidad.estado === "DISPONIBLE" ? (
+                  <Link
+                    href={`/admin/contratos?arrendarUnidadId=${unidad.id}`}
+                    onClick={(e) => e.stopPropagation()}
+                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-[#175E38] hover:bg-[#124b2d] text-white text-[11px] font-bold transition-all shadow-xs active:translate-y-0.5 cursor-pointer"
+                  >
+                    <Plus className="w-3 h-3 stroke-[2.5]" />
+                    <span>Arrendar</span>
+                  </Link>
+                ) : (
+                  <span className="text-[10px] text-slate-400 font-semibold">—</span>
+                )}
+              </div>
+            </div>
+          );
+        })()}
+
+        {/* Caja destacada de Precio / Mensualidad */}
+        {(() => {
+          const contratoActivo = unidad.contratos && unidad.contratos.length > 0 ? unidad.contratos[0] : null;
+          const precioMostrar = contratoActivo ? contratoActivo.montoAlquiler : unidad.precioAlquiler;
+
+          return (
+            <div className="bg-slate-50/90 rounded-xl p-3 border border-slate-200/70 flex items-center justify-between shadow-[inset_0_1px_2px_rgba(0,0,0,0.03)]">
+              <span className="text-xs text-slate-500 font-medium">
+                {contratoActivo ? "Mensualidad Acordada" : "Precio Mensual"}
+              </span>
+              <span className="text-base sm:text-lg font-black text-slate-900 font-heading">
+                {formatCurrency(precioMostrar)}
+              </span>
+            </div>
+          );
+        })()}
       </div>
 
       {/* Footer de Acciones */}

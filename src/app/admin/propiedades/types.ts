@@ -1,4 +1,4 @@
-import { TipoPropiedad, TipoUnidad, EstadoUnidad } from "@prisma/client";
+import { TipoPropiedad, TipoUnidad, EstadoUnidad, EstadoContrato, TipoPersona } from "@prisma/client";
 
 // Tipos compartidos para el módulo de Propiedades y Espacios
 
@@ -16,6 +16,27 @@ export type PropiedadConConteo = {
   createdAt?: Date;
   updatedAt?: Date;
   _count: { unidades: number };
+};
+
+export type InquilinoContratoResumen = {
+  id: string;
+  nombre: string;
+  apellido: string | null;
+  tipoPersona: TipoPersona;
+  documentoIdentidad: string;
+  telefono: string;
+  email: string | null;
+};
+
+export type ContratoResumenUnidad = {
+  id: string;
+  codigo: string;
+  estado: EstadoContrato;
+  fechaInicio: Date | string;
+  fechaFin: Date | string;
+  montoAlquiler: number;
+  moneda: string;
+  inquilino: InquilinoContratoResumen;
 };
 
 export type UnidadConPropiedad = {
@@ -37,6 +58,7 @@ export type UnidadConPropiedad = {
     tipo: TipoPropiedad;
     ciudad: string;
   };
+  contratos?: ContratoResumenUnidad[];
 };
 
 export type Stats = {

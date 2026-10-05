@@ -1,6 +1,6 @@
 import { auth } from "@/auth";
 import Link from "next/link";
-import { Building2, CircleDollarSign, Wrench } from "lucide-react";
+import { Building2, Users, FileText, CircleDollarSign, Wrench } from "lucide-react";
 
 export default async function AdminDashboardPage() {
   const session = await auth();
@@ -22,7 +22,7 @@ export default async function AdminDashboardPage() {
           </h1>
           <p className="text-sm text-slate-300 mt-2 leading-relaxed">
             Sistema de Gestión Integral Inmobiliaria Conté. Tienes acceso completo a la administración de inmuebles,
-            cobranzas, contratos, facturación y operaciones.
+            inquilinos, contratos, cobranzas y operaciones.
           </p>
         </div>
       </div>
@@ -32,7 +32,7 @@ export default async function AdminDashboardPage() {
         <h2 className="text-base font-bold font-heading text-slate-900">
           Módulos del Sistema
         </h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           <Link
             href="/admin/propiedades"
             className="group p-5 bg-white rounded-xl border border-slate-200 hover:border-slate-300 hover:shadow-md transition-all duration-200 flex flex-col justify-between"
@@ -42,14 +42,54 @@ export default async function AdminDashboardPage() {
                 <Building2 className="w-5 h-5" />
               </div>
               <h3 className="text-sm font-bold text-slate-800 group-hover:text-blue-600 transition-colors">
-                Propiedades & Centros Comerciales
+                Propiedades & Espacios
               </h3>
               <p className="text-xs text-slate-500 mt-1">
-                Fase 4: Catálogo de inmuebles, locales y disponibilidad.
+                Catálogo de inmuebles, locales y niveles de ocupación.
               </p>
             </div>
             <div className="text-xs font-semibold text-blue-600 mt-4 flex items-center gap-1">
               Ver catálogo →
+            </div>
+          </Link>
+
+          <Link
+            href="/admin/inquilinos"
+            className="group p-5 bg-white rounded-xl border border-slate-200 hover:border-slate-300 hover:shadow-md transition-all duration-200 flex flex-col justify-between"
+          >
+            <div>
+              <div className="w-10 h-10 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center mb-3 group-hover:scale-105 transition-transform">
+                <Users className="w-5 h-5 text-[#175E38]" />
+              </div>
+              <h3 className="text-sm font-bold text-slate-800 group-hover:text-[#175E38] transition-colors">
+                Directorio de Inquilinos
+              </h3>
+              <p className="text-xs text-slate-500 mt-1">
+                Personas naturales y jurídicas, contacto por WhatsApp y contratos asociados.
+              </p>
+            </div>
+            <div className="text-xs font-semibold text-[#175E38] mt-4 flex items-center gap-1">
+              Ver inquilinos →
+            </div>
+          </Link>
+
+          <Link
+            href="/admin/contratos"
+            className="group p-5 bg-white rounded-xl border border-slate-200 hover:border-slate-300 hover:shadow-md transition-all duration-200 flex flex-col justify-between"
+          >
+            <div>
+              <div className="w-10 h-10 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center mb-3 group-hover:scale-105 transition-transform">
+                <FileText className="w-5 h-5" />
+              </div>
+              <h3 className="text-sm font-bold text-slate-800 group-hover:text-indigo-600 transition-colors">
+                Contratos de Arrendamiento
+              </h3>
+              <p className="text-xs text-slate-500 mt-1">
+                Gestión de plazos, canones, depósitos en garantía y PDF firmado.
+              </p>
+            </div>
+            <div className="text-xs font-semibold text-indigo-600 mt-4 flex items-center gap-1">
+              Ver contratos →
             </div>
           </Link>
 
@@ -65,7 +105,7 @@ export default async function AdminDashboardPage() {
                 Panel de Cobranza
               </h3>
               <p className="text-xs text-slate-500 mt-1">
-                Fase 6: Control de pagos mensuales, estados y vencimientos.
+                Control de pagos mensuales, estados y vencimientos.
               </p>
             </div>
             <div className="text-xs font-semibold text-emerald-600 mt-4 flex items-center gap-1">
@@ -85,7 +125,7 @@ export default async function AdminDashboardPage() {
                 Tickets de Mantenimiento
               </h3>
               <p className="text-xs text-slate-500 mt-1">
-                Fase 9: Asignación a personal y seguimiento de incidentes.
+                Asignación a personal y seguimiento de incidentes.
               </p>
             </div>
             <div className="text-xs font-semibold text-amber-600 mt-4 flex items-center gap-1">

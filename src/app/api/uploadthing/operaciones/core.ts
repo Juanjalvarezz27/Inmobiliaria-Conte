@@ -13,7 +13,7 @@ export const operacionesFileRouter = {
 
   // Documentos: contratos, recibos, comprobantes de pago (PDF)
   documentoOperativo: f({
-    pdf: { maxFileSize: "4MB", maxFileCount: 1 },
+    pdf: { maxFileSize: "8MB", maxFileCount: 1 },
   }).onUploadComplete(async ({ file }) => {
     return { url: file.ufsUrl || file.url };
   }),

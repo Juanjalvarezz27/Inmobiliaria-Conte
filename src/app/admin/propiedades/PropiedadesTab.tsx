@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import { TipoPropiedad } from "@prisma/client";
 import {
   Building2,
@@ -12,6 +12,7 @@ import {
   Trash2,
   MapPin,
   UserCheck,
+  ChevronDown,
 } from "lucide-react";
 import {
   tipoPropiedadBadgeConfig,
@@ -45,6 +46,16 @@ export function PropiedadesTab({
   onAbrirCrearUnidad,
   onLimpiarFiltros,
 }: PropiedadesTabProps) {
+  // Paginación local de 15 en 15
+  const PAGE_SIZE = 15;
+  const [paginaActual, setPaginaActual] = useState(1);
+
+  const totalPaginas = Math.ceil(propiedadesFiltradas.length / PAGE_SIZE);
+  const paginaSegura = totalPaginas > 0 ? Math.min(Math.max(1, paginaActual), totalPaginas) : 1;
+  const inicio = (paginaSegura - 1) * PAGE_SIZE;
+  const fin = inicio + PAGE_SIZE;
+  const propiedadesPagina = propiedadesFiltradas.slice(inicio, fin);
+
   // Empty State: Accesos rápidos cuando no hay propiedades
   if (propiedades.length === 0) {
     return (
@@ -157,10 +168,11 @@ export function PropiedadesTab({
     );
   }
 
-  // Grilla de Tarjetas Inmobiliarias
+  // Grilla de Tarjetas Inmobiliarias con Paginación
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-      {propiedadesFiltradas.map((propiedad) => {
+    <div className="space-y-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+        {propiedadesPagina.map((propiedad) => {
         const badgeInfo = tipoPropiedadBadgeConfig(propiedad.tipo);
         const cornerSun = tipoPropiedadCornerSun(propiedad.tipo);
         const Icon = badgeInfo.icon;
@@ -331,6 +343,69 @@ export function PropiedadesTab({
           </div>
         );
       })}
+      </div>
+
+      {/* Controles de Paginación de 15 en 15 */}
+      {totalPaginas > 1 && (
+        <div className="bg-white rounded-2xl p-4 border border-slate-200/90 shadow-2xs flex flex-col sm:flex-row items-center justify-between gap-3">
+          <p className="text-xs text-slate-500 font-medium">
+            Mostrando <span className="font-bold text-slate-800">{inicio + 1}</span>–
+            <span className="font-bold text-slate-800">{Math.min(fin, propiedadesFiltradas.length)}</span> de{" "}
+            <span className="font-bold text-slate-800">{propiedadesFiltradas.length}</span> inmuebles
+          </p>
+
+          <div className="flex items-center gap-1.5">
+            <button
+              type="button"
+              disabled={paginaSegura === 1}
+              onClick={() => {
+                setPaginaActual(Math.max(1, paginaSegura - 1));
+                window.scrollTo({ top: 350, behavior: "smooth" });
+              }}
+              className="w-8 h-8 rounded-lg border border-slate-200 bg-white text-slate-600 flex items-center justify-center transition-all hover:bg-slate-50 hover:border-slate-300 disabled:opacity-30 disabled:cursor-not-allowed shadow-2xs cursor-pointer"
+              aria-label="Página anterior"
+            >
+              <ChevronDown className="w-3.5 h-3.5 rotate-90" />
+            </button>
+
+            {Array.from({ length: totalPaginas }, (_, i) => i + 1)
+              .filter((p) => {
+                if (totalPaginas <= 5) return true;
+                return p === 1 || p === totalPaginas || Math.abs(p - paginaSegura) <= 1;
+              })
+              .map((p) => (
+                <button
+                  key={p}
+                  type="button"
+                  onClick={() => {
+                    setPaginaActual(p);
+                    window.scrollTo({ top: 350, behavior: "smooth" });
+                  }}
+                  className={`w-8 h-8 rounded-lg text-xs font-bold transition-all shadow-2xs cursor-pointer ${
+                    paginaSegura === p
+                      ? "bg-[#175E38] text-white shadow-xs"
+                      : "border border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+                  }`}
+                >
+                  {p}
+                </button>
+              ))}
+
+            <button
+              type="button"
+              disabled={paginaSegura === totalPaginas}
+              onClick={() => {
+                setPaginaActual(Math.min(totalPaginas, paginaSegura + 1));
+                window.scrollTo({ top: 350, behavior: "smooth" });
+              }}
+              className="w-8 h-8 rounded-lg border border-slate-200 bg-white text-slate-600 flex items-center justify-center transition-all hover:bg-slate-50 hover:border-slate-300 disabled:opacity-30 disabled:cursor-not-allowed shadow-2xs cursor-pointer"
+              aria-label="Página siguiente"
+            >
+              <ChevronDown className="w-3.5 h-3.5 -rotate-90" />
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

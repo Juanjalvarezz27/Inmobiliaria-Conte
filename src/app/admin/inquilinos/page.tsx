@@ -1,18 +1,34 @@
-import { ModulePlaceholder } from "@/components/layout/module-placeholder";
+import { getInquilinos } from "@/lib/actions/inquilinos";
+import { InquilinosClient } from "./InquilinosClient";
+import type { InquilinoConContratos } from "./types";
+
+export const metadata = {
+  title: "Directorio de Inquilinos | Inmobiliaria Conté",
+  description: "Directorio oficial de arrendatarios y clientes de Inmobiliaria Conté",
+};
 
 export default async function InquilinosPage() {
-  return (
-    <ModulePlaceholder
-      title="Directorio de Inquilinos"
-      role="ADMIN"
-      iconType="users"
-      description="Aquí podrás gestionar la información de todos los clientes y arrendatarios que tienen contratos con la empresa."
-      features={[
-        "Registrar nuevos inquilinos con sus datos de contacto, cédula o RIF.",
-        "Crearles su cuenta de acceso para que puedan ingresar a su propio portal.",
-        "Ver de inmediato el estado de cuenta y los locales que tiene alquilados cada persona.",
-        "Buscar rápidamente a un inquilino por su nombre, teléfono o documento de identidad.",
-      ]}
-    />
-  );
+  const inquilinosRes = await getInquilinos();
+
+  const inquilinos = (inquilinosRes.success && inquilinosRes.data
+    ? inquilinosRes.data
+    : []) as unknown as InquilinoConContratos[];
+
+  // Cálculo de estadísticas en memoria: 0 queries adicionales a Neon
+  const total = inquilinos.length;
+  const activos = inquilinos.filter((i) => i.activo).length;
+  // Cada contrato en inquilinos ya viene filtrado por estado ACTIVO
+  const conContratosActivos = inquilinos.filter(
+    (i) => (i.contratos && i.contratos.length > 0) || (i._count?.contratos ?? 0) > 0
+  ).length;
+  const sinContrato = total - conContratosActivos;
+
+  const stats = {
+    total,
+    activos,
+    conContratosActivos,
+    sinContrato,
+  };
+
+  return <InquilinosClient inquilinos={inquilinos} stats={stats} />;
 }

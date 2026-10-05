@@ -14,6 +14,23 @@ const nextConfig: NextConfig = {
     ],
     minimumCacheTTL: 2592000,
   },
+  // Configuración de Turbopack (bundler por defecto en Next.js 16)
+  turbopack: {
+    resolveAlias: {
+      canvas: "./src/lib/empty-module.ts",
+    },
+  },
+  // Evitar que Next.js intente bundlear pdfjs-dist como módulo de servidor bajo Webpack
+  webpack: (config, { isServer }) => {
+    if (!isServer) {
+      // pdfjs-dist usa canvas en el entorno nativo, ignorarlo en el cliente web
+      config.resolve.alias = {
+        ...(config.resolve.alias || {}),
+        canvas: false,
+      };
+    }
+    return config;
+  },
   // Encabezados HTTP para evitar re-descargas y optimizar entrega de assets
   async headers() {
     return [
@@ -31,4 +48,5 @@ const nextConfig: NextConfig = {
 };
 
 export default nextConfig;
+
 

@@ -1,19 +1,90 @@
-import { ModulePlaceholder } from "@/components/layout/module-placeholder";
+import {
+  getContratos,
+  getUnidadesDisponiblesParaContrato,
+  getInquilinosParaSelector,
+} from "@/lib/actions/contratos";
+import { getPropiedades } from "@/lib/actions/propiedades";
+import { EstadoContrato } from "@prisma/client";
+import { ContratosClient } from "./ContratosClient";
+import type {
+  ContratoConRelaciones,
+  UnidadDisponible,
+  InquilinoSelector,
+} from "./types";
 
-export default async function ContratosPage() {
+export const metadata = {
+  title: "Gestión de Contratos | Inmobiliaria Conté",
+  description: "Control de contratos de arrendamiento, vigencias y cánones mensuales",
+};
+
+interface ContratosPageProps {
+  searchParams: Promise<{
+    inquilinoId?: string;
+    unidadId?: string;
+    arrendarUnidadId?: string;
+    nuevo?: string;
+    search?: string;
+  }>;
+}
+
+export default async function ContratosPage({ searchParams }: ContratosPageProps) {
+  const resolvedSearchParams = await searchParams;
+  const inquilinoIdPreseleccionado = resolvedSearchParams?.inquilinoId;
+  const unidadIdPreseleccionada =
+    resolvedSearchParams?.arrendarUnidadId || resolvedSearchParams?.unidadId;
+  const abrirCrear =
+    resolvedSearchParams?.nuevo === "true" ||
+    !!unidadIdPreseleccionada ||
+    !!inquilinoIdPreseleccionado;
+  const initialSearch = resolvedSearchParams?.search;
+
+  // Carga concurrente optimizada (se eliminaron 4 queries de COUNT a Neon)
+  const [contratosRes, unidadesRes, inquilinosRes, propiedades] = await Promise.all([
+    getContratos(),
+    getUnidadesDisponiblesParaContrato(),
+    getInquilinosParaSelector(),
+    getPropiedades(),
+  ]);
+
+  const contratos = (contratosRes.success && contratosRes.data
+    ? contratosRes.data
+    : []) as unknown as ContratoConRelaciones[];
+
+  // Cálculo de estadísticas en memoria: 0 queries a la base de datos
+  const ahora = new Date();
+  const en30Dias = new Date();
+  en30Dias.setDate(en30Dias.getDate() + 30);
+
+  const stats = {
+    total: contratos.length,
+    activos: contratos.filter((c) => c.estado === EstadoContrato.ACTIVO).length,
+    porVencer: contratos.filter((c) => {
+      if (c.estado !== EstadoContrato.ACTIVO) return false;
+      const fin = new Date(c.fechaFin);
+      return fin >= ahora && fin <= en30Dias;
+    }).length,
+    finalizados: contratos.filter((c) => c.estado === EstadoContrato.FINALIZADO).length,
+  };
+
+  const unidadesDisponibles = (unidadesRes.success && unidadesRes.data
+    ? unidadesRes.data
+    : []) as unknown as UnidadDisponible[];
+
+  const inquilinos = (inquilinosRes.success && inquilinosRes.data
+    ? inquilinosRes.data
+    : []) as unknown as InquilinoSelector[];
+
   return (
-    <ModulePlaceholder
-      title="Contratos de Alquiler"
-      role="ADMIN"
-      iconType="contract"
-      description="Aquí podrás crear y supervisar todos los contratos de arrendamiento firmados con los inquilinos."
-      features={[
-        "Crear un nuevo contrato asignando un local a un inquilino con su canon mensual y depósito.",
-        "Generar automáticamente el cobro del primer mes apenas se firme el contrato.",
-        "Registrar ajustes y aumentos periódicos de la renta con su fecha de aplicación.",
-        "Subir y descargar el documento legal firmado en PDF para tenerlo siempre a mano.",
-        "Recibir alertas automáticas cuando un contrato esté próximo a vencer.",
-      ]}
+    <ContratosClient
+      contratos={contratos}
+      stats={stats}
+      unidadesDisponibles={unidadesDisponibles}
+      inquilinos={inquilinos}
+      propiedades={propiedades}
+      inquilinoIdPreseleccionado={inquilinoIdPreseleccionado}
+      unidadIdPreseleccionada={unidadIdPreseleccionada}
+      abrirCrear={abrirCrear}
+      initialSearch={initialSearch}
     />
   );
 }

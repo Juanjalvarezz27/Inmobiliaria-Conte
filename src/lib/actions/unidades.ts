@@ -2,7 +2,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
-import { EstadoUnidad, TipoUnidad } from "@prisma/client";
+import { Prisma, EstadoUnidad, TipoUnidad, EstadoContrato } from "@prisma/client";
 import { eliminarArchivosUploadThing } from "@/lib/uploadthing-server";
 
 export interface CreateUnidadInput {
@@ -29,8 +29,8 @@ export interface UpdateUnidadInput {
   propiedadId?: string;
 }
 
-// Proyección mínima y optimizada: solo trae los campos necesarios para la UI y la gestión de unidades
-const UNIDAD_SELECT = {
+// Proyección mínima y optimizada: incluye contratos activos para vincular inquilinos y contratos con la unidad
+const UNIDAD_SELECT = Prisma.validator<Prisma.UnidadSelect>()({
   id: true,
   codigo: true,
   tipo: true,
@@ -49,7 +49,34 @@ const UNIDAD_SELECT = {
       ciudad: true,
     },
   },
-} as const;
+  contratos: {
+    where: {
+      estado: { in: [EstadoContrato.ACTIVO, EstadoContrato.POR_VENCER] },
+    },
+    orderBy: { createdAt: "desc" },
+    take: 1,
+    select: {
+      id: true,
+      codigo: true,
+      estado: true,
+      fechaInicio: true,
+      fechaFin: true,
+      montoAlquiler: true,
+      moneda: true,
+      inquilino: {
+        select: {
+          id: true,
+          nombre: true,
+          apellido: true,
+          tipoPersona: true,
+          documentoIdentidad: true,
+          telefono: true,
+          email: true,
+        },
+      },
+    },
+  },
+});
 
 // Obtener todas las unidades (opcionalmente filtradas por propiedad) optimizado
 export async function getUnidades(propiedadId?: string) {
@@ -58,6 +85,7 @@ export async function getUnidades(propiedadId?: string) {
       where: propiedadId ? { propiedadId } : undefined,
       orderBy: { createdAt: "desc" },
       select: UNIDAD_SELECT,
+      take: 300,
     });
   } catch (error) {
     console.error("Error al obtener unidades:", error);

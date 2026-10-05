@@ -238,12 +238,22 @@ export function PropiedadesClient({
       const coincidePropiedad =
         filtroPropiedad === "TODAS" || u.propiedadId === filtroPropiedad;
       const q = busqueda.toLowerCase().trim();
+      const contratoActivo = u.contratos && u.contratos.length > 0 ? u.contratos[0] : null;
+      const nombreInquilino = contratoActivo
+        ? `${contratoActivo.inquilino.nombre} ${contratoActivo.inquilino.apellido ?? ""}`.toLowerCase()
+        : "";
+      const docInquilino = contratoActivo?.inquilino.documentoIdentidad?.toLowerCase() || "";
+      const codContrato = contratoActivo?.codigo?.toLowerCase() || "";
+
       const coincideBusqueda =
         !q ||
         u.codigo.toLowerCase().includes(q) ||
         u.propiedad.nombre.toLowerCase().includes(q) ||
         TIPO_UNIDAD_LABEL[u.tipo].toLowerCase().includes(q) ||
-        (u.piso?.toLowerCase().includes(q) ?? false);
+        (u.piso?.toLowerCase().includes(q) ?? false) ||
+        nombreInquilino.includes(q) ||
+        docInquilino.includes(q) ||
+        codContrato.includes(q);
       return coincidePropiedad && coincideBusqueda;
     });
   }, [unidades, filtroPropiedad, busqueda]);
@@ -626,7 +636,7 @@ export function PropiedadesClient({
           <div className="flex items-center gap-2 w-full sm:w-auto">
             {/* Filtro por tipo (Pestaña Propiedades) */}
             {activeTab === "propiedades" && (
-              <div ref={dropdownTipoRef} className="relative flex-1 sm:flex-initial">
+              <div ref={dropdownTipoRef} className="relative w-full sm:w-auto">
                 <select
                   value={filtroTipoEfectivo}
                   onChange={(e) => setFiltroTipo(e.target.value)}
@@ -729,7 +739,7 @@ export function PropiedadesClient({
             {/* Filtros para pestaña Espacios (Selector de Inmueble) */}
             {activeTab === "unidades" && (
               <div className="flex items-center gap-2 w-full sm:w-auto">
-                <div ref={dropdownPropiedadRef} className="relative flex-1 sm:flex-initial">
+                <div ref={dropdownPropiedadRef} className="relative w-full sm:w-auto">
                   <select
                     value={filtroPropiedad}
                     onChange={(e) => setFiltroPropiedad(e.target.value)}
@@ -751,7 +761,7 @@ export function PropiedadesClient({
                     onClick={() => setIsDropdownPropiedadOpen((prev) => !prev)}
                     className="w-full sm:w-auto flex items-center justify-between gap-2 px-3 sm:px-3.5 h-10 text-xs sm:text-sm font-medium border border-slate-200 rounded-xl bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50 transition-all shadow-2xs cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#1C2539]/20"
                   >
-                    <div className="flex items-center gap-2 truncate max-w-[200px]">
+                    <div className="flex items-center gap-2 truncate sm:max-w-[200px]">
                       <Building2 className="w-4 h-4 text-slate-500 shrink-0" />
                       <span className="truncate">
                         {propiedadActivaFiltro ? propiedadActivaFiltro.nombre : "Todos los inmuebles"}

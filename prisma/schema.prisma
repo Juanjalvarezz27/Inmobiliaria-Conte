@@ -54,6 +54,8 @@ model Usuario {
   rol          Rol      @default(INQUILINO)
   activo       Boolean  @default(true)
 
+  inquilino    Inquilino?
+
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
@@ -94,9 +96,72 @@ model Unidad {
   propiedadId    String
   propiedad      Propiedad    @relation(fields: [propiedadId], references: [id], onDelete: Cascade)
 
+  contratos      Contrato[]
+
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
 
   @@map("unidades")
 }
+
+enum TipoPersona {
+  NATURAL
+  JURIDICA
+}
+
+enum EstadoContrato {
+  ACTIVO
+  POR_VENCER
+  FINALIZADO
+  RESCINDIDO
+}
+
+model Inquilino {
+  id                 String       @id @default(cuid())
+  nombre             String       // Nombre o Razón Social
+  apellido           String?      // Apellido si es persona natural
+  tipoPersona        TipoPersona  @default(NATURAL)
+  documentoIdentidad String       @unique // Cédula o RIF único (ej: V-12345678, J-12345678-9)
+  telefono           String       // Teléfono principal con WhatsApp
+  telefonoSecundario String?      // Teléfono secundario o de oficina
+  email              String?      // Correo para recibos y notificaciones
+  direccion          String?      // Dirección fiscal o de habitación
+  activo             Boolean      @default(true)
+
+  usuarioId          String?      @unique
+  usuario            Usuario?     @relation(fields: [usuarioId], references: [id], onDelete: SetNull)
+
+  contratos          Contrato[]
+
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
+
+  @@map("inquilinos")
+}
+
+model Contrato {
+  id               String         @id @default(cuid())
+  codigo           String         @unique // Código visible de contrato, ej: "CTR-2026-001"
+  inquilinoId      String
+  inquilino        Inquilino      @relation(fields: [inquilinoId], references: [id], onDelete: Restrict)
+  unidadId         String
+  unidad           Unidad         @relation(fields: [unidadId], references: [id], onDelete: Restrict)
+
+  fechaInicio      DateTime
+  fechaFin         DateTime
+  diaCobro         Int            @default(1) // Día de corte de pago mensual (1-31)
+  montoAlquiler    Float          // Canon de arrendamiento mensual acordado
+  depositoGarantia Float?         // Monto del depósito en garantía
+  moneda           String         @default("USD")
+
+  estado           EstadoContrato @default(ACTIVO)
+  documentoUrl     String?        // Enlace al contrato PDF firmado en UploadThing
+  notas            String?        // Observaciones o cláusulas especiales
+
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+
+  @@map("contratos")
+}
+
 
