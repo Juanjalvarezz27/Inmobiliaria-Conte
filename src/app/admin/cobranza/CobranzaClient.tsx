@@ -363,47 +363,50 @@ export function CobranzaClient({
         title="Control de Cobranzas y Mensualidades"
         icon={<Receipt className="w-6 h-6 text-white" />}
         actions={
-          <div className="flex items-center gap-2 bg-white border border-slate-200/90 rounded-2xl p-1.5 shadow-2xs">
+          <div className="w-full sm:w-auto flex items-center justify-between gap-1.5 sm:gap-2 bg-white border border-slate-200/90 rounded-2xl p-1.5 sm:p-2 shadow-2xs">
             {/* Navegación anterior */}
             <button
               type="button"
               onClick={() => cambiarMesRelativo(-1)}
               disabled={isPending}
-              className="w-9 h-9 rounded-xl flex items-center justify-center hover:bg-slate-100 text-slate-700 transition-colors cursor-pointer"
+              className="w-8.5 h-8.5 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center hover:bg-slate-100 text-slate-700 transition-colors cursor-pointer shrink-0"
               title="Mes anterior"
             >
-              <ChevronLeft className="w-5 h-5" />
+              <ChevronLeft className="w-4 h-4 sm:w-5 sm:h-5" />
             </button>
 
-            {/* Selector de Mes */}
-            <div className="w-36">
-              <Select
-                value={String(mes)}
-                onChange={(val) => {
-                  const m = Number(val);
-                  setMes(m);
-                  setPagina(1);
-                  recargarCobranzas(m, ano, 1);
-                }}
-                options={MESES}
-              />
-            </div>
+            {/* Selectores de Mes y Año agrupados fluidamente */}
+            <div className="flex items-center gap-1.5 flex-1 min-w-0">
+              {/* Selector de Mes */}
+              <div className="flex-1 min-w-[105px] sm:w-36 sm:flex-initial">
+                <Select
+                  value={String(mes)}
+                  onChange={(val) => {
+                    const m = Number(val);
+                    setMes(m);
+                    setPagina(1);
+                    recargarCobranzas(m, ano, 1);
+                  }}
+                  options={MESES}
+                />
+              </div>
 
-            {/* Selector de Año */}
-            <div className="w-24">
-              <input
-                type="number"
-                min="2020"
-                max="2035"
-                value={ano}
-                onChange={(e) => {
-                  const a = Number(e.target.value);
-                  setAno(a);
-                  setPagina(1);
-                  recargarCobranzas(mes, a, 1);
-                }}
-                className="w-full h-10 text-center font-bold text-slate-800 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#175E38]/20 focus:border-[#175E38] outline-hidden"
-              />
+              {/* Selector de Año */}
+              <div className="w-18 sm:w-24 shrink-0">
+                <input
+                  type="number"
+                  min="2020"
+                  max="2035"
+                  value={ano}
+                  onChange={(e) => {
+                    const a = Number(e.target.value);
+                    setAno(a);
+                    setPagina(1);
+                    recargarCobranzas(mes, a, 1);
+                  }}
+                  className="w-full h-10 text-center font-bold text-slate-800 text-xs sm:text-sm bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#175E38]/20 focus:border-[#175E38] outline-hidden"
+                />
+              </div>
             </div>
 
             {/* Navegación siguiente */}
@@ -411,28 +414,31 @@ export function CobranzaClient({
               type="button"
               onClick={() => cambiarMesRelativo(1)}
               disabled={isPending}
-              className="w-9 h-9 rounded-xl flex items-center justify-center hover:bg-slate-100 text-slate-700 transition-colors cursor-pointer"
+              className="w-8.5 h-8.5 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center hover:bg-slate-100 text-slate-700 transition-colors cursor-pointer shrink-0"
               title="Mes siguiente"
             >
-              <ChevronRight className="w-5 h-5" />
+              <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5" />
             </button>
+
+            {/* Separador vertical tenue */}
+            <div className="h-6 w-px bg-slate-200 shrink-0 mx-0.5" />
 
             {/* Botón sincronizar */}
             <button
               type="button"
               onClick={handleSincronizarManual}
               disabled={isPending}
-              className="w-9 h-9 rounded-xl bg-slate-50 hover:bg-slate-100 text-[#175E38] border border-slate-200 flex items-center justify-center transition-colors cursor-pointer"
+              className="w-8.5 h-8.5 sm:w-9 sm:h-9 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-[#175E38] border border-emerald-200/80 flex items-center justify-center transition-colors cursor-pointer shrink-0 shadow-2xs"
               title="Actualizar y sincronizar cuotas"
             >
-              <RotateCw className={`w-4 h-4 ${isPending ? "animate-spin" : ""}`} />
+              <RotateCw className={`w-3.5 h-3.5 sm:w-4 sm:h-4 ${isPending ? "animate-spin" : ""}`} />
             </button>
           </div>
         }
       />
 
       {/* 4 StatCards Ejecutivas */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4">
         {/* Total Facturado */}
         <StatCard
           title="Total Facturado"
@@ -465,7 +471,7 @@ export function CobranzaClient({
         <StatCard
           title="En Mora (Vencido)"
           value={`$${estadisticas.totalEnMora.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
-          subtitle={`${estadisticas.cantidadVencidos} cuotas fuera de plazo`}
+          subtitle={`${estadisticas.cantidadVencidos} cuotas vencidas`}
           icon={AlertTriangle}
           color="rose"
         />

@@ -741,13 +741,14 @@ export function EspaciosTab({
             filtroPropiedad !== "TODAS" ||
             !!propiedadesDesplegadas[prop.id];
 
-          // Solo monta el DOM si el usuario hizo clic al menos una vez manualmente
-          const haSidoMontada = !!propiedadesCargadas[prop.id];
+          // Monta el DOM si está desplegada o si el usuario hizo clic previamente
+          const haSidoMontada = estaDesplegada || !!propiedadesCargadas[prop.id];
 
           return (
             <section
               key={prop.id}
-              className={`group/acordeon relative overflow-hidden bg-gradient-to-b from-white via-white to-slate-50/60 rounded-2xl sm:rounded-3xl border border-slate-200/90 border-b-[3px] border-b-slate-300/90 shadow-[0_4px_20px_-2px_rgba(28,37,57,0.07),0_2px_6px_-1px_rgba(28,37,57,0.04)] hover:shadow-[0_12px_28px_-4px_rgba(28,37,57,0.11),0_4px_8px_-2px_rgba(28,37,57,0.05)] transition-all duration-300 ${
+              id={`propiedad-acordeon-${prop.id}`}
+              className={`group/acordeon scroll-mt-24 sm:scroll-mt-28 relative overflow-hidden bg-gradient-to-b from-white via-white to-slate-50/60 rounded-2xl sm:rounded-3xl border border-slate-200/90 border-b-[3px] border-b-slate-300/90 shadow-[0_4px_20px_-2px_rgba(28,37,57,0.07),0_2px_6px_-1px_rgba(28,37,57,0.04)] hover:shadow-[0_12px_28px_-4px_rgba(28,37,57,0.11),0_4px_8px_-2px_rgba(28,37,57,0.05)] transition-all duration-300 ${
                 estaDesplegada ? "border-slate-300/90 ring-1 ring-slate-300/60 shadow-md" : ""
               }`}
             >

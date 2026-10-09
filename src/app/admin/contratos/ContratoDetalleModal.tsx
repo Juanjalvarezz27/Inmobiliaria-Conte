@@ -1,12 +1,13 @@
 "use client";
 
-import React, { useState, useMemo, useTransition } from "react";
+import React, { useState, useMemo, useTransition, useRef, useEffect } from "react";
 import Link from "next/link";
 import {
   FileText,
   User,
   Store,
   Calendar,
+  Clock,
   ExternalLink,
   Pencil,
   CheckCircle2,
@@ -22,6 +23,8 @@ import {
   Receipt,
   FileCheck2,
   Check,
+  ChevronUp,
+  SlidersHorizontal,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Modal } from "@/components/ui/modal";
@@ -85,6 +88,42 @@ export function ContratoDetalleModal({
   isLoadingPagos = false,
 }: ContratoDetalleModalProps) {
   const [menuEstadoAbierto, setMenuEstadoAbierto] = useState(false);
+  const menuEstadoRef = useRef<HTMLDivElement>(null);
+
+  // Cerrar menú de estados al hacer clic afuera o presionar Escape
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (menuEstadoRef.current && !menuEstadoRef.current.contains(e.target as Node)) {
+        setMenuEstadoAbierto(false);
+      }
+    };
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setMenuEstadoAbierto(false);
+    };
+    if (menuEstadoAbierto) {
+      document.addEventListener("mousedown", handleClickOutside);
+      document.addEventListener("keydown", handleKeyDown);
+    }
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [menuEstadoAbierto]);
+
+  const estadoBadgeConfig = useMemo(() => {
+    switch (contrato?.estado) {
+      case EstadoContrato.ACTIVO:
+        return { label: "Activo", badgeClass: "bg-emerald-100 text-[#124b2d] border-emerald-300" };
+      case EstadoContrato.POR_VENCER:
+        return { label: "Por Vencer", badgeClass: "bg-amber-100 text-amber-900 border-amber-300" };
+      case EstadoContrato.FINALIZADO:
+        return { label: "Finalizado", badgeClass: "bg-slate-200 text-slate-800 border-slate-300" };
+      case EstadoContrato.RESCINDIDO:
+        return { label: "Rescindido", badgeClass: "bg-rose-100 text-rose-800 border-rose-300" };
+      default:
+        return { label: contrato?.estado || "", badgeClass: "bg-slate-100 text-slate-700 border-slate-200" };
+    }
+  }, [contrato?.estado]);
   const [isRevertingDeposit, startRevertTransition] = useTransition();
   const [mostrarFormCobro, setMostrarFormCobro] = useState(false);
   const [metodoCobroInline, setMetodoCobroInline] = useState<MetodoPago>(MetodoPago.TRANSFERENCIA);
@@ -283,23 +322,10 @@ export function ContratoDetalleModal({
 
         {/* Sección: Vigencia y Plazos */}
         <div className="p-4 rounded-2xl border border-slate-200 bg-white shadow-2xs space-y-3">
-          <div className="flex items-center justify-between gap-2">
-            <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5 min-w-0">
-              <Calendar className="w-3.5 h-3.5 text-slate-500 shrink-0" />
-              <span className="truncate">Vigencia del Contrato</span>
-            </h4>
-            {contrato.estado === EstadoContrato.ACTIVO && (
-              <span
-                className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full font-bold text-[11px] shrink-0 ${
-                  diffDias <= 30
-                    ? "bg-amber-50 text-amber-800 border border-amber-200"
-                    : "bg-emerald-50 text-emerald-800 border border-emerald-200"
-                }`}
-              >
-                {diffDias > 0 ? `${diffDias} días restantes` : "Vencimiento alcanzado"}
-              </span>
-            )}
-          </div>
+          <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
+            <Calendar className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+            <span>Vigencia del Contrato</span>
+          </h4>
 
           <div className="grid grid-cols-2 gap-2.5 pt-0.5">
             <div className="bg-slate-50/90 rounded-xl p-2.5 border border-slate-200/80">
@@ -320,6 +346,36 @@ export function ContratoDetalleModal({
               </span>
             </div>
           </div>
+
+          {contrato.estado === EstadoContrato.ACTIVO && (
+            <div
+              className={`flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold border ${
+                diffDias <= 30
+                  ? "bg-amber-50/90 border-amber-200/90 text-amber-900"
+                  : "bg-emerald-50/90 border-emerald-200/90 text-emerald-900"
+              }`}
+            >
+              <div className="flex items-center gap-1.5 text-slate-600">
+                <Clock
+                  className={`w-3.5 h-3.5 shrink-0 ${
+                    diffDias <= 30 ? "text-amber-700" : "text-[#175E38]"
+                  }`}
+                />
+                <span className="text-[11px] font-bold uppercase tracking-wider">
+                  Plazo restante
+                </span>
+              </div>
+              <span
+                className={`font-black font-heading text-xs px-2.5 py-0.5 rounded-lg border ${
+                  diffDias <= 30
+                    ? "bg-amber-100 text-amber-900 border-amber-300"
+                    : "bg-emerald-100 text-[#124b2d] border-emerald-300"
+                }`}
+              >
+                {diffDias > 0 ? `${diffDias} días restantes` : "Vencimiento alcanzado"}
+              </span>
+            </div>
+          )}
         </div>
 
         {/* Custodia y Trazabilidad del Depósito en Garantía */}
@@ -876,60 +932,87 @@ export function ContratoDetalleModal({
         )}
 
         {/* Pie de Acciones */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2 border-t border-slate-100">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-3 border-t border-slate-100">
           {/* Menú de Cambio Rápido de Estado */}
-          <div className="relative">
+          <div ref={menuEstadoRef} className="relative w-full sm:w-auto">
             <button
               type="button"
               onClick={() => setMenuEstadoAbierto(!menuEstadoAbierto)}
               disabled={isPending}
-              className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-bold rounded-xl border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 transition-colors cursor-pointer shadow-2xs"
+              className="w-full sm:w-auto h-11 px-3.5 rounded-xl border border-slate-300 bg-slate-50 hover:bg-slate-100/80 text-slate-800 font-bold text-xs flex items-center justify-between sm:justify-start gap-2.5 transition-all cursor-pointer shadow-2xs active:translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-[#1C2539]/20"
+              title="Cambiar estado del contrato"
             >
-              {isPending ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : null}
-              <span>Cambiar Estado: {contrato.estado}</span>
+              <div className="flex items-center gap-2 min-w-0">
+                {isPending ? (
+                  <RefreshCw className="w-3.5 h-3.5 text-slate-600 animate-spin shrink-0" />
+                ) : (
+                  <SlidersHorizontal className="w-3.5 h-3.5 text-slate-600 shrink-0" />
+                )}
+                <span className="whitespace-nowrap">Cambiar Estado</span>
+                <span className={`px-2 py-0.5 rounded-md text-[10px] font-extrabold border shrink-0 ${estadoBadgeConfig.badgeClass}`}>
+                  {estadoBadgeConfig.label}
+                </span>
+              </div>
+              <ChevronUp
+                className={`w-3.5 h-3.5 text-slate-400 shrink-0 transition-transform duration-200 sm:ml-1 ${
+                  menuEstadoAbierto ? "rotate-180" : ""
+                }`}
+              />
             </button>
 
             {menuEstadoAbierto && (
-              <div className="absolute left-0 bottom-full mb-1.5 w-52 bg-white border border-slate-200 rounded-xl shadow-xl py-1 z-30 space-y-0.5">
+              <div className="absolute left-0 bottom-full mb-2 w-full sm:w-60 bg-white border border-slate-200/90 rounded-2xl shadow-xl p-1.5 z-40 animate-in fade-in-0 zoom-in-95 duration-150">
+                <div className="px-2.5 py-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400 border-b border-slate-100 mb-1">
+                  Seleccionar nuevo estado
+                </div>
                 {[
-                  { est: EstadoContrato.ACTIVO, label: "Activo / Vigente", icon: CheckCircle2, color: "text-emerald-700" },
-                  { est: EstadoContrato.POR_VENCER, label: "Por Vencer", icon: AlertTriangle, color: "text-amber-700" },
-                  { est: EstadoContrato.FINALIZADO, label: "Finalizar Contrato", icon: XCircle, color: "text-slate-700" },
-                  { est: EstadoContrato.RESCINDIDO, label: "Rescindir Contrato", icon: XCircle, color: "text-rose-700" },
-                ].map(({ est, label, icon: Icon, color }) => (
-                  <button
-                    key={est}
-                    type="button"
-                    onClick={() => {
-                      setMenuEstadoAbierto(false);
-                      if (est === EstadoContrato.FINALIZADO || est === EstadoContrato.RESCINDIDO) {
-                        if (onFinalizarORescindir) {
-                          onFinalizarORescindir(
-                            contrato,
-                            est === EstadoContrato.FINALIZADO ? "finalizar" : "rescindir"
-                          );
+                  { est: EstadoContrato.ACTIVO, label: "Activo / Vigente", icon: CheckCircle2, color: "text-emerald-700", bgHover: "hover:bg-emerald-50/70" },
+                  { est: EstadoContrato.POR_VENCER, label: "Por Vencer", icon: AlertTriangle, color: "text-amber-700", bgHover: "hover:bg-amber-50/70" },
+                  { est: EstadoContrato.FINALIZADO, label: "Finalizar Contrato", icon: XCircle, color: "text-slate-700", bgHover: "hover:bg-slate-100" },
+                  { est: EstadoContrato.RESCINDIDO, label: "Rescindir Contrato", icon: XCircle, color: "text-rose-700", bgHover: "hover:bg-rose-50/70" },
+                ].map(({ est, label, icon: Icon, color, bgHover }) => {
+                  const esSeleccionado = contrato.estado === est;
+                  return (
+                    <button
+                      key={est}
+                      type="button"
+                      onClick={() => {
+                        setMenuEstadoAbierto(false);
+                        if (est === EstadoContrato.FINALIZADO || est === EstadoContrato.RESCINDIDO) {
+                          if (onFinalizarORescindir) {
+                            onFinalizarORescindir(
+                              contrato,
+                              est === EstadoContrato.FINALIZADO ? "finalizar" : "rescindir"
+                            );
+                          } else {
+                            onCambiarEstado(contrato.id, est);
+                          }
                         } else {
                           onCambiarEstado(contrato.id, est);
                         }
-                      } else {
-                        onCambiarEstado(contrato.id, est);
-                      }
-                    }}
-                    className={`w-full text-left px-3 py-2 text-xs font-semibold hover:bg-slate-50 flex items-center justify-between cursor-pointer ${color}`}
-                  >
-                    <span>{label}</span>
-                    <Icon className="w-3.5 h-3.5" />
-                  </button>
-                ))}
+                      }}
+                      className={`w-full text-left px-3 py-2 rounded-xl text-xs font-semibold flex items-center justify-between cursor-pointer transition-colors ${bgHover} ${color} ${
+                        esSeleccionado ? "bg-slate-100/90 font-bold" : ""
+                      }`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <Icon className="w-3.5 h-3.5 shrink-0" />
+                        <span>{label}</span>
+                      </div>
+                      {esSeleccionado && <Check className="w-3.5 h-3.5 text-[#175E38] shrink-0" />}
+                    </button>
+                  );
+                })}
               </div>
             )}
           </div>
 
-          <div className="flex items-center gap-2 justify-end">
+          {/* Botones Cerrar y Editar Contrato */}
+          <div className="grid grid-cols-2 gap-2.5 sm:flex sm:items-center sm:gap-2.5 w-full sm:w-auto">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 text-sm font-semibold text-slate-700 border border-slate-200 rounded-xl hover:bg-slate-50 transition-colors cursor-pointer"
+              className="w-full sm:w-auto sm:min-w-[110px] h-11 px-4 text-xs sm:text-sm font-bold text-slate-700 bg-white border border-slate-300 rounded-xl hover:bg-slate-50 transition-all cursor-pointer flex items-center justify-center active:translate-y-0.5 shadow-2xs"
             >
               Cerrar
             </button>
@@ -937,9 +1020,9 @@ export function ContratoDetalleModal({
             <button
               type="button"
               onClick={onEditar}
-              className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-semibold text-white bg-[#175E38] rounded-xl hover:bg-[#124b2d] transition-all shadow-xs cursor-pointer active:translate-y-0.5"
+              className="w-full sm:w-auto sm:min-w-[160px] h-11 inline-flex items-center justify-center gap-1.5 px-4 text-xs sm:text-sm font-bold text-white bg-gradient-to-r from-[#175E38] to-[#124b2d] border-b-[3px] border-b-[#0e3a23] rounded-xl hover:bg-[#124b2d] transition-all shadow-[0_2px_8px_rgba(23,94,56,0.25)] cursor-pointer active:translate-y-0.5"
             >
-              <Pencil className="w-3.5 h-3.5" />
+              <Pencil className="w-3.5 h-3.5 shrink-0 stroke-[2.2]" />
               <span>Editar Contrato</span>
             </button>
           </div>

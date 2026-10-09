@@ -88,7 +88,7 @@ export function PageHeader({
 
           <div className={`${description ? "space-y-1" : ""} min-w-0 flex-1`}>
             <div className="flex items-center gap-2.5 flex-wrap">
-              <h1 className="text-xl sm:text-2xl font-bold font-heading text-slate-900 tracking-tight leading-tight truncate">
+              <h1 className="text-lg sm:text-2xl font-bold font-heading text-slate-900 tracking-tight leading-snug">
                 {title}
               </h1>
               {badge && <div className="shrink-0">{badge}</div>}

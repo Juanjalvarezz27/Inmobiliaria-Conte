@@ -85,12 +85,28 @@ export function PropiedadesClient({
   };
 
   const irAEspaciosDePropiedad = (propiedadId: string) => {
-    setFiltroPropiedad(propiedadId);
+    setFiltroPropiedad("TODAS");
     setFiltroEstadoUnidad("ACTIVOS");
     setBusqueda("");
-    setPropiedadesDesplegadas((prev) => ({ ...prev, [propiedadId]: true }));
+    setPropiedadesDesplegadas({ [propiedadId]: true });
     setPropiedadesCargadas((c) => ({ ...c, [propiedadId]: true }));
+    setPaginasPorPropiedad((p) => ({ ...p, [propiedadId]: 1 }));
     setActiveTab("unidades");
+
+    // Scroll suave hacia el acordeón del inmueble seleccionado
+    setTimeout(() => {
+      const elemento = document.getElementById(`propiedad-acordeon-${propiedadId}`);
+      if (elemento) {
+        elemento.scrollIntoView({ behavior: "smooth", block: "start" });
+      } else {
+        setTimeout(() => {
+          const reintento = document.getElementById(`propiedad-acordeon-${propiedadId}`);
+          if (reintento) {
+            reintento.scrollIntoView({ behavior: "smooth", block: "start" });
+          }
+        }, 150);
+      }
+    }, 100);
   };
 
   const [propiedades, setPropiedades] = useState(initialPropiedades);

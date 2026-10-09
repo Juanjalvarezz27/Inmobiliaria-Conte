@@ -88,7 +88,7 @@ export function StatCard({
 
   return (
     <div
-      className={`group relative overflow-hidden bg-gradient-to-b from-white via-white to-slate-50/70 rounded-2xl p-3.5 sm:p-5 border border-slate-200/90 border-b-[3px] border-b-slate-300/90 shadow-[0_4px_18px_-2px_rgba(28,37,57,0.07),0_2px_6px_-1px_rgba(28,37,57,0.04)] hover:shadow-[0_14px_30px_-4px_rgba(28,37,57,0.12),0_4px_10px_-2px_rgba(28,37,57,0.06)] hover:-translate-y-1.5 transition-all duration-300 ${className}`}
+      className={`group relative overflow-hidden bg-gradient-to-b from-white via-white to-slate-50/70 rounded-2xl p-3 sm:p-4 lg:p-5 border border-slate-200/90 border-b-[3px] border-b-slate-300/90 shadow-[0_4px_18px_-2px_rgba(28,37,57,0.07),0_2px_6px_-1px_rgba(28,37,57,0.04)] hover:shadow-[0_14px_30px_-4px_rgba(28,37,57,0.12),0_4px_10px_-2px_rgba(28,37,57,0.06)] hover:-translate-y-1.5 transition-all duration-300 ${className}`}
     >
       {/* Sol decorativo en esquina superior izquierda */}
       <div className="absolute -top-7 -left-7 w-20 h-20 sm:w-24 sm:h-24 pointer-events-none overflow-hidden rounded-full">
@@ -100,23 +100,23 @@ export function StatCard({
       </div>
 
       {/* Contenido principal */}
-      <div className="flex items-center justify-between mb-2 sm:mb-4 relative z-10">
-        <span className="text-[11px] sm:text-xs font-bold text-slate-900 uppercase tracking-wider truncate mr-1">
+      <div className="flex items-start justify-between gap-1.5 mb-2 sm:mb-3 relative z-10">
+        <span className="text-[10px] sm:text-xs font-bold text-slate-800 uppercase tracking-wider leading-snug line-clamp-2 min-w-0">
           {title}
         </span>
         <div
-          className={`w-8 h-8 sm:w-9 sm:h-9 shrink-0 rounded-xl flex items-center justify-center shadow-xs ${theme.iconBox} ${theme.iconText}`}
+          className={`w-7 h-7 sm:w-9 sm:h-9 shrink-0 rounded-xl flex items-center justify-center shadow-xs ${theme.iconBox} ${theme.iconText}`}
         >
-          <Icon className="w-4 h-4 sm:w-4.5 sm:h-4.5" />
+          <Icon className="w-3.5 h-3.5 sm:w-4.5 sm:h-4.5" />
         </div>
       </div>
 
-      <div className="flex items-baseline gap-2 relative z-10">
-        <span className="text-2xl sm:text-3xl font-extrabold font-heading text-slate-900">
+      <div className="flex flex-col relative z-10">
+        <span className="text-xl sm:text-2xl lg:text-3xl font-black font-heading text-slate-900 tracking-tight leading-tight">
           {value}
         </span>
         {subtitle && (
-          <span className="text-xs text-slate-500 font-medium truncate">
+          <span className="text-[11px] sm:text-xs text-slate-500 font-medium mt-1 leading-snug line-clamp-2">
             {subtitle}
           </span>
         )}
