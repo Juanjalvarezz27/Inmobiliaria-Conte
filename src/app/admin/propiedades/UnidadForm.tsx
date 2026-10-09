@@ -23,6 +23,7 @@ import {
   eliminarImagenUploadThingAction,
 } from "@/lib/actions/unidades";
 import { EstadoUnidad, TipoPropiedad, TipoUnidad } from "@prisma/client";
+import { comprimirImagenes, formatearBytes } from "@/lib/file-compressor";
 
 interface PropiedadBasica {
   id: string;
@@ -88,56 +89,6 @@ export function UnidadForm({ propiedades, initialData, onSubmit, onCancel, isLoa
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Comprime una imagen usando Canvas API (sin librerías externas)
-  const comprimirImagen = (file: File): Promise<File> => {
-    return new Promise((resolve) => {
-      const MAX_DIM = 1600; // px máximo en el lado más largo
-      const QUALITY = 0.78; // 78% calidad JPEG: buen balance peso/nitidez
-
-      const url = URL.createObjectURL(file);
-      const img = new window.Image();
-
-      img.onload = () => {
-        URL.revokeObjectURL(url);
-
-        // Calcular nuevas dimensiones manteniendo proporción
-        let { width, height } = img;
-        if (width > MAX_DIM || height > MAX_DIM) {
-          if (width >= height) {
-            height = Math.round((height * MAX_DIM) / width);
-            width = MAX_DIM;
-          } else {
-            width = Math.round((width * MAX_DIM) / height);
-            height = MAX_DIM;
-          }
-        }
-
-        const canvas = document.createElement("canvas");
-        canvas.width = width;
-        canvas.height = height;
-        const ctx = canvas.getContext("2d");
-        if (!ctx) { resolve(file); return; }
-
-        ctx.drawImage(img, 0, 0, width, height);
-
-        canvas.toBlob(
-          (blob) => {
-            if (!blob) { resolve(file); return; }
-            // Solo usar comprimida si realmente pesa menos
-            if (blob.size >= file.size) { resolve(file); return; }
-            const nombreBase = file.name.replace(/\.[^.]+$/, "");
-            resolve(new File([blob], `${nombreBase}.jpg`, { type: "image/jpeg" }));
-          },
-          "image/jpeg",
-          QUALITY
-        );
-      };
-
-      img.onerror = () => { URL.revokeObjectURL(url); resolve(file); };
-      img.src = url;
-    });
-  };
-
   // Hook directo de UploadThing para control total de UI sin inputs nativos feos
   const { startUpload, isUploading } = usePropiedadesUploadThing("fotosUnidad", {
     onClientUploadComplete: (res) => {
@@ -179,15 +130,17 @@ export function UnidadForm({ propiedades, initialData, onSubmit, onCancel, isLoa
     setIsCompressing(true);
     let archivosASubir: File[];
     try {
-      archivosASubir = await Promise.all(archivosSeleccionados.map(comprimirImagen));
+      const resultados = await comprimirImagenes(archivosSeleccionados);
+      archivosASubir = resultados.map((r) => r.file);
 
       // Calcular ahorro total para el toast informativo
-      const pesoOriginal = archivosSeleccionados.reduce((s, f) => s + f.size, 0);
-      const pesoFinal = archivosASubir.reduce((s, f) => s + f.size, 0);
+      const pesoOriginal = resultados.reduce((s, r) => s + r.pesoOriginal, 0);
+      const pesoFinal = resultados.reduce((s, r) => s + r.pesoFinal, 0);
       const ahorroPct = Math.round((1 - pesoFinal / pesoOriginal) * 100);
       if (ahorroPct >= 5) {
-        const fmt = (b: number) => b < 1024 * 1024 ? `${(b / 1024).toFixed(0)} KB` : `${(b / 1024 / 1024).toFixed(1)} MB`;
-        toast.info(`Imagen comprimida: ${fmt(pesoOriginal)} → ${fmt(pesoFinal)} (−${ahorroPct}%)`);
+        toast.info(
+          `Imágenes optimizadas: ${formatearBytes(pesoOriginal)} → ${formatearBytes(pesoFinal)} (−${ahorroPct}%)`
+        );
       }
     } finally {
       setIsCompressing(false);

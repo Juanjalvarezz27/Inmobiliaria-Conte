@@ -20,6 +20,7 @@ import { Select } from "@/components/ui/select";
 import { useOperacionesUploadThing } from "@/lib/uploadthing";
 import { toast } from "sonner";
 import { MetodoPago } from "@prisma/client";
+import { comprimirImagen, formatearBytes } from "@/lib/file-compressor";
 import type { PagoItem } from "./types";
 import type { RegistrarPagoInput } from "@/lib/actions/cobranza";
 
@@ -38,83 +39,6 @@ const OPCIONES_METODO_PAGO = [
   { value: MetodoPago.ZELLE, label: "Zelle" },
   { value: MetodoPago.OTRO, label: "Otro Método" },
 ];
-
-// Comprime una imagen usando Canvas API con redimensionamiento y calidad optimizada
-const comprimirImagen = (
-  file: File
-): Promise<{ file: File; pesoOriginal: number; pesoFinal: number; ahorroPct: number }> => {
-  return new Promise((resolve) => {
-    if (!file.type.startsWith("image/")) {
-      resolve({ file, pesoOriginal: file.size, pesoFinal: file.size, ahorroPct: 0 });
-      return;
-    }
-
-    const MAX_DIM = 1600; // px máximo en el lado más largo
-    const QUALITY = 0.75; // 75% calidad JPEG: gran nitidez para texto bancario y peso reducido
-
-    const url = URL.createObjectURL(file);
-    const img = new Image();
-
-    img.onload = () => {
-      URL.revokeObjectURL(url);
-
-      let { width, height } = img;
-      if (width > MAX_DIM || height > MAX_DIM) {
-        if (width >= height) {
-          height = Math.round((height * MAX_DIM) / width);
-          width = MAX_DIM;
-        } else {
-          width = Math.round((width * MAX_DIM) / height);
-          height = MAX_DIM;
-        }
-      }
-
-      const canvas = document.createElement("canvas");
-      canvas.width = width;
-      canvas.height = height;
-      const ctx = canvas.getContext("2d");
-      if (!ctx) {
-        resolve({ file, pesoOriginal: file.size, pesoFinal: file.size, ahorroPct: 0 });
-        return;
-      }
-
-      // Fondo blanco plano para preservar legibilidad en PNG con transparencia
-      ctx.fillStyle = "#FFFFFF";
-      ctx.fillRect(0, 0, width, height);
-      ctx.drawImage(img, 0, 0, width, height);
-
-      canvas.toBlob(
-        (blob) => {
-          if (!blob) {
-            resolve({ file, pesoOriginal: file.size, pesoFinal: file.size, ahorroPct: 0 });
-            return;
-          }
-
-          // Si el archivo original pesa menos que el blob (ej: icono muy pequeño), dejamos el original
-          const usarComprimido = blob.size < file.size;
-          const nombreBase = file.name.replace(/\.[^.]+$/, "");
-          const archivoFinal = usarComprimido
-            ? new File([blob], `${nombreBase}.jpg`, { type: "image/jpeg" })
-            : file;
-
-          const pesoOriginal = file.size;
-          const pesoFinal = archivoFinal.size;
-          const ahorroPct = Math.max(0, Math.round((1 - pesoFinal / pesoOriginal) * 100));
-
-          resolve({ file: archivoFinal, pesoOriginal, pesoFinal, ahorroPct });
-        },
-        "image/jpeg",
-        QUALITY
-      );
-    };
-
-    img.onerror = () => {
-      URL.revokeObjectURL(url);
-      resolve({ file, pesoOriginal: file.size, pesoFinal: file.size, ahorroPct: 0 });
-    };
-    img.src = url;
-  });
-};
 
 interface PagoFormContentProps {
   pago: PagoItem;
@@ -188,19 +112,16 @@ function PagoFormContent({
     setIsCompressing(true);
     setErrorLocal(null);
 
-    const fmt = (b: number) =>
-      b < 1024 * 1024 ? `${(b / 1024).toFixed(0)} KB` : `${(b / (1024 * 1024)).toFixed(1)} MB`;
-
     try {
       const res = await comprimirImagen(file);
       setStatsCompresion({
-        original: fmt(res.pesoOriginal),
-        final: fmt(res.pesoFinal),
+        original: formatearBytes(res.pesoOriginal),
+        final: formatearBytes(res.pesoFinal),
         ahorroPct: res.ahorroPct,
       });
 
       if (res.ahorroPct >= 5) {
-        toast.success(`Foto optimizada: ${fmt(res.pesoOriginal)} → ${fmt(res.pesoFinal)} (−${res.ahorroPct}%)`);
+        toast.success(`Foto optimizada: ${formatearBytes(res.pesoOriginal)} → ${formatearBytes(res.pesoFinal)} (−${res.ahorroPct}%)`);
       }
 
       await startUpload([res.file]);

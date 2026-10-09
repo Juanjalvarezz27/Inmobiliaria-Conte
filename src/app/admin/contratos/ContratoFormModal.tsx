@@ -22,8 +22,9 @@ import { EspacioSelectorMultiNivel } from "./EspacioSelectorMultiNivel";
 import { useOperacionesUploadThing } from "@/lib/uploadthing";
 import {
   comprimirDocumentoContrato,
+  formatearBytes,
   type ProgresoCompresion,
-} from "@/lib/pdf-compressor";
+} from "@/lib/file-compressor";
 import { toast } from "sonner";
 import { formatCurrency } from "../propiedades/constants";
 import { EstadoUnidad, MetodoPago } from "@prisma/client";
@@ -228,15 +229,10 @@ export function ContratoFormModal({
           controller.signal
         );
 
-      const fmt = (bytes: number) =>
-        bytes < 1024 * 1024
-          ? `${(bytes / 1024).toFixed(0)} KB`
-          : `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-
       // Validación preventiva: no enviar a la red si supera el límite de 8 MB
       if (pdfComprimido.size > LIMITE_MAX_BYTES) {
-        const pesoFinalStr = fmt(pdfComprimido.size);
-        const pesoOriginalStr = fmt(pesoOriginal);
+        const pesoFinalStr = formatearBytes(pdfComprimido.size);
+        const pesoOriginalStr = formatearBytes(pesoOriginal);
         const mensaje = `El documento pesa ${pesoFinalStr} tras compresión (original: ${pesoOriginalStr}) y supera el límite permitido de 8 MB. Por favor divide las páginas o utiliza un archivo más liviano.`;
         setUploadError(mensaje);
         toast.error(mensaje);
@@ -246,14 +242,14 @@ export function ContratoFormModal({
       }
 
       setStatsCompresion({
-        original: fmt(pesoOriginal),
-        final: fmt(pesoFinal),
+        original: formatearBytes(pesoOriginal),
+        final: formatearBytes(pesoFinal),
         ahorroPct,
       });
 
       if (ahorroPct >= 5) {
         toast.info(
-          `Documento optimizado: ${fmt(pesoOriginal)} → ${fmt(pesoFinal)} (−${ahorroPct}% de peso)`
+          `Documento optimizado: ${formatearBytes(pesoOriginal)} → ${formatearBytes(pesoFinal)} (−${ahorroPct}% de peso)`
         );
       }
 
