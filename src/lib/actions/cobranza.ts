@@ -378,16 +378,9 @@ export async function getPagosCobranza({
   forzarSincronizacion?: boolean;
 }) {
   try {
-    // Sincronización inteligente de cuotas
+    // Sincronización bajo demanda forzada explícitamente
     if (forzarSincronizacion) {
       await sincronizarCuotasMes(mes, ano);
-    } else {
-      const cuotasExistentes = await prisma.pago.count({
-        where: { periodoMes: mes, periodoAno: ano },
-      });
-      if (cuotasExistentes === 0) {
-        await sincronizarCuotasMes(mes, ano);
-      }
     }
 
     // Filtro base por periodo
@@ -437,7 +430,7 @@ export async function getPagosCobranza({
     const skip = (Math.max(1, pagina) - 1) * PAGE_SIZE;
 
     // Ejecución concurrente a Neon Cloud: listado ligero + agregados SQL nativos (sin traer todas las filas)
-    const [totalRegistros, registros, agregadosPorEstado, agregadosPorPropiedad] = await Promise.all([
+    let [totalRegistros, registros, agregadosPorEstado, agregadosPorPropiedad] = await Promise.all([
       prisma.pago.count({ where }),
       prisma.pago.findMany({
         where,
@@ -456,28 +449,80 @@ export async function getPagosCobranza({
         _sum: { montoEsperado: true, montoPagado: true },
         _count: { id: true },
       }),
-      // Conteo por propiedad para el selector de filtro — GROUP BY en la DB
-      prisma.pago.groupBy({
-        by: ["contratoId"],
+      // Conteo por propiedad para selector de filtro en 1 sola consulta con JOIN indexado (sin queries en cascada)
+      prisma.pago.findMany({
         where: whereMesGlobal,
-        _count: { id: true },
-      }).then(async (grupos) => {
-        if (grupos.length === 0) return {} as Record<string, number>;
-        // Traer propiedadId de los contratos agrupados con una sola query
-        const contratoIds = grupos.map((g) => g.contratoId);
-        const unidades = await prisma.contrato.findMany({
-          where: { id: { in: contratoIds } },
-          select: { id: true, unidad: { select: { propiedadId: true } } },
-        });
-        const mapPropId = new Map(unidades.map((u) => [u.id, u.unidad.propiedadId]));
+        select: {
+          contrato: {
+            select: {
+              unidad: {
+                select: {
+                  propiedadId: true,
+                },
+              },
+            },
+          },
+        },
+      }).then((pagosMes) => {
         const conteo: Record<string, number> = {};
-        for (const g of grupos) {
-          const propId = mapPropId.get(g.contratoId);
-          if (propId) conteo[propId] = (conteo[propId] || 0) + (g._count.id || 0);
+        for (const p of pagosMes) {
+          const propId = p.contrato?.unidad?.propiedadId;
+          if (propId) {
+            conteo[propId] = (conteo[propId] || 0) + 1;
+          }
         }
         return conteo;
       }),
     ]);
+
+    // Fallback reactivo: si no se forzó sincronización y el mes no tenía cuotas generadas, sincronizar al vuelo
+    if (!forzarSincronizacion && agregadosPorEstado.length === 0) {
+      const sync = await sincronizarCuotasMes(mes, ano);
+      if (sync.success && sync.generados && sync.generados > 0) {
+        [totalRegistros, registros, agregadosPorEstado, agregadosPorPropiedad] = await Promise.all([
+          prisma.pago.count({ where }),
+          prisma.pago.findMany({
+            where,
+            select: PAGO_LIST_SELECT,
+            orderBy: [
+              { estado: "asc" },
+              { fechaVencimiento: "asc" },
+            ],
+            skip,
+            take: PAGE_SIZE,
+          }),
+          prisma.pago.groupBy({
+            by: ["estado"],
+            where: whereMesGlobal,
+            _sum: { montoEsperado: true, montoPagado: true },
+            _count: { id: true },
+          }),
+          prisma.pago.findMany({
+            where: whereMesGlobal,
+            select: {
+              contrato: {
+                select: {
+                  unidad: {
+                    select: {
+                      propiedadId: true,
+                    },
+                  },
+                },
+              },
+            },
+          }).then((pagosMes) => {
+            const conteo: Record<string, number> = {};
+            for (const p of pagosMes) {
+              const propId = p.contrato?.unidad?.propiedadId;
+              if (propId) {
+                conteo[propId] = (conteo[propId] || 0) + 1;
+              }
+            }
+            return conteo;
+          }),
+        ]);
+      }
+    }
 
     const totalPaginas = Math.max(1, Math.ceil(totalRegistros / PAGE_SIZE));
     const paginaActual = Math.max(1, Math.min(pagina, totalPaginas));
