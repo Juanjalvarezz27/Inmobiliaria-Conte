@@ -24,6 +24,14 @@ export const operacionesFileRouter = {
   }).onUploadComplete(async ({ file }) => {
     return { url: file.ufsUrl || file.url };
   }),
+
+  // Comprobantes de pago (captures de transferencia, recibos bancarios o PDFs)
+  comprobantePago: f({
+    image: { maxFileSize: "4MB", maxFileCount: 1 },
+    pdf: { maxFileSize: "4MB", maxFileCount: 1 },
+  }).onUploadComplete(async ({ file }) => {
+    return { url: file.ufsUrl || file.url };
+  }),
 } satisfies FileRouter;
 
 export type OperacionesFileRouter = typeof operacionesFileRouter;

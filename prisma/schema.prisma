@@ -73,6 +73,7 @@ model Propiedad {
   areaTotalM2     Float?        // Área total de construcción o terreno en m²
   propietario      String?       // Propietario o empresa dueña (opcional: si es nulo es de la inmobiliaria/Fabián)
   telefonoContacto String?       // Teléfono de contacto o administración del inmueble
+  activo          Boolean       @default(true)
 
   unidades    Unidad[]
 
@@ -147,21 +148,101 @@ model Contrato {
   unidadId         String
   unidad           Unidad         @relation(fields: [unidadId], references: [id], onDelete: Restrict)
 
-  fechaInicio      DateTime
-  fechaFin         DateTime
-  diaCobro         Int            @default(1) // Día de corte de pago mensual (1-31)
-  montoAlquiler    Float          // Canon de arrendamiento mensual acordado
-  depositoGarantia Float?         // Monto del depósito en garantía
-  moneda           String         @default("USD")
+  fechaInicio                       DateTime
+  fechaFin                          DateTime
+  diaCobro                          Int            @default(1) // Día de corte de pago mensual (1-31)
+  montoAlquiler                     Float          // Canon de arrendamiento mensual acordado
+  depositoGarantia                  Float?         // Monto del depósito en garantía
+  depositoEstado                    EstadoDeposito @default(NO_APLICA)
+  depositoFechaCobro                DateTime?      // Fecha en que se cobró el depósito
+  depositoMetodoPago                MetodoPago?    // Método con el que se cobró
+  depositoReferencia                String?        // Referencia bancaria o número de recibo de cobro
+  depositoComprobanteUrl            String?        // Comprobante digital de cobro
+  depositoNotas                     String?        // Observaciones al momento de cobrar
+  
+  // Liquidación del depósito (al finalizar o rescindir el contrato)
+  depositoFechaLiquidacion          DateTime?      // Fecha en que se liquidó
+  depositoMontoReembolsado          Float?         // Monto devuelto al inquilino
+  depositoMontoRetenido             Float?         // Monto retenido por daños o deudas
+  depositoMetodoPagoLiquidacion     MetodoPago?    // Método de pago usado para devolver el depósito
+  depositoReferenciaLiquidacion     String?        // Referencia bancaria del reembolso
+  depositoMotivoLiquidacion         String?        // Motivo de retención o deducción
+  depositoComprobanteLiquidacionUrl String?        // Comprobante de la devolución o facturas de reparaciones
+  moneda                            String         @default("USD")
 
-  estado           EstadoContrato @default(ACTIVO)
-  documentoUrl     String?        // Enlace al contrato PDF firmado en UploadThing
-  notas            String?        // Observaciones o cláusulas especiales
+  estado                            EstadoContrato @default(ACTIVO)
+  documentoUrl                      String?        // Enlace al contrato PDF firmado en UploadThing
+  notas                             String?        // Observaciones o cláusulas especiales
 
-  createdAt        DateTime       @default(now())
-  updatedAt        DateTime       @updatedAt
+  pagos                             Pago[]
+
+  createdAt                         DateTime       @default(now())
+  updatedAt                         DateTime       @updatedAt
 
   @@map("contratos")
 }
 
+enum EstadoDeposito {
+  NO_APLICA
+  PENDIENTE
+  COBRADO
+  REEMBOLSADO
+  RETENIDO
+  PARCIALMENTE_RETENIDO
+}
+
+enum EstadoPago {
+  PENDIENTE
+  PAGADO
+  VENCIDO
+  PARCIAL
+}
+
+enum MetodoPago {
+  EFECTIVO_USD
+  TRANSFERENCIA
+  PAGO_MOVIL
+  ZELLE
+  OTRO
+}
+
+model Pago {
+  id               String      @id @default(cuid())
+  contratoId       String
+  contrato         Contrato    @relation(fields: [contratoId], references: [id], onDelete: Restrict)
+  periodoMes       Int         // 1 - 12
+  periodoAno       Int         // Ej: 2026
+  montoEsperado    Float
+  montoPagado      Float       @default(0)
+  fechaVencimiento DateTime
+  fechaPago        DateTime?
+  metodoPago       MetodoPago?
+  referencia       String?
+  comprobanteUrl   String?
+  estado           EstadoPago  @default(PENDIENTE)
+  notas            String?
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
+
+  transacciones    TransaccionPago[]
+
+  @@unique([contratoId, periodoMes, periodoAno])
+  @@map("pagos")
+}
+
+model TransaccionPago {
+  id             String      @id @default(cuid())
+  pagoId         String
+  pago           Pago        @relation(fields: [pagoId], references: [id], onDelete: Cascade)
+  monto          Float       // Monto de este abono específico en USD
+  fechaPago      DateTime    @default(now()) // Fecha en que se recibió el abono
+  metodoPago     MetodoPago  // Efectivo, Zelle, Transferencia, etc.
+  referencia     String?     // Número de referencia bancaria o recibo
+  comprobanteUrl String?     // URL de la captura o voucher de este abono
+  notas          String?     // Observaciones del abono
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  @@map("transacciones_pago")
+}
 

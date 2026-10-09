@@ -2,7 +2,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
-import { Prisma, TipoPropiedad, TipoUnidad } from "@prisma/client";
+import { Prisma, TipoPropiedad, TipoUnidad, EstadoContrato, EstadoUnidad } from "@prisma/client";
 import { eliminarArchivosUploadThing } from "@/lib/uploadthing-server";
 
 export interface CreatePropiedadInput {
@@ -47,6 +47,7 @@ const PROPIEDAD_SELECT = {
   areaTotalM2: true,
   propietario: true,
   telefonoContacto: true,
+  activo: true,
 } as const;
 
 // Obtener todas las propiedades con conteo de unidades optimizado
@@ -199,29 +200,131 @@ export async function updatePropiedad(id: string, data: UpdatePropiedadInput) {
   }
 }
 
-// Eliminar una propiedad y sus unidades en cascada, limpiando también sus imágenes en UploadThing
+// Eliminar o archivar una propiedad protegiendo claves foráneas y contratos en sus unidades
 export async function deletePropiedad(id: string) {
   try {
-    // Buscar fotos de todas las unidades asociadas antes de la eliminación en cascada
-    const unidades = await prisma.unidad.findMany({
-      where: { propiedadId: id },
-      select: { imagenes: true },
+    const propiedad = await prisma.propiedad.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        nombre: true,
+        unidades: {
+          select: {
+            id: true,
+            codigo: true,
+            imagenes: true,
+            contratos: {
+              select: { id: true, estado: true },
+            },
+          },
+        },
+      },
     });
-    const todasLasFotos = unidades.flatMap((u) => u.imagenes);
+
+    if (!propiedad) return { success: false, error: "Propiedad no encontrada." };
+
+    // 1. Validar si alguna unidad tiene contratos vigentes activos
+    const unidadesConContratoActivo = propiedad.unidades.filter((u) =>
+      u.contratos.some(
+        (c) => c.estado === EstadoContrato.ACTIVO || c.estado === EstadoContrato.POR_VENCER
+      )
+    );
+
+    if (unidadesConContratoActivo.length > 0) {
+      return {
+        success: false,
+        error: `No se puede eliminar ni archivar la propiedad "${propiedad.nombre}" porque contiene espacios con contratos vigentes activos (${unidadesConContratoActivo.map((u) => u.codigo).join(", ")}). Primero debes finalizar o rescindir sus contratos.`,
+      };
+    }
+
+    // 2. Validar si alguna unidad tiene contratos históricos
+    const unidadesConContratos = propiedad.unidades.filter((u) => u.contratos.length > 0);
+
+    if (unidadesConContratos.length > 0) {
+      // SOFT DELETE (ARCHIVADO INTEGRAL)
+      await prisma.$transaction([
+        prisma.propiedad.update({
+          where: { id },
+          data: { activo: false },
+        }),
+        prisma.unidad.updateMany({
+          where: { propiedadId: id },
+          data: { estado: EstadoUnidad.INACTIVO },
+        }),
+      ]);
+
+      revalidatePath("/admin/propiedades");
+      revalidatePath("/admin/contratos");
+      revalidatePath("/admin/cobranza");
+
+      return {
+        success: true,
+        archivada: true,
+        message: `La propiedad "${propiedad.nombre}" posee contratos en su historial contable. Se ha ARCHIVADO correctamente y todos sus espacios han pasado a estado INACTIVO para preservar la trazabilidad de los libros financieros.`,
+      };
+    }
+
+    // 3. Si ninguna unidad tiene contratos (propiedad virgen), borrado físico definitivo en cascada
+    const todasLasFotos = propiedad.unidades.flatMap((u) => u.imagenes);
 
     await prisma.propiedad.delete({
       where: { id },
     });
 
-    // Limpiar físicamente los archivos de UploadThing para liberar almacenamiento
     if (todasLasFotos.length > 0) {
       await eliminarArchivosUploadThing(todasLasFotos);
     }
 
     revalidatePath("/admin/propiedades");
-    return { success: true };
+    revalidatePath("/admin/contratos");
+
+    return {
+      success: true,
+      eliminada: true,
+      message: `Propiedad "${propiedad.nombre}" eliminada definitivamente.`,
+    };
   } catch (error) {
-    console.error("Error al eliminar propiedad:", error);
-    return { success: false, error: "No se pudo eliminar la propiedad" };
+    console.error("Error al eliminar o archivar propiedad:", error);
+    return { success: false, error: "No se pudo eliminar la propiedad." };
+  }
+}
+
+// Reactivar o restaurar una propiedad archivada
+export async function reactivarPropiedad(id: string) {
+  try {
+    await prisma.propiedad.update({
+      where: { id },
+      data: { activo: true },
+    });
+
+    revalidatePath("/admin/propiedades");
+    revalidatePath("/admin/contratos");
+
+    return {
+      success: true,
+      message: "Propiedad reactivada correctamente.",
+    };
+  } catch (error) {
+    console.error("Error al reactivar propiedad:", error);
+    return { success: false, error: "No se pudo reactivar la propiedad." };
+  }
+}
+
+// Obtener lista reducida de propiedades para selectores y filtros (ultra ligero)
+export async function getPropiedadesOpciones() {
+  try {
+    return await prisma.propiedad.findMany({
+      select: {
+        id: true,
+        nombre: true,
+        ciudad: true,
+        tipo: true,
+      },
+      orderBy: { nombre: "asc" },
+      take: 200,
+    });
+  } catch (error) {
+    console.error("Error al obtener opciones de propiedades:", error);
+    return [];
   }
 }

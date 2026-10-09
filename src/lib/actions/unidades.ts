@@ -76,6 +76,11 @@ const UNIDAD_SELECT = Prisma.validator<Prisma.UnidadSelect>()({
       },
     },
   },
+  _count: {
+    select: {
+      contratos: true,
+    },
+  },
 });
 
 // Obtener todas las unidades (opcionalmente filtradas por propiedad) optimizado
@@ -209,29 +214,73 @@ export async function updateUnidad(id: string, data: UpdateUnidadInput) {
   }
 }
 
-// Eliminar una unidad y sus archivos físicos en UploadThing
+// Eliminar o inactivar una unidad protegiendo claves foráneas e integridad contable
 export async function deleteUnidad(id: string) {
   try {
-    // Buscar fotos de la unidad antes de borrar el registro
     const unidad = await prisma.unidad.findUnique({
       where: { id },
-      select: { imagenes: true },
+      select: {
+        id: true,
+        codigo: true,
+        imagenes: true,
+        contratos: {
+          select: { id: true, estado: true },
+        },
+      },
     });
 
+    if (!unidad) return { success: false, error: "Espacio no encontrado." };
+
+    const tieneContratosActivos = unidad.contratos.some(
+      (c) => c.estado === EstadoContrato.ACTIVO || c.estado === EstadoContrato.POR_VENCER
+    );
+
+    if (tieneContratosActivos) {
+      return {
+        success: false,
+        error: `No se puede eliminar el espacio "${unidad.codigo}" porque tiene un contrato de arrendamiento vigente. Primero debes finalizar o rescindir el contrato.`,
+      };
+    }
+
+    // Si tiene contratos históricos (finalizados o rescindidos), se inactiva para no violar la FK y proteger los libros contables
+    if (unidad.contratos.length > 0) {
+      const actualizada = await prisma.unidad.update({
+        where: { id },
+        data: { estado: EstadoUnidad.INACTIVO },
+        select: UNIDAD_SELECT,
+      });
+
+      revalidatePath("/admin/propiedades");
+      revalidatePath("/admin/contratos");
+
+      return {
+        success: true,
+        inactivada: true,
+        data: actualizada,
+        message: `El espacio "${unidad.codigo}" posee historial contable y contratos previos. Se ha marcado como INACTIVO para proteger la trazabilidad sin permitir nuevos alquileres.`,
+      };
+    }
+
+    // Si no tiene ningún contrato en su historial, se elimina limpiamente
     await prisma.unidad.delete({
       where: { id },
     });
 
-    // Borrado físico de imágenes en UploadThing para liberar almacenamiento
-    if (unidad?.imagenes && unidad.imagenes.length > 0) {
+    if (unidad.imagenes && unidad.imagenes.length > 0) {
       await eliminarArchivosUploadThing(unidad.imagenes);
     }
 
     revalidatePath("/admin/propiedades");
-    return { success: true };
+    revalidatePath("/admin/contratos");
+
+    return {
+      success: true,
+      inactivada: false,
+      message: `Espacio "${unidad.codigo}" eliminado permanentemente.`,
+    };
   } catch (error) {
     console.error("Error al eliminar unidad:", error);
-    return { success: false, error: "No se pudo eliminar la unidad" };
+    return { success: false, error: "No se pudo procesar la eliminación del espacio." };
   }
 }
 

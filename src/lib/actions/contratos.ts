@@ -3,7 +3,14 @@
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { EstadoContrato, EstadoUnidad } from "@prisma/client";
+import {
+  EstadoContrato,
+  EstadoDeposito,
+  EstadoPago,
+  EstadoUnidad,
+  MetodoPago,
+  Prisma,
+} from "@prisma/client";
 import { eliminarDocumentosUploadThing } from "@/lib/uploadthing-server";
 
 // Esquema de validación para registrar un contrato
@@ -21,6 +28,10 @@ const createContratoSchema = z.object({
     .number()
     .min(0.01, "La mensualidad debe ser mayor a 0"),
   depositoGarantia: z.coerce.number().min(0).optional().nullable(),
+  depositoCobradoAlFirmar: z.boolean().optional(),
+  depositoFechaCobro: z.string().optional().nullable(),
+  depositoMetodoPago: z.nativeEnum(MetodoPago).optional().nullable(),
+  depositoReferencia: z.string().optional().nullable(),
   moneda: z.string().default("USD"),
   documentoUrl: z.string().url("URL de documento inválida").optional().nullable().or(z.literal("")),
   notas: z.string().optional().nullable(),
@@ -33,13 +44,42 @@ const updateContratoSchema = z.object({
   depositoGarantia: z.coerce.number().min(0).optional().nullable(),
   documentoUrl: z.string().optional().nullable().or(z.literal("")),
   notas: z.string().optional().nullable(),
+  aplicarDesdeMes: z.coerce.number().min(1).max(12).optional(),
+  aplicarDesdeAno: z.coerce.number().min(2000).max(2100).optional(),
 });
 
 export type CreateContratoInput = z.infer<typeof createContratoSchema>;
 export type UpdateContratoInput = z.infer<typeof updateContratoSchema>;
 
-// Proyección mínima optimizada para listados de contratos
-const CONTRATO_SELECT = {
+// Calcula todos los períodos (mes/año) comprendidos entre dos fechas en formato UTC
+function obtenerPeriodosContrato(
+  fechaInicio: Date,
+  fechaFin: Date
+): Array<{ mes: number; ano: number }> {
+  const periodos: Array<{ mes: number; ano: number }> = [];
+  const inicio = new Date(fechaInicio);
+  const fin = new Date(fechaFin);
+
+  let ano = inicio.getUTCFullYear();
+  let mes = inicio.getUTCMonth() + 1;
+
+  const finAno = fin.getUTCFullYear();
+  const finMes = fin.getUTCMonth() + 1;
+
+  while (ano < finAno || (ano === finAno && mes <= finMes)) {
+    periodos.push({ mes, ano });
+    mes += 1;
+    if (mes > 12) {
+      mes = 1;
+      ano += 1;
+    }
+  }
+
+  return periodos;
+}
+
+// Proyección ligera optimizada para listados y tarjetas de contratos (sin JOIN masivo de pagos)
+const CONTRATO_LIST_SELECT = {
   id: true,
   codigo: true,
   fechaInicio: true,
@@ -47,6 +87,19 @@ const CONTRATO_SELECT = {
   diaCobro: true,
   montoAlquiler: true,
   depositoGarantia: true,
+  depositoEstado: true,
+  depositoFechaCobro: true,
+  depositoMetodoPago: true,
+  depositoReferencia: true,
+  depositoComprobanteUrl: true,
+  depositoNotas: true,
+  depositoFechaLiquidacion: true,
+  depositoMontoReembolsado: true,
+  depositoMontoRetenido: true,
+  depositoMotivoLiquidacion: true,
+  depositoMetodoPagoLiquidacion: true,
+  depositoReferenciaLiquidacion: true,
+  depositoComprobanteLiquidacionUrl: true,
   moneda: true,
   estado: true,
   documentoUrl: true,
@@ -82,7 +135,54 @@ const CONTRATO_SELECT = {
       },
     },
   },
-} as const;
+  _count: {
+    select: {
+      pagos: true,
+    },
+  },
+} satisfies Prisma.ContratoSelect;
+
+// Proyección completa solo para el modal de ficha detallada (con historial de pagos)
+const CONTRATO_SELECT = {
+  ...CONTRATO_LIST_SELECT,
+  pagos: {
+    select: {
+      id: true,
+      periodoMes: true,
+      periodoAno: true,
+      montoEsperado: true,
+      montoPagado: true,
+      estado: true,
+      fechaVencimiento: true,
+      fechaPago: true,
+      metodoPago: true,
+      referencia: true,
+      comprobanteUrl: true,
+    },
+    orderBy: [
+      { periodoAno: "asc" },
+      { periodoMes: "asc" },
+    ],
+    take: 120,
+  },
+} satisfies Prisma.ContratoSelect;
+
+// Obtener detalle completo de un contrato para el modal (carga bajo demanda)
+export async function getContratoDetalle(id: string) {
+  try {
+    const contrato = await prisma.contrato.findUnique({
+      where: { id },
+      select: CONTRATO_SELECT,
+    });
+    if (!contrato) {
+      return { success: false, error: "Contrato no encontrado." };
+    }
+    return { success: true, data: contrato };
+  } catch (error) {
+    console.error("Error al obtener detalle del contrato:", error);
+    return { success: false, error: "No se pudo cargar el detalle del contrato." };
+  }
+}
 
 // Obtener listado de contratos con filtros y proyección ligera
 export async function getContratos(filtros?: {
@@ -109,7 +209,7 @@ export async function getContratos(filtros?: {
             }
           : {}),
       },
-      select: CONTRATO_SELECT,
+      select: CONTRATO_LIST_SELECT,
       orderBy: { createdAt: "desc" },
       take: 200,
     });
@@ -274,6 +374,23 @@ export async function createContrato(data: CreateContratoInput) {
       const codigoContrato = `CTR-${year}-${consecutivo}`;
 
       // 3. Crear el contrato
+      const tieneDeposito = parsed.depositoGarantia && parsed.depositoGarantia > 0;
+      let depositoEstado: EstadoDeposito = EstadoDeposito.NO_APLICA;
+      let depositoFechaCobro: Date | null = null;
+      let depositoMetodoPago: MetodoPago | null = null;
+      let depositoReferencia: string | null = null;
+
+      if (tieneDeposito) {
+        if (parsed.depositoCobradoAlFirmar && parsed.depositoMetodoPago) {
+          depositoEstado = EstadoDeposito.COBRADO;
+          depositoFechaCobro = parsed.depositoFechaCobro ? new Date(parsed.depositoFechaCobro) : fInicio;
+          depositoMetodoPago = parsed.depositoMetodoPago;
+          depositoReferencia = parsed.depositoReferencia || null;
+        } else {
+          depositoEstado = EstadoDeposito.PENDIENTE;
+        }
+      }
+
       const contrato = await tx.contrato.create({
         data: {
           codigo: codigoContrato,
@@ -284,12 +401,16 @@ export async function createContrato(data: CreateContratoInput) {
           diaCobro: parsed.diaCobro,
           montoAlquiler: parsed.montoAlquiler,
           depositoGarantia: parsed.depositoGarantia || null,
+          depositoEstado,
+          depositoFechaCobro,
+          depositoMetodoPago,
+          depositoReferencia,
           moneda: parsed.moneda || "USD",
           estado: EstadoContrato.ACTIVO,
           documentoUrl: parsed.documentoUrl || null,
           notas: parsed.notas || null,
         },
-        select: CONTRATO_SELECT,
+        select: CONTRATO_LIST_SELECT,
       });
 
       // 4. Cambiar el estado de la unidad a OCUPADO
@@ -298,12 +419,39 @@ export async function createContrato(data: CreateContratoInput) {
         data: { estado: EstadoUnidad.OCUPADO },
       });
 
+      // 5. Pre-generar cronograma de cuotas mensuales del contrato
+      const periodos = obtenerPeriodosContrato(fInicio, fFin);
+      const ahora = new Date();
+      const cuotasParaCrear = periodos.map(({ mes, ano }) => {
+        const ultimoDiaMes = new Date(Date.UTC(ano, mes, 0)).getUTCDate();
+        const diaEfectivo = Math.min(parsed.diaCobro, ultimoDiaMes);
+        const fechaVencimiento = new Date(Date.UTC(ano, mes - 1, diaEfectivo, 23, 59, 59, 999));
+        const esVencido = ahora > fechaVencimiento;
+        return {
+          contratoId: contrato.id,
+          periodoMes: mes,
+          periodoAno: ano,
+          montoEsperado: parsed.montoAlquiler,
+          montoPagado: 0,
+          fechaVencimiento,
+          estado: esVencido ? EstadoPago.VENCIDO : EstadoPago.PENDIENTE,
+        };
+      });
+
+      if (cuotasParaCrear.length > 0) {
+        await tx.pago.createMany({
+          data: cuotasParaCrear,
+          skipDuplicates: true,
+        });
+      }
+
       return contrato;
     });
 
     revalidatePath("/admin/contratos");
     revalidatePath("/admin/propiedades");
     revalidatePath("/admin/inquilinos");
+    revalidatePath("/admin/cobranza");
 
     return { success: true, data: resultado };
   } catch (error) {
@@ -322,14 +470,21 @@ export async function updateEstadoContrato(id: string, nuevoEstado: EstadoContra
     const resultado = await prisma.$transaction(async (tx) => {
       const contrato = await tx.contrato.findUnique({
         where: { id },
-        select: { id: true, estado: true, unidadId: true },
+        select: {
+          id: true,
+          estado: true,
+          unidadId: true,
+          depositoEstado: true,
+          depositoGarantia: true,
+          depositoComprobanteLiquidacionUrl: true,
+        },
       });
 
       if (!contrato) {
         throw new Error("Contrato no encontrado.");
       }
 
-      // Si pasa a FINALIZADO o RESCINDIDO, liberar el espacio a DISPONIBLE
+      // Si pasa a FINALIZADO o RESCINDIDO, liberar el espacio a DISPONIBLE y purgar cuotas futuras no devengadas
       if (
         (nuevoEstado === EstadoContrato.FINALIZADO || nuevoEstado === EstadoContrato.RESCINDIDO) &&
         contrato.estado !== EstadoContrato.FINALIZADO &&
@@ -339,9 +494,28 @@ export async function updateEstadoContrato(id: string, nuevoEstado: EstadoContra
           where: { id: contrato.unidadId },
           data: { estado: EstadoUnidad.DISPONIBLE },
         });
+
+        // Purgar cuotas futuras pendientes no devengadas que no tienen pagos asentados
+        const hoy = new Date();
+        const mesActual = hoy.getMonth() + 1;
+        const anoActual = hoy.getFullYear();
+
+        await tx.pago.deleteMany({
+          where: {
+            contratoId: id,
+            montoPagado: 0,
+            estado: EstadoPago.PENDIENTE,
+            OR: [
+              { periodoAno: { gt: anoActual } },
+              { periodoAno: anoActual, periodoMes: { gt: mesActual } },
+            ],
+          },
+        });
       }
 
-      // Si se reactiva a ACTIVO, verificar que el espacio esté disponible
+      const dataActualizacion: Prisma.ContratoUpdateInput = { estado: nuevoEstado };
+
+      // Si se reactiva a ACTIVO, verificar que el espacio esté disponible y restablecer el depósito a custodia
       if (
         nuevoEstado === EstadoContrato.ACTIVO &&
         (contrato.estado === EstadoContrato.FINALIZADO || contrato.estado === EstadoContrato.RESCINDIDO)
@@ -359,18 +533,33 @@ export async function updateEstadoContrato(id: string, nuevoEstado: EstadoContra
           where: { id: contrato.unidadId },
           data: { estado: EstadoUnidad.OCUPADO },
         });
+
+        // Al reactivar, si el depósito estaba finiquitado, vuelve automáticamente a custodia activa
+        if (
+          contrato.depositoEstado === EstadoDeposito.REEMBOLSADO ||
+          contrato.depositoEstado === EstadoDeposito.RETENIDO ||
+          contrato.depositoEstado === EstadoDeposito.PARCIALMENTE_RETENIDO
+        ) {
+          dataActualizacion.depositoEstado = EstadoDeposito.COBRADO;
+          dataActualizacion.depositoFechaLiquidacion = null;
+          dataActualizacion.depositoMontoReembolsado = null;
+          dataActualizacion.depositoMontoRetenido = null;
+          dataActualizacion.depositoMotivoLiquidacion = null;
+          dataActualizacion.depositoComprobanteLiquidacionUrl = null;
+        }
       }
 
       return await tx.contrato.update({
         where: { id },
-        data: { estado: nuevoEstado },
-        select: CONTRATO_SELECT,
+        data: dataActualizacion,
+        select: CONTRATO_LIST_SELECT,
       });
     });
 
     revalidatePath("/admin/contratos");
     revalidatePath("/admin/propiedades");
     revalidatePath("/admin/inquilinos");
+    revalidatePath("/admin/cobranza");
 
     return { success: true, data: resultado };
   } catch (error) {
@@ -380,7 +569,7 @@ export async function updateEstadoContrato(id: string, nuevoEstado: EstadoContra
   }
 }
 
-// Actualizar datos del contrato
+// Actualizar datos del contrato y sincronizar cuotas con preservación histórica
 export async function updateContrato(id: string, data: UpdateContratoInput) {
   try {
     const parsed = updateContratoSchema.parse(data);
@@ -397,18 +586,160 @@ export async function updateContrato(id: string, data: UpdateContratoInput) {
       }
     }
 
-    const dataToUpdate: Record<string, unknown> = { ...parsed };
-    if (parsed.fechaFin) {
-      dataToUpdate.fechaFin = new Date(parsed.fechaFin);
-    }
-    if (parsed.documentoUrl === "") {
-      dataToUpdate.documentoUrl = null;
-    }
+    const resultado = await prisma.$transaction(async (tx) => {
+      // 1. Obtener contrato previo con todos sus pagos registrados
+      const contratoPrevio = await tx.contrato.findUnique({
+        where: { id },
+        include: {
+          pagos: true,
+        },
+      });
 
-    const actualizado = await prisma.contrato.update({
-      where: { id },
-      data: dataToUpdate,
-      select: CONTRATO_SELECT,
+      if (!contratoPrevio) {
+        throw new Error("Contrato no encontrado.");
+      }
+
+      const nuevoMonto = parsed.montoAlquiler !== undefined ? parsed.montoAlquiler : contratoPrevio.montoAlquiler;
+      const nuevoDia = parsed.diaCobro !== undefined ? parsed.diaCobro : contratoPrevio.diaCobro;
+      const nuevaFechaFin = parsed.fechaFin ? new Date(parsed.fechaFin) : contratoPrevio.fechaFin;
+
+      const cambioMonto = parsed.montoAlquiler !== undefined && parsed.montoAlquiler !== contratoPrevio.montoAlquiler;
+      const cambioDia = parsed.diaCobro !== undefined && parsed.diaCobro !== contratoPrevio.diaCobro;
+      const cambioFechaFin = parsed.fechaFin !== undefined && nuevaFechaFin.getTime() !== contratoPrevio.fechaFin.getTime();
+
+      const dataToUpdate: Record<string, unknown> = { ...parsed };
+      delete dataToUpdate.aplicarDesdeMes;
+      delete dataToUpdate.aplicarDesdeAno;
+
+      if (parsed.fechaFin) {
+        dataToUpdate.fechaFin = nuevaFechaFin;
+      }
+      if (parsed.documentoUrl === "") {
+        dataToUpdate.documentoUrl = null;
+      }
+      if (parsed.depositoGarantia !== undefined) {
+        if (!parsed.depositoGarantia || parsed.depositoGarantia <= 0) {
+          if (contratoPrevio.depositoEstado === EstadoDeposito.PENDIENTE) {
+            dataToUpdate.depositoEstado = EstadoDeposito.NO_APLICA;
+          }
+        } else if (contratoPrevio.depositoEstado === EstadoDeposito.NO_APLICA) {
+          dataToUpdate.depositoEstado = EstadoDeposito.PENDIENTE;
+        }
+      }
+
+      // 2. Actualizar datos base del contrato
+      const contratoActualizado = await tx.contrato.update({
+        where: { id },
+        data: dataToUpdate,
+        select: CONTRATO_LIST_SELECT,
+      });
+
+      // 3. Manejo de cuotas: Preservación histórica de pagos y actualización de cuotas que faltan
+      if (cambioMonto || cambioDia || cambioFechaFin) {
+        const ahora = new Date();
+        const mesActual = ahora.getMonth() + 1;
+        const anoActual = ahora.getFullYear();
+
+        // Determinar período de corte efectivo
+        let desdeMes = parsed.aplicarDesdeMes;
+        let desdeAno = parsed.aplicarDesdeAno;
+
+        if (!desdeMes || !desdeAno) {
+          // Si no se especificó, encontrar el primer período pendiente / no pagado
+          const pagosSinPagar = contratoPrevio.pagos
+            .filter((p) => p.montoPagado === 0 && p.estado !== EstadoPago.PAGADO)
+            .sort((a, b) => (a.periodoAno !== b.periodoAno ? a.periodoAno - b.periodoAno : a.periodoMes - b.periodoMes));
+
+          if (pagosSinPagar.length > 0) {
+            desdeMes = pagosSinPagar[0].periodoMes;
+            desdeAno = pagosSinPagar[0].periodoAno;
+          } else {
+            desdeMes = mesActual;
+            desdeAno = anoActual;
+          }
+        }
+
+        // A) Actualizar cuotas existentes NO PAGADAS que sean >= al periodo efectivo
+        for (const pago of contratoPrevio.pagos) {
+          // REGLA DE ORO: Si ya se pagó (montoPagado > 0 o estado === PAGADO), se mantiene 100% INMUTABLE.
+          if (pago.montoPagado > 0 || pago.estado === EstadoPago.PAGADO) {
+            continue;
+          }
+
+          const esPeriodoEfectivo =
+            pago.periodoAno > desdeAno || (pago.periodoAno === desdeAno && pago.periodoMes >= desdeMes);
+
+          if (esPeriodoEfectivo) {
+            const ultimoDia = new Date(Date.UTC(pago.periodoAno, pago.periodoMes, 0)).getUTCDate();
+            const diaEfectivo = Math.min(nuevoDia, ultimoDia);
+            const nuevaFechaVenc = new Date(Date.UTC(pago.periodoAno, pago.periodoMes - 1, diaEfectivo, 23, 59, 59, 999));
+            const esVencido = ahora > nuevaFechaVenc;
+
+            await tx.pago.update({
+              where: { id: pago.id },
+              data: {
+                montoEsperado: nuevoMonto,
+                fechaVencimiento: nuevaFechaVenc,
+                estado: esVencido ? EstadoPago.VENCIDO : EstadoPago.PENDIENTE,
+              },
+            });
+          }
+        }
+
+        // B) Si se amplió fechaFin o faltan cuotas por generar en el cronograma
+        const periodosTotales = obtenerPeriodosContrato(contratoPrevio.fechaInicio, nuevaFechaFin);
+        const setPagosExistentes = new Set(contratoPrevio.pagos.map((p) => `${p.periodoAno}-${p.periodoMes}`));
+
+        const nuevasCuotas = [];
+        for (const { mes: pMes, ano: pAno } of periodosTotales) {
+          if (!setPagosExistentes.has(`${pAno}-${pMes}`)) {
+            const ultimoDia = new Date(Date.UTC(pAno, pMes, 0)).getUTCDate();
+            const diaEfectivo = Math.min(nuevoDia, ultimoDia);
+            const fechaVenc = new Date(Date.UTC(pAno, pMes - 1, diaEfectivo, 23, 59, 59, 999));
+            const esVencido = ahora > fechaVenc;
+
+            const esEfectivo = pAno > desdeAno || (pAno === desdeAno && pMes >= desdeMes);
+            const montoCuota = esEfectivo ? nuevoMonto : contratoPrevio.montoAlquiler;
+
+            nuevasCuotas.push({
+              contratoId: id,
+              periodoMes: pMes,
+              periodoAno: pAno,
+              montoEsperado: montoCuota,
+              montoPagado: 0,
+              fechaVencimiento: fechaVenc,
+              estado: esVencido ? EstadoPago.VENCIDO : EstadoPago.PENDIENTE,
+            });
+          }
+        }
+
+        if (nuevasCuotas.length > 0) {
+          await tx.pago.createMany({
+            data: nuevasCuotas,
+            skipDuplicates: true,
+          });
+        }
+
+        // C) Si se acortó fechaFin, eliminar cuotas futuras posteriores que nunca se pagaron
+        if (cambioFechaFin && nuevaFechaFin < contratoPrevio.fechaFin) {
+          const finAno = nuevaFechaFin.getUTCFullYear();
+          const finMes = nuevaFechaFin.getUTCMonth() + 1;
+
+          await tx.pago.deleteMany({
+            where: {
+              contratoId: id,
+              montoPagado: 0,
+              estado: { not: EstadoPago.PAGADO },
+              OR: [
+                { periodoAno: { gt: finAno } },
+                { periodoAno: finAno, periodoMes: { gt: finMes } },
+              ],
+            },
+          });
+        }
+      }
+
+      return contratoActualizado;
     });
 
     if (docPrevioAEliminar) {
@@ -418,17 +749,19 @@ export async function updateContrato(id: string, data: UpdateContratoInput) {
     revalidatePath("/admin/contratos");
     revalidatePath("/admin/propiedades");
     revalidatePath("/admin/inquilinos");
-    return { success: true, data: actualizado };
+    revalidatePath("/admin/cobranza");
+    return { success: true, data: resultado };
   } catch (error) {
     if (error instanceof z.ZodError) {
       return { success: false, error: error.issues[0]?.message || "Datos inválidos." };
     }
+    const message = error instanceof Error ? error.message : "No se pudo actualizar el contrato.";
     console.error("Error al actualizar contrato:", error);
-    return { success: false, error: "No se pudo actualizar el contrato." };
+    return { success: false, error: message };
   }
 }
 
-// Eliminar un contrato, liberar la unidad si estaba activo y borrar el PDF físico de UploadThing (cuenta conte)
+// Eliminar un contrato si no tiene historial contable registrado, liberar la unidad si estaba activo y borrar el PDF físico de UploadThing
 export async function deleteContrato(id: string) {
   try {
     let docAEliminar: string | null = null;
@@ -436,14 +769,43 @@ export async function deleteContrato(id: string) {
     await prisma.$transaction(async (tx) => {
       const contrato = await tx.contrato.findUnique({
         where: { id },
-        select: { id: true, estado: true, unidadId: true, documentoUrl: true },
+        select: {
+          id: true,
+          estado: true,
+          unidadId: true,
+          documentoUrl: true,
+          pagos: {
+            where: {
+              OR: [
+                { montoPagado: { gt: 0 } },
+                { estado: { in: [EstadoPago.PAGADO, EstadoPago.PARCIAL] } },
+              ],
+            },
+            select: { id: true },
+          },
+        },
       });
 
       if (!contrato) throw new Error("Contrato no encontrado.");
 
+      // Si el contrato ya tiene pagos asentados, bloqueamos el borrado destructivo
+      if (contrato.pagos.length > 0) {
+        throw new Error(
+          "No se puede eliminar este contrato porque posee historial contable y pagos registrados. Para retirarlo de operaciones conservando la trazabilidad financiera, cámbialo a estado RESCINDIDO o FINALIZADO."
+        );
+      }
+
+      // Si tiene cuotas pendientes no pagadas (montoPagado = 0), las eliminamos de forma segura para permitir el borrado sin error de clave foránea
+      await tx.pago.deleteMany({
+        where: {
+          contratoId: id,
+          montoPagado: 0,
+        },
+      });
+
       docAEliminar = contrato.documentoUrl;
 
-      if (contrato.estado === EstadoContrato.ACTIVO) {
+      if (contrato.estado === EstadoContrato.ACTIVO || contrato.estado === EstadoContrato.POR_VENCER) {
         await tx.unidad.update({
           where: { id: contrato.unidadId },
           data: { estado: EstadoUnidad.DISPONIBLE },
@@ -461,6 +823,7 @@ export async function deleteContrato(id: string) {
     revalidatePath("/admin/contratos");
     revalidatePath("/admin/propiedades");
     revalidatePath("/admin/inquilinos");
+    revalidatePath("/admin/cobranza");
 
     return { success: true };
   } catch (error) {
@@ -478,5 +841,285 @@ export async function eliminarDocumentoContratoAction(url: string) {
   } catch (error) {
     console.error("Error al eliminar documento de UploadThing:", error);
     return { success: false, error: "No se pudo eliminar el documento físico." };
+  }
+}
+
+// Esquema para registrar el cobro de depósito en garantía
+const registrarCobroDepositoSchema = z.object({
+  contratoId: z.string().min(1, "ID de contrato requerido"),
+  fechaCobro: z.string().min(1, "La fecha de cobro es requerida"),
+  metodoPago: z.nativeEnum(MetodoPago),
+  referencia: z.string().optional().nullable(),
+  comprobanteUrl: z.string().optional().nullable(),
+  notas: z.string().optional().nullable(),
+});
+
+export type RegistrarCobroDepositoInput = z.infer<typeof registrarCobroDepositoSchema>;
+
+export async function registrarCobroDeposito(input: RegistrarCobroDepositoInput) {
+  try {
+    const parsed = registrarCobroDepositoSchema.parse(input);
+
+    const contrato = await prisma.contrato.findUnique({
+      where: { id: parsed.contratoId },
+      select: { id: true, depositoGarantia: true, depositoEstado: true },
+    });
+
+    if (!contrato) {
+      return { success: false, error: "Contrato no encontrado." };
+    }
+
+    if (!contrato.depositoGarantia || contrato.depositoGarantia <= 0) {
+      return { success: false, error: "Este contrato no tiene estipulado un depósito en garantía." };
+    }
+
+    const contratoActualizado = await prisma.contrato.update({
+      where: { id: parsed.contratoId },
+      data: {
+        depositoEstado: EstadoDeposito.COBRADO,
+        depositoFechaCobro: new Date(parsed.fechaCobro),
+        depositoMetodoPago: parsed.metodoPago,
+        depositoReferencia: parsed.referencia?.trim() || null,
+        depositoComprobanteUrl: parsed.comprobanteUrl || null,
+        depositoNotas: parsed.notas?.trim() || null,
+      },
+      select: CONTRATO_LIST_SELECT,
+    });
+
+    revalidatePath("/admin/contratos");
+    revalidatePath("/admin/inquilinos");
+    revalidatePath("/admin/cobranza");
+
+    return { success: true, data: contratoActualizado };
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return { success: false, error: error.issues[0]?.message || "Datos inválidos." };
+    }
+    const message = error instanceof Error ? error.message : "Error al registrar cobro de depósito.";
+    console.error("Error en registrarCobroDeposito:", error);
+    return { success: false, error: message };
+  }
+}
+
+// Esquema para liquidar o finiquitar el depósito en garantía (reembolso o retención por daños)
+const liquidarDepositoSchema = z.object({
+  contratoId: z.string().min(1, "ID de contrato requerido"),
+  fechaLiquidacion: z.string().min(1, "La fecha de liquidación es requerida"),
+  tipoLiquidacion: z.enum(["REEMBOLSO_TOTAL", "RETENCION_TOTAL", "MIXTO"]),
+  montoReembolsado: z.coerce.number().min(0).default(0),
+  montoRetenido: z.coerce.number().min(0).default(0),
+  motivo: z.string().optional().nullable(),
+  metodoPagoLiquidacion: z.nativeEnum(MetodoPago).optional().nullable(),
+  referenciaLiquidacion: z.string().optional().nullable(),
+  comprobanteLiquidacionUrl: z.string().optional().nullable(),
+  cambiarEstadoContratoA: z.nativeEnum(EstadoContrato).optional().nullable(),
+});
+
+export type LiquidarDepositoInput = z.infer<typeof liquidarDepositoSchema>;
+
+export async function liquidarDeposito(input: LiquidarDepositoInput) {
+  try {
+    const parsed = liquidarDepositoSchema.parse(input);
+
+    const resultado = await prisma.$transaction(async (tx) => {
+      const contrato = await tx.contrato.findUnique({
+        where: { id: parsed.contratoId },
+        select: {
+          id: true,
+          depositoGarantia: true,
+          depositoEstado: true,
+          unidadId: true,
+          estado: true,
+        },
+      });
+
+      if (!contrato) {
+        throw new Error("Contrato no encontrado.");
+      }
+
+      if (contrato.depositoEstado !== EstadoDeposito.COBRADO) {
+        throw new Error(
+          "El depósito debe estar cobrado y en custodia para poder liquidarse o devolverse."
+        );
+      }
+
+      const totalDeposito = contrato.depositoGarantia || 0;
+      let montoReembolsado = 0;
+      let montoRetenido = 0;
+      let nuevoEstadoDeposito: EstadoDeposito = EstadoDeposito.REEMBOLSADO;
+
+      if (parsed.tipoLiquidacion === "REEMBOLSO_TOTAL") {
+        montoReembolsado = totalDeposito;
+        montoRetenido = 0;
+        nuevoEstadoDeposito = EstadoDeposito.REEMBOLSADO;
+      } else if (parsed.tipoLiquidacion === "RETENCION_TOTAL") {
+        montoReembolsado = 0;
+        montoRetenido = totalDeposito;
+        nuevoEstadoDeposito = EstadoDeposito.RETENIDO;
+      } else {
+        montoReembolsado = parsed.montoReembolsado;
+        montoRetenido = parsed.montoRetenido;
+        if (montoReembolsado + montoRetenido > totalDeposito + 0.01) {
+          throw new Error(
+            `La suma del reembolso ($${montoReembolsado}) y la retención ($${montoRetenido}) no puede superar el depósito total ($${totalDeposito}).`
+          );
+        }
+        if (montoRetenido > 0 && montoReembolsado > 0) {
+          nuevoEstadoDeposito = EstadoDeposito.PARCIALMENTE_RETENIDO;
+        } else if (montoRetenido > 0) {
+          nuevoEstadoDeposito = EstadoDeposito.RETENIDO;
+        } else {
+          nuevoEstadoDeposito = EstadoDeposito.REEMBOLSADO;
+        }
+      }
+
+      const dataActualizacion: Prisma.ContratoUpdateInput = {
+        depositoEstado: nuevoEstadoDeposito,
+        depositoFechaLiquidacion: new Date(parsed.fechaLiquidacion),
+        depositoMontoReembolsado: montoReembolsado,
+        depositoMontoRetenido: montoRetenido,
+        depositoMotivoLiquidacion: parsed.motivo?.trim() || null,
+        depositoMetodoPagoLiquidacion: parsed.metodoPagoLiquidacion || null,
+        depositoReferenciaLiquidacion: parsed.referenciaLiquidacion?.trim() || null,
+        depositoComprobanteLiquidacionUrl: parsed.comprobanteLiquidacionUrl || null,
+      };
+
+      if (parsed.cambiarEstadoContratoA) {
+        dataActualizacion.estado = parsed.cambiarEstadoContratoA;
+        if (
+          parsed.cambiarEstadoContratoA === EstadoContrato.RESCINDIDO ||
+          parsed.cambiarEstadoContratoA === EstadoContrato.FINALIZADO
+        ) {
+          await tx.unidad.update({
+            where: { id: contrato.unidadId },
+            data: { estado: EstadoUnidad.DISPONIBLE },
+          });
+        }
+      }
+
+      return await tx.contrato.update({
+        where: { id: parsed.contratoId },
+        data: dataActualizacion,
+        select: CONTRATO_LIST_SELECT,
+      });
+    });
+
+    revalidatePath("/admin/contratos");
+    revalidatePath("/admin/propiedades");
+    revalidatePath("/admin/inquilinos");
+    revalidatePath("/admin/cobranza");
+
+    return { success: true, data: resultado };
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return { success: false, error: error.issues[0]?.message || "Datos inválidos." };
+    }
+    const message = error instanceof Error ? error.message : "Error al liquidar depósito.";
+    console.error("Error en liquidarDeposito:", error);
+    return { success: false, error: message };
+  }
+}
+
+// Revertir liquidación del depósito (regresarlo a estado COBRADO en custodia)
+export async function revertirLiquidacionDeposito(contratoId: string) {
+  try {
+    const contrato = await prisma.contrato.findUnique({
+      where: { id: contratoId },
+      select: {
+        id: true,
+        depositoEstado: true,
+        depositoComprobanteLiquidacionUrl: true,
+      },
+    });
+
+    if (!contrato) throw new Error("Contrato no encontrado.");
+
+    if (
+      contrato.depositoEstado !== EstadoDeposito.REEMBOLSADO &&
+      contrato.depositoEstado !== EstadoDeposito.RETENIDO &&
+      contrato.depositoEstado !== EstadoDeposito.PARCIALMENTE_RETENIDO
+    ) {
+      throw new Error("El depósito no se encuentra en estado liquidado.");
+    }
+
+    const compAEliminar = contrato.depositoComprobanteLiquidacionUrl;
+
+    const contratoActualizado = await prisma.contrato.update({
+      where: { id: contratoId },
+      data: {
+        depositoEstado: EstadoDeposito.COBRADO,
+        depositoFechaLiquidacion: null,
+        depositoMontoReembolsado: null,
+        depositoMontoRetenido: null,
+        depositoMotivoLiquidacion: null,
+        depositoMetodoPagoLiquidacion: null,
+        depositoReferenciaLiquidacion: null,
+        depositoComprobanteLiquidacionUrl: null,
+      },
+      select: CONTRATO_LIST_SELECT,
+    });
+
+    if (compAEliminar) {
+      await eliminarDocumentosUploadThing(compAEliminar).catch(() => {});
+    }
+
+    revalidatePath("/admin/contratos");
+    revalidatePath("/admin/inquilinos");
+    revalidatePath("/admin/cobranza");
+
+    return { success: true, data: contratoActualizado };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Error al revertir liquidación.";
+    console.error("Error en revertirLiquidacionDeposito:", error);
+    return { success: false, error: message };
+  }
+}
+
+// Revertir cobro del depósito (regresarlo a estado PENDIENTE)
+export async function revertirCobroDeposito(contratoId: string) {
+  try {
+    const contrato = await prisma.contrato.findUnique({
+      where: { id: contratoId },
+      select: {
+        id: true,
+        depositoEstado: true,
+        depositoComprobanteUrl: true,
+      },
+    });
+
+    if (!contrato) throw new Error("Contrato no encontrado.");
+
+    if (contrato.depositoEstado !== EstadoDeposito.COBRADO) {
+      throw new Error("Solo se puede revertir un depósito que esté cobrado y no liquidado.");
+    }
+
+    const compAEliminar = contrato.depositoComprobanteUrl;
+
+    const contratoActualizado = await prisma.contrato.update({
+      where: { id: contratoId },
+      data: {
+        depositoEstado: EstadoDeposito.PENDIENTE,
+        depositoFechaCobro: null,
+        depositoMetodoPago: null,
+        depositoReferencia: null,
+        depositoComprobanteUrl: null,
+        depositoNotas: null,
+      },
+      select: CONTRATO_LIST_SELECT,
+    });
+
+    if (compAEliminar) {
+      await eliminarDocumentosUploadThing(compAEliminar).catch(() => {});
+    }
+
+    revalidatePath("/admin/contratos");
+    revalidatePath("/admin/inquilinos");
+    revalidatePath("/admin/cobranza");
+
+    return { success: true, data: contratoActualizado };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Error al revertir cobro.";
+    console.error("Error en revertirCobroDeposito:", error);
+    return { success: false, error: message };
   }
 }

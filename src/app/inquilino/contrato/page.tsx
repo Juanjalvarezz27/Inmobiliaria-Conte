@@ -9,7 +9,7 @@ export default async function InquilinoContratoPage() {
       description="Aquí podrás consultar en cualquier momento los términos y condiciones de tu contrato de alquiler."
       features={[
         "Ver los datos de tu local o inmueble: número, metraje y centro comercial.",
-        "Consultar el monto fijado de tu canon de arrendamiento y depósito en garantía.",
+        "Consultar el monto fijado de tu mensualidad de arrendamiento y depósito en garantía.",
         "Revisar las fechas de inicio y vencimiento de tu contrato vigente.",
         "Descargar una copia digital de tu contrato legal firmado en formato PDF.",
       ]}

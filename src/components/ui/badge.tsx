@@ -24,7 +24,9 @@ export type BadgeVariant =
   | "EN_PROCESO"
   | "RESUELTO"
   | "ACTIVO"
-  | "INACTIVO";
+  | "INACTIVO"
+  | "FINALIZADO"
+  | "RESCINDIDO";
 
 export type BadgeSize = "sm" | "md" | "lg";
 
@@ -162,9 +164,19 @@ const variantStyles: Record<
     pulseDot: "bg-emerald-400",
   },
   INACTIVO: {
-    container: "bg-slate-100 text-slate-500 border-slate-200/80",
-    dot: "bg-slate-400",
-    pulseDot: "bg-slate-300",
+    container: "bg-rose-50 text-rose-800 border-rose-300 font-extrabold",
+    dot: "bg-[#CC1A22]",
+    pulseDot: "bg-rose-400",
+  },
+  FINALIZADO: {
+    container: "bg-blue-100 text-blue-900 border-blue-300 font-extrabold shadow-2xs",
+    dot: "bg-blue-600",
+    pulseDot: "bg-blue-400",
+  },
+  RESCINDIDO: {
+    container: "bg-rose-100 text-rose-900 border-rose-300 font-extrabold shadow-2xs",
+    dot: "bg-[#CC1A22]",
+    pulseDot: "bg-rose-400",
   },
 };
 

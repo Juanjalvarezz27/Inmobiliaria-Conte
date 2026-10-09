@@ -183,3 +183,57 @@ Para garantizar que el sistema funcione impecablemente en teléfonos y tablets:
    - En botones con texto e iconos, mantener el texto conciso o utilizar utilidades responsivas (`<span className="hidden sm:inline">...</span>`).
 4. **Despliegues y Menús Flotantes**:
    - Los menús contextuales en tarjetas (por ejemplo, el menú flotante de cambio rápido de estado) deben abrirse hacia arriba (`bottom-full pb-1.5`) para no salirse de la pantalla en dispositivos móviles y cerrarse automáticamente al hacer clic en cualquier otra parte.
+
+---
+
+## 8. Desplegables de Filtro Institucionales (Compound Hybrid Dropdown Pattern)
+
+Todo filtro desplegable en barras de herramientas, catálogos o cabeceras (por ejemplo: Selector de Inmueble, Selector de Tipología, Selector de Estado, etc.) debe implementar de manera obligatoria el patrón híbrido de alta fidelidad:
+
+1. **Botón Disparador (Trigger)**:
+   - Contenedor con ancho responsivo: `w-full md:w-60` o `md:w-64`.
+   - Altura estándar alineada con el input de búsqueda: `h-11` (o `h-10 sm:h-11`).
+   - Borde sutil y fondo limpio: `border border-slate-200 rounded-xl bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50 transition-all shadow-2xs cursor-pointer`.
+   - Focus Ring institucional: `focus:outline-none focus:ring-2 focus:ring-[#1C2539]/20`.
+   - Lado izquierdo: Icono temático (`Building2`, `Layers`, `Clock`, etc.) en `text-slate-500 shrink-0` y texto truncado de la opción seleccionada.
+   - Lado derecho: Icono `ChevronDown` en `text-slate-400 shrink-0` con micro-animación de rotación de 180° al abrir (`rotate-180`).
+
+2. **Capa Táctil Nativa para Móviles (`< md`)**:
+   - Superponer un elemento nativo `<select>` transparente:
+     ```tsx
+     <select
+       value={valorFiltro}
+       onChange={(e) => handleCambio(e.target.value)}
+       className="md:hidden absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+       aria-label="Filtrar opción"
+     >
+       <option value="TODOS">Todos ({total})</option>
+       {opciones.map((opt) => (
+         <option key={opt.id} value={opt.id}>
+           {opt.label} ({opt.count})
+         </option>
+       ))}
+     </select>
+     ```
+   - Garantiza que en pantallas táctiles (iOS y Android) se active el picker/rueda nativa del sistema operativo con soporte táctil ergonómico sin desbordamientos de pantalla.
+
+3. **Menú Flotante Desktop (`>= md`)**:
+   - Flotante animado: `hidden md:block absolute right-0 top-full mt-1.5 w-64 (o w-68) bg-white border border-slate-200/90 rounded-xl shadow-xl py-1.5 z-50 animate-in fade-in-0 zoom-in-95 duration-100 max-h-72 overflow-y-auto`.
+   - **Opción Global ("Todos...")**:
+     - Primera opción con icono temático general (`Building2` o `Layers`).
+     - Badge numérico en píldora con el total de registros: `bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded-full text-[11px] font-medium`.
+     - Check verde esmeralda institucional (`<Check className="w-3.5 h-3.5 text-[#175E38]" />`) cuando está seleccionada.
+     - Divisor tenue inferior: `<div className="my-1 border-t border-slate-100" />`.
+   - **Opciones Específicas**:
+     - Icono temático a la izquierda en `text-slate-400 shrink-0`.
+     - Tipografía a 1 o 2 líneas: Nombre principal en `font-medium` y subtítulo secundario en `text-[10px] text-slate-400` (ej: ciudad o tipología).
+     - Píldora de conteo con la cifra dinámica individual.
+     - Check verde esmeralda si la opción está seleccionada.
+     - Estados de color:
+       - Activo: `bg-slate-50 text-slate-900 font-semibold`.
+       - Inactivo: `text-slate-600 hover:bg-slate-50 hover:text-slate-900`.
+
+4. **Control de Cierre y Concurrencia**:
+   - Detección de clic exterior (`mousedown`) con `useRef` y tecla `Escape` (`keydown`).
+   - Al abrir un dropdown, cerrar automáticamente cualquier otro dropdown adyacente para evitar superposiciones visuales.
+

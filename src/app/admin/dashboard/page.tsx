@@ -85,7 +85,7 @@ export default async function AdminDashboardPage() {
                 Contratos de Arrendamiento
               </h3>
               <p className="text-xs text-slate-500 mt-1">
-                Gestión de plazos, canones, depósitos en garantía y PDF firmado.
+                Gestión de plazos, mensualidades, depósitos en garantía y PDF firmado.
               </p>
             </div>
             <div className="text-xs font-semibold text-indigo-600 mt-4 flex items-center gap-1">

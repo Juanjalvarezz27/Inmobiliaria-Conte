@@ -3,7 +3,7 @@ import {
   getUnidadesDisponiblesParaContrato,
   getInquilinosParaSelector,
 } from "@/lib/actions/contratos";
-import { getPropiedades } from "@/lib/actions/propiedades";
+import { getPropiedadesOpciones } from "@/lib/actions/propiedades";
 import { EstadoContrato } from "@prisma/client";
 import { ContratosClient } from "./ContratosClient";
 import type {
@@ -14,7 +14,7 @@ import type {
 
 export const metadata = {
   title: "Gestión de Contratos | Inmobiliaria Conté",
-  description: "Control de contratos de arrendamiento, vigencias y cánones mensuales",
+  description: "Control de contratos de arrendamiento, vigencias y mensualidades",
 };
 
 interface ContratosPageProps {
@@ -38,12 +38,12 @@ export default async function ContratosPage({ searchParams }: ContratosPageProps
     !!inquilinoIdPreseleccionado;
   const initialSearch = resolvedSearchParams?.search;
 
-  // Carga concurrente optimizada (se eliminaron 4 queries de COUNT a Neon)
+  // Carga concurrente optimizada: selectores ligeros y sin queries redundantes
   const [contratosRes, unidadesRes, inquilinosRes, propiedades] = await Promise.all([
     getContratos(),
     getUnidadesDisponiblesParaContrato(),
     getInquilinosParaSelector(),
-    getPropiedades(),
+    getPropiedadesOpciones(),
   ]);
 
   const contratos = (contratosRes.success && contratosRes.data

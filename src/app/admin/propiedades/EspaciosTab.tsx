@@ -73,6 +73,8 @@ interface EspaciosTabProps {
   onEditarUnidad: (unidad: UnidadConPropiedad) => void;
   onEliminarUnidad: (unidad: UnidadConPropiedad) => void;
   onCambiarEstadoUnidad: (unidad: UnidadConPropiedad, estado: EstadoUnidad) => void;
+  filtroEstadoUnidad?: string;
+  onSetFiltroEstadoUnidad?: (val: string) => void;
   onIrAPropiedadesTab: () => void;
 }
 
@@ -86,6 +88,7 @@ export function EspaciosTab({
   gruposPorPropiedad,
   busqueda,
   filtroPropiedad,
+  filtroEstadoUnidad,
   propiedadActivaFiltro,
   propiedadesDesplegadas,
   propiedadesCargadas,
@@ -94,6 +97,7 @@ export function EspaciosTab({
   onToggleDesplieguePropiedad,
   onChangePaginaPropiedad,
   onSetFiltroPropiedad,
+  onSetFiltroEstadoUnidad,
   onLimpiarBusqueda,
   onAbrirCrearUnidad,
   onAbrirCrearPropiedad,
@@ -208,7 +212,16 @@ export function EspaciosTab({
 
           {/* Badge de Estado en esquina superior derecha */}
           <div className="absolute top-2.5 right-2.5 z-10">
-            <Badge variant={unidad.estado} dot size="sm" className="shadow-md backdrop-blur-xs bg-white/95">
+            <Badge
+              variant={unidad.estado}
+              dot
+              size="sm"
+              className={`shadow-md backdrop-blur-xs ${
+                unidad.estado === "INACTIVO"
+                  ? "!bg-rose-100/95 !text-rose-900 !border-rose-300 font-extrabold shadow-rose-950/15"
+                  : "bg-white/95"
+              }`}
+            >
               {unidad.estado === "DISPONIBLE"
                 ? "Disponible"
                 : unidad.estado === "OCUPADO"
@@ -243,7 +256,16 @@ export function EspaciosTab({
               {TIPO_UNIDAD_LABEL[unidad.tipo]}
             </span>
           </div>
-          <Badge variant={unidad.estado} dot size="sm">
+          <Badge
+            variant={unidad.estado}
+            dot
+            size="sm"
+            className={
+              unidad.estado === "INACTIVO"
+                ? "!bg-rose-100 !text-rose-900 !border-rose-300 font-extrabold"
+                : ""
+            }
+          >
             {unidad.estado === "DISPONIBLE"
               ? "Disponible"
               : unidad.estado === "OCUPADO"
@@ -364,34 +386,48 @@ export function EspaciosTab({
           }
 
           // Sin contrato activo: bloque estructurado y equilibrado
+          const esInactivo = unidad.estado === "INACTIVO";
+          const esMantenimiento = unidad.estado === "MANTENIMIENTO";
+          const esDisponible = unidad.estado === "DISPONIBLE";
+
           return (
-            <div className="rounded-xl border border-slate-200/90 bg-gradient-to-br from-slate-50/90 via-white to-slate-50/70 p-3 space-y-2 shadow-2xs">
+            <div
+              className={`rounded-xl border p-3 space-y-2 shadow-2xs transition-all ${
+                esInactivo
+                  ? "border-rose-200/90 bg-gradient-to-br from-rose-50/85 via-white to-rose-50/40"
+                  : "border-slate-200/90 bg-gradient-to-br from-slate-50/90 via-white to-slate-50/70"
+              }`}
+            >
               {/* Cabecera de Estado */}
               <div className="flex items-center justify-between gap-1.5">
-                <span className="inline-flex items-center gap-1.5 text-[11px] font-bold text-slate-600 tracking-tight">
+                <span
+                  className={`inline-flex items-center gap-1.5 text-[11px] font-bold tracking-tight ${
+                    esInactivo ? "text-rose-700" : "text-slate-600"
+                  }`}
+                >
                   <span
                     className={`w-2 h-2 rounded-full shrink-0 ${
-                      unidad.estado === "DISPONIBLE"
+                      esDisponible
                         ? "bg-emerald-500 animate-pulse"
-                        : unidad.estado === "MANTENIMIENTO"
+                        : esMantenimiento
                         ? "bg-amber-500"
-                        : "bg-slate-400"
+                        : "bg-[#CC1A22]"
                     }`}
                   />
                   <span>Arrendamiento:</span>
                 </span>
                 <span
                   className={`inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold border ${
-                    unidad.estado === "DISPONIBLE"
+                    esDisponible
                       ? "bg-emerald-50 text-[#175E38] border-emerald-200/80"
-                      : unidad.estado === "MANTENIMIENTO"
+                      : esMantenimiento
                       ? "bg-amber-50 text-amber-700 border-amber-200/80"
-                      : "bg-slate-100 text-slate-600 border-slate-200"
+                      : "bg-rose-100 text-rose-800 border-rose-300 font-extrabold"
                   }`}
                 >
-                  {unidad.estado === "DISPONIBLE"
+                  {esDisponible
                     ? "Disponible"
-                    : unidad.estado === "MANTENIMIENTO"
+                    : esMantenimiento
                     ? "Mantenimiento"
                     : "Inactivo"}
                 </span>
@@ -399,21 +435,33 @@ export function EspaciosTab({
 
               {/* Contenido descriptivo */}
               <div className="py-0.5">
-                <span className="font-extrabold text-slate-800 text-xs sm:text-sm">
-                  {unidad.estado === "DISPONIBLE"
+                <span
+                  className={`font-extrabold text-xs sm:text-sm ${
+                    esInactivo ? "text-rose-900" : "text-slate-800"
+                  }`}
+                >
+                  {esDisponible
                     ? "Sin inquilino asignado"
-                    : unidad.estado === "MANTENIMIENTO"
+                    : esMantenimiento
                     ? "En mantenimiento"
                     : "Espacio inactivo"}
                 </span>
               </div>
 
               {/* Botón de acción directo para Arrendar */}
-              <div className="pt-1.5 border-t border-slate-100 flex items-center justify-between gap-2">
-                <span className="text-[10px] font-medium text-slate-400">
-                  {unidad.estado === "DISPONIBLE" ? "Entrega inmediata" : "Fuera de servicio"}
+              <div
+                className={`pt-1.5 border-t flex items-center justify-between gap-2 ${
+                  esInactivo ? "border-rose-100/90" : "border-slate-100"
+                }`}
+              >
+                <span
+                  className={`text-[10px] font-semibold ${
+                    esInactivo ? "text-rose-600" : "text-slate-400"
+                  }`}
+                >
+                  {esDisponible ? "Entrega inmediata" : esMantenimiento ? "En mantenimiento" : "Fuera de servicio"}
                 </span>
-                {unidad.estado === "DISPONIBLE" ? (
+                {esDisponible ? (
                   <Link
                     href={`/admin/contratos?arrendarUnidadId=${unidad.id}`}
                     onClick={(e) => e.stopPropagation()}
@@ -423,7 +471,13 @@ export function EspaciosTab({
                     <span>Arrendar</span>
                   </Link>
                 ) : (
-                  <span className="text-[10px] text-slate-400 font-semibold">—</span>
+                  <span
+                    className={`text-[10px] font-bold ${
+                      esInactivo ? "text-rose-400" : "text-slate-400"
+                    }`}
+                  >
+                    —
+                  </span>
                 )}
               </div>
             </div>
@@ -436,11 +490,25 @@ export function EspaciosTab({
           const precioMostrar = contratoActivo ? contratoActivo.montoAlquiler : unidad.precioAlquiler;
 
           return (
-            <div className="bg-slate-50/90 rounded-xl p-3 border border-slate-200/70 flex items-center justify-between shadow-[inset_0_1px_2px_rgba(0,0,0,0.03)]">
-              <span className="text-xs text-slate-500 font-medium">
+            <div
+              className={`rounded-xl p-3 border flex items-center justify-between shadow-[inset_0_1px_2px_rgba(0,0,0,0.03)] ${
+                unidad.estado === "INACTIVO"
+                  ? "bg-rose-50/40 border-rose-200/60"
+                  : "bg-slate-50/90 border-slate-200/70"
+              }`}
+            >
+              <span
+                className={`text-xs font-medium ${
+                  unidad.estado === "INACTIVO" ? "text-rose-700/80" : "text-slate-500"
+                }`}
+              >
                 {contratoActivo ? "Mensualidad Acordada" : "Precio Mensual"}
               </span>
-              <span className="text-base sm:text-lg font-black text-slate-900 font-heading">
+              <span
+                className={`text-base sm:text-lg font-black font-heading ${
+                  unidad.estado === "INACTIVO" ? "text-rose-950" : "text-slate-900"
+                }`}
+              >
                 {formatCurrency(precioMostrar)}
               </span>
             </div>
@@ -603,6 +671,15 @@ export function EspaciosTab({
               Ver todos los inmuebles
             </button>
           )}
+          {filtroEstadoUnidad && filtroEstadoUnidad !== "ACTIVOS" && (
+            <button
+              type="button"
+              onClick={() => onSetFiltroEstadoUnidad?.("ACTIVOS")}
+              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold text-[#175E38] hover:text-[#124b2d] bg-emerald-50 hover:bg-emerald-100/80 rounded-lg border border-emerald-200/70 transition-all cursor-pointer"
+            >
+              Ver espacios activos
+            </button>
+          )}
         </div>
       </div>
     );
@@ -656,6 +733,7 @@ export function EspaciosTab({
           const IconComp = badgeConfig.icon;
           const dispCount = grupo.unidades.filter((u) => u.estado === "DISPONIBLE").length;
           const ocupCount = grupo.unidades.filter((u) => u.estado === "OCUPADO").length;
+          const inactCount = grupo.unidades.filter((u) => u.estado === "INACTIVO").length;
 
           // Si hay búsqueda activa o filtro por inmueble, forzar visual abierto
           const estaDesplegada =
@@ -727,6 +805,11 @@ export function EspaciosTab({
                       {ocupCount > 0 && (
                         <span className="px-2 py-0.5 rounded-md bg-blue-50 text-blue-700 font-bold text-[11px] border border-blue-200/70">
                           {ocupCount} alquilado{ocupCount > 1 ? "s" : ""}
+                        </span>
+                      )}
+                      {inactCount > 0 && (
+                        <span className="px-2 py-0.5 rounded-md bg-rose-50 text-rose-700 font-bold text-[11px] border border-rose-200/70">
+                          {inactCount} inactivo{inactCount > 1 ? "s" : ""}
                         </span>
                       )}
                     </div>

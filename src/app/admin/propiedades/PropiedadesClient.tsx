@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useTransition, useCallback, useMemo, useRef, useEffect } from "react";
+import Link from "next/link";
 import {
   Building2,
   Plus,
@@ -13,6 +14,12 @@ import {
   X,
   UserCheck,
   Layers,
+  CheckCircle2,
+  Wrench,
+  Archive,
+  ShieldAlert,
+  Trash2,
+  ExternalLink,
 } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/ui/page-header";
@@ -27,6 +34,7 @@ import {
   createPropiedad,
   updatePropiedad,
   deletePropiedad,
+  reactivarPropiedad,
   type CreatePropiedadInput,
   type UpdatePropiedadInput,
 } from "@/lib/actions/propiedades";
@@ -62,19 +70,23 @@ export function PropiedadesClient({
   stats: initialStats,
 }: PropiedadesClientProps) {
   const [activeTab, setActiveTab] = useState<Tab>("propiedades");
+  const [vistaPropiedadesArchivadas, setVistaPropiedadesArchivadas] = useState<boolean>(false);
   const [filtroTipo, setFiltroTipo] = useState<string>("TODOS");
   const [busqueda, setBusqueda] = useState<string>("");
 
   // Filtros de espacios y acordeón desplegable
   const [filtroPropiedad, setFiltroPropiedad] = useState<string>("TODAS");
+  const [filtroEstadoUnidad, setFiltroEstadoUnidad] = useState<string>("ACTIVOS");
   const [propiedadesDesplegadas, setPropiedadesDesplegadas] = useState<Record<string, boolean>>({});
   const [propiedadesCargadas, setPropiedadesCargadas] = useState<Record<string, boolean>>({});
   const [paginasPorPropiedad, setPaginasPorPropiedad] = useState<Record<string, number>>({});
   const [isDropdownTipoOpen, setIsDropdownTipoOpen] = useState<boolean>(false);
   const [isDropdownPropiedadOpen, setIsDropdownPropiedadOpen] = useState<boolean>(false);
+  const [isDropdownEstadoUnidadOpen, setIsDropdownEstadoUnidadOpen] = useState<boolean>(false);
 
   const dropdownTipoRef = useRef<HTMLDivElement>(null);
   const dropdownPropiedadRef = useRef<HTMLDivElement>(null);
+  const dropdownEstadoUnidadRef = useRef<HTMLDivElement>(null);
 
   const toggleDesplieguePropiedad = (propId: string) => {
     setPropiedadesDesplegadas((prev) => {
@@ -89,6 +101,7 @@ export function PropiedadesClient({
 
   const irAEspaciosDePropiedad = (propiedadId: string) => {
     setFiltroPropiedad(propiedadId);
+    setFiltroEstadoUnidad("ACTIVOS");
     setBusqueda("");
     setPropiedadesDesplegadas((prev) => ({ ...prev, [propiedadId]: true }));
     setPropiedadesCargadas((c) => ({ ...c, [propiedadId]: true }));
@@ -116,13 +129,14 @@ export function PropiedadesClient({
   const [isPending, startTransition] = useTransition();
 
   const recalcStats = useCallback((updatedUnidades: UnidadConPropiedad[], updatedProps: PropiedadConConteo[]) => {
+    const totalPropsActivas = updatedProps.filter((p) => p.activo !== false).length;
     const totalUnidades = updatedUnidades.length;
     const ocupadas = updatedUnidades.filter((u) => u.estado === EstadoUnidad.OCUPADO).length;
     const disponibles = updatedUnidades.filter((u) => u.estado === EstadoUnidad.DISPONIBLE).length;
     const tasaOcupacion = totalUnidades > 0 ? Math.round((ocupadas / totalUnidades) * 100) : 0;
 
     setStats({
-      totalPropiedades: updatedProps.length,
+      totalPropiedades: totalPropsActivas,
       totalUnidades,
       disponibles,
       ocupadas,
@@ -187,6 +201,25 @@ export function PropiedadesClient({
     };
   }, [isDropdownPropiedadOpen]);
 
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (dropdownEstadoUnidadRef.current && !dropdownEstadoUnidadRef.current.contains(e.target as Node)) {
+        setIsDropdownEstadoUnidadOpen(false);
+      }
+    };
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setIsDropdownEstadoUnidadOpen(false);
+    };
+    if (isDropdownEstadoUnidadOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+      document.addEventListener("keydown", handleKeyDown);
+    }
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [isDropdownEstadoUnidadOpen]);
+
   const activeFiltroConfig = useMemo(() => {
     if (filtroTipoEfectivo === "TODOS") {
       return {
@@ -200,6 +233,66 @@ export function PropiedadesClient({
       icon: tipoPropiedadBadgeConfig(filtroTipoEfectivo as TipoPropiedad).icon,
     };
   }, [filtroTipoEfectivo, tiposDisponibles]);
+
+  const estadosUnidadDisponibles = useMemo(() => {
+    const totalActivos = unidades.filter((u) => u.estado !== EstadoUnidad.INACTIVO).length;
+    const totalDisponibles = unidades.filter((u) => u.estado === EstadoUnidad.DISPONIBLE).length;
+    const totalOcupados = unidades.filter((u) => u.estado === EstadoUnidad.OCUPADO).length;
+    const totalMantenimiento = unidades.filter((u) => u.estado === EstadoUnidad.MANTENIMIENTO).length;
+    const totalInactivos = unidades.filter((u) => u.estado === EstadoUnidad.INACTIVO).length;
+
+    return [
+      {
+        value: "ACTIVOS",
+        label: "Activos / Operativos",
+        icon: CheckCircle2,
+        count: totalActivos,
+      },
+      {
+        value: EstadoUnidad.DISPONIBLE,
+        label: "Disponibles",
+        icon: Store,
+        count: totalDisponibles,
+      },
+      {
+        value: EstadoUnidad.OCUPADO,
+        label: "Ocupados / Alquilados",
+        icon: UserCheck,
+        count: totalOcupados,
+      },
+      {
+        value: EstadoUnidad.MANTENIMIENTO,
+        label: "En Mantenimiento",
+        icon: Wrench,
+        count: totalMantenimiento,
+      },
+      {
+        value: EstadoUnidad.INACTIVO,
+        label: "Inactivos",
+        icon: Archive,
+        count: totalInactivos,
+      },
+    ];
+  }, [unidades]);
+
+  const estadoUnidadActivoConfig = useMemo(() => {
+    if (filtroEstadoUnidad === "TODOS") {
+      return {
+        value: "TODOS",
+        label: "Todos los estados",
+        icon: Layers,
+        count: unidades.length,
+      };
+    }
+    return (
+      estadosUnidadDisponibles.find((o) => o.value === filtroEstadoUnidad) || {
+        value: "ACTIVOS",
+        label: "Activos / Operativos",
+        icon: CheckCircle2,
+        count: unidades.filter((u) => u.estado !== EstadoUnidad.INACTIVO).length,
+      }
+    );
+  }, [filtroEstadoUnidad, estadosUnidadDisponibles, unidades]);
 
   const propiedadesParaSelector = useMemo(() => {
     return propiedades.map((p) => {
@@ -222,6 +315,7 @@ export function PropiedadesClient({
   // Filtrado de Datos
   const propiedadesFiltradas = useMemo(() => {
     return propiedades.filter((p) => {
+      const coincideActivo = vistaPropiedadesArchivadas ? p.activo === false : p.activo !== false;
       const coincideTipo = filtroTipoEfectivo === "TODOS" || p.tipo === filtroTipoEfectivo;
       const q = busqueda.toLowerCase().trim();
       const coincideBusqueda =
@@ -229,14 +323,22 @@ export function PropiedadesClient({
         p.nombre.toLowerCase().includes(q) ||
         p.ciudad.toLowerCase().includes(q) ||
         p.direccion.toLowerCase().includes(q);
-      return coincideTipo && coincideBusqueda;
+      return coincideActivo && coincideTipo && coincideBusqueda;
     });
-  }, [propiedades, filtroTipoEfectivo, busqueda]);
+  }, [propiedades, vistaPropiedadesArchivadas, filtroTipoEfectivo, busqueda]);
 
   const unidadesFiltradas = useMemo(() => {
     return unidades.filter((u) => {
       const coincidePropiedad =
         filtroPropiedad === "TODAS" || u.propiedadId === filtroPropiedad;
+
+      const coincideEstado =
+        filtroEstadoUnidad === "TODOS"
+          ? true
+          : filtroEstadoUnidad === "ACTIVOS"
+          ? u.estado !== EstadoUnidad.INACTIVO
+          : u.estado === filtroEstadoUnidad;
+
       const q = busqueda.toLowerCase().trim();
       const contratoActivo = u.contratos && u.contratos.length > 0 ? u.contratos[0] : null;
       const nombreInquilino = contratoActivo
@@ -254,9 +356,10 @@ export function PropiedadesClient({
         nombreInquilino.includes(q) ||
         docInquilino.includes(q) ||
         codContrato.includes(q);
-      return coincidePropiedad && coincideBusqueda;
+
+      return coincidePropiedad && coincideEstado && coincideBusqueda;
     });
-  }, [unidades, filtroPropiedad, busqueda]);
+  }, [unidades, filtroPropiedad, filtroEstadoUnidad, busqueda]);
 
   // Agrupación de unidades por Inmueble
   const gruposPorPropiedad = useMemo(() => {
@@ -371,22 +474,78 @@ export function PropiedadesClient({
       try {
         const res = await deletePropiedad(propiedadSeleccionada.id);
         if (res.success) {
-          const updatedProps = propiedades.filter((p) => p.id !== propiedadSeleccionada.id);
-          const updatedUnidades = unidades.filter((u) => u.propiedadId !== propiedadSeleccionada.id);
-          setPropiedades(updatedProps);
-          setUnidades(updatedUnidades);
-          recalcStats(updatedUnidades, updatedProps);
-          setPropiedadModal(null);
-          setPropiedadSeleccionada(null);
-          toast.success("Propiedad y sus espacios eliminados correctamente.");
+          if (res.archivada) {
+            // Archivado integral / Soft Delete
+            const updatedProps = propiedades.map((p) =>
+              p.id === propiedadSeleccionada.id ? { ...p, activo: false } : p
+            );
+            const updatedUnidades = unidades.map((u) =>
+              u.propiedadId === propiedadSeleccionada.id
+                ? { ...u, estado: EstadoUnidad.INACTIVO }
+                : u
+            );
+            setPropiedades(updatedProps);
+            setUnidades(updatedUnidades);
+            recalcStats(updatedUnidades, updatedProps);
+            setPropiedadModal(null);
+            setPropiedadSeleccionada(null);
+            toast.success(res.message || "Propiedad archivada correctamente.");
+          } else {
+            // Borrado físico definitivo
+            const updatedProps = propiedades.filter((p) => p.id !== propiedadSeleccionada.id);
+            const updatedUnidades = unidades.filter((u) => u.propiedadId !== propiedadSeleccionada.id);
+            setPropiedades(updatedProps);
+            setUnidades(updatedUnidades);
+            recalcStats(updatedUnidades, updatedProps);
+            setPropiedadModal(null);
+            setPropiedadSeleccionada(null);
+            toast.success(res.message || "Propiedad eliminada definitivamente.");
+          }
         } else {
           toast.error(res.error || "No se pudo eliminar la propiedad.");
         }
       } catch {
-        toast.error("Error al eliminar la propiedad.");
+        toast.error("Error al procesar la eliminación de la propiedad.");
       }
     });
   };
+
+  const handleReactivarPropiedad = (prop: PropiedadConConteo) => {
+    startTransition(async () => {
+      try {
+        const res = await reactivarPropiedad(prop.id);
+        if (res.success) {
+          const updated = propiedades.map((p) =>
+            p.id === prop.id ? { ...p, activo: true } : p
+          );
+          setPropiedades(updated);
+          recalcStats(unidades, updated);
+          toast.success(res.message || `Inmueble "${prop.nombre}" reactivado exitosamente.`);
+        } else {
+          toast.error(res.error || "No se pudo reactivar el inmueble.");
+        }
+      } catch {
+        toast.error("Error inesperado al reactivar el inmueble.");
+      }
+    });
+  };
+
+  // Inspección de unidades y contratos de la propiedad seleccionada para el modal
+  const unidadesDePropiedadSeleccionada = useMemo(() => {
+    if (!propiedadSeleccionada) return [];
+    return unidades.filter((u) => u.propiedadId === propiedadSeleccionada.id);
+  }, [propiedadSeleccionada, unidades]);
+
+  const unidadesConContratosActivos = useMemo(() => {
+    return unidadesDePropiedadSeleccionada.filter((u) => u.contratos && u.contratos.length > 0);
+  }, [unidadesDePropiedadSeleccionada]);
+
+  const historialContratosPropiedad = useMemo(() => {
+    return unidadesDePropiedadSeleccionada.reduce(
+      (acc, u) => acc + (u._count?.contratos || 0),
+      0
+    );
+  }, [unidadesDePropiedadSeleccionada]);
 
   // Manejadores CRUD de Unidad
   const abrirModalCrearUnidad = (propiedadId?: string) => {
@@ -449,23 +608,37 @@ export function PropiedadesClient({
       try {
         const res = await deleteUnidad(unidadSeleccionada.id);
         if (res.success) {
-          const updatedUnidades = unidades.filter((u) => u.id !== unidadSeleccionada.id);
-          setUnidades(updatedUnidades);
-          const updatedProps = propiedades.map((p) =>
-            p.id === unidadSeleccionada.propiedadId
-              ? { ...p, _count: { unidades: Math.max(0, p._count.unidades - 1) } }
-              : p
-          );
-          setPropiedades(updatedProps);
-          recalcStats(updatedUnidades, updatedProps);
-          setUnidadModal(null);
-          setUnidadSeleccionada(null);
-          toast.success("Espacio eliminado.");
+          if (res.inactivada && res.data) {
+            const actualizada = res.data as UnidadConPropiedad;
+            const updatedUnidades = unidades.map((u) =>
+              u.id === unidadSeleccionada.id ? actualizada : u
+            );
+            setUnidades(updatedUnidades);
+            recalcStats(updatedUnidades, propiedades);
+            setUnidadModal(null);
+            setUnidadSeleccionada(null);
+            toast.success(
+              res.message || `Espacio "${actualizada.codigo}" marcado como INACTIVO.`
+            );
+          } else {
+            const updatedUnidades = unidades.filter((u) => u.id !== unidadSeleccionada.id);
+            setUnidades(updatedUnidades);
+            const updatedProps = propiedades.map((p) =>
+              p.id === unidadSeleccionada.propiedadId
+                ? { ...p, _count: { unidades: Math.max(0, p._count.unidades - 1) } }
+                : p
+            );
+            setPropiedades(updatedProps);
+            recalcStats(updatedUnidades, updatedProps);
+            setUnidadModal(null);
+            setUnidadSeleccionada(null);
+            toast.success(res.message || "Espacio eliminado permanentemente.");
+          }
         } else {
           toast.error(res.error || "No se pudo eliminar el espacio.");
         }
       } catch {
-        toast.error("Error al eliminar el espacio.");
+        toast.error("Error al procesar la solicitud del espacio.");
       }
     });
   };
@@ -655,7 +828,11 @@ export function PropiedadesClient({
 
                 <button
                   type="button"
-                  onClick={() => setIsDropdownTipoOpen((prev) => !prev)}
+                  onClick={() => {
+                    setIsDropdownTipoOpen((prev) => !prev);
+                    setIsDropdownPropiedadOpen(false);
+                    setIsDropdownEstadoUnidadOpen(false);
+                  }}
                   className="w-full sm:w-auto flex items-center justify-between gap-2 px-3 sm:px-3.5 h-10 text-xs sm:text-sm font-medium border border-slate-200 rounded-xl bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50 transition-all shadow-2xs cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#1C2539]/20"
                 >
                   <div className="flex items-center gap-2 truncate">
@@ -736,9 +913,10 @@ export function PropiedadesClient({
               </div>
             )}
 
-            {/* Filtros para pestaña Espacios (Selector de Inmueble) */}
+            {/* Filtros para pestaña Espacios (Selector de Inmueble y Selector de Estado) */}
             {activeTab === "unidades" && (
-              <div className="flex items-center gap-2 w-full sm:w-auto">
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
+                {/* 1. Selector de Inmueble */}
                 <div ref={dropdownPropiedadRef} className="relative w-full sm:w-auto">
                   <select
                     value={filtroPropiedad}
@@ -758,10 +936,14 @@ export function PropiedadesClient({
 
                   <button
                     type="button"
-                    onClick={() => setIsDropdownPropiedadOpen((prev) => !prev)}
+                    onClick={() => {
+                      setIsDropdownPropiedadOpen((prev) => !prev);
+                      setIsDropdownEstadoUnidadOpen(false);
+                      setIsDropdownTipoOpen(false);
+                    }}
                     className="w-full sm:w-auto flex items-center justify-between gap-2 px-3 sm:px-3.5 h-10 text-xs sm:text-sm font-medium border border-slate-200 rounded-xl bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50 transition-all shadow-2xs cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#1C2539]/20"
                   >
-                    <div className="flex items-center gap-2 truncate sm:max-w-[200px]">
+                    <div className="flex items-center gap-2 truncate sm:max-w-[180px]">
                       <Building2 className="w-4 h-4 text-slate-500 shrink-0" />
                       <span className="truncate">
                         {propiedadActivaFiltro ? propiedadActivaFiltro.nombre : "Todos los inmuebles"}
@@ -840,6 +1022,148 @@ export function PropiedadesClient({
                     </div>
                   )}
                 </div>
+
+                {/* 2. Selector de Estado de Espacio */}
+                <div ref={dropdownEstadoUnidadRef} className="relative w-full sm:w-auto">
+                  {/* Capa móvil nativa para iOS y Android */}
+                  <select
+                    value={filtroEstadoUnidad}
+                    onChange={(e) => setFiltroEstadoUnidad(e.target.value)}
+                    className="md:hidden absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                    aria-label="Filtrar por estado del espacio"
+                  >
+                    <option value="ACTIVOS">
+                      Activos / Operativos ({estadosUnidadDisponibles[0]?.count ?? 0})
+                    </option>
+                    <option value="TODOS">
+                      Todos los estados ({unidades.length})
+                    </option>
+                    {estadosUnidadDisponibles.slice(1).map((opt) => (
+                      <option key={opt.value} value={opt.value}>
+                        {opt.label} ({opt.count})
+                      </option>
+                    ))}
+                  </select>
+
+                  {/* Botón Desktop */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsDropdownEstadoUnidadOpen((prev) => !prev);
+                      setIsDropdownPropiedadOpen(false);
+                      setIsDropdownTipoOpen(false);
+                    }}
+                    className="w-full sm:w-auto flex items-center justify-between gap-2 px-3 sm:px-3.5 h-10 text-xs sm:text-sm font-medium border border-slate-200 rounded-xl bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50 transition-all shadow-2xs cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#1C2539]/20"
+                  >
+                    <div className="flex items-center gap-2 truncate">
+                      {React.createElement(estadoUnidadActivoConfig.icon, {
+                        className: "w-4 h-4 text-slate-500 shrink-0",
+                      })}
+                      <span className="truncate">{estadoUnidadActivoConfig.label}</span>
+                    </div>
+                    <ChevronDown
+                      className={`w-3.5 h-3.5 text-slate-400 shrink-0 transition-transform duration-200 ml-1 ${
+                        isDropdownEstadoUnidadOpen ? "rotate-180" : ""
+                      }`}
+                    />
+                  </button>
+
+                  {/* Menú flotante Desktop Estado */}
+                  {isDropdownEstadoUnidadOpen && (
+                    <div className="hidden md:block absolute right-0 top-full mt-1.5 w-64 bg-white border border-slate-200/90 rounded-xl shadow-xl py-1.5 z-50 animate-in fade-in-0 zoom-in-95 duration-100">
+                      {/* Opción Por Defecto: Activos / Operativos */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setFiltroEstadoUnidad("ACTIVOS");
+                          setIsDropdownEstadoUnidadOpen(false);
+                        }}
+                        className={`w-full flex items-center justify-between px-3 py-2 text-xs sm:text-sm transition-colors cursor-pointer ${
+                          filtroEstadoUnidad === "ACTIVOS"
+                            ? "bg-slate-50 text-slate-900 font-semibold"
+                            : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+                        }`}
+                      >
+                        <div className="flex items-center gap-2 truncate">
+                          <CheckCircle2 className="w-4 h-4 text-[#175E38] shrink-0" />
+                          <span className="truncate">Activos / Operativos</span>
+                        </div>
+                        <div className="flex items-center gap-1.5 shrink-0 ml-2">
+                          <span className="text-[11px] font-medium bg-emerald-50 text-emerald-800 border border-emerald-200/80 px-1.5 py-0.5 rounded-full">
+                            {unidades.filter((u) => u.estado !== EstadoUnidad.INACTIVO).length}
+                          </span>
+                          {filtroEstadoUnidad === "ACTIVOS" && <Check className="w-3.5 h-3.5 text-[#175E38]" />}
+                        </div>
+                      </button>
+
+                      <div className="my-1 border-t border-slate-100" />
+
+                      {/* Estados individuales: Disponibles, Ocupados, Mantenimiento, Inactivos */}
+                      {estadosUnidadDisponibles.slice(1).map((opt) => {
+                        const isSelected = filtroEstadoUnidad === opt.value;
+                        const IconComponent = opt.icon;
+                        const esInactivoOpt = opt.value === EstadoUnidad.INACTIVO;
+                        return (
+                          <button
+                            key={opt.value}
+                            type="button"
+                            onClick={() => {
+                              setFiltroEstadoUnidad(opt.value);
+                              setIsDropdownEstadoUnidadOpen(false);
+                            }}
+                            className={`w-full flex items-center justify-between px-3 py-2 text-xs sm:text-sm transition-colors cursor-pointer ${
+                              isSelected
+                                ? "bg-slate-50 text-slate-900 font-semibold"
+                                : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+                            }`}
+                          >
+                            <div className="flex items-center gap-2 truncate">
+                              <IconComponent className={`w-4 h-4 shrink-0 ${esInactivoOpt ? "text-rose-500" : "text-slate-400"}`} />
+                              <span className={`truncate ${esInactivoOpt ? "text-rose-950 font-medium" : ""}`}>{opt.label}</span>
+                            </div>
+                            <div className="flex items-center gap-1.5 shrink-0 ml-2">
+                              <span className={`text-[11px] font-medium px-1.5 py-0.5 rounded-full ${
+                                esInactivoOpt && opt.count > 0
+                                  ? "bg-rose-50 text-rose-700 border border-rose-200"
+                                  : "bg-slate-100 text-slate-600"
+                              }`}>
+                                {opt.count}
+                              </span>
+                              {isSelected && <Check className="w-3.5 h-3.5 text-[#175E38]" />}
+                            </div>
+                          </button>
+                        );
+                      })}
+
+                      <div className="my-1 border-t border-slate-100" />
+
+                      {/* Opción Todos los estados */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setFiltroEstadoUnidad("TODOS");
+                          setIsDropdownEstadoUnidadOpen(false);
+                        }}
+                        className={`w-full flex items-center justify-between px-3 py-2 text-xs sm:text-sm transition-colors cursor-pointer ${
+                          filtroEstadoUnidad === "TODOS"
+                            ? "bg-slate-50 text-slate-900 font-semibold"
+                            : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+                        }`}
+                      >
+                        <div className="flex items-center gap-2 truncate">
+                          <Layers className="w-4 h-4 text-slate-400 shrink-0" />
+                          <span className="truncate">Todos los estados</span>
+                        </div>
+                        <div className="flex items-center gap-1.5 shrink-0 ml-2">
+                          <span className="text-[11px] font-medium bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded-full">
+                            {unidades.length}
+                          </span>
+                          {filtroEstadoUnidad === "TODOS" && <Check className="w-3.5 h-3.5 text-[#175E38]" />}
+                        </div>
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
             )}
           </div>
@@ -852,6 +1176,8 @@ export function PropiedadesClient({
           propiedades={propiedades}
           propiedadesFiltradas={propiedadesFiltradas}
           isPending={isPending}
+          vistaArchivadas={vistaPropiedadesArchivadas}
+          onToggleVistaArchivadas={setVistaPropiedadesArchivadas}
           onAbrirCrearPropiedad={abrirModalCrearPropiedad}
           onEditarPropiedad={(prop) => {
             setPropiedadSeleccionada(prop);
@@ -861,6 +1187,7 @@ export function PropiedadesClient({
             setPropiedadSeleccionada(prop);
             setPropiedadModal("eliminar");
           }}
+          onReactivarPropiedad={handleReactivarPropiedad}
           onIrAEspacios={irAEspaciosDePropiedad}
           onAbrirCrearUnidad={abrirModalCrearUnidad}
           onLimpiarFiltros={() => {
@@ -879,6 +1206,7 @@ export function PropiedadesClient({
           gruposPorPropiedad={gruposPorPropiedad}
           busqueda={busqueda}
           filtroPropiedad={filtroPropiedad}
+          filtroEstadoUnidad={filtroEstadoUnidad}
           propiedadActivaFiltro={propiedadActivaFiltro}
           propiedadesDesplegadas={propiedadesDesplegadas}
           propiedadesCargadas={propiedadesCargadas}
@@ -889,6 +1217,7 @@ export function PropiedadesClient({
             setPaginasPorPropiedad((p) => ({ ...p, [propId]: page }))
           }
           onSetFiltroPropiedad={setFiltroPropiedad}
+          onSetFiltroEstadoUnidad={setFiltroEstadoUnidad}
           onLimpiarBusqueda={() => setBusqueda("")}
           onAbrirCrearUnidad={abrirModalCrearUnidad}
           onAbrirCrearPropiedad={() => abrirModalCrearPropiedad()}
@@ -932,47 +1261,196 @@ export function PropiedadesClient({
         />
       </Modal>
 
-      {/* Modal Eliminar Propiedad */}
+      {/* Modal Eliminar / Archivar Propiedad */}
       <Modal
         isOpen={propiedadModal === "eliminar"}
         onClose={() => {
           setPropiedadModal(null);
           setPropiedadSeleccionada(null);
         }}
-        title="Eliminar Propiedad"
-        headerVariant="red"
+        title={
+          unidadesConContratosActivos.length > 0
+            ? "Eliminación Bloqueada por Contratos Vigentes"
+            : historialContratosPropiedad > 0
+            ? "Archivar Inmueble"
+            : "Eliminar Inmueble Definitivamente"
+        }
+        icon={
+          unidadesConContratosActivos.length > 0
+            ? ShieldAlert
+            : historialContratosPropiedad > 0
+            ? Archive
+            : Trash2
+        }
+        headerVariant={
+          unidadesConContratosActivos.length > 0
+            ? "red"
+            : historialContratosPropiedad > 0
+            ? "default"
+            : "red"
+        }
         maxWidth="md"
       >
-        <div className="space-y-4">
-          <p className="text-sm text-slate-600">
-            ¿Estás seguro de que deseas eliminar permanentemente la propiedad{" "}
-            <strong className="text-slate-900">{propiedadSeleccionada?.nombre}</strong>?
-          </p>
-          {propiedadSeleccionada && propiedadSeleccionada._count.unidades > 0 && (
-            <div className="p-3.5 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-800 leading-relaxed">
-              ⚠️ Esta propiedad contiene <strong>{propiedadSeleccionada._count.unidades}</strong>{" "}
-              espacio(s) asociado(s). Al eliminarla, se eliminarán también todas sus unidades y fotos.
+        {unidadesConContratosActivos.length > 0 ? (
+          /* CASO 1: Bloqueo estricto por contratos activos */
+          <div className="space-y-4">
+            <p className="text-sm text-slate-700 leading-relaxed">
+              No es posible eliminar ni archivar el inmueble{" "}
+              <strong className="text-slate-900 font-bold">{propiedadSeleccionada?.nombre}</strong>{" "}
+              porque tiene <strong>{unidadesConContratosActivos.length}</strong> espacio(s) con contratos vigentes en curso.
+            </p>
+
+            <div className="p-3.5 bg-rose-50 border border-rose-200/90 rounded-xl space-y-2 text-xs text-rose-900">
+              <p className="font-bold flex items-center gap-1.5 text-rose-800">
+                <ShieldAlert className="w-4 h-4 text-[#CC1A22] shrink-0" />
+                Espacios ocupados con alquileres activos:
+              </p>
+              <ul className="space-y-1.5 pl-4 list-disc text-rose-800/90">
+                {unidadesConContratosActivos.map((u) => {
+                  const contrato = u.contratos ? u.contratos[0] : null;
+                  return (
+                    <li key={u.id} className="leading-snug">
+                      <span className="font-bold text-rose-950">Espacio {u.codigo}</span>
+                      {contrato && (
+                        <>
+                          {" "}— Contrato{" "}
+                          <span className="font-semibold text-rose-900">#{contrato.codigo}</span> (
+                          {contrato.inquilino.nombre} {contrato.inquilino.apellido ?? ""})
+                        </>
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
             </div>
-          )}
-          <div className="flex justify-end gap-3 pt-2">
-            <button
-              onClick={() => {
-                setPropiedadModal(null);
-                setPropiedadSeleccionada(null);
-              }}
-              className="px-4 py-2 text-sm font-semibold text-slate-700 border border-slate-200 rounded-xl hover:bg-slate-50 transition-colors cursor-pointer"
-            >
-              Cancelar
-            </button>
-            <button
-              onClick={handleEliminarPropiedad}
-              disabled={isPending}
-              className="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold text-white bg-[#CC1A22] rounded-xl hover:bg-[#a81219] transition-colors disabled:opacity-50 cursor-pointer"
-            >
-              {isPending ? <RefreshCw className="w-4 h-4 animate-spin" /> : "Eliminar Definitivamente"}
-            </button>
+
+            <p className="text-xs text-slate-500 leading-relaxed">
+              Para poder archivar este inmueble, primero debes finalizar o rescindir sus contratos desde el módulo de contratos.
+            </p>
+
+            <div className="flex flex-col-reverse sm:flex-row sm:items-center sm:justify-end gap-2.5 pt-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setPropiedadModal(null);
+                  setPropiedadSeleccionada(null);
+                }}
+                className="w-full sm:w-auto px-4 py-2 text-sm font-semibold text-slate-700 border border-slate-200 rounded-xl hover:bg-slate-50 transition-colors cursor-pointer"
+              >
+                Entendido
+              </button>
+              <Link
+                href="/admin/contratos"
+                onClick={() => {
+                  setPropiedadModal(null);
+                  setPropiedadSeleccionada(null);
+                }}
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 px-4 py-2 text-sm font-bold text-white bg-[#1C2539] hover:bg-[#2a3754] rounded-xl transition-all cursor-pointer shadow-xs active:translate-y-0.5"
+              >
+                <span>Ir a Contratos</span>
+                <ExternalLink className="w-3.5 h-3.5" />
+              </Link>
+            </div>
           </div>
-        </div>
+        ) : historialContratosPropiedad > 0 ? (
+          /* CASO 2: Archivado Integral (Soft-Delete) por historial contable */
+          <div className="space-y-4">
+            <p className="text-sm text-slate-700 leading-relaxed">
+              ¿Deseas archivar el inmueble{" "}
+              <strong className="text-slate-900 font-bold">{propiedadSeleccionada?.nombre}</strong>?
+            </p>
+
+            <div className="p-3.5 bg-blue-50/90 border border-blue-200 rounded-xl space-y-2 text-xs text-blue-900 leading-relaxed">
+              <div className="flex items-center gap-1.5 font-bold text-blue-800">
+                <Archive className="w-4 h-4 text-blue-700 shrink-0" />
+                <span>Protección de Historial Contable</span>
+              </div>
+              <p>
+                Este inmueble cuenta con <strong>{historialContratosPropiedad}</strong> contrato(s) en su historial. Por trazabilidad legal y financiera, no puede eliminarse de forma física.
+              </p>
+              <p className="text-blue-800/80 font-medium">
+                Al archivar, el inmueble se moverá a la pestaña de <strong>Archivados</strong> y sus {propiedadSeleccionada?._count.unidades ?? 0} espacio(s) pasarán a estado <strong>Inactivo</strong>. Podrás reactivarlo en cualquier momento.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2 sm:flex sm:justify-end sm:gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setPropiedadModal(null);
+                  setPropiedadSeleccionada(null);
+                }}
+                disabled={isPending}
+                className="w-full sm:w-auto px-4 py-2 text-sm font-semibold text-slate-700 border border-slate-200 rounded-xl hover:bg-slate-50 transition-colors cursor-pointer"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handleEliminarPropiedad}
+                disabled={isPending}
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-bold text-white bg-[#1C2539] hover:bg-[#2a3754] rounded-xl transition-all disabled:opacity-50 cursor-pointer shadow-xs active:translate-y-0.5"
+              >
+                {isPending ? (
+                  <RefreshCw className="w-4 h-4 animate-spin" />
+                ) : (
+                  <>
+                    <Archive className="w-4 h-4" />
+                    <span>Archivar Inmueble</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        ) : (
+          /* CASO 3: Eliminación física definitiva para propiedad virgen (0 contratos) */
+          <div className="space-y-4">
+            <p className="text-sm text-slate-700 leading-relaxed">
+              ¿Estás seguro de que deseas eliminar permanentemente el inmueble{" "}
+              <strong className="text-slate-900 font-bold">{propiedadSeleccionada?.nombre}</strong>?
+            </p>
+
+            <div className="p-3.5 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-800 leading-relaxed space-y-1">
+              <p className="font-bold flex items-center gap-1.5 text-rose-900">
+                <Trash2 className="w-4 h-4 text-[#CC1A22] shrink-0" />
+                Acción destructiva irreversible
+              </p>
+              <p>
+                Este inmueble no posee contratos asociados. Se eliminarán permanentemente el inmueble, sus{" "}
+                <strong>{propiedadSeleccionada?._count.unidades ?? 0}</strong> espacio(s) y sus archivos multimedia.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2 sm:flex sm:justify-end sm:gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setPropiedadModal(null);
+                  setPropiedadSeleccionada(null);
+                }}
+                disabled={isPending}
+                className="w-full sm:w-auto px-4 py-2 text-sm font-semibold text-slate-700 border border-slate-200 rounded-xl hover:bg-slate-50 transition-colors cursor-pointer"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handleEliminarPropiedad}
+                disabled={isPending}
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-bold text-white bg-[#CC1A22] rounded-xl hover:bg-[#a81219] transition-colors disabled:opacity-50 cursor-pointer shadow-xs active:translate-y-0.5"
+              >
+                {isPending ? (
+                  <RefreshCw className="w-4 h-4 animate-spin" />
+                ) : (
+                  <>
+                    <Trash2 className="w-4 h-4" />
+                    <span>Eliminar Definitivamente</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        )}
       </Modal>
 
       {/* Modal Unidad / Espacio (Crear / Editar) */}
@@ -1017,22 +1495,44 @@ export function PropiedadesClient({
         />
       </Modal>
 
-      {/* Modal Eliminar Unidad */}
+      {/* Modal Eliminar / Inactivar Unidad */}
       <Modal
         isOpen={unidadModal === "eliminar"}
         onClose={() => {
           setUnidadModal(null);
           setUnidadSeleccionada(null);
         }}
-        title="Eliminar Espacio"
+        title={
+          unidadSeleccionada?.contratos && unidadSeleccionada.contratos.length > 0
+            ? "Espacio con Contrato Vigente"
+            : (unidadSeleccionada?._count?.contratos ?? 0) > 0
+            ? "Inactivar Espacio"
+            : "Eliminar Espacio"
+        }
         headerVariant="red"
       >
         <div className="space-y-4">
           <p className="text-sm text-slate-600">
-            ¿Estás seguro de que deseas eliminar el espacio{" "}
+            ¿Deseas retirar el espacio{" "}
             <strong className="text-slate-900">{unidadSeleccionada?.codigo}</strong> de la propiedad{" "}
             <strong className="text-slate-900">{unidadSeleccionada?.propiedad.nombre}</strong>?
           </p>
+
+          {unidadSeleccionada?.contratos && unidadSeleccionada.contratos.length > 0 ? (
+            <div className="p-3.5 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-800 leading-relaxed">
+              ⚠️ <strong>Contrato de arrendamiento vigente:</strong> Este espacio está ocupado con el contrato{" "}
+              <strong>{unidadSeleccionada.contratos[0].codigo}</strong>. No puede ser eliminado ni inactivado hasta que el contrato sea finalizado o rescindido formalmente.
+            </div>
+          ) : (unidadSeleccionada?._count?.contratos ?? 0) > 0 ? (
+            <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-600 leading-relaxed">
+              🛡️ <strong>Preservación contable:</strong> Este espacio posee contratos en su historial contable. No será borrado de la base de datos para no romper los contratos antiguos y recibos. Pasará a estado <strong>INACTIVO</strong> y no aparecerá en el catálogo para ser alquilado.
+            </div>
+          ) : (
+            <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-600 leading-relaxed">
+              Este espacio no posee contratos en su historial. Se eliminará de forma segura y permanente junto a sus imágenes asociadas.
+            </div>
+          )}
+
           <div className="flex justify-end gap-3 pt-2">
             <button
               onClick={() => {
@@ -1045,10 +1545,16 @@ export function PropiedadesClient({
             </button>
             <button
               onClick={handleEliminarUnidad}
-              disabled={isPending}
+              disabled={isPending || (unidadSeleccionada?.contratos?.length ?? 0) > 0}
               className="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold text-white bg-[#CC1A22] rounded-xl hover:bg-[#a81219] transition-colors disabled:opacity-50 cursor-pointer"
             >
-              {isPending ? <RefreshCw className="w-4 h-4 animate-spin" /> : "Eliminar Espacio"}
+              {isPending ? (
+                <RefreshCw className="w-4 h-4 animate-spin" />
+              ) : (unidadSeleccionada?._count?.contratos ?? 0) > 0 ? (
+                "Inactivar Espacio"
+              ) : (
+                "Eliminar Espacio"
+              )}
             </button>
           </div>
         </div>

@@ -1,10 +1,16 @@
 import type { NextConfig } from "next";
 
+// Recarga de configuración y esquema de base de datos
 const nextConfig: NextConfig = {
   // Habilita compresión Gzip nativa para respuestas del servidor
   compress: true,
   // Elimina encabezado X-Powered-By para reducir bytes transferidos
   poweredByHeader: false,
+  // Silencia el registro verboso de peticiones HTTP y Server Actions en la terminal
+  logging: {
+    incomingRequests: false,
+    serverFunctions: false,
+  },
   // Optimización de imágenes para reducir Fast Data Transfer en Vercel
   images: {
     formats: ["image/avif", "image/webp"],

@@ -48,7 +48,7 @@ export default async function InquilinoDashboardPage() {
           <h2 className="text-sm font-bold text-slate-800 group-hover:text-emerald-600 transition-colors">
             Mi Contrato Vigente
           </h2>
-          <p className="text-xs text-slate-500 mt-1">Revisa las cláusulas, montos de canon y fechas de vigencia.</p>
+          <p className="text-xs text-slate-500 mt-1">Revisa las cláusulas, montos de mensualidad y fechas de vigencia.</p>
         </Link>
 
         <Link

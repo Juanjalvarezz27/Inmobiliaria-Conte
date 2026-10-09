@@ -13,14 +13,17 @@ function createPrismaClient(): PrismaClient {
     ],
   });
 
-  // Filtrar desconexiones rutinarias por reposo de Neon Serverless (E57P01 / administrator command)
-  // para evitar ruido y mensajes intimidantes en la consola
+  // Filtrar desconexiones rutinarias por reposo de Neon Serverless (E57P01 / administrator command / idle timeout)
+  // para evitar ruido y falsas alarmas en la consola
   client.$on("error", (e) => {
     const msg = e.message || "";
     if (
       msg.includes("administrator command") ||
       msg.includes("E57P01") ||
-      msg.includes("closed the connection unexpectedly")
+      msg.includes("closed the connection unexpectedly") ||
+      msg.includes("kind: Closed") ||
+      msg.includes("kind: UnexpectedEof") ||
+      msg.includes("Closed, cause: None")
     ) {
       return;
     }
@@ -29,7 +32,12 @@ function createPrismaClient(): PrismaClient {
 
   client.$on("warn", (e) => {
     const msg = e.message || "";
-    if (msg.includes("administrator command")) return;
+    if (
+      msg.includes("administrator command") ||
+      msg.includes("kind: Closed")
+    ) {
+      return;
+    }
     console.warn("[Prisma Warning]:", msg);
   });
 

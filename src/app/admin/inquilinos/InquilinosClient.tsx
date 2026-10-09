@@ -11,7 +11,8 @@ import {
   CreditCard,
   Mail,
   Pencil,
-  Trash2,
+  Archive,
+  RotateCcw,
   X,
   RefreshCw,
   FileText,
@@ -33,7 +34,9 @@ import { InquilinoDetalleModal } from "./InquilinoDetalleModal";
 import {
   createInquilino,
   updateInquilino,
-  deleteInquilino,
+  archivarInquilino,
+  reactivarInquilino,
+  getInquilinoDetalle,
   type CreateInquilinoInput,
   type UpdateInquilinoInput,
 } from "@/lib/actions/inquilinos";
@@ -68,6 +71,7 @@ export function InquilinosClient({
   const router = useRouter();
   const [inquilinos, setInquilinos] = useState(initialInquilinos);
   const [stats, setStats] = useState(initialStats);
+  const [vistaArchivados, setVistaArchivados] = useState(false);
   const [busqueda, setBusqueda] = useState("");
   const [filtroTipo, setFiltroTipo] = useState<string>("TODOS");
   const [filtroContrato, setFiltroContrato] = useState<string>("TODOS");
@@ -177,6 +181,33 @@ export function InquilinosClient({
 
   const [modalMode, setModalMode] = useState<ModalMode>(null);
   const [inquilinoSeleccionado, setInquilinoSeleccionado] = useState<InquilinoConContratos | null>(null);
+  const [isLoadingDetalle, setIsLoadingDetalle] = useState(false);
+
+  // Apertura lazy de ficha con carga en segundo plano de solvencia y contratos
+  const abrirDetalle = async (inq: InquilinoConContratos) => {
+    setInquilinoSeleccionado(inq);
+    setModalMode("detalle");
+    const tienePagosCargados = inq.contratos?.some(
+      (c) => c.pagos && c.pagos.length > 0
+    );
+    if (!tienePagosCargados) {
+      setIsLoadingDetalle(true);
+    }
+    try {
+      const res = await getInquilinoDetalle(inq.id);
+      if (res.success && res.data) {
+        const full = res.data as unknown as InquilinoConContratos;
+        setInquilinoSeleccionado(full);
+        setInquilinos((prev) =>
+          prev.map((item) => (item.id === inq.id ? full : item))
+        );
+      }
+    } catch (err) {
+      console.error("Error al cargar detalle del inquilino:", err);
+    } finally {
+      setIsLoadingDetalle(false);
+    }
+  };
 
   const [isPending, startTransition] = useTransition();
 
@@ -184,33 +215,40 @@ export function InquilinosClient({
   const recalcStats = (updated: InquilinoConContratos[]) => {
     const total = updated.length;
     const activos = updated.filter((i) => i.activo).length;
-    const conContratosActivos = updated.filter((i) => i._count.contratos > 0).length;
+    const archivados = total - activos;
+    const conContratosActivos = updated.filter((i) => i.activo && i._count.contratos > 0).length;
     setStats({
       total,
       activos,
+      archivados,
       conContratosActivos,
-      sinContrato: total - conContratosActivos,
+      sinContrato: activos - conContratosActivos,
     });
   };
 
   // Paginación local de 15 en 15 (Ultra liviana para el servidor y el navegador)
   const PAGE_SIZE = 15;
   const [paginaActual, setPaginaActual] = useState(1);
-  const [prevFiltros, setPrevFiltros] = useState({ busqueda, filtroTipo, filtroContrato });
+  const [prevFiltros, setPrevFiltros] = useState({ busqueda, filtroTipo, filtroContrato, vistaArchivados });
 
   // Resetear página durante el render si cambiaron los filtros o búsqueda
   if (
     prevFiltros.busqueda !== busqueda ||
     prevFiltros.filtroTipo !== filtroTipo ||
-    prevFiltros.filtroContrato !== filtroContrato
+    prevFiltros.filtroContrato !== filtroContrato ||
+    prevFiltros.vistaArchivados !== vistaArchivados
   ) {
-    setPrevFiltros({ busqueda, filtroTipo, filtroContrato });
+    setPrevFiltros({ busqueda, filtroTipo, filtroContrato, vistaArchivados });
     setPaginaActual(1);
   }
 
   // Filtrado de inquilinos
   const inquilinosFiltrados = useMemo(() => {
     return inquilinos.filter((inq) => {
+      // Filtro de pestaña activa vs archivados
+      const coincideActivo = vistaArchivados ? !inq.activo : inq.activo;
+      if (!coincideActivo) return false;
+
       const q = busqueda.toLowerCase().trim();
       const coincideBusqueda =
         !q ||
@@ -230,7 +268,7 @@ export function InquilinosClient({
 
       return coincideBusqueda && coincideTipo && coincideContrato;
     });
-  }, [inquilinos, busqueda, filtroTipo, filtroContrato]);
+  }, [inquilinos, vistaArchivados, busqueda, filtroTipo, filtroContrato]);
 
   // Segmentación por página
   const totalPaginas = Math.ceil(inquilinosFiltrados.length / PAGE_SIZE);
@@ -244,7 +282,8 @@ export function InquilinosClient({
     startTransition(async () => {
       const res = await createInquilino(data as CreateInquilinoInput);
       if (res.success && res.data) {
-        const nuevaLista = [res.data as InquilinoConContratos, ...inquilinos];
+        const nuevoInquilino = res.data as unknown as InquilinoConContratos;
+        const nuevaLista = [nuevoInquilino, ...inquilinos];
         setInquilinos(nuevaLista);
         recalcStats(nuevaLista);
         setModalMode(null);
@@ -260,8 +299,9 @@ export function InquilinosClient({
     startTransition(async () => {
       const res = await updateInquilino(inquilinoSeleccionado.id, data as UpdateInquilinoInput);
       if (res.success && res.data) {
+        const actualizado = res.data as unknown as InquilinoConContratos;
         const nuevaLista = inquilinos.map((i) =>
-          i.id === inquilinoSeleccionado.id ? (res.data as InquilinoConContratos) : i
+          i.id === inquilinoSeleccionado.id ? actualizado : i
         );
         setInquilinos(nuevaLista);
         recalcStats(nuevaLista);
@@ -274,19 +314,46 @@ export function InquilinosClient({
     });
   };
 
-  const handleEliminar = () => {
+  const handleArchivar = () => {
     if (!inquilinoSeleccionado) return;
     startTransition(async () => {
-      const res = await deleteInquilino(inquilinoSeleccionado.id);
-      if (res.success) {
-        const nuevaLista = inquilinos.filter((i) => i.id !== inquilinoSeleccionado.id);
+      const tieneContratos = (inquilinoSeleccionado._count.contratos ?? 0) > 0;
+      const res = await archivarInquilino(inquilinoSeleccionado.id, {
+        rescindirContratos: tieneContratos,
+      });
+      if (res.success && res.data) {
+        const actualizado = res.data as unknown as InquilinoConContratos;
+        const nuevaLista = inquilinos.map((i) =>
+          i.id === inquilinoSeleccionado.id ? actualizado : i
+        );
         setInquilinos(nuevaLista);
         recalcStats(nuevaLista);
         setModalMode(null);
         setInquilinoSeleccionado(null);
-        toast.success("Inquilino eliminado.");
+        toast.success(
+          tieneContratos
+            ? "Inquilino archivado y contratos rescindidos exitosamente. Espacios liberados a disponible."
+            : "Inquilino archivado exitosamente. Todo su historial contable se conserva intacto."
+        );
       } else {
-        toast.error(res.error || "No se pudo eliminar el inquilino.");
+        toast.error(res.error || "No se pudo archivar el inquilino.");
+      }
+    });
+  };
+
+  const handleReactivar = (inq: InquilinoConContratos) => {
+    startTransition(async () => {
+      const res = await reactivarInquilino(inq.id);
+      if (res.success && res.data) {
+        const actualizado = res.data as unknown as InquilinoConContratos;
+        const nuevaLista = inquilinos.map((i) =>
+          i.id === inq.id ? actualizado : i
+        );
+        setInquilinos(nuevaLista);
+        recalcStats(nuevaLista);
+        toast.success(`Inquilino "${inq.nombre}" reactivado exitosamente.`);
+      } else {
+        toast.error(res.error || "No se pudo reactivar el inquilino.");
       }
     });
   };
@@ -325,7 +392,7 @@ export function InquilinosClient({
           value={stats.activos}
           icon={UserCheck}
           color="emerald"
-          subtitle="en base de datos"
+          subtitle="en operaciones"
         />
         <StatCard
           title="Con Alquileres"
@@ -335,12 +402,53 @@ export function InquilinosClient({
           subtitle="con contrato vigente"
         />
         <StatCard
-          title="Sin Contrato"
-          value={stats.sinContrato}
-          icon={User}
+          title="Archivados"
+          value={stats.archivados ?? 0}
+          icon={Archive}
           color="amber"
-          subtitle="pendientes por asignar"
+          subtitle="histórico preservado"
         />
+      </div>
+
+      {/* Selector de Pestañas: Activos vs Archivados */}
+      <div className="flex items-center gap-2 p-1 bg-slate-200/80 rounded-2xl w-fit shadow-2xs">
+        <button
+          type="button"
+          onClick={() => {
+            setVistaArchivados(false);
+            setPaginaActual(1);
+          }}
+          className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer ${
+            !vistaArchivados
+              ? "bg-white text-slate-900 shadow-xs"
+              : "text-slate-600 hover:text-slate-900"
+          }`}
+        >
+          <Users className="w-4 h-4 text-[#175E38]" />
+          <span>Inquilinos Activos</span>
+          <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-emerald-50 text-[#175E38] border border-emerald-200">
+            {stats.activos}
+          </span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => {
+            setVistaArchivados(true);
+            setPaginaActual(1);
+          }}
+          className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer ${
+            vistaArchivados
+              ? "bg-white text-slate-900 shadow-xs"
+              : "text-slate-600 hover:text-slate-900"
+          }`}
+        >
+          <Archive className="w-4 h-4 text-amber-600" />
+          <span>Archivados / Inactivos</span>
+          <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-amber-50 text-amber-800 border border-amber-200">
+            {stats.archivados ?? 0}
+          </span>
+        </button>
       </div>
 
       {/* Barra de Búsqueda y Filtros */}
@@ -675,25 +783,43 @@ export function InquilinosClient({
                           </div>
                         </div>
 
-                        {/* Eliminar */}
-                        <div className="relative group/btn">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setInquilinoSeleccionado(inq);
-                              setModalMode("eliminar");
-                            }}
-                            disabled={isPending}
-                            title="Eliminar inquilino"
-                            aria-label="Eliminar inquilino"
-                            className="w-8 h-8 rounded-xl bg-rose-50 text-rose-600 border border-rose-200/90 hover:bg-rose-100 hover:border-rose-300 hover:text-rose-800 flex items-center justify-center transition-all cursor-pointer shadow-2xs hover:scale-105 active:scale-95"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                          <div className="pointer-events-none absolute top-full mt-1.5 right-0 px-2 py-0.5 bg-[#1C2539] text-white text-[10px] font-semibold rounded-md shadow-lg opacity-0 group-hover/btn:opacity-100 transition-opacity duration-150 whitespace-nowrap z-30">
-                            <span>Eliminar</span>
+                        {/* Reactivar o Archivar */}
+                        {vistaArchivados ? (
+                          <div className="relative group/btn">
+                            <button
+                              type="button"
+                              onClick={() => handleReactivar(inq)}
+                              disabled={isPending}
+                              title="Reactivar inquilino"
+                              aria-label="Reactivar inquilino"
+                              className="w-8 h-8 rounded-xl bg-emerald-50 text-[#175E38] border border-emerald-200/90 hover:bg-emerald-100 hover:border-emerald-300 hover:text-[#124b2d] flex items-center justify-center transition-all cursor-pointer shadow-2xs hover:scale-105 active:scale-95"
+                            >
+                              <RotateCcw className="w-3.5 h-3.5" />
+                            </button>
+                            <div className="pointer-events-none absolute top-full mt-1.5 right-0 px-2 py-0.5 bg-[#1C2539] text-white text-[10px] font-semibold rounded-md shadow-lg opacity-0 group-hover/btn:opacity-100 transition-opacity duration-150 whitespace-nowrap z-30">
+                              <span>Reactivar</span>
+                            </div>
                           </div>
-                        </div>
+                        ) : (
+                          <div className="relative group/btn">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setInquilinoSeleccionado(inq);
+                                setModalMode("archivar");
+                              }}
+                              disabled={isPending}
+                              title="Archivar inquilino"
+                              aria-label="Archivar inquilino"
+                              className="w-8 h-8 rounded-xl bg-amber-50 text-amber-700 border border-amber-200/90 hover:bg-amber-100 hover:border-amber-300 hover:text-amber-900 flex items-center justify-center transition-all cursor-pointer shadow-2xs hover:scale-105 active:scale-95"
+                            >
+                              <Archive className="w-3.5 h-3.5" />
+                            </button>
+                            <div className="pointer-events-none absolute top-full mt-1.5 right-0 px-2 py-0.5 bg-[#1C2539] text-white text-[10px] font-semibold rounded-md shadow-lg opacity-0 group-hover/btn:opacity-100 transition-opacity duration-150 whitespace-nowrap z-30">
+                              <span>Archivar</span>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     </div>
 
@@ -707,7 +833,11 @@ export function InquilinosClient({
                           <CreditCard className="w-3 h-3 text-slate-400 shrink-0" />
                           <span>{inq.documentoIdentidad}</span>
                         </span>
-                        {inq._count.contratos > 0 ? (
+                        {!inq.activo ? (
+                          <span className="inline-flex items-center gap-1 text-xs font-semibold text-amber-700 bg-amber-50 px-2.5 py-0.5 rounded-md border border-amber-200">
+                            Archivado / Inactivo
+                          </span>
+                        ) : inq._count.contratos > 0 ? (
                           <Badge variant="DISPONIBLE" size="sm">
                             {inq._count.contratos}{" "}
                             {inq._count.contratos === 1 ? "alquiler activo" : "alquileres activos"}
@@ -793,10 +923,7 @@ export function InquilinosClient({
                         {inq.contratos.length > 2 && (
                           <button
                             type="button"
-                            onClick={() => {
-                              setInquilinoSeleccionado(inq);
-                              setModalMode("detalle");
-                            }}
+                            onClick={() => abrirDetalle(inq)}
                             className="text-[10px] font-bold text-slate-500 hover:text-slate-800 transition-colors block text-center w-full pt-0.5 cursor-pointer"
                           >
                             +{inq.contratos.length - 2} espacios más en ficha técnica →
@@ -811,10 +938,7 @@ export function InquilinosClient({
                 <div className="border-t border-slate-100 bg-gradient-to-b from-slate-50/70 to-slate-100/60 p-3 sm:p-3.5 grid grid-cols-2 gap-2 relative z-10">
                   <button
                     type="button"
-                    onClick={() => {
-                      setInquilinoSeleccionado(inq);
-                      setModalMode("detalle");
-                    }}
+                    onClick={() => abrirDetalle(inq)}
                     className="w-full px-2.5 py-2 rounded-xl text-xs font-bold bg-[#1C2539] text-white hover:bg-[#2a3754] transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-xs active:translate-y-0.5"
                     title="Ver ficha técnica completa del inquilino"
                   >
@@ -822,17 +946,30 @@ export function InquilinosClient({
                     <span className="truncate">Ver Ficha</span>
                   </button>
 
-                  <button
-                    type="button"
-                    onClick={() => {
-                      router.push(`/admin/contratos?inquilinoId=${inq.id}`);
-                    }}
-                    className="w-full px-2.5 py-2 rounded-xl text-xs font-bold bg-[#175E38] text-white hover:bg-[#124b2d] transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-[0_2px_6px_rgba(23,94,56,0.3)] active:translate-y-0.5"
-                    title="Crear un nuevo contrato para este inquilino"
-                  >
-                    <Plus className="w-3.5 h-3.5 shrink-0 stroke-[2.5]" />
-                    <span className="truncate">Crear Contrato</span>
-                  </button>
+                  {vistaArchivados ? (
+                    <button
+                      type="button"
+                      onClick={() => handleReactivar(inq)}
+                      disabled={isPending}
+                      className="w-full px-2.5 py-2 rounded-xl text-xs font-bold bg-[#175E38] text-white hover:bg-[#124b2d] transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-[0_2px_6px_rgba(23,94,56,0.3)] active:translate-y-0.5"
+                      title="Reactivar inquilino en operaciones"
+                    >
+                      <RotateCcw className="w-3.5 h-3.5 shrink-0 stroke-[2.5]" />
+                      <span className="truncate">Reactivar</span>
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        router.push(`/admin/contratos?inquilinoId=${inq.id}`);
+                      }}
+                      className="w-full px-2.5 py-2 rounded-xl text-xs font-bold bg-[#175E38] text-white hover:bg-[#124b2d] transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-[0_2px_6px_rgba(23,94,56,0.3)] active:translate-y-0.5"
+                      title="Crear un nuevo contrato para este inquilino"
+                    >
+                      <Plus className="w-3.5 h-3.5 shrink-0 stroke-[2.5]" />
+                      <span className="truncate">Crear Contrato</span>
+                    </button>
+                  )}
                 </div>
               </div>
             );
@@ -932,32 +1069,48 @@ export function InquilinosClient({
             router.push(`/admin/contratos?inquilinoId=${inquilinoSeleccionado.id}`);
           }
         }}
+        isLoading={isLoadingDetalle}
       />
 
-      {/* Modal Eliminar Inquilino */}
+      {/* Modal Archivar Inquilino */}
       <Modal
-        isOpen={modalMode === "eliminar"}
+        isOpen={modalMode === "archivar" || modalMode === "eliminar"}
         onClose={() => {
           setModalMode(null);
           setInquilinoSeleccionado(null);
         }}
-        title="Eliminar Inquilino"
+        title="Archivar Inquilino"
         headerVariant="red"
         maxWidth="md"
       >
         <div className="space-y-4">
           <p className="text-sm text-slate-600">
-            ¿Estás seguro de que deseas eliminar al inquilino{" "}
+            ¿Deseas archivar al inquilino{" "}
             <strong className="text-slate-900">
               {inquilinoSeleccionado?.nombre}{" "}
               {inquilinoSeleccionado?.apellido ? inquilinoSeleccionado.apellido : ""}
             </strong>{" "}
             ({inquilinoSeleccionado?.documentoIdentidad})?
           </p>
+          <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-600 leading-relaxed">
+            🛡️ <strong>Preservación contable:</strong> El inquilino se moverá a la pestaña de{" "}
+            <strong>Archivados / Inactivos</strong>. Todo su historial contable (contratos, pagos, recibos) se
+            mantendrá intacto e inalterable. Podrás reactivarlo en cualquier momento.
+          </div>
           {inquilinoSeleccionado && inquilinoSeleccionado._count.contratos > 0 && (
-            <div className="p-3.5 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-800 leading-relaxed">
-              ⚠️ Este inquilino tiene <strong>{inquilinoSeleccionado._count.contratos}</strong>{" "}
-              contrato(s) activo(s). Debes finalizar o rescindir sus contratos antes de poder eliminarlo.
+            <div className="p-3.5 bg-amber-50 border border-amber-200/90 rounded-xl text-xs text-amber-900 leading-relaxed space-y-1.5">
+              <div className="font-bold flex items-center gap-1.5 text-amber-950">
+                <span>⚠️</span>
+                <span>
+                  Este inquilino posee {inquilinoSeleccionado._count.contratos}{" "}
+                  {inquilinoSeleccionado._count.contratos === 1 ? "alquiler vigente" : "alquileres vigentes"}:
+                </span>
+              </div>
+              <p className="text-[11px] text-amber-800">
+                Al confirmar, el sistema <strong>rescindirá automáticamente sus contratos vigentes</strong>,{" "}
+                <strong>liberará los espacios físicos a estado disponible</strong> y cancelará las cuotas
+                futuras no devengadas. Todos los pagos ya realizados permanecerán protegidos e inalterables.
+              </p>
             </div>
           )}
           <div className="flex justify-end gap-3 pt-2">
@@ -971,11 +1124,17 @@ export function InquilinosClient({
               Cancelar
             </button>
             <button
-              onClick={handleEliminar}
-              disabled={isPending || (inquilinoSeleccionado?._count.contratos ?? 0) > 0}
+              onClick={handleArchivar}
+              disabled={isPending}
               className="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold text-white bg-[#CC1A22] rounded-xl hover:bg-[#a81219] transition-colors disabled:opacity-50 cursor-pointer"
             >
-              {isPending ? <RefreshCw className="w-4 h-4 animate-spin" /> : "Eliminar Definitivamente"}
+              {isPending ? (
+                <RefreshCw className="w-4 h-4 animate-spin" />
+              ) : inquilinoSeleccionado && inquilinoSeleccionado._count.contratos > 0 ? (
+                "Archivar y Rescindir Contratos"
+              ) : (
+                "Archivar Inquilino"
+              )}
             </button>
           </div>
         </div>

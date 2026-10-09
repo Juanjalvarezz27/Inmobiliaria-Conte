@@ -4,7 +4,6 @@ import React, { useState, useRef, useEffect } from "react";
 import {
   FileText,
   User,
-  Store,
   Calendar,
   DollarSign,
   RefreshCw,
@@ -14,17 +13,20 @@ import {
   ChevronDown,
   UploadCloud,
   Loader2,
+  ShieldCheck,
 } from "lucide-react";
 import { Modal } from "@/components/ui/modal";
 import { FormSectionHeader } from "@/components/ui/form-section-header";
 import { Select } from "@/components/ui/select";
+import { EspacioSelectorMultiNivel } from "./EspacioSelectorMultiNivel";
 import { useOperacionesUploadThing } from "@/lib/uploadthing";
 import {
   comprimirDocumentoContrato,
   type ProgresoCompresion,
 } from "@/lib/pdf-compressor";
 import { toast } from "sonner";
-import { EstadoUnidad } from "@prisma/client";
+import { formatCurrency } from "../propiedades/constants";
+import { EstadoUnidad, MetodoPago } from "@prisma/client";
 import type {
   InquilinoSelector,
   UnidadDisponible,
@@ -32,6 +34,14 @@ import type {
 } from "./types";
 import type { CreateContratoInput, UpdateContratoInput } from "@/lib/actions/contratos";
 import { eliminarDocumentoContratoAction } from "@/lib/actions/contratos";
+
+const OPCIONES_METODO_PAGO = [
+  { value: MetodoPago.TRANSFERENCIA, label: "Transferencia Bancaria" },
+  { value: MetodoPago.EFECTIVO_USD, label: "Efectivo (USD)" },
+  { value: MetodoPago.PAGO_MOVIL, label: "Pago Móvil" },
+  { value: MetodoPago.ZELLE, label: "Zelle" },
+  { value: MetodoPago.OTRO, label: "Otro Método" },
+];
 
 interface ContratoFormModalProps {
   isOpen: boolean;
@@ -99,6 +109,10 @@ export function ContratoFormModal({
     initialData?.documentoUrl ?? ""
   );
   const [notas, setNotas] = useState<string>(initialData?.notas ?? "");
+  const [depositoCobradoAlFirmar, setDepositoCobradoAlFirmar] = useState(false);
+  const [depositoMetodoPago, setDepositoMetodoPago] = useState<MetodoPago>(MetodoPago.TRANSFERENCIA);
+  const [depositoReferencia, setDepositoReferencia] = useState("");
+
   const [calendarioDiaAbierto, setCalendarioDiaAbierto] = useState(false);
   const calendarioRef = useRef<HTMLDivElement>(null);
 
@@ -331,6 +345,10 @@ export function ContratoFormModal({
       diaCobro: diaNum,
       montoAlquiler: mensualidadNum,
       depositoGarantia: depositoGarantia ? parseFloat(depositoGarantia) : null,
+      depositoCobradoAlFirmar: !isEditing && depositoCobradoAlFirmar,
+      depositoFechaCobro: !isEditing && depositoCobradoAlFirmar ? fechaInicio : null,
+      depositoMetodoPago: !isEditing && depositoCobradoAlFirmar ? depositoMetodoPago : null,
+      depositoReferencia: !isEditing && depositoCobradoAlFirmar && depositoReferencia.trim() ? depositoReferencia.trim() : null,
       moneda: "USD",
       documentoUrl: documentoUrl || null,
       notas: notas.trim() || null,
@@ -421,49 +439,11 @@ export function ContratoFormModal({
                 </div>
               ) : (
                 <div className="space-y-1.5">
-                  <Select
+                  <EspacioSelectorMultiNivel
+                    unidades={unidadesDisponibles}
                     value={unidadId}
                     onChange={handleSeleccionarUnidad}
-                    icon={<Store className="w-4 h-4" />}
                     placeholder="Selecciona un espacio libre..."
-                    searchable
-                    searchPlaceholder="Buscar por código, local o propiedad..."
-                    maxVisibleOptions={8}
-                    dropdownWidth="w-full sm:w-[520px]"
-                    align="right"
-                    options={unidadesDisponibles.map((u) => {
-                      let badgeVariant: "emerald" | "amber" | "slate" = "emerald";
-                      let badgeText = "Disponible";
-
-                      if (u.estado === EstadoUnidad.MANTENIMIENTO) {
-                        badgeVariant = "amber";
-                        badgeText = "Mantenimiento";
-                      } else if (u.estado === EstadoUnidad.INACTIVO) {
-                        badgeVariant = "slate";
-                        badgeText = "Inactivo";
-                      }
-
-                      const detalles = [
-                        u.tipo.charAt(0) + u.tipo.slice(1).toLowerCase(),
-                        u.propiedad.ciudad,
-                        u.piso ? `Piso ${u.piso}` : null,
-                        u.areaMt2 ? `${u.areaMt2} m²` : null,
-                      ]
-                        .filter(Boolean)
-                        .join(" · ");
-
-                      return {
-                        value: u.id,
-                        label: u.codigo,
-                        sublabel: u.propiedad.nombre,
-                        description: detalles,
-                        badge: {
-                          text: badgeText,
-                          variant: badgeVariant,
-                        },
-                        metaRight: u.precioAlquiler ? `$${u.precioAlquiler} / mes` : undefined,
-                      };
-                    })}
                   />
                   {unidadSeleccionada && unidadSeleccionada.estado !== EstadoUnidad.DISPONIBLE && (
                     <div className="p-2.5 bg-amber-50 border border-amber-200/90 rounded-xl text-xs text-amber-900 flex items-start gap-2 shadow-2xs">
@@ -645,7 +625,68 @@ export function ContratoFormModal({
                 />
               </div>
             </div>
+
+            {/* Opción de registrar cobro del depósito al firmar (Solo al crear) */}
+            {!isEditing && parseFloat(depositoGarantia || "0") > 0 && (
+              <div className="sm:col-span-2 p-3.5 bg-slate-50 border border-slate-200/90 rounded-2xl space-y-2.5 animate-in fade-in-50 duration-200">
+                <label className="flex items-center gap-2.5 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={depositoCobradoAlFirmar}
+                    onChange={(e) => setDepositoCobradoAlFirmar(e.target.checked)}
+                    className="w-4 h-4 rounded text-[#175E38] focus:ring-[#175E38]/20 accent-[#175E38] cursor-pointer"
+                  />
+                  <span className="text-xs font-bold text-slate-800">
+                    ¿El depósito en garantía ({formatCurrency(parseFloat(depositoGarantia || "0"))}) ya fue cobrado al firmar este contrato?
+                  </span>
+                </label>
+
+                {depositoCobradoAlFirmar && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-slate-200/60">
+                    <div>
+                      <label className="block text-[11px] font-semibold text-slate-600 mb-1">
+                        Método de Pago del Depósito <span className="text-[#CC1A22]">*</span>
+                      </label>
+                      <Select
+                        value={depositoMetodoPago}
+                        onChange={(val) => setDepositoMetodoPago(val as MetodoPago)}
+                        options={OPCIONES_METODO_PAGO}
+                        placeholder="Método..."
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-semibold text-slate-600 mb-1">
+                        Nro. de Referencia (Opcional)
+                      </label>
+                      <input
+                        type="text"
+                        value={depositoReferencia}
+                        onChange={(e) => setDepositoReferencia(e.target.value)}
+                        placeholder="Ej: REF-765432 / Banesco"
+                        className="w-full px-3 h-11 text-xs border border-slate-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-[#175E38]/20 focus:border-[#175E38]"
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
+
+          {/* Banner de Ajuste Económico y Preservación Histórica */}
+          {isEditing && initialData && (
+            (parseFloat(montoAlquiler) !== initialData.montoAlquiler && !isNaN(parseFloat(montoAlquiler))) ||
+            (parseInt(diaCobro, 10) !== initialData.diaCobro && !isNaN(parseInt(diaCobro, 10)))
+          ) && (
+            <div className="p-3.5 bg-emerald-50/90 border border-emerald-200/90 rounded-2xl space-y-1.5 text-xs text-emerald-950 shadow-2xs animate-in fade-in-50 duration-200">
+              <div className="flex items-center gap-1.5 font-bold text-emerald-900">
+                <ShieldCheck className="w-4 h-4 text-[#175E38] shrink-0" />
+                <span>Preservación Histórica de Pagos Garantizada</span>
+              </div>
+              <p className="text-emerald-800 leading-relaxed">
+                Todas las mensualidades que ya fueron pagadas mantendrán intacto su valor histórico original (${initialData.montoAlquiler.toFixed(2)} USD). El nuevo canon (${parseFloat(montoAlquiler || "0").toFixed(2)} USD) y día de corte (Día {diaCobro || initialData.diaCobro}) se aplicarán automáticamente a las cuotas pendientes y a los períodos futuros por cobrar.
+              </p>
+            </div>
+          )}
         </div>
 
         {/* Paso 3: Documento Firmado y Observaciones */}

@@ -3,7 +3,7 @@
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { TipoPersona, EstadoContrato } from "@prisma/client";
+import { TipoPersona, EstadoContrato, EstadoUnidad, EstadoPago, Prisma } from "@prisma/client";
 
 // Esquema de validación para registrar un inquilino
 const createInquilinoSchema = z.object({
@@ -22,8 +22,8 @@ const updateInquilinoSchema = createInquilinoSchema.partial();
 export type CreateInquilinoInput = z.infer<typeof createInquilinoSchema>;
 export type UpdateInquilinoInput = z.infer<typeof updateInquilinoSchema>;
 
-// Proyección mínima optimizada para consultas de inquilinos
-const INQUILINO_SELECT = {
+// Proyección ligera optimizada para el listado general de inquilinos (sin subconsultas de pagos)
+const INQUILINO_LIST_SELECT = {
   id: true,
   nombre: true,
   apellido: true,
@@ -66,9 +66,71 @@ const INQUILINO_SELECT = {
       },
     },
   },
-} as const;
+} satisfies Prisma.InquilinoSelect;
 
-// Obtener listado de inquilinos con proyección mínima
+// Proyección completa solo para el modal de ficha técnica (con historial de pagos y solvencia)
+const INQUILINO_SELECT = {
+  ...INQUILINO_LIST_SELECT,
+  contratos: {
+    where: { estado: EstadoContrato.ACTIVO },
+    select: {
+      id: true,
+      codigo: true,
+      montoAlquiler: true,
+      fechaFin: true,
+      unidad: {
+        select: {
+          id: true,
+          codigo: true,
+          tipo: true,
+          propiedad: {
+            select: {
+              id: true,
+              nombre: true,
+              ciudad: true,
+            },
+          },
+        },
+      },
+      pagos: {
+        select: {
+          id: true,
+          periodoMes: true,
+          periodoAno: true,
+          montoEsperado: true,
+          montoPagado: true,
+          estado: true,
+          fechaVencimiento: true,
+          fechaPago: true,
+        },
+        orderBy: [
+          { periodoAno: "asc" },
+          { periodoMes: "asc" },
+        ],
+        take: 60,
+      },
+    },
+  },
+} satisfies Prisma.InquilinoSelect;
+
+// Obtener detalle completo de un inquilino para la ficha técnica (carga bajo demanda)
+export async function getInquilinoDetalle(id: string) {
+  try {
+    const inquilino = await prisma.inquilino.findUnique({
+      where: { id },
+      select: INQUILINO_SELECT,
+    });
+    if (!inquilino) {
+      return { success: false, error: "Inquilino no encontrado." };
+    }
+    return { success: true, data: inquilino };
+  } catch (error) {
+    console.error("Error al obtener detalle del inquilino:", error);
+    return { success: false, error: "No se pudo cargar el detalle del inquilino." };
+  }
+}
+
+// Obtener listado de inquilinos con proyección ligera
 export async function getInquilinos(busqueda?: string) {
   try {
     const q = busqueda?.trim().toLowerCase();
@@ -85,7 +147,7 @@ export async function getInquilinos(busqueda?: string) {
             ],
           }
         : undefined,
-      select: INQUILINO_SELECT,
+      select: INQUILINO_LIST_SELECT,
       orderBy: { createdAt: "desc" },
       take: 200,
     });
@@ -105,27 +167,31 @@ export async function getInquilinosStats() {
       prisma.inquilino.count({ where: { activo: true } }),
       prisma.inquilino.count({
         where: {
+          activo: true,
           contratos: {
-            some: { estado: EstadoContrato.ACTIVO },
+            some: { estado: { in: [EstadoContrato.ACTIVO, EstadoContrato.POR_VENCER] } },
           },
         },
       }),
     ]);
+
+    const archivados = total - activos;
 
     return {
       success: true,
       data: {
         total,
         activos,
+        archivados,
         conContratosActivos,
-        sinContrato: total - conContratosActivos,
+        sinContrato: activos - conContratosActivos,
       },
     };
   } catch (error) {
     console.error("Error al obtener estadísticas de inquilinos:", error);
     return {
       success: false,
-      data: { total: 0, activos: 0, conContratosActivos: 0, sinContrato: 0 },
+      data: { total: 0, activos: 0, archivados: 0, conContratosActivos: 0, sinContrato: 0 },
     };
   }
 }
@@ -160,7 +226,7 @@ export async function createInquilino(data: CreateInquilinoInput) {
         direccion: parsed.direccion || null,
         activo: true,
       },
-      select: INQUILINO_SELECT,
+      select: INQUILINO_LIST_SELECT,
     });
 
     revalidatePath("/admin/inquilinos");
@@ -203,7 +269,7 @@ export async function updateInquilino(id: string, data: UpdateInquilinoInput) {
         ...parsed,
         email: parsed.email ? parsed.email.toLowerCase() : parsed.email === "" ? null : undefined,
       },
-      select: INQUILINO_SELECT,
+      select: INQUILINO_LIST_SELECT,
     });
 
     revalidatePath("/admin/inquilinos");
@@ -217,32 +283,99 @@ export async function updateInquilino(id: string, data: UpdateInquilinoInput) {
   }
 }
 
-// Eliminar o desactivar un inquilino
-export async function deleteInquilino(id: string) {
+// Archivar o inactivar un inquilino (Soft Delete seguro que preserva el historial contable)
+export async function archivarInquilino(
+  id: string,
+  opciones?: { rescindirContratos?: boolean }
+) {
   try {
-    // Comprobar si tiene contratos activos
-    const tieneContratosActivos = await prisma.contrato.count({
-      where: {
-        inquilinoId: id,
-        estado: EstadoContrato.ACTIVO,
-      },
-    });
+    const actualizado = await prisma.$transaction(async (tx) => {
+      // Comprobar si tiene contratos vigentes activos
+      const contratosActivos = await tx.contrato.findMany({
+        where: {
+          inquilinoId: id,
+          estado: { in: [EstadoContrato.ACTIVO, EstadoContrato.POR_VENCER] },
+        },
+        select: { id: true, unidadId: true },
+      });
 
-    if (tieneContratosActivos > 0) {
-      return {
-        success: false,
-        error: "No se puede eliminar un inquilino con contratos vigentes. Finaliza o rescinde sus contratos primero.",
-      };
-    }
+      if (contratosActivos.length > 0 && !opciones?.rescindirContratos) {
+        throw new Error(
+          `Este inquilino tiene ${contratosActivos.length} contrato(s) vigente(s). Debes autorizar la rescisión de sus contratos para poder archivarlo.`
+        );
+      }
 
-    await prisma.inquilino.delete({
-      where: { id },
+      // Si tiene contratos vigentes y se autorizó rescindir, procesarlos atómicamente:
+      if (contratosActivos.length > 0 && opciones?.rescindirContratos) {
+        const hoy = new Date();
+        const mesActual = hoy.getMonth() + 1;
+        const anoActual = hoy.getFullYear();
+
+        for (const c of contratosActivos) {
+          // Liberar el espacio a DISPONIBLE
+          await tx.unidad.update({
+            where: { id: c.unidadId },
+            data: { estado: EstadoUnidad.DISPONIBLE },
+          });
+
+          // Purgar cuotas futuras pendientes no devengadas que no tienen cobro asentado
+          await tx.pago.deleteMany({
+            where: {
+              contratoId: c.id,
+              montoPagado: 0,
+              estado: EstadoPago.PENDIENTE,
+              OR: [
+                { periodoAno: { gt: anoActual } },
+                { periodoAno: anoActual, periodoMes: { gt: mesActual } },
+              ],
+            },
+          });
+
+          // Marcar el contrato como RESCINDIDO
+          await tx.contrato.update({
+            where: { id: c.id },
+            data: { estado: EstadoContrato.RESCINDIDO },
+          });
+        }
+      }
+
+      // Marcar al inquilino como inactivo
+      return await tx.inquilino.update({
+        where: { id },
+        data: { activo: false },
+        select: INQUILINO_LIST_SELECT,
+      });
     });
 
     revalidatePath("/admin/inquilinos");
-    return { success: true };
+    revalidatePath("/admin/contratos");
+    revalidatePath("/admin/propiedades");
+    revalidatePath("/admin/cobranza");
+
+    return { success: true, data: actualizado };
   } catch (error) {
-    console.error("Error al eliminar inquilino:", error);
-    return { success: false, error: "No se pudo eliminar el inquilino." };
+    const message = error instanceof Error ? error.message : "Error al archivar inquilino.";
+    console.error("Error al archivar inquilino:", error);
+    return { success: false, error: message };
   }
 }
+
+// Reactivar o restaurar un inquilino archivado
+export async function reactivarInquilino(id: string) {
+  try {
+    const actualizado = await prisma.inquilino.update({
+      where: { id },
+      data: { activo: true },
+      select: INQUILINO_LIST_SELECT,
+    });
+
+    revalidatePath("/admin/inquilinos");
+    return { success: true, data: actualizado };
+  } catch (error) {
+    console.error("Error al reactivar inquilino:", error);
+    return { success: false, error: "No se pudo reactivar el inquilino." };
+  }
+}
+
+// Alias retrocompatible
+export const deleteInquilino = archivarInquilino;

@@ -1,4 +1,4 @@
-import { TipoPersona } from "@prisma/client";
+import { EstadoPago, TipoPersona } from "@prisma/client";
 
 // Tipo para el inquilino con sus contratos activos y datos proyectados
 export type InquilinoConContratos = {
@@ -32,17 +32,28 @@ export type InquilinoConContratos = {
         ciudad: string;
       };
     };
+    pagos?: Array<{
+      id: string;
+      periodoMes: number;
+      periodoAno: number;
+      montoEsperado: number;
+      montoPagado: number;
+      estado: EstadoPago;
+      fechaVencimiento: Date;
+      fechaPago: Date | null;
+    }>;
   }>;
 };
 
 export type InquilinosStats = {
   total: number;
   activos: number;
+  archivados?: number;
   conContratosActivos: number;
   sinContrato: number;
 };
 
-export type ModalMode = "crear" | "editar" | "eliminar" | "detalle" | null;
+export type ModalMode = "crear" | "editar" | "eliminar" | "archivar" | "reactivar" | "detalle" | null;
 
 export interface InquilinosClientProps {
   inquilinos: InquilinoConContratos[];

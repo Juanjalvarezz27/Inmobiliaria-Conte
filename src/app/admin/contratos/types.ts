@@ -1,4 +1,13 @@
-import { EstadoContrato, EstadoUnidad, TipoPersona, TipoPropiedad, TipoUnidad } from "@prisma/client";
+import {
+  EstadoContrato,
+  EstadoDeposito,
+  EstadoPago,
+  EstadoUnidad,
+  MetodoPago,
+  TipoPersona,
+  TipoPropiedad,
+  TipoUnidad,
+} from "@prisma/client";
 
 // Tipo proyectado para el contrato con sus relaciones
 export type ContratoConRelaciones = {
@@ -9,6 +18,19 @@ export type ContratoConRelaciones = {
   diaCobro: number;
   montoAlquiler: number;
   depositoGarantia: number | null;
+  depositoEstado: EstadoDeposito;
+  depositoFechaCobro: Date | null;
+  depositoMetodoPago: MetodoPago | null;
+  depositoReferencia: string | null;
+  depositoComprobanteUrl: string | null;
+  depositoNotas: string | null;
+  depositoFechaLiquidacion: Date | null;
+  depositoMontoReembolsado: number | null;
+  depositoMontoRetenido: number | null;
+  depositoMetodoPagoLiquidacion: MetodoPago | null;
+  depositoReferenciaLiquidacion: string | null;
+  depositoMotivoLiquidacion: string | null;
+  depositoComprobanteLiquidacionUrl: string | null;
   moneda: string;
   estado: EstadoContrato;
   documentoUrl: string | null;
@@ -37,6 +59,22 @@ export type ContratoConRelaciones = {
       direccion: string;
       tipo: TipoPropiedad;
     };
+  };
+  pagos?: Array<{
+    id: string;
+    periodoMes: number;
+    periodoAno: number;
+    montoEsperado: number;
+    montoPagado: number;
+    estado: EstadoPago;
+    fechaVencimiento: Date;
+    fechaPago: Date | null;
+    metodoPago: MetodoPago | null;
+    referencia: string | null;
+    comprobanteUrl: string | null;
+  }>;
+  _count?: {
+    pagos: number;
   };
 };
 
@@ -72,7 +110,15 @@ export type InquilinoSelector = {
   telefono: string;
 };
 
-export type ModalMode = "crear" | "editar" | "eliminar" | "detalle" | "finalizar" | null;
+export type ModalMode =
+  | "crear"
+  | "editar"
+  | "eliminar"
+  | "detalle"
+  | "finalizar"
+  | "cobrar_deposito"
+  | "liquidar_deposito"
+  | null;
 
 export type PropiedadItem = {
   id: string;

@@ -13,6 +13,7 @@ export type PropiedadConConteo = {
   areaTotalM2: number | null;
   propietario: string | null;
   telefonoContacto: string | null;
+  activo?: boolean;
   createdAt?: Date;
   updatedAt?: Date;
   _count: { unidades: number };
@@ -59,6 +60,7 @@ export type UnidadConPropiedad = {
     ciudad: string;
   };
   contratos?: ContratoResumenUnidad[];
+  _count?: { contratos: number };
 };
 
 export type Stats = {
