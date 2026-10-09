@@ -21,17 +21,28 @@ import {
   Coins,
   Receipt,
   FileCheck2,
+  Check,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Modal } from "@/components/ui/modal";
 import { Badge } from "@/components/ui/badge";
-import { EstadoContrato, EstadoDeposito, EstadoPago } from "@prisma/client";
+import { Select } from "@/components/ui/select";
+import { EstadoContrato, EstadoDeposito, EstadoPago, MetodoPago } from "@prisma/client";
 import { formatCurrency, WhatsAppIcon, getWhatsAppUrl } from "../propiedades/constants";
 import {
+  registrarCobroDeposito,
   revertirCobroDeposito,
   revertirLiquidacionDeposito,
 } from "@/lib/actions/contratos";
 import type { ContratoConRelaciones } from "./types";
+
+const OPCIONES_METODO_PAGO = [
+  { value: MetodoPago.TRANSFERENCIA, label: "Transferencia Bancaria" },
+  { value: MetodoPago.EFECTIVO_USD, label: "Efectivo (USD)" },
+  { value: MetodoPago.PAGO_MOVIL, label: "Pago Móvil" },
+  { value: MetodoPago.ZELLE, label: "Zelle" },
+  { value: MetodoPago.OTRO, label: "Otro Método" },
+];
 
 const NOMBRES_MESES = [
   "",
@@ -55,8 +66,7 @@ interface ContratoDetalleModalProps {
   onClose: () => void;
   onEditar: () => void;
   onCambiarEstado: (id: string, nuevoEstado: EstadoContrato) => void;
-  onCobrarDeposito?: (contrato: ContratoConRelaciones) => void;
-  onLiquidarDeposito?: (contrato: ContratoConRelaciones) => void;
+  onFinalizarORescindir?: (contrato: ContratoConRelaciones, modo: "finalizar" | "rescindir") => void;
   onContratoActualizado?: (contrato: ContratoConRelaciones) => void;
   isPending?: boolean;
   isLoadingPagos?: boolean;
@@ -69,14 +79,17 @@ export function ContratoDetalleModal({
   onClose,
   onEditar,
   onCambiarEstado,
-  onCobrarDeposito,
-  onLiquidarDeposito,
+  onFinalizarORescindir,
   onContratoActualizado,
   isPending = false,
   isLoadingPagos = false,
 }: ContratoDetalleModalProps) {
   const [menuEstadoAbierto, setMenuEstadoAbierto] = useState(false);
   const [isRevertingDeposit, startRevertTransition] = useTransition();
+  const [mostrarFormCobro, setMostrarFormCobro] = useState(false);
+  const [metodoCobroInline, setMetodoCobroInline] = useState<MetodoPago>(MetodoPago.TRANSFERENCIA);
+  const [referenciaCobroInline, setReferenciaCobroInline] = useState("");
+  const [isGuardandoCobro, setIsGuardandoCobro] = useState(false);
 
   const pagos = contrato?.pagos;
 
@@ -366,25 +379,25 @@ export function ContratoDetalleModal({
 
               {/* Acciones del Depósito */}
               <div className="flex items-center gap-2 flex-wrap">
-                {contrato.depositoEstado === EstadoDeposito.PENDIENTE && onCobrarDeposito && (
+                {contrato.depositoEstado === EstadoDeposito.PENDIENTE && (
                   <button
                     type="button"
-                    onClick={() => onCobrarDeposito(contrato)}
+                    onClick={() => setMostrarFormCobro(!mostrarFormCobro)}
                     className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-[#175E38] text-white hover:bg-[#124b2d] shadow-xs active:translate-y-0.5 cursor-pointer transition-all"
                   >
                     <Coins className="w-3.5 h-3.5" />
-                    <span>Registrar Cobro</span>
+                    <span>{mostrarFormCobro ? "Cancelar" : "Registrar Cobro"}</span>
                   </button>
                 )}
 
-                {contrato.depositoEstado === EstadoDeposito.COBRADO && onLiquidarDeposito && (
+                {contrato.depositoEstado === EstadoDeposito.COBRADO && onFinalizarORescindir && (
                   <button
                     type="button"
-                    onClick={() => onLiquidarDeposito(contrato)}
+                    onClick={() => onFinalizarORescindir(contrato, "finalizar")}
                     className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-[#1C2539] text-white hover:bg-[#2a3754] shadow-xs active:translate-y-0.5 cursor-pointer transition-all"
                   >
                     <FileCheck2 className="w-3.5 h-3.5" />
-                    <span>Liquidar / Finiquitar</span>
+                    <span>Finalizar y Liquidar</span>
                   </button>
                 )}
 
@@ -446,12 +459,88 @@ export function ContratoDetalleModal({
               </div>
             </div>
 
+            {/* Formulario rápido inline de cobro de depósito si está pendiente */}
+            {contrato.depositoEstado === EstadoDeposito.PENDIENTE && mostrarFormCobro && (
+              <div className="p-3.5 bg-slate-50 border border-slate-200/90 rounded-xl space-y-3 animate-in fade-in-50 duration-200">
+                <div className="flex items-center justify-between border-b border-slate-200/60 pb-2">
+                  <span className="text-xs font-bold text-slate-800">
+                    Asentar Cobro de Garantía ({formatCurrency(contrato.depositoGarantia)})
+                  </span>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-600 mb-1">
+                      Método de Pago <span className="text-[#CC1A22]">*</span>
+                    </label>
+                    <Select
+                      value={metodoCobroInline}
+                      onChange={(val) => setMetodoCobroInline(val as MetodoPago)}
+                      options={OPCIONES_METODO_PAGO}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-600 mb-1">
+                      Referencia Bancaria (Opcional)
+                    </label>
+                    <input
+                      type="text"
+                      value={referenciaCobroInline}
+                      onChange={(e) => setReferenciaCobroInline(e.target.value)}
+                      placeholder="Ej: REF-123456"
+                      className="w-full px-3 h-10 text-xs border border-slate-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-[#175E38]/20 focus:border-[#175E38]"
+                    />
+                  </div>
+                </div>
+                <div className="flex items-center justify-end gap-2 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => setMostrarFormCobro(false)}
+                    className="px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-200/60 rounded-xl cursor-pointer"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="button"
+                    disabled={isGuardandoCobro}
+                    onClick={async () => {
+                      if (!contrato) return;
+                      try {
+                        setIsGuardandoCobro(true);
+                        const res = await registrarCobroDeposito({
+                          contratoId: contrato.id,
+                          fechaCobro: new Date().toISOString(),
+                          metodoPago: metodoCobroInline,
+                          referencia: referenciaCobroInline.trim() || undefined,
+                        });
+                        if (res.success && res.data) {
+                          toast.success("Depósito asentado en custodia exitosamente.");
+                          setMostrarFormCobro(false);
+                          if (onContratoActualizado) {
+                            onContratoActualizado(res.data as unknown as ContratoConRelaciones);
+                          }
+                        } else {
+                          toast.error(res.error || "No se pudo registrar el cobro.");
+                        }
+                      } catch {
+                        toast.error("Error al registrar el cobro.");
+                      } finally {
+                        setIsGuardandoCobro(false);
+                      }
+                    }}
+                    className="px-3.5 py-1.5 text-xs font-bold text-white bg-[#175E38] hover:bg-[#124b2d] rounded-xl shadow-xs cursor-pointer active:translate-y-0.5"
+                  >
+                    {isGuardandoCobro ? "Guardando..." : "Asentar en Custodia"}
+                  </button>
+                </div>
+              </div>
+            )}
+
             {/* Contenido según el estado */}
-            {contrato.depositoEstado === EstadoDeposito.PENDIENTE && (
+            {contrato.depositoEstado === EstadoDeposito.PENDIENTE && !mostrarFormCobro && (
               <div className="p-3 bg-amber-50/80 border border-amber-200/90 rounded-xl text-xs text-amber-900 flex items-start gap-2">
                 <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
                 <span>
-                  El depósito estipulado aún no ha sido asentado en el sistema como cobrado. Haz clic en <strong>Registrar Cobro</strong> cuando el inquilino haya consignado el monto.
+                  El depósito estipulado aún no ha sido asentado en el sistema como cobrado. Haz clic en <strong>Registrar Cobro</strong> para consignarlo.
                 </span>
               </div>
             )}
@@ -812,8 +901,19 @@ export function ContratoDetalleModal({
                     key={est}
                     type="button"
                     onClick={() => {
-                      onCambiarEstado(contrato.id, est);
                       setMenuEstadoAbierto(false);
+                      if (est === EstadoContrato.FINALIZADO || est === EstadoContrato.RESCINDIDO) {
+                        if (onFinalizarORescindir) {
+                          onFinalizarORescindir(
+                            contrato,
+                            est === EstadoContrato.FINALIZADO ? "finalizar" : "rescindir"
+                          );
+                        } else {
+                          onCambiarEstado(contrato.id, est);
+                        }
+                      } else {
+                        onCambiarEstado(contrato.id, est);
+                      }
                     }}
                     className={`w-full text-left px-3 py-2 text-xs font-semibold hover:bg-slate-50 flex items-center justify-between cursor-pointer ${color}`}
                   >

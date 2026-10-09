@@ -1,19 +1,14 @@
 "use client";
 
 import React from "react";
-import Link from "next/link";
 import {
   Receipt,
-  Sparkles,
-  FileText,
-  ArrowRight,
   Building2,
   User,
   Calendar,
   CreditCard,
   CheckCircle2,
   MapPin,
-  FileCheck2,
   Hash,
   ExternalLink,
 } from "lucide-react";
@@ -79,53 +74,6 @@ export function ReciboModal({ isOpen, onClose, pago }: ReciboModalProps) {
       maxWidth="2xl"
     >
       <div className="p-4 sm:p-6 space-y-5">
-        {/* Banner de Próxima Integración con el Módulo de Facturación */}
-        <div className="relative overflow-hidden rounded-2xl border border-indigo-200/90 bg-gradient-to-br from-indigo-50/90 via-slate-50 to-white p-4 sm:p-5 shadow-xs">
-          {/* Resplandor ambiental de fondo */}
-          <div className="absolute -top-10 -right-10 w-36 h-36 bg-indigo-500/15 rounded-full blur-2xl pointer-events-none" />
-
-          <div className="flex items-start gap-3.5 sm:gap-4 relative z-10">
-            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-2xl bg-indigo-600 text-white flex items-center justify-center shrink-0 shadow-[0_4px_14px_rgba(79,70,229,0.35)]">
-              <FileCheck2 className="w-5 h-5 sm:w-6 sm:h-6" />
-            </div>
-
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2 flex-wrap mb-1">
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-indigo-100 text-indigo-700 border border-indigo-200 shadow-2xs">
-                  <Sparkles className="w-3 h-3 text-indigo-600 animate-pulse" />
-                  Próxima Integración
-                </span>
-                <span className="text-[11px] font-semibold text-slate-500">
-                  Módulo de Facturación & Recibos
-                </span>
-              </div>
-
-              <h3 className="text-sm sm:text-base font-bold font-heading text-slate-900 leading-snug">
-                Emisión de Comprobantes Oficiales en Camino
-              </h3>
-
-              <p className="text-xs text-slate-600 mt-1.5 leading-relaxed">
-                Próximamente, al presionar este botón se conectará directamente con el{" "}
-                <strong className="text-slate-800">Módulo de Facturación y Recibos</strong>, permitiendo emitir recibos membretados oficiales con formato institucional de Inmobiliaria Conté, descarga en PDF y envío automático por correo electrónico al arrendatario.
-              </p>
-
-              <div className="mt-3.5 pt-3 border-t border-indigo-100 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
-                <span className="text-[11px] font-medium text-slate-500">
-                  Puedes explorar las capacidades del módulo en desarrollo:
-                </span>
-                <Link
-                  href="/admin/facturacion"
-                  className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white shadow-xs transition-all active:scale-95 shrink-0"
-                >
-                  <FileText className="w-3.5 h-3.5" />
-                  <span>Ver Módulo de Facturación</span>
-                  <ArrowRight className="w-3 h-3" />
-                </Link>
-              </div>
-            </div>
-          </div>
-        </div>
-
         {/* Resumen del Recibo Operativo Asentado */}
         <div className="bg-white border border-slate-200/90 rounded-2xl p-4 sm:p-5 shadow-2xs space-y-4">
           {/* Cabecera del Comprobante */}

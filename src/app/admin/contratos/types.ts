@@ -116,8 +116,7 @@ export type ModalMode =
   | "eliminar"
   | "detalle"
   | "finalizar"
-  | "cobrar_deposito"
-  | "liquidar_deposito"
+  | "rescindir"
   | null;
 
 export type PropiedadItem = {

@@ -12,12 +12,12 @@ import {
   Loader2,
   Trash2,
   DollarSign,
+  Image as ImageIcon,
 } from "lucide-react";
 import { Modal } from "@/components/ui/modal";
 import { FormSectionHeader } from "@/components/ui/form-section-header";
 import { Select } from "@/components/ui/select";
 import { useOperacionesUploadThing } from "@/lib/uploadthing";
-import { comprimirDocumentoContrato } from "@/lib/pdf-compressor";
 import { toast } from "sonner";
 import { MetodoPago } from "@prisma/client";
 import type { PagoItem } from "./types";
@@ -174,9 +174,14 @@ function PagoFormContent({
   const procesarYSubirComprobante = async (file: File) => {
     if (!file) return;
 
-    const LIMITE_MAX_BYTES = 8 * 1024 * 1024; // 8 MB
+    if (!file.type.startsWith("image/")) {
+      toast.error("Solo se permiten imágenes (JPG, PNG o WEBP). No se admiten archivos PDF u otros formatos.");
+      return;
+    }
+
+    const LIMITE_MAX_BYTES = 10 * 1024 * 1024; // 10 MB
     if (file.size > LIMITE_MAX_BYTES) {
-      toast.error("El comprobante no debe superar los 8 MB.");
+      toast.error("La imagen del comprobante no debe superar los 10 MB.");
       return;
     }
 
@@ -186,47 +191,22 @@ function PagoFormContent({
     const fmt = (b: number) =>
       b < 1024 * 1024 ? `${(b / 1024).toFixed(0)} KB` : `${(b / (1024 * 1024)).toFixed(1)} MB`;
 
-    let archivoASubir = file;
-    let pesoOriginal = file.size;
-    let pesoFinal = file.size;
-    let ahorroPct = 0;
-
     try {
-      const esPdf = file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
-      const esImagen = file.type.startsWith("image/");
-
-      if (esPdf) {
-        // Compresión inteligente de documentos PDF (vectorial o escaneado)
-        const res = await comprimirDocumentoContrato([file]);
-        archivoASubir = res.file;
-        pesoOriginal = res.pesoOriginal;
-        pesoFinal = res.pesoFinal;
-        ahorroPct = res.ahorroPct;
-      } else if (esImagen) {
-        // Compresión inteligente de imágenes con Canvas API
-        const res = await comprimirImagen(file);
-        archivoASubir = res.file;
-        pesoOriginal = res.pesoOriginal;
-        pesoFinal = res.pesoFinal;
-        ahorroPct = res.ahorroPct;
-      }
-
+      const res = await comprimirImagen(file);
       setStatsCompresion({
-        original: fmt(pesoOriginal),
-        final: fmt(pesoFinal),
-        ahorroPct,
+        original: fmt(res.pesoOriginal),
+        final: fmt(res.pesoFinal),
+        ahorroPct: res.ahorroPct,
       });
 
-      if (ahorroPct >= 5) {
-        toast.success(`Comprobante optimizado: ${fmt(pesoOriginal)} → ${fmt(pesoFinal)} (−${ahorroPct}%)`);
-      } else {
-        toast.info(`Comprobante listo para subir (${fmt(pesoFinal)})`);
+      if (res.ahorroPct >= 5) {
+        toast.success(`Foto optimizada: ${fmt(res.pesoOriginal)} → ${fmt(res.pesoFinal)} (−${res.ahorroPct}%)`);
       }
 
-      await startUpload([archivoASubir]);
+      await startUpload([res.file]);
     } catch (err) {
-      console.error("Error al procesar/subir comprobante:", err);
-      toast.error("No se pudo procesar el comprobante.");
+      console.error("Error al procesar/subir imagen:", err);
+      toast.error("No se pudo procesar la imagen del comprobante.");
     } finally {
       setIsCompressing(false);
       if (fileInputRef.current) {
@@ -485,120 +465,127 @@ function PagoFormContent({
       <div>
         <FormSectionHeader step={2} title="Comprobante y Notas" />
         <div className="space-y-3 mt-3">
-          {/* Carga de Comprobante */}
+          {/* Carga de Comprobante (Máx 1 imagen, Opcional) */}
           <div>
-            <label className="block text-xs font-bold text-slate-700 mb-1">
-              Comprobante Digital (Foto o PDF)
-            </label>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*,application/pdf"
-              className="hidden"
-              onChange={handleFileChange}
-            />
+            <div className="flex items-center justify-between mb-1.5">
+                <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                  <ImageIcon className="w-3.5 h-3.5 text-slate-400" />
+                  <span>Foto del Comprobante</span>
+                  <span className="text-[11px] font-normal text-slate-400 bg-slate-100 px-2 py-0.5 rounded-md">
+                    Opcional · Máx. 1 imagen
+                  </span>
+                </label>
+                <span className="text-[10px] text-slate-400 font-medium">
+                  JPG, PNG o WEBP
+                </span>
+              </div>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                className="hidden"
+                onChange={handleFileChange}
+              />
 
-            {comprobanteUrl ? (
-              <div className="flex items-center justify-between p-3.5 bg-emerald-50/80 border border-emerald-200/90 rounded-2xl shadow-2xs">
-                <div className="flex items-center gap-3 min-w-0">
-                  <div className="w-10 h-10 rounded-xl bg-white border border-emerald-200 text-[#175E38] flex items-center justify-center shrink-0 shadow-2xs">
-                    <CheckCircle2 className="w-5 h-5 text-[#175E38]" />
-                  </div>
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <p className="text-xs font-bold text-slate-900 truncate">
-                        Comprobante adjuntado con éxito
-                      </p>
-                      {statsCompresion && (
-                        <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold bg-emerald-100 text-[#175E38] border border-emerald-200">
-                          {statsCompresion.final} {statsCompresion.ahorroPct > 0 && `(−${statsCompresion.ahorroPct}%)`}
-                        </span>
-                      )}
+              {comprobanteUrl ? (
+                <div className="flex items-center justify-between p-3 bg-emerald-50/80 border border-emerald-200/90 rounded-2xl shadow-2xs">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <img
+                      src={comprobanteUrl}
+                      alt="Comprobante de pago"
+                      className="w-12 h-12 rounded-xl object-cover border border-emerald-200 bg-white shrink-0 shadow-2xs"
+                    />
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <p className="text-xs font-bold text-slate-900 truncate">
+                          Foto adjuntada exitosamente
+                        </p>
+                        {statsCompresion && (
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold bg-emerald-100 text-[#175E38] border border-emerald-200">
+                            {statsCompresion.final} {statsCompresion.ahorroPct > 0 && `(−${statsCompresion.ahorroPct}%)`}
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        <a
+                          href={comprobanteUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-[11px] text-[#175E38] font-bold hover:underline truncate"
+                        >
+                          Ver foto en tamaño completo ↗
+                        </a>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-2 mt-0.5">
-                      <a
-                        href={comprobanteUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="text-[11px] text-[#175E38] font-bold hover:underline truncate"
-                      >
-                        Ver archivo subido a la nube
-                      </a>
-                    </div>
                   </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setComprobanteUrl("");
+                      setStatsCompresion(null);
+                      if (fileInputRef.current) fileInputRef.current.value = "";
+                    }}
+                    className="p-2 text-rose-600 hover:bg-rose-100/70 rounded-xl transition-colors cursor-pointer shrink-0"
+                    title="Eliminar foto"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setComprobanteUrl("");
-                    setStatsCompresion(null);
-                    if (fileInputRef.current) fileInputRef.current.value = "";
+              ) : (
+                <div
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    setIsDragOver(true);
                   }}
-                  className="p-2 text-rose-600 hover:bg-rose-100/70 rounded-xl transition-colors cursor-pointer shrink-0"
-                  title="Eliminar comprobante"
+                  onDragLeave={() => setIsDragOver(false)}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    setIsDragOver(false);
+                    const file = e.dataTransfer.files?.[0];
+                    if (file) procesarYSubirComprobante(file);
+                  }}
+                  onClick={() => {
+                    if (!isUploading && !isCompressing) {
+                      fileInputRef.current?.click();
+                    }
+                  }}
+                  className={`border-2 border-dashed rounded-xl p-3.5 text-center transition-all flex flex-col items-center justify-center gap-1 ${
+                    isDragOver
+                      ? "border-[#175E38] bg-emerald-50/50"
+                      : isUploading || isCompressing
+                      ? "cursor-wait bg-slate-50/80 border-slate-300"
+                      : "cursor-pointer hover:bg-slate-50 hover:border-[#175E38]/50 border-slate-300/80 bg-slate-50/40"
+                  }`}
                 >
-                  <Trash2 className="w-4 h-4" />
-                </button>
-              </div>
-            ) : (
-              <div
-                onDragOver={(e) => {
-                  e.preventDefault();
-                  setIsDragOver(true);
-                }}
-                onDragLeave={() => setIsDragOver(false)}
-                onDrop={(e) => {
-                  e.preventDefault();
-                  setIsDragOver(false);
-                  const file = e.dataTransfer.files?.[0];
-                  if (file) procesarYSubirComprobante(file);
-                }}
-                onClick={() => {
-                  if (!isUploading && !isCompressing) {
-                    fileInputRef.current?.click();
-                  }
-                }}
-                className={`border-2 border-dashed rounded-xl p-4 text-center transition-all flex flex-col items-center justify-center gap-1.5 ${
-                  isDragOver
-                    ? "border-[#175E38] bg-emerald-50/50"
-                    : isUploading || isCompressing
-                    ? "cursor-wait bg-slate-50/80 border-slate-300"
-                    : "cursor-pointer hover:bg-slate-50 hover:border-[#175E38]/50 border-slate-300"
-                }`}
-              >
-                {isCompressing ? (
-                  <div className="py-1 flex flex-col items-center gap-1.5">
-                    <Loader2 className="w-6 h-6 animate-spin text-[#175E38]" />
-                    <span className="text-xs font-bold text-slate-800">
-                      Optimizando y comprimiendo comprobante...
-                    </span>
-                    <span className="text-[11px] text-slate-400">
-                      Reduciendo peso de imagen o PDF antes de enviar
-                    </span>
-                  </div>
-                ) : isUploading ? (
-                  <div className="py-1 flex flex-col items-center gap-1.5">
-                    <Loader2 className="w-6 h-6 animate-spin text-[#175E38]" />
-                    <span className="text-xs font-bold text-slate-800">
-                      Subiendo comprobante a la nube...
-                    </span>
-                    <span className="text-[11px] text-slate-400">
-                      Almacenando archivo optimizado en servidor seguro
-                    </span>
-                  </div>
-                ) : (
-                  <>
-                    <UploadCloud className="w-6 h-6 text-slate-400" />
-                    <span className="text-xs font-bold text-slate-700">
-                      Haz clic o arrastra para subir comprobante
-                    </span>
-                    <span className="text-[11px] text-slate-400">
-                      JPG, PNG o PDF hasta 8 MB (compresión automática garantizada)
-                    </span>
-                  </>
-                )}
-              </div>
-            )}
+                  {isCompressing ? (
+                    <div className="py-0.5 flex flex-col items-center gap-1">
+                      <Loader2 className="w-5 h-5 animate-spin text-[#175E38]" />
+                      <span className="text-xs font-bold text-slate-800">
+                        Optimizando foto...
+                      </span>
+                    </div>
+                  ) : isUploading ? (
+                    <div className="py-0.5 flex flex-col items-center gap-1">
+                      <Loader2 className="w-5 h-5 animate-spin text-[#175E38]" />
+                      <span className="text-xs font-bold text-slate-800">
+                        Subiendo foto a la nube...
+                      </span>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="flex items-center gap-2">
+                        <UploadCloud className="w-5 h-5 text-slate-400 shrink-0" />
+                        <span className="text-xs font-bold text-slate-700">
+                          Adjuntar foto o captura del comprobante
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-slate-400 leading-tight">
+                        Opcional · Puedes guardar el pago sin imagen si ya tienes el número de referencia.
+                      </p>
+                    </>
+                  )}
+                </div>
+              )}
           </div>
 
           {/* Observaciones */}

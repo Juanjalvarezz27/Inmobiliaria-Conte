@@ -178,7 +178,6 @@ export function Navbar({ user }: NavbarProps = {}) {
       title: "Cobranza & Finanzas",
       items: [
         { label: "Panel de Cobranza", href: "/admin/cobranza", description: "Mensualidades y vencimientos" },
-        { label: "Facturación & Recibos", href: "/admin/facturacion", description: "Emisión de comprobantes digitales" },
         { label: "Finanzas & Balance", href: "/admin/finanzas", description: "Ingresos, egresos y cierres de mes" },
       ],
     },
@@ -187,7 +186,6 @@ export function Navbar({ user }: NavbarProps = {}) {
       items: [
         { label: "Mantenimiento", href: "/admin/mantenimiento", description: "Averías y reparaciones técnicas" },
         { label: "Personal & Asistencia", href: "/admin/personal", description: "Control de equipo y jornada" },
-        { label: "Bóveda de Documentos", href: "/admin/documentos", description: "Archivos y contratos legales" },
         { label: "Agenda & Alertas", href: "/admin/agenda", description: "Citas y recordatorios automáticos" },
       ],
     },

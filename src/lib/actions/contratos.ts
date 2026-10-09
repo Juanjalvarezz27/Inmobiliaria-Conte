@@ -901,6 +901,121 @@ export async function registrarCobroDeposito(input: RegistrarCobroDepositoInput)
   }
 }
 
+// Esquema para cerrar un contrato (finalizar o rescindir) resolviendo el depósito de forma directa
+const cerrarContratoSchema = z.object({
+  contratoId: z.string().min(1, "ID de contrato requerido"),
+  nuevoEstado: z.enum([EstadoContrato.FINALIZADO, EstadoContrato.RESCINDIDO]),
+  tieneDepositoEnCustodia: z.boolean().optional(),
+  tipoResolucion: z.enum(["REEMBOLSO_TOTAL", "RETENCION_TOTAL", "MIXTO"]).optional(),
+  montoReembolsado: z.coerce.number().min(0).optional(),
+  montoRetenido: z.coerce.number().min(0).optional(),
+  motivoRetencion: z.string().optional().nullable(),
+  metodoPagoLiquidacion: z.nativeEnum(MetodoPago).optional().nullable(),
+  referenciaLiquidacion: z.string().optional().nullable(),
+});
+
+export type CerrarContratoInput = z.infer<typeof cerrarContratoSchema>;
+
+export async function cerrarContratoAction(input: CerrarContratoInput) {
+  try {
+    const parsed = cerrarContratoSchema.parse(input);
+
+    const resultado = await prisma.$transaction(async (tx) => {
+      const contrato = await tx.contrato.findUnique({
+        where: { id: parsed.contratoId },
+        select: {
+          id: true,
+          estado: true,
+          unidadId: true,
+          depositoGarantia: true,
+          depositoEstado: true,
+        },
+      });
+
+      if (!contrato) throw new Error("Contrato no encontrado.");
+
+      const dataActualizacion: Prisma.ContratoUpdateInput = {
+        estado: parsed.nuevoEstado,
+      };
+
+      // Si tiene depósito cobrado en custodia y se especificó resolución:
+      if (parsed.tieneDepositoEnCustodia && contrato.depositoEstado === EstadoDeposito.COBRADO) {
+        const total = contrato.depositoGarantia || 0;
+        let ret = 0;
+        let reem = total;
+        let nuevoEstadoDep: EstadoDeposito = EstadoDeposito.REEMBOLSADO;
+
+        if (parsed.tipoResolucion === "RETENCION_TOTAL") {
+          ret = total;
+          reem = 0;
+          nuevoEstadoDep = EstadoDeposito.RETENIDO;
+        } else if (parsed.tipoResolucion === "MIXTO") {
+          ret = parsed.montoRetenido || 0;
+          reem = parsed.montoReembolsado || 0;
+          if (ret > 0 && reem > 0) {
+            nuevoEstadoDep = EstadoDeposito.PARCIALMENTE_RETENIDO;
+          } else if (ret > 0) {
+            nuevoEstadoDep = EstadoDeposito.RETENIDO;
+          } else {
+            nuevoEstadoDep = EstadoDeposito.REEMBOLSADO;
+          }
+        }
+
+        dataActualizacion.depositoEstado = nuevoEstadoDep;
+        dataActualizacion.depositoFechaLiquidacion = new Date();
+        dataActualizacion.depositoMontoReembolsado = reem;
+        dataActualizacion.depositoMontoRetenido = ret;
+        dataActualizacion.depositoMotivoLiquidacion = parsed.motivoRetencion?.trim() || null;
+        dataActualizacion.depositoMetodoPagoLiquidacion = parsed.metodoPagoLiquidacion || null;
+        dataActualizacion.depositoReferenciaLiquidacion = parsed.referenciaLiquidacion?.trim() || null;
+      }
+
+      // Liberar la unidad a DISPONIBLE
+      await tx.unidad.update({
+        where: { id: contrato.unidadId },
+        data: { estado: EstadoUnidad.DISPONIBLE },
+      });
+
+      // Purgar cuotas futuras pendientes no devengadas que no tienen abonos
+      const hoy = new Date();
+      const mesActual = hoy.getMonth() + 1;
+      const anoActual = hoy.getFullYear();
+
+      await tx.pago.deleteMany({
+        where: {
+          contratoId: parsed.contratoId,
+          montoPagado: 0,
+          estado: EstadoPago.PENDIENTE,
+          OR: [
+            { periodoAno: { gt: anoActual } },
+            { periodoAno: anoActual, periodoMes: { gt: mesActual } },
+          ],
+        },
+      });
+
+      return await tx.contrato.update({
+        where: { id: parsed.contratoId },
+        data: dataActualizacion,
+        select: CONTRATO_LIST_SELECT,
+      });
+    });
+
+    revalidatePath("/admin/contratos");
+    revalidatePath("/admin/propiedades");
+    revalidatePath("/admin/inquilinos");
+    revalidatePath("/admin/cobranza");
+
+    return { success: true, data: resultado };
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return { success: false, error: error.issues[0]?.message || "Datos inválidos." };
+    }
+    const message = error instanceof Error ? error.message : "Error al cerrar el contrato.";
+    console.error("Error en cerrarContratoAction:", error);
+    return { success: false, error: message };
+  }
+}
+
 // Esquema para liquidar o finiquitar el depósito en garantía (reembolso o retención por daños)
 const liquidarDepositoSchema = z.object({
   contratoId: z.string().min(1, "ID de contrato requerido"),

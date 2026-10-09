@@ -30,8 +30,7 @@ import { Badge } from "@/components/ui/badge";
 import { ConfirmActionModal } from "@/components/ui/confirm-action-modal";
 import { ContratoFormModal } from "./ContratoFormModal";
 import { ContratoDetalleModal } from "./ContratoDetalleModal";
-import { CobrarDepositoModal } from "./CobrarDepositoModal";
-import { LiquidarDepositoModal } from "./LiquidarDepositoModal";
+import { FinalizarContratoModal } from "./FinalizarContratoModal";
 import {
   createContrato,
   updateContrato,
@@ -278,7 +277,6 @@ export function ContratosClient({
   );
   const [contratoSeleccionado, setContratoSeleccionado] = useState<ContratoConRelaciones | null>(null);
   const [isLoadingDetalle, setIsLoadingDetalle] = useState(false);
-  const [accionOrigenLiquidacion, setAccionOrigenLiquidacion] = useState<"LIQUIDAR" | "RESCINDIR" | "FINALIZAR">("LIQUIDAR");
 
   // Apertura lazy de ficha con carga de historial de pagos en segundo plano
   const abrirDetalle = async (c: ContratoConRelaciones) => {
@@ -558,7 +556,11 @@ export function ContratosClient({
                     type="button"
                     onClick={() => {
                       setContratoSeleccionado(c);
-                      setModalMode("eliminar");
+                      if ((c._count?.pagos ?? 0) > 0) {
+                        setModalMode("rescindir");
+                      } else {
+                        setModalMode("eliminar");
+                      }
                     }}
                     disabled={isPending}
                     title={
@@ -1383,14 +1385,9 @@ export function ContratosClient({
         }}
         onEditar={() => setModalMode("editar")}
         onCambiarEstado={handleCambiarEstado}
-        onCobrarDeposito={(c) => {
+        onFinalizarORescindir={(c, modo) => {
           setContratoSeleccionado(c);
-          setModalMode("cobrar_deposito");
-        }}
-        onLiquidarDeposito={(c) => {
-          setContratoSeleccionado(c);
-          setAccionOrigenLiquidacion("LIQUIDAR");
-          setModalMode("liquidar_deposito");
+          setModalMode(modo);
         }}
         onContratoActualizado={(actualizado) => {
           const nuevaLista = contratos.map((c) =>
@@ -1403,32 +1400,15 @@ export function ContratosClient({
         isLoadingPagos={isLoadingDetalle}
       />
 
-      {/* Modal Cobrar Depósito */}
-      <CobrarDepositoModal
-        isOpen={modalMode === "cobrar_deposito" && !!contratoSeleccionado}
-        onClose={() => {
-          setModalMode("detalle");
-        }}
-        contrato={contratoSeleccionado}
-        onSuccess={(actualizado) => {
-          const nuevaLista = contratos.map((c) =>
-            c.id === actualizado.id ? actualizado : c
-          );
-          setContratos(nuevaLista);
-          setContratoSeleccionado(actualizado);
-          setModalMode("detalle");
-        }}
-      />
-
-      {/* Modal Liquidar Depósito */}
-      <LiquidarDepositoModal
-        isOpen={modalMode === "liquidar_deposito" && !!contratoSeleccionado}
+      {/* Modal Unificado para Finalizar o Rescindir Contrato con Resolución Directa de Depósito */}
+      <FinalizarContratoModal
+        isOpen={(modalMode === "finalizar" || modalMode === "rescindir") && !!contratoSeleccionado}
         onClose={() => {
           setModalMode(null);
           setContratoSeleccionado(null);
         }}
         contrato={contratoSeleccionado}
-        accionOrigen={accionOrigenLiquidacion}
+        modo={modalMode === "rescindir" ? "rescindir" : "finalizar"}
         onSuccess={(actualizado) => {
           const nuevaLista = contratos.map((c) =>
             c.id === actualizado.id ? actualizado : c
@@ -1436,113 +1416,23 @@ export function ContratosClient({
           setContratos(nuevaLista);
           recalcStats(nuevaLista);
           setContratoSeleccionado(actualizado);
-          setModalMode("detalle");
-        }}
-      />
-
-      {/* Modal de Confirmación: Finalizar Contrato */}
-      <ConfirmActionModal
-        isOpen={modalMode === "finalizar" && !!contratoSeleccionado}
-        onClose={() => {
           setModalMode(null);
-          setContratoSeleccionado(null);
         }}
-        onConfirm={() => {
-          if (contratoSeleccionado) {
-            if (contratoSeleccionado.depositoEstado === EstadoDeposito.COBRADO) {
-              setAccionOrigenLiquidacion("FINALIZAR");
-              setModalMode("liquidar_deposito");
-              return;
-            }
-            handleCambiarEstado(contratoSeleccionado.id, EstadoContrato.FINALIZADO);
-            setModalMode(null);
-            setContratoSeleccionado(null);
-          }
-        }}
-        title="Finalizar Contrato"
-        subtitle="Conclusión de vigencia y desocupación"
-        variant="warning"
-        icon={AlertTriangle}
-        description="¿Estás seguro de que deseas finalizar este contrato? Al hacerlo, la vigencia contractual concluirá formalmente y el espacio volverá a quedar disponible en el catálogo para ser alquilado nuevamente."
-        itemDetails={[
-          { label: "Código de Contrato", value: contratoSeleccionado?.codigo },
-          { label: "Inmueble", value: contratoSeleccionado?.unidad.propiedad.nombre },
-          {
-            label: "Espacio",
-            value: `Espacio ${contratoSeleccionado?.unidad.codigo} (${contratoSeleccionado?.unidad.tipo.toLowerCase()})`,
-          },
-          {
-            label: "Inquilino",
-            value: `${contratoSeleccionado?.inquilino.nombre} ${contratoSeleccionado?.inquilino.apellido ?? ""}`.trim(),
-          },
-          {
-            label: "Mensualidad",
-            value: `${formatCurrency(contratoSeleccionado?.montoAlquiler ?? 0)} / mes`,
-          },
-        ]}
-        confirmationKeyword="CONFIRMAR"
-        infoNote={
-          contratoSeleccionado?.depositoEstado === EstadoDeposito.COBRADO
-            ? "⚠️ Este contrato tiene un depósito en garantía en custodia. Al confirmar, se abrirá el formulario para asentar el finiquito y devolución o retención de la garantía."
-            : "ℹ️ Al confirmar, el contrato pasará a estado FINALIZADO y el espacio asociado quedará disponible de manera inmediata."
-        }
-        confirmButtonText={
-          contratoSeleccionado?.depositoEstado === EstadoDeposito.COBRADO
-            ? "Liquidar Garantía y Finalizar"
-            : "Finalizar Contrato"
-        }
-        cancelButtonText="Volver"
-        isLoading={isPending}
       />
 
-      {/* Modal de Confirmación: Eliminar o Rescindir/Archivar Contrato */}
+      {/* Modal de Confirmación: Eliminar Contrato Sin Historial */}
       <ConfirmActionModal
         isOpen={modalMode === "eliminar" && !!contratoSeleccionado}
         onClose={() => {
           setModalMode(null);
           setContratoSeleccionado(null);
         }}
-        onConfirm={
-          (contratoSeleccionado?._count?.pagos ?? 0) > 0
-            ? () => {
-                if (contratoSeleccionado) {
-                  if (contratoSeleccionado.depositoEstado === EstadoDeposito.COBRADO) {
-                    setAccionOrigenLiquidacion("RESCINDIR");
-                    setModalMode("liquidar_deposito");
-                    return;
-                  }
-                  handleCambiarEstado(contratoSeleccionado.id, EstadoContrato.RESCINDIDO);
-                  setModalMode(null);
-                  setContratoSeleccionado(null);
-                }
-              }
-            : handleEliminar
-        }
-        title={
-          (contratoSeleccionado?._count?.pagos ?? 0) > 0
-            ? "Rescindir y Archivar Contrato"
-            : "Eliminar Contrato Definitivamente"
-        }
-        subtitle={
-          (contratoSeleccionado?._count?.pagos ?? 0) > 0
-            ? "Preservación de registros y trazabilidad contable"
-            : "Acción destructiva irreversible"
-        }
-        variant={
-          (contratoSeleccionado?._count?.pagos ?? 0) > 0
-            ? "warning"
-            : "danger"
-        }
-        icon={
-          (contratoSeleccionado?._count?.pagos ?? 0) > 0
-            ? AlertTriangle
-            : Trash2
-        }
-        description={
-          (contratoSeleccionado?._count?.pagos ?? 0) > 0
-            ? "Este contrato cuenta con historial contable y pagos registrados. Para proteger la trazabilidad contable y auditoría financiera, no debe eliminarse de la base de datos. Se marcará como RESCINDIDO, liberará el espacio a DISPONIBLE y quedará archivado con todos sus recibos y registros intactos."
-            : "¿Estás seguro de que deseas eliminar permanentemente este contrato del sistema? Al no tener pagos registrados, se eliminará de forma segura."
-        }
+        onConfirm={handleEliminar}
+        title="Eliminar Contrato Definitivamente"
+        subtitle="Acción destructiva irreversible"
+        variant="danger"
+        icon={Trash2}
+        description="¿Estás seguro de que deseas eliminar permanentemente este contrato del sistema? Al no tener historial de pagos registrados, se eliminará de forma segura y se liberará el espacio a disponible."
         itemDetails={[
           { label: "Código de Contrato", value: contratoSeleccionado?.codigo },
           { label: "Inmueble", value: contratoSeleccionado?.unidad.propiedad.nombre },
@@ -1552,22 +1442,11 @@ export function ContratosClient({
             value: `${contratoSeleccionado?.inquilino.nombre} ${contratoSeleccionado?.inquilino.apellido ?? ""}`.trim(),
           },
         ]}
-        confirmationKeyword="CONFIRMAR"
-        infoNote={
-          (contratoSeleccionado?._count?.pagos ?? 0) > 0
-            ? contratoSeleccionado?.depositoEstado === EstadoDeposito.COBRADO
-              ? "⚠️ Este contrato tiene un depósito en garantía en custodia. Al confirmar, se abrirá el formulario para asentar su finiquito antes de rescindir."
-              : "🛡️ Todos los pagos cobrados, recibos y montos históricos permanecerán intactos e inalterables."
-            : "⚠️ Si este contrato está activo, al eliminarlo se liberará automáticamente el espacio asociado a estado disponible."
-        }
-        confirmButtonText={
-          (contratoSeleccionado?._count?.pagos ?? 0) > 0
-            ? contratoSeleccionado?.depositoEstado === EstadoDeposito.COBRADO
-              ? "Liquidar Garantía y Rescindir"
-              : "Rescindir y Archivar"
-            : "Eliminar Contrato"
-        }
+        confirmationKeyword="ELIMINAR"
+        infoNote="⚠️ Si este contrato está activo, al eliminarlo se liberará automáticamente el espacio asociado a estado disponible."
+        confirmButtonText="Eliminar Contrato"
         cancelButtonText="Cancelar"
+        isLoading={isPending}
       />
     </div>
   );
