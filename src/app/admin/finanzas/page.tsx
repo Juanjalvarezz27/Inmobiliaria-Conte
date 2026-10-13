@@ -1,18 +1,48 @@
-import { ModulePlaceholder } from "@/components/layout/module-placeholder";
+import {
+  getFinanzasData,
+  getPropiedadesFinanzasOpciones,
+} from "@/lib/actions/finanzas";
+import { FinanzasClient } from "./FinanzasClient";
 
-export default async function FinanzasPage() {
+export const dynamic = "force-dynamic";
+
+export const metadata = {
+  title: "Finanzas & Balance General | Inmobiliaria Conté",
+  description: "Supervisión de tesorería, flujo de caja, gastos operativos y cierres contables mensuales",
+};
+
+interface PageProps {
+  searchParams?: Promise<{
+    mes?: string;
+    ano?: string;
+    propiedadId?: string;
+  }>;
+}
+
+export default async function FinanzasPage(props: PageProps) {
+  const searchParams = props.searchParams ? await props.searchParams : undefined;
+  const hoy = new Date();
+  const mesActual = searchParams?.mes ? parseInt(searchParams.mes, 10) : hoy.getMonth() + 1;
+  const anoActual = searchParams?.ano ? parseInt(searchParams.ano, 10) : hoy.getFullYear();
+  const propiedadIdInicial = searchParams?.propiedadId || "TODAS";
+
+  // Carga concurrente optimizada
+  const [finanzasData, propiedades] = await Promise.all([
+    getFinanzasData({
+      mes: mesActual,
+      ano: anoActual,
+      propiedadId: propiedadIdInicial,
+      pagina: 1,
+    }),
+    getPropiedadesFinanzasOpciones(),
+  ]);
+
   return (
-    <ModulePlaceholder
-      title="Finanzas y Cierres Mensuales"
-      role="ADMIN"
-      iconType="money"
-      description="Aquí podrás llevar las cuentas claras de la inmobiliaria: ingresos por alquileres, gastos operativos y balances reales."
-      features={[
-        "Registrar todos los ingresos y gastos diarios de la empresa con sus respectivos recibos.",
-        "Clasificar los gastos por categorías: reparaciones, servicios, nómina y suministros.",
-        "Realizar el 'Cierre de Mes' con un solo clic para calcular el balance neto de ganancias.",
-        "Ver resúmenes visuales para saber exactamente cuánto dinero entra y sale de la empresa.",
-      ]}
+    <FinanzasClient
+      estadisticasIniciales={finanzasData.estadisticas}
+      mesInicial={mesActual}
+      anoInicial={anoActual}
+      propiedades={propiedades}
     />
   );
 }

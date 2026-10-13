@@ -20,6 +20,7 @@ import { PageHeader } from "@/components/ui/page-header";
 import { StatCard } from "@/components/ui/stat-card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Select } from "@/components/ui/select";
+import { FilterDropdown, type FilterDropdownOption } from "@/components/ui/filter-dropdown";
 import { PagoCard } from "./PagoCard";
 import { EstadoPago, TipoPropiedad } from "@prisma/client";
 import { tipoPropiedadBadgeConfig } from "@/app/admin/propiedades/constants";
@@ -116,11 +117,6 @@ export function CobranzaClient({
     }
   };
 
-  // Estados y referencias para los dropdowns de filtro
-  const [isDropdownPropiedadOpen, setIsDropdownPropiedadOpen] = useState(false);
-  const [isDropdownEstadoOpen, setIsDropdownEstadoOpen] = useState(false);
-  const dropdownPropiedadRef = useRef<HTMLDivElement>(null);
-  const dropdownEstadoRef = useRef<HTMLDivElement>(null);
   const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   // Limpieza de temporizadores activos
@@ -133,52 +129,36 @@ export function CobranzaClient({
   // Transiciones y carga
   const [isPending, startTransition] = useTransition();
 
-  // Cerrar menús al hacer clic fuera o con Escape
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (dropdownEstadoRef.current && !dropdownEstadoRef.current.contains(e.target as Node)) {
-        setIsDropdownEstadoOpen(false);
-      }
-      if (dropdownPropiedadRef.current && !dropdownPropiedadRef.current.contains(e.target as Node)) {
-        setIsDropdownPropiedadOpen(false);
-      }
-    };
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        setIsDropdownEstadoOpen(false);
-        setIsDropdownPropiedadOpen(false);
-      }
-    };
-    if (isDropdownEstadoOpen || isDropdownPropiedadOpen) {
-      document.addEventListener("mousedown", handleClickOutside);
-      document.addEventListener("keydown", handleKeyDown);
-    }
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-      document.removeEventListener("keydown", handleKeyDown);
-    };
-  }, [isDropdownEstadoOpen, isDropdownPropiedadOpen]);
-
-  // Configuración de propiedad activa para el trigger
-  const propiedadActivaConfig = useMemo(() => {
-    if (propiedadId === "TODAS") {
-      return {
+  // Opciones para el selector de Inmuebles
+  const opcionesPropiedadCobranza = useMemo((): FilterDropdownOption[] => {
+    return [
+      {
         value: "TODAS",
         label: "Todos los inmuebles",
+        icon: Building2,
         count: estadisticas.cantidadTotalGlobal ?? estadisticas.cantidadTotal,
-      };
-    }
-    const prop = propiedades.find((p) => p.id === propiedadId);
-    return {
-      value: propiedadId,
-      label: prop ? prop.nombre : "Inmueble",
-      count: prop ? (estadisticas.conteoPorPropiedad?.[prop.id] ?? 0) : 0,
-    };
-  }, [propiedadId, propiedades, estadisticas]);
+        isGlobal: true,
+      },
+      ...propiedades.map((p) => ({
+        value: p.id,
+        label: p.nombre,
+        subtitle: p.ciudad,
+        icon: p.tipo ? tipoPropiedadBadgeConfig(p.tipo as TipoPropiedad).icon : Building2,
+        count: estadisticas.conteoPorPropiedad?.[p.id] ?? 0,
+      })),
+    ];
+  }, [propiedades, estadisticas]);
 
   // Estados disponibles con conteo dinámico del periodo
-  const estadosDisponibles = useMemo(() => {
+  const opcionesEstadoCobranza = useMemo((): FilterDropdownOption[] => {
     return [
+      {
+        value: "TODOS",
+        label: "Todos los estados",
+        icon: Layers,
+        count: estadisticas.cantidadTotalGlobal ?? estadisticas.cantidadTotal,
+        isGlobal: true,
+      },
       {
         value: EstadoPago.PENDIENTE,
         label: "Por Cobrar (Pendiente)",
@@ -189,43 +169,25 @@ export function CobranzaClient({
         value: EstadoPago.VENCIDO,
         label: "Vencido en Mora",
         icon: AlertTriangle,
+        iconClassName: "text-rose-500",
         count: estadisticas.cantidadVencidos,
       },
       {
         value: EstadoPago.PAGADO,
         label: "Liquidado (Pagado)",
         icon: CheckCircle2,
+        iconClassName: "text-emerald-600",
         count: estadisticas.cantidadPagados,
       },
       {
         value: EstadoPago.PARCIAL,
         label: "Abono Parcial",
         icon: DollarSign,
+        iconClassName: "text-amber-500",
         count: estadisticas.cantidadParciales,
       },
     ];
   }, [estadisticas]);
-
-  // Configuración de estado activo para el trigger
-  const estadoActivoConfig = useMemo(() => {
-    const totalGlobal = estadisticas.cantidadTotalGlobal ?? estadisticas.cantidadTotal;
-    if (estadoFiltro === "TODOS") {
-      return {
-        value: "TODOS",
-        label: "Todos los estados",
-        icon: Layers,
-        count: totalGlobal,
-      };
-    }
-    return (
-      estadosDisponibles.find((o) => o.value === estadoFiltro) || {
-        value: "TODOS",
-        label: "Todos los estados",
-        icon: Layers,
-        count: totalGlobal,
-      }
-    );
-  }, [estadoFiltro, estadosDisponibles, estadisticas.cantidadTotal, estadisticas.cantidadTotalGlobal]);
 
   // Refresca o consulta el listado con los filtros actuales de forma ultrarrápida
   const recargarCobranzas = (
@@ -493,236 +455,34 @@ export function CobranzaClient({
           </div>
 
           {/* 1. Selector de Propiedad / Inmueble */}
-          <div ref={dropdownPropiedadRef} className="relative w-full md:w-64">
-            {/* Capa móvil nativa para iOS y Android */}
-            <select
-              value={propiedadId}
-              onChange={(e) => {
-                const p = e.target.value;
-                setPropiedadId(p);
-                setPagina(1);
-                recargarCobranzas(mes, ano, 1, p, estadoFiltro, busqueda);
-              }}
-              className="md:hidden absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
-              aria-label="Filtrar por inmueble"
-            >
-              <option value="TODAS">
-                Todos los inmuebles ({estadisticas.cantidadTotalGlobal ?? estadisticas.cantidadTotal})
-              </option>
-              {propiedades.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.nombre} ({estadisticas.conteoPorPropiedad?.[p.id] ?? 0})
-                </option>
-              ))}
-            </select>
-
-            {/* Botón Desktop */}
-            <button
-              type="button"
-              onClick={() => {
-                setIsDropdownPropiedadOpen((prev) => !prev);
-                setIsDropdownEstadoOpen(false);
-              }}
-              className="w-full flex items-center justify-between gap-2 px-3 sm:px-3.5 h-11 text-xs sm:text-sm font-medium border border-slate-200 rounded-xl bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50 transition-all shadow-2xs cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#1C2539]/20"
-            >
-              <div className="flex items-center gap-2 truncate">
-                <Building2 className="w-4 h-4 text-slate-500 shrink-0" />
-                <span className="truncate">{propiedadActivaConfig.label}</span>
-              </div>
-              <ChevronDown
-                className={`w-3.5 h-3.5 text-slate-400 shrink-0 transition-transform duration-200 ml-1 ${
-                  isDropdownPropiedadOpen ? "rotate-180" : ""
-                }`}
-              />
-            </button>
-
-            {/* Menú flotante Desktop Inmueble */}
-            {isDropdownPropiedadOpen && (
-              <div className="hidden md:block absolute right-0 top-full mt-1.5 w-68 bg-white border border-slate-200/90 rounded-xl shadow-xl py-1.5 z-50 animate-in fade-in-0 zoom-in-95 duration-100 max-h-72 overflow-y-auto">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setPropiedadId("TODAS");
-                    setIsDropdownPropiedadOpen(false);
-                    setPagina(1);
-                    recargarCobranzas(mes, ano, 1, "TODAS", estadoFiltro, busqueda);
-                  }}
-                  className={`w-full flex items-center justify-between px-3 py-2 text-xs sm:text-sm transition-colors cursor-pointer ${
-                    propiedadId === "TODAS"
-                      ? "bg-slate-50 text-slate-900 font-semibold"
-                      : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
-                  }`}
-                >
-                  <div className="flex items-center gap-2 truncate">
-                    <Building2 className="w-4 h-4 text-slate-400 shrink-0" />
-                    <span className="truncate">Todos los inmuebles</span>
-                  </div>
-                  <div className="flex items-center gap-1.5 shrink-0 ml-2">
-                    <span className="text-[11px] font-medium bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded-full">
-                      {estadisticas.cantidadTotalGlobal ?? estadisticas.cantidadTotal}
-                    </span>
-                    {propiedadId === "TODAS" && <Check className="w-3.5 h-3.5 text-[#175E38]" />}
-                  </div>
-                </button>
-
-                {propiedades.length > 0 && (
-                  <div className="my-1 border-t border-slate-100" />
-                )}
-
-                {propiedades.map((p) => {
-                  const isSelected = propiedadId === p.id;
-                  const count = estadisticas.conteoPorPropiedad?.[p.id] ?? 0;
-                  const IconComp = p.tipo ? tipoPropiedadBadgeConfig(p.tipo as TipoPropiedad).icon : Building2;
-                  return (
-                    <button
-                      key={p.id}
-                      type="button"
-                      onClick={() => {
-                        setPropiedadId(p.id);
-                        setIsDropdownPropiedadOpen(false);
-                        setPagina(1);
-                        recargarCobranzas(mes, ano, 1, p.id, estadoFiltro, busqueda);
-                      }}
-                      className={`w-full flex items-center justify-between px-3 py-2 text-xs sm:text-sm transition-colors cursor-pointer ${
-                        isSelected
-                          ? "bg-slate-50 text-slate-900 font-semibold"
-                          : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
-                      }`}
-                    >
-                      <div className="flex items-center gap-2 truncate pr-2">
-                        <IconComp className="w-4 h-4 text-slate-400 shrink-0" />
-                        <div className="truncate text-left">
-                          <p className="truncate font-medium">{p.nombre}</p>
-                          {p.ciudad && <p className="text-[10px] text-slate-400 truncate">{p.ciudad}</p>}
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-1.5 shrink-0">
-                        <span className="text-[11px] font-medium bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded-full">
-                          {count}
-                        </span>
-                        {isSelected && <Check className="w-3.5 h-3.5 text-[#175E38]" />}
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-          </div>
+          <FilterDropdown
+            value={propiedadId}
+            onChange={(p) => {
+              setPropiedadId(p);
+              setPagina(1);
+              recargarCobranzas(mes, ano, 1, p, estadoFiltro, busqueda);
+            }}
+            options={opcionesPropiedadCobranza}
+            className="w-full md:w-64"
+            menuWidth="w-68"
+            ariaLabel="Filtrar por inmueble"
+          />
 
           {/* 2. Selector de Estado */}
-          <div ref={dropdownEstadoRef} className="relative w-full md:w-60">
-            {/* Capa móvil nativa para iOS y Android */}
-            <select
-              value={estadoFiltro}
-              onChange={(e) => {
-                const s = e.target.value;
-                setEstadoFiltro(s);
-                setPagina(1);
-                recargarCobranzas(mes, ano, 1, propiedadId, s, busqueda);
-              }}
-              className="md:hidden absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
-              aria-label="Filtrar por estado"
-            >
-              <option value="TODOS">
-                Todos los estados ({estadisticas.cantidadTotalGlobal ?? estadisticas.cantidadTotal})
-              </option>
-              {estadosDisponibles.map((opt) => (
-                <option key={opt.value} value={opt.value}>
-                  {opt.label} ({opt.count})
-                </option>
-              ))}
-            </select>
+          <FilterDropdown
+            value={estadoFiltro}
+            onChange={(s) => {
+              setEstadoFiltro(s);
+              setPagina(1);
+              recargarCobranzas(mes, ano, 1, propiedadId, s, busqueda);
+            }}
+            options={opcionesEstadoCobranza}
+            className="w-full md:w-60"
+            menuWidth="w-64"
+            ariaLabel="Filtrar por estado"
+          />
 
-            {/* Botón Desktop */}
-            <button
-              type="button"
-              onClick={() => {
-                setIsDropdownEstadoOpen((prev) => !prev);
-                setIsDropdownPropiedadOpen(false);
-              }}
-              className="w-full flex items-center justify-between gap-2 px-3 sm:px-3.5 h-11 text-xs sm:text-sm font-medium border border-slate-200 rounded-xl bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50 transition-all shadow-2xs cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#1C2539]/20"
-            >
-              <div className="flex items-center gap-2 truncate">
-                {React.createElement(estadoActivoConfig.icon, {
-                  className: "w-4 h-4 text-slate-500 shrink-0",
-                })}
-                <span className="truncate">{estadoActivoConfig.label}</span>
-              </div>
-              <ChevronDown
-                className={`w-3.5 h-3.5 text-slate-400 shrink-0 transition-transform duration-200 ml-1 ${
-                  isDropdownEstadoOpen ? "rotate-180" : ""
-                }`}
-              />
-            </button>
 
-            {/* Menú flotante Desktop Estado */}
-            {isDropdownEstadoOpen && (
-              <div className="hidden md:block absolute right-0 top-full mt-1.5 w-64 bg-white border border-slate-200/90 rounded-xl shadow-xl py-1.5 z-50 animate-in fade-in-0 zoom-in-95 duration-100">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setEstadoFiltro("TODOS");
-                    setIsDropdownEstadoOpen(false);
-                    setPagina(1);
-                    recargarCobranzas(mes, ano, 1, propiedadId, "TODOS", busqueda);
-                  }}
-                  className={`w-full flex items-center justify-between px-3 py-2 text-xs sm:text-sm transition-colors cursor-pointer ${
-                    estadoFiltro === "TODOS"
-                      ? "bg-slate-50 text-slate-900 font-semibold"
-                      : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
-                  }`}
-                >
-                  <div className="flex items-center gap-2 truncate">
-                    <Layers className="w-4 h-4 text-slate-400 shrink-0" />
-                    <span className="truncate">Todos los estados</span>
-                  </div>
-                  <div className="flex items-center gap-1.5 shrink-0 ml-2">
-                    <span className="text-[11px] font-medium bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded-full">
-                      {estadisticas.cantidadTotalGlobal ?? estadisticas.cantidadTotal}
-                    </span>
-                    {estadoFiltro === "TODOS" && <Check className="w-3.5 h-3.5 text-[#175E38]" />}
-                  </div>
-                </button>
-
-                {estadosDisponibles.length > 0 && (
-                  <div className="my-1 border-t border-slate-100" />
-                )}
-
-                {estadosDisponibles.map((opt) => {
-                  const isSelected = estadoFiltro === opt.value;
-                  const IconComponent = opt.icon;
-                  return (
-                    <button
-                      key={opt.value}
-                      type="button"
-                      onClick={() => {
-                        setEstadoFiltro(opt.value);
-                        setIsDropdownEstadoOpen(false);
-                        setPagina(1);
-                        recargarCobranzas(mes, ano, 1, propiedadId, opt.value, busqueda);
-                      }}
-                      className={`w-full flex items-center justify-between px-3 py-2 text-xs sm:text-sm transition-colors cursor-pointer ${
-                        isSelected
-                          ? "bg-slate-50 text-slate-900 font-semibold"
-                          : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
-                      }`}
-                    >
-                      <div className="flex items-center gap-2 truncate">
-                        <IconComponent className="w-4 h-4 text-slate-400 shrink-0" />
-                        <span className="truncate">{opt.label}</span>
-                      </div>
-                      <div className="flex items-center gap-1.5 shrink-0 ml-2">
-                        <span className="text-[11px] font-medium bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded-full">
-                          {opt.count}
-                        </span>
-                        {isSelected && <Check className="w-3.5 h-3.5 text-[#175E38]" />}
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-          </div>
         </div>
 
         {/* Indicador de resultados activos */}

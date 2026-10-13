@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useRef, useEffect, useId, useMemo } from "react";
-import { ChevronDown, Check, Search, X } from "lucide-react";
+import { ChevronDown, Check, Search, X, ChevronLeft, ChevronRight } from "lucide-react";
 
 export interface SelectOptionBadge {
   text: string;
@@ -33,6 +33,7 @@ export interface SelectProps {
   searchable?: boolean;
   searchPlaceholder?: string;
   maxVisibleOptions?: number;
+  pageSize?: number;
   dropdownWidth?: string;
   align?: "left" | "right";
 }
@@ -101,12 +102,14 @@ export function Select({
   ariaLabel,
   searchable = false,
   searchPlaceholder = "Buscar...",
-  maxVisibleOptions = 8,
+  maxVisibleOptions,
+  pageSize = 10,
   dropdownWidth,
   align = "left",
 }: SelectProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
   const containerRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const generatedId = useId();
@@ -124,6 +127,8 @@ export function Select({
       return () => clearTimeout(timer);
     }
   }, [isOpen, searchable]);
+
+
 
   // Cerrar al hacer clic fuera del componente o presionar Escape
   useEffect(() => {
@@ -175,13 +180,15 @@ export function Select({
     });
   }, [options, searchable, searchQuery]);
 
-  // Limitar opciones visibles para evitar sobrecargar el DOM
+  // Paginación real de 10 en 10 (o pageSize configurado)
+  const effectivePageSize = pageSize || maxVisibleOptions || 10;
+  const totalPages = Math.max(1, Math.ceil(filteredOptions.length / effectivePageSize));
+  const safePage = Math.min(Math.max(1, currentPage), totalPages);
+  const startIndex = (safePage - 1) * effectivePageSize;
+  const endIndex = Math.min(startIndex + effectivePageSize, filteredOptions.length);
   const visibleOptions = useMemo(() => {
-    if (!maxVisibleOptions || maxVisibleOptions <= 0) return filteredOptions;
-    return filteredOptions.slice(0, maxVisibleOptions);
-  }, [filteredOptions, maxVisibleOptions]);
-
-  const hasMoreOptions = filteredOptions.length > visibleOptions.length;
+    return filteredOptions.slice(startIndex, endIndex);
+  }, [filteredOptions, startIndex, endIndex]);
 
   const alignClass = align === "right" ? "right-0" : "left-0";
   const widthClass = dropdownWidth ? dropdownWidth : "w-full";
@@ -288,7 +295,10 @@ export function Select({
                   ref={searchInputRef}
                   type="text"
                   value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onChange={(e) => {
+                    setSearchQuery(e.target.value);
+                    setCurrentPage(1);
+                  }}
                   placeholder={searchPlaceholder}
                   className="w-full pl-9 pr-7 py-2 text-xs sm:text-sm bg-white border border-slate-200 rounded-xl text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-[#175E38] focus:ring-2 focus:ring-[#175E38]/20 transition-all"
                   onClick={(e) => e.stopPropagation()}
@@ -296,6 +306,7 @@ export function Select({
                     if (e.key === "Escape") {
                       setIsOpen(false);
                       setSearchQuery("");
+                      setCurrentPage(1);
                     }
                   }}
                 />
@@ -305,6 +316,7 @@ export function Select({
                     onClick={(e) => {
                       e.stopPropagation();
                       setSearchQuery("");
+                      setCurrentPage(1);
                       searchInputRef.current?.focus();
                     }}
                     className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5 rounded cursor-pointer"
@@ -417,10 +429,44 @@ export function Select({
             )}
           </div>
 
-          {/* Pie informativo si hay más opciones ocultas */}
-          {hasMoreOptions && (
-            <div className="px-3.5 py-2 bg-slate-50 border-t border-slate-100 text-[11px] text-slate-500 text-center font-medium">
-              Mostrando {visibleOptions.length} de {filteredOptions.length} opciones. Escribe para filtrar...
+          {/* Pie de Paginación Interactiva de 10 en 10 */}
+          {totalPages > 1 && (
+            <div
+              className="px-3.5 py-2.5 bg-slate-50 border-t border-slate-100 flex items-center justify-between text-xs shrink-0 select-none"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <span className="text-[11px] font-medium text-slate-500">
+                Mostrando <strong className="text-slate-800 font-bold">{startIndex + 1}–{endIndex}</strong> de <strong className="text-slate-800 font-bold">{filteredOptions.length}</strong>
+              </span>
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  disabled={currentPage <= 1}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setCurrentPage((p) => Math.max(1, p - 1));
+                  }}
+                  className="w-7 h-7 rounded-lg border border-slate-200 bg-white text-slate-600 hover:text-slate-900 hover:bg-slate-100 flex items-center justify-center transition-all disabled:opacity-30 disabled:pointer-events-none cursor-pointer shadow-2xs active:scale-95"
+                  title="Página anterior"
+                >
+                  <ChevronLeft className="w-3.5 h-3.5" />
+                </button>
+                <span className="text-[11px] font-bold text-slate-700 bg-white px-2 py-0.5 rounded-md border border-slate-200 shadow-2xs font-mono">
+                  {currentPage} / {totalPages}
+                </span>
+                <button
+                  type="button"
+                  disabled={currentPage >= totalPages}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setCurrentPage((p) => Math.min(totalPages, p + 1));
+                  }}
+                  className="w-7 h-7 rounded-lg border border-slate-200 bg-white text-slate-600 hover:text-slate-900 hover:bg-slate-100 flex items-center justify-center transition-all disabled:opacity-30 disabled:pointer-events-none cursor-pointer shadow-2xs active:scale-95"
+                  title="Página siguiente"
+                >
+                  <ChevronRight className="w-3.5 h-3.5" />
+                </button>
+              </div>
             </div>
           )}
         </div>

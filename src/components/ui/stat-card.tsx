@@ -11,6 +11,7 @@ export interface StatCardProps {
   subtitle?: string;
   progressPercent?: number;
   className?: string;
+  hideSubtitleOnMobile?: boolean;
 }
 
 const COLOR_MAP: Record<
@@ -83,6 +84,7 @@ export function StatCard({
   subtitle,
   progressPercent,
   className = "",
+  hideSubtitleOnMobile = true,
 }: StatCardProps) {
   const theme = COLOR_MAP[color] ?? COLOR_MAP.navy;
 
@@ -116,7 +118,11 @@ export function StatCard({
           {value}
         </span>
         {subtitle && (
-          <span className="text-[11px] sm:text-xs text-slate-500 font-medium mt-1 leading-snug line-clamp-2">
+          <span
+            className={`text-[11px] sm:text-xs text-slate-500 font-medium mt-1 leading-snug line-clamp-2 ${
+              hideSubtitleOnMobile ? "hidden sm:block" : ""
+            }`}
+          >
             {subtitle}
           </span>
         )}

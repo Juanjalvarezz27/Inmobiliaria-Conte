@@ -75,7 +75,8 @@ model Propiedad {
   telefonoContacto String?       // Teléfono de contacto o administración del inmueble
   activo          Boolean       @default(true)
 
-  unidades    Unidad[]
+  unidades                 Unidad[]
+  transaccionesFinancieras TransaccionFinanciera[]
 
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
@@ -97,7 +98,8 @@ model Unidad {
   propiedadId    String
   propiedad      Propiedad    @relation(fields: [propiedadId], references: [id], onDelete: Cascade)
 
-  contratos      Contrato[]
+  contratos                Contrato[]
+  transaccionesFinancieras TransaccionFinanciera[]
 
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
@@ -227,6 +229,7 @@ model Pago {
   transacciones    TransaccionPago[]
 
   @@unique([contratoId, periodoMes, periodoAno])
+  @@index([periodoAno, periodoMes])
   @@map("pagos")
 }
 
@@ -244,5 +247,57 @@ model TransaccionPago {
   updatedAt      DateTime    @updatedAt
 
   @@map("transacciones_pago")
+}
+
+enum TipoTransaccionFinanciera {
+  EGRESO
+  INGRESO
+}
+
+enum CategoriaTransaccion {
+  SERVICIOS_PUBLICOS     // Electricidad, agua, aseo, gas, internet
+  MANTENIMIENTO_LIMPIEZA // Condominio, limpieza, áreas comunes, jardinería
+  REPARACIONES           // Plomería, electricidad, bombas, albañilería
+  NOMINA_PERSONAL        // Conserjería, vigilancia, honorarios
+  SUMINISTROS_OFICINA    // Artículos de oficina, bombillos, ferretería
+  IMPUESTOS_TASAS        // Tasas municipales, alcaldía, patentes
+  LEGAL_ADMINISTRATIVO   // Gastos legales, notarías, registros
+  PUBLICIDAD_MARKETING   // Redes, avisos, pendones
+  ALQUILER_COBRANZA      // Canon de arrendamiento devengado
+  ESTACIONAMIENTO        // Puestos de parking
+  EVENTO_FERIA           // Alquiler temporal de plazoletas
+  OTRO                   // Gastos o ingresos imprevistos
+}
+
+model TransaccionFinanciera {
+  id             String                    @id @default(cuid())
+  tipo           TipoTransaccionFinanciera @default(EGRESO)
+  categoria      CategoriaTransaccion      @default(OTRO)
+  concepto       String                    // Ej: "Pago Corpoelec Octubre - CC Las Américas"
+  monto          Float                     // En USD
+  fecha          DateTime                  @default(now())
+  periodoMes     Int                       // 1 - 12
+  periodoAno     Int                       // Ej: 2026
+  metodoPago     MetodoPago                @default(EFECTIVO_USD)
+  referencia     String?                   // Nro de factura o transferencia
+  beneficiario   String?                   // Proveedor o emisor (Ej: "Corpoelec", "Hidrosuroeste")
+  comprobanteUrl String?                   // Factura o recibo en UploadThing
+  notas          String?
+
+  propiedadId    String?
+  propiedad      Propiedad?                @relation(fields: [propiedadId], references: [id], onDelete: SetNull)
+
+  unidadId       String?
+  unidad         Unidad?                   @relation(fields: [unidadId], references: [id], onDelete: SetNull)
+
+  activo         Boolean                   @default(true)
+  createdAt      DateTime                  @default(now())
+  updatedAt      DateTime                  @updatedAt
+
+  @@index([periodoAno, periodoMes])
+  @@index([tipo])
+  @@index([categoria])
+  @@index([propiedadId])
+  @@map("transacciones_financieras")
 }
 

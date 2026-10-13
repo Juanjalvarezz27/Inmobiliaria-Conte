@@ -405,12 +405,13 @@ export function ReciboModal({ isOpen, onClose, pago }: ReciboModalProps) {
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 pb-3 sm:pb-4 border-b border-slate-200/90">
                   {/* Logotipo y Datos de la Empresa */}
                   <div className="flex items-center gap-3 sm:gap-3.5 min-w-0">
-                    <div className="relative w-12 h-12 sm:w-18 sm:h-18 shrink-0 bg-white border border-slate-200/80 rounded-xl sm:rounded-2xl p-1 shadow-2xs flex items-center justify-center">
+                    <div className="relative w-12 h-12 sm:w-18 sm:h-18 shrink-0 bg-white border border-slate-200/80 rounded-xl sm:rounded-2xl p-1 shadow-2xs flex items-center justify-center overflow-hidden">
                       <Image
                         src="/Logo.png"
                         alt="Inmobiliaria Conté C.A."
                         width={68}
                         height={68}
+                        unoptimized
                         className="object-contain w-full h-full"
                         priority
                       />
@@ -637,17 +638,47 @@ export function ReciboModal({ isOpen, onClose, pago }: ReciboModalProps) {
                       </div>
                     </div>
 
-                    {/* Botón soporte bancario */}
-                    {pago.comprobanteUrl && (
-                      <div className="pt-1 print:hidden">
-                        <button
-                          type="button"
+                    {/* Vista Previa del Comprobante / Soporte Bancario Subido */}
+                    {pago.comprobanteUrl ? (
+                      <div className="pt-2 border-t border-slate-200/60 space-y-1.5">
+                        <div className="flex items-center justify-between text-[11px]">
+                          <span className="font-bold text-slate-700 flex items-center gap-1">
+                            <Receipt className="w-3.5 h-3.5 text-[#175E38]" />
+                            <span>Comprobante de Pago Subido</span>
+                          </span>
+                          <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
+                            Adjunto
+                          </span>
+                        </div>
+
+                        <div
                           onClick={() => setVisorImagenAbierto(true)}
-                          className="w-full inline-flex items-center justify-center gap-1.5 text-[11px] font-bold text-[#175E38] hover:text-[#124b2d] bg-white px-3 py-2 rounded-xl border border-emerald-200 hover:bg-emerald-50 shadow-2xs cursor-pointer transition-all active:translate-y-0.5"
+                          className="group relative h-28 sm:h-32 w-full rounded-xl overflow-hidden border border-slate-200 bg-slate-900/5 hover:border-emerald-400 transition-all cursor-pointer shadow-2xs flex items-center justify-center"
+                          title="Clic para ampliar comprobante en pantalla completa"
                         >
-                          <ZoomIn className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                          <span>Ver Soporte Bancario Adjunto</span>
-                        </button>
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={pago.comprobanteUrl}
+                            alt="Comprobante de pago subido"
+                            crossOrigin="anonymous"
+                            referrerPolicy="no-referrer"
+                            className="w-full h-full object-contain transition-transform duration-300 group-hover:scale-105"
+                          />
+                          <div className="absolute inset-0 bg-slate-950/0 group-hover:bg-slate-950/40 transition-colors flex items-center justify-center">
+                            <span className="opacity-0 group-hover:opacity-100 transition-opacity px-2.5 py-1 rounded-lg bg-black/75 text-white text-xs font-bold flex items-center gap-1.5 shadow-md">
+                              <ZoomIn className="w-3.5 h-3.5 text-emerald-400" />
+                              <span>Ampliar Comprobante</span>
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="pt-2 border-t border-slate-200/60">
+                        <div className="p-2 rounded-xl bg-slate-100/80 border border-slate-200/70 text-center">
+                          <span className="text-[11px] text-slate-500 font-medium">
+                            Liquidación en Efectivo • Sin voucher digital
+                          </span>
+                        </div>
                       </div>
                     )}
                   </div>

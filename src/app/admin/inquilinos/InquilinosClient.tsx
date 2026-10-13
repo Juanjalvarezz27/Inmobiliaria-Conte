@@ -22,6 +22,7 @@ import { toast } from "sonner";
 import { PageHeader } from "@/components/ui/page-header";
 import { StatCard } from "@/components/ui/stat-card";
 import { Modal } from "@/components/ui/modal";
+import { FilterDropdown, type FilterDropdownOption } from "@/components/ui/filter-dropdown";
 import { InquilinoFormModal } from "./InquilinoFormModal";
 import { InquilinoDetalleModal } from "./InquilinoDetalleModal";
 import { InquilinoCard } from "./InquilinoCard";
@@ -55,39 +56,16 @@ export function InquilinosClient({
   const [filtroTipo, setFiltroTipo] = useState<string>("TODOS");
   const [filtroContrato, setFiltroContrato] = useState<string>("TODOS");
 
-  const [isDropdownTipoOpen, setIsDropdownTipoOpen] = useState(false);
-  const [isDropdownContratoOpen, setIsDropdownContratoOpen] = useState(false);
-  const dropdownTipoRef = useRef<HTMLDivElement>(null);
-  const dropdownContratoRef = useRef<HTMLDivElement>(null);
-
-  // Cierre de dropdowns al hacer clic fuera o presionar Escape
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (dropdownTipoRef.current && !dropdownTipoRef.current.contains(e.target as Node)) {
-        setIsDropdownTipoOpen(false);
-      }
-      if (dropdownContratoRef.current && !dropdownContratoRef.current.contains(e.target as Node)) {
-        setIsDropdownContratoOpen(false);
-      }
-    };
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        setIsDropdownTipoOpen(false);
-        setIsDropdownContratoOpen(false);
-      }
-    };
-    if (isDropdownTipoOpen || isDropdownContratoOpen) {
-      document.addEventListener("mousedown", handleClickOutside);
-      document.addEventListener("keydown", handleKeyDown);
-    }
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-      document.removeEventListener("keydown", handleKeyDown);
-    };
-  }, [isDropdownTipoOpen, isDropdownContratoOpen]);
-
-  const tiposDisponibles = useMemo(() => {
+  // Opciones para FilterDropdown de Tipo de Persona
+  const opcionesTipoInquilinos = useMemo((): FilterDropdownOption[] => {
     return [
+      {
+        value: "TODOS",
+        label: "Todos los tipos",
+        icon: Layers,
+        count: inquilinos.length,
+        isGlobal: true,
+      },
       {
         value: TipoPersona.NATURAL,
         label: "Persona Natural",
@@ -103,27 +81,16 @@ export function InquilinosClient({
     ];
   }, [inquilinos]);
 
-  const tipoActivoConfig = useMemo(() => {
-    if (filtroTipo === "TODOS") {
-      return {
-        value: "TODOS",
-        label: "Todos los tipos",
-        icon: Layers,
-        count: inquilinos.length,
-      };
-    }
-    return (
-      tiposDisponibles.find((o) => o.value === filtroTipo) || {
-        value: "TODOS",
-        label: "Todos los tipos",
-        icon: Layers,
-        count: inquilinos.length,
-      }
-    );
-  }, [filtroTipo, tiposDisponibles, inquilinos.length]);
-
-  const estadosContratoDisponibles = useMemo(() => {
+  // Opciones para FilterDropdown de Estado de Contrato
+  const opcionesContratoInquilinos = useMemo((): FilterDropdownOption[] => {
     return [
+      {
+        value: "TODOS",
+        label: "Todos los contratos",
+        icon: Layers,
+        count: inquilinos.length,
+        isGlobal: true,
+      },
       {
         value: "CON_CONTRATO",
         label: "Con Contrato",
@@ -138,25 +105,6 @@ export function InquilinosClient({
       },
     ];
   }, [inquilinos]);
-
-  const contratoActivoConfig = useMemo(() => {
-    if (filtroContrato === "TODOS") {
-      return {
-        value: "TODOS",
-        label: "Todos los contratos",
-        icon: Layers,
-        count: inquilinos.length,
-      };
-    }
-    return (
-      estadosContratoDisponibles.find((o) => o.value === filtroContrato) || {
-        value: "TODOS",
-        label: "Todos los contratos",
-        icon: Layers,
-        count: inquilinos.length,
-      }
-    );
-  }, [filtroContrato, estadosContratoDisponibles, inquilinos.length]);
 
   const [modalMode, setModalMode] = useState<ModalMode>(null);
   const [inquilinoSeleccionado, setInquilinoSeleccionado] = useState<InquilinoConContratos | null>(null);
@@ -453,207 +401,27 @@ export function InquilinosClient({
           )}
         </div>
 
-        {/* Filtros Dropdown Híbridos (Estilo Propiedades) */}
+        {/* Filtros Dropdown Híbridos */}
         <div className="flex flex-col sm:flex-row sm:items-center gap-2 w-full sm:w-auto">
-          {/* Filtro Tipo de Persona */}
-          <div ref={dropdownTipoRef} className="relative w-full sm:w-auto">
-            <select
-              value={filtroTipo}
-              onChange={(e) => setFiltroTipo(e.target.value)}
-              className="md:hidden absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
-              aria-label="Filtrar por tipo de persona"
-            >
-              <option value="TODOS">
-                Todos los tipos {inquilinos.length > 0 ? `(${inquilinos.length})` : ""}
-              </option>
-              {tiposDisponibles.map((opt) => (
-                <option key={opt.value} value={opt.value}>
-                  {opt.label} ({opt.count})
-                </option>
-              ))}
-            </select>
+          <FilterDropdown
+            value={filtroTipo}
+            onChange={(val) => setFiltroTipo(val)}
+            options={opcionesTipoInquilinos}
+            size="sm"
+            className="w-full sm:w-auto"
+            menuWidth="w-60"
+            ariaLabel="Filtrar por tipo de persona"
+          />
 
-            <button
-              type="button"
-              onClick={() => setIsDropdownTipoOpen((prev) => !prev)}
-              className="w-full sm:w-auto flex items-center justify-between gap-2 px-3 sm:px-3.5 h-10 text-xs sm:text-sm font-medium border border-slate-200 rounded-xl bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50 transition-all shadow-2xs cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#1C2539]/20"
-            >
-              <div className="flex items-center gap-2 truncate">
-                {React.createElement(tipoActivoConfig.icon, {
-                  className: "w-4 h-4 text-slate-500 shrink-0",
-                })}
-                <span className="truncate">{tipoActivoConfig.label}</span>
-              </div>
-              <ChevronDown
-                className={`w-3.5 h-3.5 text-slate-400 shrink-0 transition-transform duration-200 ml-1 ${
-                  isDropdownTipoOpen ? "rotate-180" : ""
-                }`}
-              />
-            </button>
-
-            {isDropdownTipoOpen && (
-              <div className="hidden md:block absolute right-0 top-full mt-1.5 w-60 bg-white border border-slate-200/90 rounded-xl shadow-xl py-1.5 z-50 animate-in fade-in-0 zoom-in-95 duration-100">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setFiltroTipo("TODOS");
-                    setIsDropdownTipoOpen(false);
-                  }}
-                  className={`w-full flex items-center justify-between px-3 py-2 text-xs sm:text-sm transition-colors cursor-pointer ${
-                    filtroTipo === "TODOS"
-                      ? "bg-slate-50 text-slate-900 font-semibold"
-                      : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
-                  }`}
-                >
-                  <div className="flex items-center gap-2 truncate">
-                    <Layers className="w-4 h-4 text-slate-400 shrink-0" />
-                    <span className="truncate">Todos los tipos</span>
-                  </div>
-                  <div className="flex items-center gap-1.5 shrink-0 ml-2">
-                    <span className="text-[11px] font-medium bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded-full">
-                      {inquilinos.length}
-                    </span>
-                    {filtroTipo === "TODOS" && <Check className="w-3.5 h-3.5 text-[#175E38]" />}
-                  </div>
-                </button>
-
-                {tiposDisponibles.length > 0 && (
-                  <div className="my-1 border-t border-slate-100" />
-                )}
-
-                {tiposDisponibles.map((opt) => {
-                  const isSelected = filtroTipo === opt.value;
-                  const IconComponent = opt.icon;
-                  return (
-                    <button
-                      key={opt.value}
-                      type="button"
-                      onClick={() => {
-                        setFiltroTipo(opt.value);
-                        setIsDropdownTipoOpen(false);
-                      }}
-                      className={`w-full flex items-center justify-between px-3 py-2 text-xs sm:text-sm transition-colors cursor-pointer ${
-                        isSelected
-                          ? "bg-slate-50 text-slate-900 font-semibold"
-                          : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
-                      }`}
-                    >
-                      <div className="flex items-center gap-2 truncate">
-                        <IconComponent className="w-4 h-4 text-slate-400 shrink-0" />
-                        <span className="truncate">{opt.label}</span>
-                      </div>
-                      <div className="flex items-center gap-1.5 shrink-0 ml-2">
-                        <span className="text-[11px] font-medium bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded-full">
-                          {opt.count}
-                        </span>
-                        {isSelected && <Check className="w-3.5 h-3.5 text-[#175E38]" />}
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-
-          {/* Filtro Contratos */}
-          <div ref={dropdownContratoRef} className="relative w-full sm:w-auto">
-            <select
-              value={filtroContrato}
-              onChange={(e) => setFiltroContrato(e.target.value)}
-              className="md:hidden absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
-              aria-label="Filtrar por estado de contrato"
-            >
-              <option value="TODOS">
-                Todos los contratos {inquilinos.length > 0 ? `(${inquilinos.length})` : ""}
-              </option>
-              {estadosContratoDisponibles.map((opt) => (
-                <option key={opt.value} value={opt.value}>
-                  {opt.label} ({opt.count})
-                </option>
-              ))}
-            </select>
-
-            <button
-              type="button"
-              onClick={() => setIsDropdownContratoOpen((prev) => !prev)}
-              className="w-full sm:w-auto flex items-center justify-between gap-2 px-3 sm:px-3.5 h-10 text-xs sm:text-sm font-medium border border-slate-200 rounded-xl bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50 transition-all shadow-2xs cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#1C2539]/20"
-            >
-              <div className="flex items-center gap-2 truncate">
-                {React.createElement(contratoActivoConfig.icon, {
-                  className: "w-4 h-4 text-slate-500 shrink-0",
-                })}
-                <span className="truncate">{contratoActivoConfig.label}</span>
-              </div>
-              <ChevronDown
-                className={`w-3.5 h-3.5 text-slate-400 shrink-0 transition-transform duration-200 ml-1 ${
-                  isDropdownContratoOpen ? "rotate-180" : ""
-                }`}
-              />
-            </button>
-
-            {isDropdownContratoOpen && (
-              <div className="hidden md:block absolute right-0 top-full mt-1.5 w-60 bg-white border border-slate-200/90 rounded-xl shadow-xl py-1.5 z-50 animate-in fade-in-0 zoom-in-95 duration-100">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setFiltroContrato("TODOS");
-                    setIsDropdownContratoOpen(false);
-                  }}
-                  className={`w-full flex items-center justify-between px-3 py-2 text-xs sm:text-sm transition-colors cursor-pointer ${
-                    filtroContrato === "TODOS"
-                      ? "bg-slate-50 text-slate-900 font-semibold"
-                      : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
-                  }`}
-                >
-                  <div className="flex items-center gap-2 truncate">
-                    <Layers className="w-4 h-4 text-slate-400 shrink-0" />
-                    <span className="truncate">Todos los contratos</span>
-                  </div>
-                  <div className="flex items-center gap-1.5 shrink-0 ml-2">
-                    <span className="text-[11px] font-medium bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded-full">
-                      {inquilinos.length}
-                    </span>
-                    {filtroContrato === "TODOS" && <Check className="w-3.5 h-3.5 text-[#175E38]" />}
-                  </div>
-                </button>
-
-                {estadosContratoDisponibles.length > 0 && (
-                  <div className="my-1 border-t border-slate-100" />
-                )}
-
-                {estadosContratoDisponibles.map((opt) => {
-                  const isSelected = filtroContrato === opt.value;
-                  const IconComponent = opt.icon;
-                  return (
-                    <button
-                      key={opt.value}
-                      type="button"
-                      onClick={() => {
-                        setFiltroContrato(opt.value);
-                        setIsDropdownContratoOpen(false);
-                      }}
-                      className={`w-full flex items-center justify-between px-3 py-2 text-xs sm:text-sm transition-colors cursor-pointer ${
-                        isSelected
-                          ? "bg-slate-50 text-slate-900 font-semibold"
-                          : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
-                      }`}
-                    >
-                      <div className="flex items-center gap-2 truncate">
-                        <IconComponent className="w-4 h-4 text-slate-400 shrink-0" />
-                        <span className="truncate">{opt.label}</span>
-                      </div>
-                      <div className="flex items-center gap-1.5 shrink-0 ml-2">
-                        <span className="text-[11px] font-medium bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded-full">
-                          {opt.count}
-                        </span>
-                        {isSelected && <Check className="w-3.5 h-3.5 text-[#175E38]" />}
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-          </div>
+          <FilterDropdown
+            value={filtroContrato}
+            onChange={(val) => setFiltroContrato(val)}
+            options={opcionesContratoInquilinos}
+            size="sm"
+            className="w-full sm:w-auto"
+            menuWidth="w-60"
+            ariaLabel="Filtrar por estado de contrato"
+          />
         </div>
       </div>
 
