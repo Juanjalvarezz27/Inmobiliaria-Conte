@@ -55,6 +55,7 @@ model Usuario {
   activo       Boolean  @default(true)
 
   inquilino    Inquilino?
+  empleado     Empleado?
 
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
@@ -77,6 +78,7 @@ model Propiedad {
 
   unidades                 Unidad[]
   transaccionesFinancieras TransaccionFinanciera[]
+  tareasEmpleados          TareaEmpleado[]
 
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
@@ -299,5 +301,106 @@ model TransaccionFinanciera {
   @@index([categoria])
   @@index([propiedadId])
   @@map("transacciones_financieras")
+}
+
+enum CargoEmpleado {
+  CONSERJE
+  TECNICO_MANTENIMIENTO
+  ELECTRICISTA
+  PLOMERO
+  SEGURIDAD
+  SUPERVISOR
+  ADMINISTRATIVO
+  OTRO
+}
+
+enum EstadoAsistencia {
+  PRESENTE
+  RETARDO
+  FALTA_JUSTIFICADA
+  FALTA_INJUSTIFICADA
+  PERMISO
+}
+
+enum PrioridadTarea {
+  BAJA
+  NORMAL
+  ALTA
+  URGENTE
+}
+
+enum EstadoTarea {
+  PENDIENTE
+  EN_PROCESO
+  COMPLETADA
+  CANCELADA
+}
+
+model Empleado {
+  id             String               @id @default(cuid())
+  nombre         String
+  apellido       String?
+  cedula         String               @unique
+  telefono       String
+  email          String?
+  direccion      String?
+  cargo          CargoEmpleado        @default(CONSERJE)
+  fechaIngreso   DateTime             @default(now())
+  salarioMensual Float?               // Salario u honorarios en USD
+  activo         Boolean              @default(true)
+  notas          String?
+
+  usuarioId      String?              @unique
+  usuario        Usuario?             @relation(fields: [usuarioId], references: [id], onDelete: SetNull)
+
+  asistencias    RegistroAsistencia[]
+  tareas         TareaEmpleado[]
+
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime             @updatedAt
+
+  @@map("empleados")
+}
+
+model RegistroAsistencia {
+  id               String           @id @default(cuid())
+  empleadoId       String
+  empleado         Empleado         @relation(fields: [empleadoId], references: [id], onDelete: Cascade)
+  fecha            DateTime         @default(now()) // Día de la jornada
+  horaEntrada      DateTime         @default(now())
+  horaSalida       DateTime?
+  estado           EstadoAsistencia @default(PRESENTE)
+  ubicacionEntrada String?          // Inmueble o referencia de entrada
+  ubicacionSalida  String?          // Inmueble o referencia de salida
+  observaciones    String?
+
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+
+  @@index([empleadoId, fecha])
+  @@map("registros_asistencia")
+}
+
+model TareaEmpleado {
+  id              String         @id @default(cuid())
+  titulo          String
+  descripcion     String?
+  empleadoId      String
+  empleado        Empleado       @relation(fields: [empleadoId], references: [id], onDelete: Cascade)
+  propiedadId     String?
+  propiedad       Propiedad?     @relation(fields: [propiedadId], references: [id], onDelete: SetNull)
+  prioridad       PrioridadTarea @default(NORMAL)
+  estado          EstadoTarea    @default(PENDIENTE)
+  fechaLimite     DateTime?
+  fechaCompletada DateTime?
+  evidencias      String[]       // URLs de imágenes en UploadThing
+  notasResolucion String?
+
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  @@index([empleadoId, estado])
+  @@index([propiedadId])
+  @@map("tareas_empleados")
 }
 

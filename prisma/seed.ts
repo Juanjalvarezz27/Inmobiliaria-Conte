@@ -95,9 +95,105 @@ async function main() {
     },
   });
 
-  console.log("Usuarios de prueba creados exitosamente:");
+  // 4. Perfil Empleado para Carlos Mendoza
+  const empleadoPerfil = await prisma.empleado.upsert({
+    where: { cedula: "V-18304050" },
+    update: {
+      nombre: "Carlos",
+      apellido: "Mendoza",
+      telefono: "+58 414 7654321",
+      email: "empleado@conte.com",
+      cargo: "TECNICO_MANTENIMIENTO",
+      salarioMensual: 450,
+      usuarioId: empleado.id,
+      activo: true,
+    },
+    create: {
+      nombre: "Carlos",
+      apellido: "Mendoza",
+      cedula: "V-18304050",
+      telefono: "+58 414 7654321",
+      email: "empleado@conte.com",
+      direccion: "Sector Los Olivos, Calle 4",
+      cargo: "TECNICO_MANTENIMIENTO",
+      salarioMensual: 450,
+      usuarioId: empleado.id,
+      activo: true,
+    },
+  });
+
+  // 5. Empleado Operativo Adicional (Conserje)
+  const conserjePerfil = await prisma.empleado.upsert({
+    where: { cedula: "V-15890123" },
+    update: {
+      nombre: "José",
+      apellido: "Rivas",
+      telefono: "+58 412 9876543",
+      cargo: "CONSERJE",
+      salarioMensual: 350,
+      activo: true,
+    },
+    create: {
+      nombre: "José",
+      apellido: "Rivas",
+      cedula: "V-15890123",
+      telefono: "+58 412 9876543",
+      direccion: "Barrio Obrero, Carrera 18",
+      cargo: "CONSERJE",
+      salarioMensual: 350,
+      activo: true,
+    },
+  });
+
+  // 6. Asistencia de hoy para Carlos Mendoza
+  const hoy = new Date();
+  const inicioDia = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate(), 7, 30, 0);
+
+  const asistenciaExistente = await prisma.registroAsistencia.findFirst({
+    where: {
+      empleadoId: empleadoPerfil.id,
+      fecha: {
+        gte: new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate(), 0, 0, 0),
+      },
+    },
+  });
+
+  if (!asistenciaExistente) {
+    await prisma.registroAsistencia.create({
+      data: {
+        empleadoId: empleadoPerfil.id,
+        fecha: hoy,
+        horaEntrada: inicioDia,
+        estado: "PRESENTE",
+        ubicacionEntrada: "Sede Administrativa Principal",
+        observaciones: "Entrada puntual en turno matutino.",
+      },
+    });
+  }
+
+  // 7. Tarea operativa de ejemplo
+  const tareaExistente = await prisma.tareaEmpleado.findFirst({
+    where: { empleadoId: empleadoPerfil.id },
+  });
+
+  if (!tareaExistente) {
+    await prisma.tareaEmpleado.create({
+      data: {
+        empleadoId: empleadoPerfil.id,
+        titulo: "Revisión preventiva del sistema hidroneumático",
+        descripcion: "Comprobar presiones del pulmón y limpiar filtros en el cuarto de máquinas.",
+        prioridad: "ALTA",
+        estado: "PENDIENTE",
+        fechaLimite: new Date(hoy.getTime() + 86400000), // Mañana
+        evidencias: [],
+      },
+    });
+  }
+
+  console.log("Usuarios y colaboradores de prueba creados exitosamente:");
   console.log(`- Admin: ${admin.email} (rol: ${admin.rol})`);
-  console.log(`- Empleado: ${empleado.email} (rol: ${empleado.rol})`);
+  console.log(`- Empleado con portal: ${empleado.email} (colaborador: ${empleadoPerfil.nombre})`);
+  console.log(`- Empleado operativo: ${conserjePerfil.nombre} ${conserjePerfil.apellido}`);
   console.log(`- Inquilino: ${inquilino.email} (rol: ${inquilino.rol})`);
 }
 
