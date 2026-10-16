@@ -516,7 +516,7 @@ export function PersonalClient({ initialData }: PersonalClientProps) {
       {/* PageHeader con Título y Botones de Acción */}
       <PageHeader
         title="Equipo de Trabajo y Asistencia"
-        icon={<Users className="w-6 h-6 text-[#175E38]" />}
+        icon={<Users className="w-6 h-6 text-white" />}
         actions={
           <div className="flex items-center gap-2.5 flex-wrap">
             <button
