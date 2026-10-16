@@ -513,15 +513,10 @@ export function PersonalClient({ initialData }: PersonalClientProps) {
 
   return (
     <div className="space-y-6">
-      {/* PageHeader con Breadcrumbs y Botones de Acción */}
+      {/* PageHeader con Título y Botones de Acción */}
       <PageHeader
         title="Equipo de Trabajo y Asistencia"
-        description="Coordinación del personal operativo, control diario de asistencia y seguimiento de órdenes de trabajo con evidencias."
         icon={<Users className="w-6 h-6 text-[#175E38]" />}
-        breadcrumbs={[
-          { label: "Admin", href: "/admin/dashboard" },
-          { label: "Personal & Asistencia" },
-        ]}
         actions={
           <div className="flex items-center gap-2.5 flex-wrap">
             <button
