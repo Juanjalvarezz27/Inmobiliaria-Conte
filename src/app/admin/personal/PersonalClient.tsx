@@ -103,38 +103,38 @@ export function PersonalClient({ initialData }: PersonalClientProps) {
   const toggleAcordeonDirectorio = (id: string) => {
     setAcordeonesDirectorio((prev) => ({
       ...prev,
-      [id]: prev[id] !== undefined ? !prev[id] : false,
+      [id]: prev[id] !== undefined ? !prev[id] : true,
     }));
   };
 
   const toggleAcordeonAsistencia = (id: string) => {
     setAcordeonesAsistencia((prev) => ({
       ...prev,
-      [id]: prev[id] !== undefined ? !prev[id] : false,
+      [id]: prev[id] !== undefined ? !prev[id] : true,
     }));
   };
 
   const toggleAcordeonTareas = (id: string) => {
     setAcordeonesTareas((prev) => ({
       ...prev,
-      [id]: prev[id] !== undefined ? !prev[id] : false,
+      [id]: prev[id] !== undefined ? !prev[id] : true,
     }));
   };
 
   const estaDesplegadaDirectorio = (id: string) =>
-    busqueda.trim() !== "" ||
-    filtroPropiedad !== "TODAS" ||
-    (acordeonesDirectorio[id] !== undefined ? acordeonesDirectorio[id] : true);
+    acordeonesDirectorio[id] !== undefined
+      ? acordeonesDirectorio[id]
+      : busqueda.trim() !== "" || (filtroPropiedad !== "TODAS" && filtroPropiedad === id);
 
   const estaDesplegadaAsistencia = (id: string) =>
-    busqueda.trim() !== "" ||
-    filtroPropiedad !== "TODAS" ||
-    (acordeonesAsistencia[id] !== undefined ? acordeonesAsistencia[id] : true);
+    acordeonesAsistencia[id] !== undefined
+      ? acordeonesAsistencia[id]
+      : busqueda.trim() !== "" || (filtroPropiedad !== "TODAS" && filtroPropiedad === id);
 
   const estaDesplegadaTareas = (id: string) =>
-    busqueda.trim() !== "" ||
-    filtroPropiedad !== "TODAS" ||
-    (acordeonesTareas[id] !== undefined ? acordeonesTareas[id] : true);
+    acordeonesTareas[id] !== undefined
+      ? acordeonesTareas[id]
+      : busqueda.trim() !== "" || (filtroPropiedad !== "TODAS" && filtroPropiedad === id);
 
   // Helper para sol decorativo en esquina del acordeón
   const getCornerSunConfig = (tipo?: string) => {
