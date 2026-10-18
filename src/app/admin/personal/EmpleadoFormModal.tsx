@@ -14,6 +14,7 @@ interface EmpleadoFormModalProps {
   isOpen: boolean;
   onClose: () => void;
   empleadoAEditar?: EmpleadoItem | null;
+  propiedadPreseleccionadaId?: string | null;
   propiedades: PropiedadOpcion[];
   onSubmit: (data: CreateEmpleadoInput) => Promise<boolean>;
   isLoading?: boolean;
@@ -28,6 +29,7 @@ export function EmpleadoFormModal({
   isOpen,
   onClose,
   empleadoAEditar,
+  propiedadPreseleccionadaId,
   propiedades,
   onSubmit,
   isLoading = false,
@@ -59,7 +61,7 @@ export function EmpleadoFormModal({
     empleadoAEditar?.salarioMensual ? empleadoAEditar.salarioMensual.toString() : ""
   );
   const [propiedadId, setPropiedadId] = useState<string>(
-    empleadoAEditar?.propiedadId || "GENERAL"
+    empleadoAEditar?.propiedadId || propiedadPreseleccionadaId || "GENERAL"
   );
   const [notas, setNotas] = useState(empleadoAEditar?.notas || "");
 
@@ -69,13 +71,18 @@ export function EmpleadoFormModal({
   const [errorLocal, setErrorLocal] = useState<string | null>(null);
 
   // Sincronizar estado cuando cambia el empleado a editar
-  const [prevTarget, setPrevTarget] = useState<{ id?: string; isOpen: boolean }>({
+  const [prevTarget, setPrevTarget] = useState<{ id?: string; isOpen: boolean; propId?: string | null }>({
     id: empleadoAEditar?.id,
     isOpen,
+    propId: propiedadPreseleccionadaId,
   });
 
-  if (prevTarget.id !== empleadoAEditar?.id || prevTarget.isOpen !== isOpen) {
-    setPrevTarget({ id: empleadoAEditar?.id, isOpen });
+  if (
+    prevTarget.id !== empleadoAEditar?.id ||
+    prevTarget.isOpen !== isOpen ||
+    prevTarget.propId !== propiedadPreseleccionadaId
+  ) {
+    setPrevTarget({ id: empleadoAEditar?.id, isOpen, propId: propiedadPreseleccionadaId });
     if (empleadoAEditar) {
       setNombre(empleadoAEditar.nombre);
       setApellido(empleadoAEditar.apellido || "");
@@ -99,7 +106,7 @@ export function EmpleadoFormModal({
       setCargo(CargoEmpleado.CONSERJE);
       setFechaIngreso(hoyStr);
       setSalarioMensual("");
-      setPropiedadId("GENERAL");
+      setPropiedadId(propiedadPreseleccionadaId || "GENERAL");
       setNotas("");
       setCrearUsuario(false);
       setPasswordTemporal("Conte2026*");

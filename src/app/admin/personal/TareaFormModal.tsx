@@ -15,6 +15,7 @@ interface TareaFormModalProps {
   empleados: EmpleadoItem[];
   propiedades: PropiedadOpcion[];
   empleadoPreseleccionado?: EmpleadoItem | null;
+  propiedadPreseleccionadaId?: string | null;
   onSubmit: (data: CreateTareaInput) => Promise<boolean>;
   isLoading?: boolean;
 }
@@ -30,6 +31,7 @@ export function TareaFormModal({
   empleados,
   propiedades,
   empleadoPreseleccionado,
+  propiedadPreseleccionadaId,
   onSubmit,
   isLoading = false,
 }: TareaFormModalProps) {
@@ -38,7 +40,9 @@ export function TareaFormModal({
   const [empleadoId, setEmpleadoId] = useState(
     empleadoPreseleccionado?.id || (empleados.length > 0 ? empleados[0].id : "")
   );
-  const [propiedadId, setPropiedadId] = useState("GENERAL");
+  const [propiedadId, setPropiedadId] = useState(
+    propiedadPreseleccionadaId || "GENERAL"
+  );
   const [titulo, setTitulo] = useState("");
   const [descripcion, setDescripcion] = useState("");
   const [prioridad, setPrioridad] = useState<PrioridadTarea>(PrioridadTarea.NORMAL);
@@ -65,16 +69,33 @@ export function TareaFormModal({
   ];
 
   // Sincronizar preselección
-  const [prevIsOpen, setPrevIsOpen] = useState(isOpen);
-  if (prevIsOpen !== isOpen) {
-    setPrevIsOpen(isOpen);
+  const [prevTarget, setPrevTarget] = useState<{
+    isOpen: boolean;
+    empId?: string;
+    propId?: string | null;
+  }>({
+    isOpen,
+    empId: empleadoPreseleccionado?.id,
+    propId: propiedadPreseleccionadaId,
+  });
+
+  if (
+    prevTarget.isOpen !== isOpen ||
+    prevTarget.empId !== empleadoPreseleccionado?.id ||
+    prevTarget.propId !== propiedadPreseleccionadaId
+  ) {
+    setPrevTarget({
+      isOpen,
+      empId: empleadoPreseleccionado?.id,
+      propId: propiedadPreseleccionadaId,
+    });
     if (isOpen) {
       if (empleadoPreseleccionado) {
         setEmpleadoId(empleadoPreseleccionado.id);
       } else if (empleados.length > 0) {
         setEmpleadoId(empleados[0].id);
       }
-      setPropiedadId("GENERAL");
+      setPropiedadId(propiedadPreseleccionadaId || "GENERAL");
       setTitulo("");
       setDescripcion("");
       setPrioridad(PrioridadTarea.NORMAL);
