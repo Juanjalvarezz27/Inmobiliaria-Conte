@@ -561,7 +561,7 @@ export function PersonalClient({ initialData }: PersonalClientProps) {
           if (empleadoAEditar) {
             const res = await actualizarEmpleadoAction(empleadoAEditar.id, input);
             if (res.success && res.data) {
-              toast.success("Colaborador actualizado exitosamente.");
+              toast.success("Trabajador actualizado exitosamente.");
               // Actualización optimista local
               const propiedadActualizada = input.propiedadId
                 ? data.propiedades.find((p) => p.id === input.propiedadId) || null
@@ -584,13 +584,13 @@ export function PersonalClient({ initialData }: PersonalClientProps) {
               }));
               resolve(true);
             } else {
-              toast.error(res.error || "No se pudo actualizar el colaborador.");
+              toast.error(res.error || "No se pudo actualizar el trabajador.");
               resolve(false);
             }
           } else {
             const res = await crearEmpleadoAction(input);
             if (res.success && res.data) {
-              toast.success("Colaborador registrado exitosamente.");
+              toast.success("Trabajador registrado exitosamente.");
               const propiedadNueva = input.propiedadId
                 ? data.propiedades.find((p) => p.id === input.propiedadId) || null
                 : null;
@@ -628,7 +628,7 @@ export function PersonalClient({ initialData }: PersonalClientProps) {
               }));
               resolve(true);
             } else {
-              toast.error(res.error || "No se pudo registrar el colaborador.");
+              toast.error(res.error || "No se pudo registrar el trabajador.");
               resolve(false);
             }
           }
@@ -782,7 +782,7 @@ export function PersonalClient({ initialData }: PersonalClientProps) {
             titulo: res.data.titulo,
             descripcion: res.data.descripcion,
             empleadoId: res.data.empleadoId,
-            empleadoNombre: emp ? `${emp.nombre} ${emp.apellido || ""}`.trim() : "Colaborador",
+            empleadoNombre: emp ? `${emp.nombre} ${emp.apellido || ""}`.trim() : "Trabajador",
             empleadoCargo: emp ? emp.cargo : CargoEmpleado.CONSERJE,
             propiedadId: res.data.propiedadId,
             propiedadNombre: prop ? prop.nombre : null,
@@ -927,7 +927,7 @@ export function PersonalClient({ initialData }: PersonalClientProps) {
               className="h-11 px-5 rounded-xl text-xs font-bold text-white bg-gradient-to-r from-[#175E38] to-[#124b2d] border-b-[3px] border-b-[#0e3a23] active:translate-y-0.5 transition-all flex items-center gap-2 cursor-pointer shadow-[0_2px_8px_rgba(23,94,56,0.25)]"
             >
               <Plus className="w-4 h-4 stroke-[2.5]" />
-              <span>Nuevo Colaborador</span>
+              <span>Registrar Trabajador</span>
             </button>
           </div>
         }
@@ -941,7 +941,7 @@ export function PersonalClient({ initialData }: PersonalClientProps) {
           value={data.metricas.activosCount}
           icon={Users}
           color="emerald"
-          subtitle={`${data.metricas.totalEmpleados} colaboradores en nómina`}
+          subtitle={`${data.metricas.totalEmpleados} trabajadores en nómina`}
         />
 
         {/* Asistencia de Hoy */}
@@ -1047,8 +1047,8 @@ export function PersonalClient({ initialData }: PersonalClientProps) {
               activeTab === "directorio"
                 ? "Buscar por nombre, cédula o teléfono..."
                 : activeTab === "asistencia"
-                ? "Buscar colaborador..."
-                : "Buscar por título de tarea o colaborador..."
+                ? "Buscar trabajador..."
+                : "Buscar por título de tarea o trabajador..."
             }
             className="w-full h-11 pl-10 pr-4 rounded-xl border border-slate-200 text-xs sm:text-sm font-medium text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#175E38]/20 focus:border-[#175E38] transition-all bg-slate-50/50"
           />
@@ -1124,11 +1124,11 @@ export function PersonalClient({ initialData }: PersonalClientProps) {
         <div>
           {gruposDirectorio.length === 0 ? (
             <EmptyState
-              title="No se encontraron colaboradores"
+              title="No se encontraron trabajadores"
               description="No hay personal que coincida con los filtros seleccionados o la nómina aún está vacía."
               icon="users"
               action={{
-                label: "Registrar Colaborador",
+                label: "Registrar Trabajador",
                 onClick: () => {
                   setEmpleadoAEditar(null);
                   setPropiedadPreseleccionadaEmpleado(null);
@@ -1171,7 +1171,7 @@ export function PersonalClient({ initialData }: PersonalClientProps) {
                         }
                       }}
                       className="w-full relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-3.5 p-4 sm:p-5 cursor-pointer hover:bg-slate-50/40 transition-colors select-none text-left"
-                      title={estaDesplegada ? "Clic para contraer colaboradores" : "Clic para desplegar colaboradores"}
+                      title={estaDesplegada ? "Clic para contraer trabajadores" : "Clic para desplegar trabajadores"}
                     >
                       {/* Información Principal del Inmueble */}
                       <div className="flex items-start sm:items-center gap-3 min-w-0">
@@ -1196,10 +1196,10 @@ export function PersonalClient({ initialData }: PersonalClientProps) {
                             </p>
                           )}
 
-                          {/* Conteo de Colaboradores y Estados */}
+                          {/* Conteo de Trabajadores y Estados */}
                           <div className="flex items-center gap-1.5 mt-2 flex-wrap text-xs">
                             <span className="px-2.5 py-0.5 rounded-md bg-slate-100 text-slate-700 font-bold border border-slate-200/70 text-[11px]">
-                              {grupo.empleados.length} {grupo.empleados.length === 1 ? "colaborador" : "colaboradores"}
+                              {grupo.empleados.length} {grupo.empleados.length === 1 ? "trabajador" : "trabajadores"}
                             </span>
                             {activosCount > 0 && (
                               <span className="px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 font-bold text-[11px] border border-emerald-200/70">
@@ -1215,7 +1215,7 @@ export function PersonalClient({ initialData }: PersonalClientProps) {
                         </div>
                       </div>
 
-                      {/* Acciones: Desplegar a la izquierda y Registrar Colaborador a la derecha */}
+                      {/* Acciones: Desplegar a la izquierda y Registrar Trabajador a la derecha */}
                       <div className="w-full sm:w-auto flex items-center justify-between sm:justify-end gap-3 pt-2.5 sm:pt-0 border-t sm:border-t-0 border-slate-100">
                         <div className="flex items-center gap-2 cursor-pointer text-slate-700 hover:text-black transition-colors">
                           <div
@@ -1226,7 +1226,7 @@ export function PersonalClient({ initialData }: PersonalClientProps) {
                             <ChevronDown className="w-4 h-4 stroke-[2.5]" />
                           </div>
                           <span className="text-xs font-bold text-slate-600 select-none">
-                            {estaDesplegada ? "Cerrar" : "Ver colaboradores"}
+                            {estaDesplegada ? "Cerrar" : "Ver trabajadores"}
                           </span>
                         </div>
 
@@ -1241,7 +1241,7 @@ export function PersonalClient({ initialData }: PersonalClientProps) {
                           className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#175E38] text-white text-xs font-bold hover:bg-[#124b2d] transition-all shadow-xs cursor-pointer active:translate-y-0.5 whitespace-nowrap"
                         >
                           <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
-                          <span>Registrar Colaborador</span>
+                          <span>Registrar Trabajador</span>
                         </button>
                       </div>
                     </div>
@@ -1301,7 +1301,7 @@ export function PersonalClient({ initialData }: PersonalClientProps) {
           {gruposAsistencia.length === 0 ? (
             <EmptyState
               title="Sin personal para asistencia"
-              description="No hay colaboradores activos en el inmueble seleccionado o según los criterios de búsqueda."
+              description="No hay trabajadores activos en el inmueble seleccionado o según los criterios de búsqueda."
               icon="clock"
             />
           ) : (
@@ -1369,7 +1369,7 @@ export function PersonalClient({ initialData }: PersonalClientProps) {
                           {/* Conteo de Asistencia */}
                           <div className="flex items-center gap-1.5 mt-2 flex-wrap text-xs">
                             <span className="px-2.5 py-0.5 rounded-md bg-slate-100 text-slate-700 font-bold border border-slate-200/70 text-[11px]">
-                              {grupo.empleados.length} colaboradores
+                              {grupo.empleados.length} {grupo.empleados.length === 1 ? "trabajador" : "trabajadores"}
                             </span>
                             {presentesHoy > 0 && (
                               <span className="px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 font-bold text-[11px] border border-emerald-200/70">
@@ -1429,7 +1429,7 @@ export function PersonalClient({ initialData }: PersonalClientProps) {
                                 key={emp.id}
                                 className="p-4 sm:p-5 hover:bg-slate-50/80 transition-colors flex flex-col sm:flex-row sm:items-center justify-between gap-3"
                               >
-                                {/* Información del Colaborador */}
+                                {/* Información del Trabajador */}
                                 <div className="flex items-start sm:items-center gap-3">
                                   <div className="w-10 h-10 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center font-heading font-black text-[#175E38] shrink-0">
                                     {emp.nombre.charAt(0)}
@@ -1825,7 +1825,7 @@ export function PersonalClient({ initialData }: PersonalClientProps) {
         isLoading={isPending}
       />
 
-      {/* Modal de Ficha Integral del Colaborador */}
+      {/* Modal de Ficha Integral del Trabajador */}
       <EmpleadoDetalleModal
         isOpen={modalDetalleEmpleadoOpen}
         onClose={() => setModalDetalleEmpleadoOpen(false)}
@@ -1861,7 +1861,7 @@ export function PersonalClient({ initialData }: PersonalClientProps) {
         images={imageViewerUrls}
         initialIndex={imageViewerIndex}
         title="Evidencia Fotográfica de la Labor"
-        subtitle="Fotografía tomada en campo por el colaborador de mantenimiento"
+        subtitle="Fotografía tomada en campo por el trabajador de mantenimiento"
       />
     </div>
   );

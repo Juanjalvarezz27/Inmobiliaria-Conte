@@ -45,7 +45,7 @@ export function AsistenciaModal({
     empleado?.asistenciaHoy?.observaciones || ""
   );
 
-  // Sincronizar al abrir el modal para un colaborador
+  // Sincronizar al abrir el modal para un trabajador
   const [prevTarget, setPrevTarget] = useState<{ id?: string; isOpen: boolean }>({
     id: empleado?.id,
     isOpen,

@@ -57,7 +57,7 @@ export function EmpleadoDetalleModal({
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title="Ficha Integral del Colaborador"
+      title="Ficha Integral del Trabajador"
       subtitle={`${nombreCompleto} • ${cargoConfig.label}`}
       icon={User}
       headerVariant="green"
@@ -259,7 +259,7 @@ export function EmpleadoDetalleModal({
           </div>
         </div>
 
-        {/* Tareas Asignadas al Colaborador */}
+        {/* Tareas Asignadas al Trabajador */}
         <div className="space-y-3">
           <div className="flex items-center justify-between">
             <h4 className="text-xs uppercase font-extrabold tracking-wider text-slate-500">

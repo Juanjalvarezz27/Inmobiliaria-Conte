@@ -109,7 +109,7 @@ export function TareaFormModal({
     setErrorLocal(null);
 
     if (!empleadoId) {
-      setErrorLocal("Debe seleccionar un colaborador responsable.");
+      setErrorLocal("Debe seleccionar un trabajador responsable.");
       return;
     }
     if (!titulo.trim()) {
@@ -155,13 +155,13 @@ export function TareaFormModal({
           {/* Empleado Responsable */}
           <div>
             <label className="block text-xs font-bold text-slate-700 mb-1.5">
-              Colaborador Responsable <span className="text-rose-500">*</span>
+              Trabajador Responsable <span className="text-rose-500">*</span>
             </label>
             <Select
               value={empleadoId}
               onChange={setEmpleadoId}
               options={opcionesEmpleados}
-              placeholder="Seleccionar colaborador"
+              placeholder="Seleccionar trabajador"
               searchable={true}
               searchPlaceholder="Buscar por nombre o cédula..."
               icon={<User className="w-4 h-4 text-slate-400" />}

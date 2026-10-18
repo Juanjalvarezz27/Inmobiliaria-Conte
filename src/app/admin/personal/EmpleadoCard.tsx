@@ -131,8 +131,8 @@ export function EmpleadoCard({
                   type="button"
                   onClick={() => onEditar(emp)}
                   disabled={isPending}
-                  title="Editar datos del colaborador"
-                  aria-label="Editar colaborador"
+                  title="Editar datos del trabajador"
+                  aria-label="Editar trabajador"
                   className="w-8 h-8 rounded-xl bg-blue-50 text-blue-700 border border-blue-200/90 hover:bg-blue-100 hover:scale-105 active:scale-95 transition-all flex items-center justify-center cursor-pointer shadow-2xs"
                 >
                   <Pencil className="w-3.5 h-3.5" />
@@ -148,8 +148,8 @@ export function EmpleadoCard({
                   type="button"
                   onClick={() => onToggleEstado(emp)}
                   disabled={isPending}
-                  title={emp.activo ? "Desactivar colaborador" : "Reactivar colaborador"}
-                  aria-label={emp.activo ? "Desactivar colaborador" : "Reactivar colaborador"}
+                  title={emp.activo ? "Desactivar trabajador" : "Reactivar trabajador"}
+                  aria-label={emp.activo ? "Desactivar trabajador" : "Reactivar trabajador"}
                   className={`w-8 h-8 rounded-xl border hover:scale-105 active:scale-95 transition-all flex items-center justify-center cursor-pointer shadow-2xs ${
                     emp.activo
                       ? "bg-rose-50 text-rose-600 border-rose-200/90 hover:bg-rose-100"

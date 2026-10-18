@@ -172,7 +172,7 @@ export function EmpleadoFormModal({
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title={empleadoAEditar ? "Editar Colaborador" : "Registrar Nuevo Colaborador"}
+      title={empleadoAEditar ? "Editar Trabajador" : "Registrar Trabajador"}
       subtitle="Control de personal, asignación de tareas y acceso al portal móvil"
       icon={User}
       headerVariant="green"
@@ -255,7 +255,7 @@ export function EmpleadoFormModal({
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="Ej: colaborador@inmobiliariaconte.com"
+                placeholder="Ej: trabajador@inmobiliariaconte.com"
                 className="w-full h-11 px-3.5 rounded-xl border border-slate-300 text-sm font-medium text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#175E38]/20 focus:border-[#175E38] transition-all bg-white"
               />
               <p className="text-[11px] text-slate-400 mt-1">
@@ -377,10 +377,10 @@ export function EmpleadoFormModal({
               />
               <div>
                 <span className="text-sm font-bold text-slate-800">
-                  Habilitar cuenta de acceso para el colaborador
+                  Habilitar cuenta de acceso para el trabajador
                 </span>
                 <p className="text-xs text-slate-500 mt-0.5 leading-relaxed">
-                  Permite al colaborador ingresar al Portal Móvil (<code>/empleado</code>) para marcar asistencia, visualizar sus tareas diarias y adjuntar fotos de evidencia.
+                  Permite al trabajador ingresar al Portal Móvil (<code>/empleado</code>) para marcar asistencia, visualizar sus tareas diarias y adjuntar fotos de evidencia.
                 </p>
               </div>
             </label>
@@ -412,7 +412,7 @@ export function EmpleadoFormModal({
                   </button>
                 </div>
                 <p className="text-[11px] text-slate-500">
-                  El colaborador usará su correo electrónico y esta clave para iniciar sesión.
+                  El trabajador usará su correo electrónico y esta clave para iniciar sesión.
                 </p>
               </div>
             )}
