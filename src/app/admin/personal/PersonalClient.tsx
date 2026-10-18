@@ -1144,7 +1144,6 @@ export function PersonalClient({ initialData }: PersonalClientProps) {
                 const estaDesplegada = estaDesplegadaDirectorio(grupo.id);
                 const activosCount = grupo.empleados.filter((e) => e.activo).length;
                 const inactivosCount = grupo.empleados.length - activosCount;
-                const conAccesoCount = grupo.empleados.filter((e) => Boolean(e.usuarioId)).length;
 
                 return (
                   <section
@@ -1210,11 +1209,6 @@ export function PersonalClient({ initialData }: PersonalClientProps) {
                             {inactivosCount > 0 && (
                               <span className="px-2 py-0.5 rounded-md bg-rose-50 text-rose-700 font-bold text-[11px] border border-rose-200/70">
                                 {inactivosCount} inactivo{inactivosCount > 1 ? "s" : ""}
-                              </span>
-                            )}
-                            {conAccesoCount > 0 && (
-                              <span className="px-2 py-0.5 rounded-md bg-blue-50 text-blue-700 font-bold text-[11px] border border-blue-200/70">
-                                {conAccesoCount} con portal web
                               </span>
                             )}
                           </div>

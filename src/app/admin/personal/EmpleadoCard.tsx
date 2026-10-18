@@ -17,7 +17,6 @@ import {
   Clock,
   AlertTriangle,
   Plus,
-  KeyRound,
   Building2,
 } from "lucide-react";
 import { WhatsAppIcon } from "@/components/icons/whatsapp-icon";
@@ -178,16 +177,6 @@ export function EmpleadoCard({
               {!emp.activo && (
                 <span className="text-[11px] font-bold text-rose-600 bg-rose-50 border border-rose-200 px-2 py-0.5 rounded-md">
                   Inactivo
-                </span>
-              )}
-              {emp.usuarioId ? (
-                <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-md">
-                  <KeyRound className="w-3 h-3" />
-                  Con Acceso Web
-                </span>
-              ) : (
-                <span className="text-[11px] font-medium text-slate-400 bg-slate-50 border border-slate-200 px-2 py-0.5 rounded-md">
-                  Solo Operativo
                 </span>
               )}
             </div>
