@@ -1148,7 +1148,7 @@ export function PersonalClient({ initialData }: PersonalClientProps) {
                 return (
                   <section
                     key={grupo.id}
-                    className={`group/acordeon relative overflow-hidden bg-gradient-to-b from-white via-white to-slate-50/60 rounded-2xl sm:rounded-3xl border border-slate-200/90 border-b-[3px] border-b-slate-300/90 shadow-[0_4px_20px_-2px_rgba(28,37,57,0.07),0_2px_6px_-1px_rgba(28,37,57,0.04)] hover:shadow-[0_12px_28px_-4px_rgba(28,37,57,0.11),0_4px_8px_-2px_rgba(28,37,57,0.05)] transition-all duration-300 ${
+                    className={`group/acordeon relative overflow-hidden bg-gradient-to-b from-white via-white to-slate-50/60 rounded-2xl sm:rounded-3xl border border-slate-200/90 border-b-[3px] border-b-slate-300/90 shadow-[0_4px_20px_-2px_rgba(28,37,57,0.07),0_2px_6px_-1px_rgba(28,37,57,0.04)] hover:shadow-[0_12px_28px_-4px_rgba(28,37,57,0.11),0_4px_8px_-2px_rgba(28,37,57,0.05)] transition-shadow duration-200 ${
                       estaDesplegada ? "border-slate-300/90 ring-1 ring-slate-300/60 shadow-md" : ""
                     }`}
                   >
@@ -1219,7 +1219,7 @@ export function PersonalClient({ initialData }: PersonalClientProps) {
                       <div className="w-full sm:w-auto flex items-center justify-between sm:justify-end gap-3 pt-2.5 sm:pt-0 border-t sm:border-t-0 border-slate-100">
                         <div className="flex items-center gap-2 cursor-pointer text-slate-700 hover:text-black transition-colors">
                           <div
-                            className={`w-8 h-8 rounded-xl flex items-center justify-center border border-slate-200/90 bg-white/95 text-slate-700 hover:text-black hover:bg-slate-100 transition-all duration-300 shadow-2xs ${
+                            className={`w-8 h-8 rounded-xl flex items-center justify-center border border-slate-200/90 bg-white/95 text-slate-700 hover:text-black hover:bg-slate-100 transition-transform duration-200 ease-out shadow-2xs ${
                               estaDesplegada ? "rotate-180 bg-slate-100 text-black border-slate-300" : ""
                             }`}
                           >
@@ -1248,13 +1248,13 @@ export function PersonalClient({ initialData }: PersonalClientProps) {
 
                     {/* Contenedor Animado con CSS Grid */}
                     <div
-                      className={`grid transition-all duration-300 ease-in-out ${
+                      className={`grid transition-[grid-template-rows,opacity] duration-200 ease-out ${
                         estaDesplegada
                           ? "grid-rows-[1fr] opacity-100"
                           : "grid-rows-[0fr] opacity-0 pointer-events-none"
                       }`}
                     >
-                      <div className="overflow-hidden border-t border-slate-100">
+                      <div className="overflow-hidden min-h-0 border-t border-slate-100">
                         <div className="p-4 sm:p-5">
                           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
                             {grupo.empleados.map((emp) => (
@@ -1319,7 +1319,7 @@ export function PersonalClient({ initialData }: PersonalClientProps) {
                 return (
                   <section
                     key={grupo.id}
-                    className={`group/acordeon relative overflow-hidden bg-gradient-to-b from-white via-white to-slate-50/60 rounded-2xl sm:rounded-3xl border border-slate-200/90 border-b-[3px] border-b-slate-300/90 shadow-[0_4px_20px_-2px_rgba(28,37,57,0.07),0_2px_6px_-1px_rgba(28,37,57,0.04)] hover:shadow-[0_12px_28px_-4px_rgba(28,37,57,0.11),0_4px_8px_-2px_rgba(28,37,57,0.05)] transition-all duration-300 ${
+                    className={`group/acordeon relative overflow-hidden bg-gradient-to-b from-white via-white to-slate-50/60 rounded-2xl sm:rounded-3xl border border-slate-200/90 border-b-[3px] border-b-slate-300/90 shadow-[0_4px_20px_-2px_rgba(28,37,57,0.07),0_2px_6px_-1px_rgba(28,37,57,0.04)] hover:shadow-[0_12px_28px_-4px_rgba(28,37,57,0.11),0_4px_8px_-2px_rgba(28,37,57,0.05)] transition-shadow duration-200 ${
                       estaDesplegada ? "border-slate-300/90 ring-1 ring-slate-300/60 shadow-md" : ""
                     }`}
                   >
@@ -1393,7 +1393,7 @@ export function PersonalClient({ initialData }: PersonalClientProps) {
                       <div className="w-full sm:w-auto flex items-center justify-between sm:justify-end gap-3 pt-2.5 sm:pt-0 border-t sm:border-t-0 border-slate-100">
                         <div className="flex items-center gap-2 cursor-pointer text-slate-700 hover:text-black transition-colors">
                           <div
-                            className={`w-8 h-8 rounded-xl flex items-center justify-center border border-slate-200/90 bg-white/95 text-slate-700 hover:text-black hover:bg-slate-100 transition-all duration-300 shadow-2xs ${
+                            className={`w-8 h-8 rounded-xl flex items-center justify-center border border-slate-200/90 bg-white/95 text-slate-700 hover:text-black hover:bg-slate-100 transition-transform duration-200 ease-out shadow-2xs ${
                               estaDesplegada ? "rotate-180 bg-slate-100 text-black border-slate-300" : ""
                             }`}
                           >
@@ -1412,13 +1412,13 @@ export function PersonalClient({ initialData }: PersonalClientProps) {
 
                     {/* Contenedor Animado con CSS Grid */}
                     <div
-                      className={`grid transition-all duration-300 ease-in-out ${
+                      className={`grid transition-[grid-template-rows,opacity] duration-200 ease-out ${
                         estaDesplegada
                           ? "grid-rows-[1fr] opacity-100"
                           : "grid-rows-[0fr] opacity-0 pointer-events-none"
                       }`}
                     >
-                      <div className="overflow-hidden border-t border-slate-100 bg-white">
+                      <div className="overflow-hidden min-h-0 border-t border-slate-100 bg-white">
                         <div className="divide-y divide-slate-100">
                           {grupo.empleados.map((emp) => {
                             const asist = emp.asistenciaHoy;
@@ -1580,7 +1580,7 @@ export function PersonalClient({ initialData }: PersonalClientProps) {
                 return (
                   <section
                     key={grupo.id}
-                    className={`group/acordeon relative overflow-hidden bg-gradient-to-b from-white via-white to-slate-50/60 rounded-2xl sm:rounded-3xl border border-slate-200/90 border-b-[3px] border-b-slate-300/90 shadow-[0_4px_20px_-2px_rgba(28,37,57,0.07),0_2px_6px_-1px_rgba(28,37,57,0.04)] hover:shadow-[0_12px_28px_-4px_rgba(28,37,57,0.11),0_4px_8px_-2px_rgba(28,37,57,0.05)] transition-all duration-300 ${
+                    className={`group/acordeon relative overflow-hidden bg-gradient-to-b from-white via-white to-slate-50/60 rounded-2xl sm:rounded-3xl border border-slate-200/90 border-b-[3px] border-b-slate-300/90 shadow-[0_4px_20px_-2px_rgba(28,37,57,0.07),0_2px_6px_-1px_rgba(28,37,57,0.04)] hover:shadow-[0_12px_28px_-4px_rgba(28,37,57,0.11),0_4px_8px_-2px_rgba(28,37,57,0.05)] transition-shadow duration-200 ${
                       estaDesplegada ? "border-slate-300/90 ring-1 ring-slate-300/60 shadow-md" : ""
                     }`}
                   >
@@ -1654,7 +1654,7 @@ export function PersonalClient({ initialData }: PersonalClientProps) {
                       <div className="w-full sm:w-auto flex items-center justify-between sm:justify-end gap-3 pt-2.5 sm:pt-0 border-t sm:border-t-0 border-slate-100">
                         <div className="flex items-center gap-2 cursor-pointer text-slate-700 hover:text-black transition-colors">
                           <div
-                            className={`w-8 h-8 rounded-xl flex items-center justify-center border border-slate-200/90 bg-white/95 text-slate-700 hover:text-black hover:bg-slate-100 transition-all duration-300 shadow-2xs ${
+                            className={`w-8 h-8 rounded-xl flex items-center justify-center border border-slate-200/90 bg-white/95 text-slate-700 hover:text-black hover:bg-slate-100 transition-transform duration-200 ease-out shadow-2xs ${
                               estaDesplegada ? "rotate-180 bg-slate-100 text-black border-slate-300" : ""
                             }`}
                           >
@@ -1683,13 +1683,13 @@ export function PersonalClient({ initialData }: PersonalClientProps) {
 
                     {/* Contenedor Animado con CSS Grid */}
                     <div
-                      className={`grid transition-all duration-300 ease-in-out ${
+                      className={`grid transition-[grid-template-rows,opacity] duration-200 ease-out ${
                         estaDesplegada
                           ? "grid-rows-[1fr] opacity-100"
                           : "grid-rows-[0fr] opacity-0 pointer-events-none"
                       }`}
                     >
-                      <div className="overflow-hidden border-t border-slate-100 p-4 sm:p-5">
+                      <div className="overflow-hidden min-h-0 border-t border-slate-100 p-4 sm:p-5">
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                           {grupo.tareas.map((t) => {
                             const prioridadConfig = PRIORIDAD_TAREA_CONFIG[t.prioridad];
