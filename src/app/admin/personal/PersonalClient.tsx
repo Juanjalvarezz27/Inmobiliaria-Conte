@@ -1382,7 +1382,7 @@ export function PersonalClient({ initialData }: PersonalClientProps) {
                               </span>
                             )}
                             {sinMarcar > 0 && (
-                              <span className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-500 font-bold text-[11px] border border-slate-200/70">
+                              <span className="px-2 py-0.5 rounded-md bg-amber-50 text-amber-800 font-bold text-[11px] border border-amber-200">
                                 {sinMarcar} sin marcar
                               </span>
                             )}
@@ -1500,7 +1500,8 @@ export function PersonalClient({ initialData }: PersonalClientProps) {
                                           )}
                                         </>
                                       ) : (
-                                        <span className="text-slate-400 italic">
+                                        <span className="inline-flex items-center gap-1 font-bold text-[11px] px-2 py-0.5 rounded bg-amber-50 text-amber-800 border border-amber-200">
+                                          <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
                                           Sin registro de asistencia hoy
                                         </span>
                                       )}

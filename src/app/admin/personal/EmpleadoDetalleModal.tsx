@@ -253,7 +253,10 @@ export function EmpleadoDetalleModal({
                   {ESTADO_ASISTENCIA_CONFIG[emp.asistenciaHoy.estado].label}
                 </span>
               ) : (
-                <span className="text-xs font-semibold text-slate-400">Sin marcaje</span>
+                <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded bg-amber-50 text-amber-800 border border-amber-200">
+                  <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+                  Sin marcar hoy
+                </span>
               )}
             </div>
           </div>

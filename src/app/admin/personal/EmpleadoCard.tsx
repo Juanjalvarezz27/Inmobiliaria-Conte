@@ -277,12 +277,22 @@ export function EmpleadoCard({
             {/* Asistencia Hoy */}
             <div
               onClick={() => onRegistrarAsistencia(emp)}
-              className="p-2.5 rounded-xl bg-white border border-slate-200/90 hover:border-slate-300 hover:bg-slate-50/60 cursor-pointer transition-all shadow-2xs group/asis flex flex-col justify-between"
+              className={`p-2.5 rounded-xl bg-white border cursor-pointer transition-all shadow-2xs group/asis flex flex-col justify-between ${
+                emp.asistenciaHoy
+                  ? "border-slate-200/90 hover:border-slate-300 hover:bg-slate-50/60"
+                  : "border-amber-200/80 hover:border-amber-300 hover:bg-amber-50/20"
+              }`}
               title="Clic para registrar o ajustar asistencia"
             >
               <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 flex items-center justify-between mb-1">
                 <span>Asistencia</span>
-                <Clock className="w-3 h-3 text-slate-400 group-hover/asis:text-[#175E38] transition-colors" />
+                <Clock
+                  className={`w-3 h-3 transition-colors ${
+                    emp.asistenciaHoy
+                      ? "text-slate-400 group-hover/asis:text-[#175E38]"
+                      : "text-amber-500 group-hover/asis:text-amber-600"
+                  }`}
+                />
               </div>
               <div>
                 {emp.asistenciaHoy ? (
@@ -303,7 +313,8 @@ export function EmpleadoCard({
                       : "Falta"}
                   </span>
                 ) : (
-                  <span className="text-[11px] font-semibold text-slate-400 group-hover/asis:text-slate-600 transition-colors">
+                  <span className="inline-flex items-center gap-1 text-[11px] font-bold px-1.5 py-0.5 rounded bg-amber-50 text-amber-800 border border-amber-200 shadow-2xs">
+                    <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
                     Sin marcar
                   </span>
                 )}
