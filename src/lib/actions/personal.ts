@@ -31,6 +31,7 @@ const createEmpleadoSchema = z.object({
   fechaIngreso: z.string().optional().nullable(),
   salarioMensual: z.number().optional().nullable(),
   notas: z.string().optional().nullable(),
+  propiedadId: z.string().optional().nullable(),
   crearUsuario: z.boolean().optional(),
   passwordTemporal: z.string().optional().nullable(),
 });
@@ -57,6 +58,13 @@ export async function getPersonalData(): Promise<PersonalDashboardData> {
   ] = await Promise.all([
     prisma.empleado.findMany({
       include: {
+        propiedad: {
+          select: {
+            id: true,
+            nombre: true,
+            ciudad: true,
+          },
+        },
         usuario: {
           select: {
             id: true,
@@ -178,6 +186,8 @@ export async function getPersonalData(): Promise<PersonalDashboardData> {
       salarioMensual: emp.salarioMensual,
       activo: emp.activo,
       notas: emp.notas,
+      propiedadId: emp.propiedadId,
+      propiedad: emp.propiedad,
       usuarioId: emp.usuarioId,
       usuario: emp.usuario
         ? {
@@ -315,6 +325,11 @@ export async function crearEmpleadoAction(rawInput: CreateEmpleadoInput) {
       ? new Date(validated.fechaIngreso)
       : new Date();
 
+    const propiedadId =
+      validated.propiedadId === "GENERAL" || !validated.propiedadId
+        ? null
+        : validated.propiedadId;
+
     const nuevoEmpleado = await prisma.empleado.create({
       data: {
         nombre: validated.nombre,
@@ -327,6 +342,7 @@ export async function crearEmpleadoAction(rawInput: CreateEmpleadoInput) {
         fechaIngreso,
         salarioMensual: validated.salarioMensual ?? null,
         notas: validated.notas || null,
+        propiedadId,
         activo: true,
         usuarioId,
       },
@@ -415,6 +431,12 @@ export async function actualizarEmpleadoAction(id: string, rawInput: UpdateEmple
             ? validated.salarioMensual
             : empleadoExistente.salarioMensual,
         notas: validated.notas !== undefined ? validated.notas : empleadoExistente.notas,
+        ...(validated.propiedadId !== undefined && {
+          propiedadId:
+            validated.propiedadId === "GENERAL" || !validated.propiedadId
+              ? null
+              : validated.propiedadId,
+        }),
         usuarioId,
       },
     });

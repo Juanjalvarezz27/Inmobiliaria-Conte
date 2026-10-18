@@ -13,6 +13,12 @@ export interface EmpleadoItem {
   salarioMensual: number | null;
   activo: boolean;
   notas: string | null;
+  propiedadId: string | null;
+  propiedad?: {
+    id: string;
+    nombre: string;
+    ciudad: string;
+  } | null;
   usuarioId: string | null;
   usuario?: {
     id: string;

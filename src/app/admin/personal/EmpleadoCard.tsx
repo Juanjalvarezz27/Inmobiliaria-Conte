@@ -18,6 +18,7 @@ import {
   AlertTriangle,
   Plus,
   KeyRound,
+  Building2,
 } from "lucide-react";
 import { WhatsAppIcon } from "@/components/icons/whatsapp-icon";
 import { CargoEmpleado, EstadoAsistencia } from "@prisma/client";
@@ -190,6 +191,19 @@ export function EmpleadoCard({
                 </span>
               )}
             </div>
+          </div>
+
+          {/* Inmueble Asignado */}
+          <div className="flex items-center gap-1.5 text-xs text-slate-700 bg-slate-100/90 px-2.5 py-1.5 rounded-xl border border-slate-200/80">
+            <Building2 className="w-3.5 h-3.5 text-[#175E38] shrink-0" />
+            <span className="font-bold truncate">
+              {emp.propiedad ? emp.propiedad.nombre : "Sede Central / Multipropiedad"}
+            </span>
+            {emp.propiedad?.ciudad && (
+              <span className="text-[10px] text-slate-400 shrink-0 font-normal">
+                • {emp.propiedad.ciudad}
+              </span>
+            )}
           </div>
 
           {/* Teléfono y WhatsApp */}

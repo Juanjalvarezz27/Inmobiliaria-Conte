@@ -95,7 +95,16 @@ async function main() {
     },
   });
 
-  // 4. Perfil Empleado para Carlos Mendoza
+  // 4. Obtener inmuebles para asignación de personal
+  const primeraPropiedad = await prisma.propiedad.findFirst({
+    orderBy: { createdAt: "asc" },
+  });
+  const segundaPropiedad = await prisma.propiedad.findFirst({
+    skip: 1,
+    orderBy: { createdAt: "asc" },
+  });
+
+  // 5. Perfil Empleado para Carlos Mendoza (asignado a primera propiedad, ej: Centro Comercial Gran Bazar)
   const empleadoPerfil = await prisma.empleado.upsert({
     where: { cedula: "V-18304050" },
     update: {
@@ -105,6 +114,7 @@ async function main() {
       email: "empleado@conte.com",
       cargo: "TECNICO_MANTENIMIENTO",
       salarioMensual: 450,
+      propiedadId: primeraPropiedad?.id || null,
       usuarioId: empleado.id,
       activo: true,
     },
@@ -117,12 +127,13 @@ async function main() {
       direccion: "Sector Los Olivos, Calle 4",
       cargo: "TECNICO_MANTENIMIENTO",
       salarioMensual: 450,
+      propiedadId: primeraPropiedad?.id || null,
       usuarioId: empleado.id,
       activo: true,
     },
   });
 
-  // 5. Empleado Operativo Adicional (Conserje)
+  // 6. Empleado Operativo Adicional (Conserje asignado a segunda propiedad)
   const conserjePerfil = await prisma.empleado.upsert({
     where: { cedula: "V-15890123" },
     update: {
@@ -131,6 +142,7 @@ async function main() {
       telefono: "+58 412 9876543",
       cargo: "CONSERJE",
       salarioMensual: 350,
+      propiedadId: segundaPropiedad?.id || primeraPropiedad?.id || null,
       activo: true,
     },
     create: {
@@ -141,6 +153,7 @@ async function main() {
       direccion: "Barrio Obrero, Carrera 18",
       cargo: "CONSERJE",
       salarioMensual: 350,
+      propiedadId: segundaPropiedad?.id || primeraPropiedad?.id || null,
       activo: true,
     },
   });

@@ -67,6 +67,7 @@ export function PersonalClient({ initialData }: PersonalClientProps) {
 
   // Filtros de búsqueda
   const [busqueda, setBusqueda] = useState("");
+  const [filtroPropiedad, setFiltroPropiedad] = useState("TODAS");
   const [filtroCargo, setFiltroCargo] = useState("TODOS");
   const [filtroEstado, setFiltroEstado] = useState("TODOS");
   const [filtroEstadoTarea, setFiltroEstadoTarea] = useState("TODAS");
@@ -116,6 +117,35 @@ export function PersonalClient({ initialData }: PersonalClientProps) {
     ];
   }, [data.empleados]);
 
+  // Opciones para el selector de Inmuebles
+  const opcionesPropiedadesFiltro: FilterDropdownOption[] = useMemo(() => {
+    const counts = data.empleados.reduce((acc, emp) => {
+      const key = emp.propiedadId || "GENERAL";
+      acc[key] = (acc[key] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
+
+    return [
+      {
+        value: "TODAS",
+        label: "Todos los Inmuebles",
+        isGlobal: true,
+        count: data.empleados.length,
+      },
+      ...data.propiedades.map((p) => ({
+        value: p.id,
+        label: p.nombre,
+        subtitle: p.ciudad,
+        count: counts[p.id] || 0,
+      })),
+      {
+        value: "GENERAL",
+        label: "Sede Central / Multipropiedad",
+        count: counts["GENERAL"] || 0,
+      },
+    ];
+  }, [data.empleados, data.propiedades]);
+
   // Opciones para el selector de Estado
   const opcionesEstado: FilterDropdownOption[] = useMemo(() => {
     const activos = data.empleados.filter((e) => e.activo).length;
@@ -131,6 +161,15 @@ export function PersonalClient({ initialData }: PersonalClientProps) {
   // Filtrado de empleados en tiempo real
   const empleadosFiltrados = useMemo(() => {
     return data.empleados.filter((emp) => {
+      // Filtro Inmueble
+      if (filtroPropiedad !== "TODAS") {
+        if (filtroPropiedad === "GENERAL") {
+          if (emp.propiedadId) return false;
+        } else if (emp.propiedadId !== filtroPropiedad) {
+          return false;
+        }
+      }
+
       // Filtro Cargo
       if (filtroCargo !== "TODOS" && emp.cargo !== filtroCargo) return false;
 
@@ -188,6 +227,10 @@ export function PersonalClient({ initialData }: PersonalClientProps) {
             if (res.success && res.data) {
               toast.success("Colaborador actualizado exitosamente.");
               // Actualización optimista local
+              const propiedadActualizada = input.propiedadId
+                ? data.propiedades.find((p) => p.id === input.propiedadId) || null
+                : null;
+
               setData((prev) => ({
                 ...prev,
                 empleados: prev.empleados.map((e) =>
@@ -195,6 +238,8 @@ export function PersonalClient({ initialData }: PersonalClientProps) {
                     ? {
                         ...e,
                         ...res.data,
+                        propiedadId: res.data.propiedadId,
+                        propiedad: propiedadActualizada,
                         fechaIngreso: res.data.fechaIngreso.toISOString(),
                         usuarioId: res.data.usuarioId,
                       }
@@ -210,6 +255,10 @@ export function PersonalClient({ initialData }: PersonalClientProps) {
             const res = await crearEmpleadoAction(input);
             if (res.success && res.data) {
               toast.success("Colaborador registrado exitosamente.");
+              const propiedadNueva = input.propiedadId
+                ? data.propiedades.find((p) => p.id === input.propiedadId) || null
+                : null;
+
               // Agregar a la lista local
               const nuevoEmp: EmpleadoItem = {
                 id: res.data.id,
@@ -224,6 +273,8 @@ export function PersonalClient({ initialData }: PersonalClientProps) {
                 salarioMensual: res.data.salarioMensual,
                 activo: res.data.activo,
                 notas: res.data.notas,
+                propiedadId: res.data.propiedadId,
+                propiedad: propiedadNueva,
                 usuarioId: res.data.usuarioId,
                 asistenciaHoy: null,
                 _count: { tareas: 0, asistencias: 0 },
@@ -671,6 +722,16 @@ export function PersonalClient({ initialData }: PersonalClientProps) {
         <div className="flex items-center gap-2 flex-wrap">
           {activeTab === "directorio" && (
             <>
+              {/* Filtro Propiedad */}
+              <FilterDropdown
+                value={filtroPropiedad}
+                onChange={setFiltroPropiedad}
+                options={opcionesPropiedadesFiltro}
+                placeholder="Inmueble"
+                icon={Building2}
+                className="w-full sm:w-60"
+              />
+
               {/* Filtro Cargo */}
               <FilterDropdown
                 value={filtroCargo}
@@ -1025,6 +1086,7 @@ export function PersonalClient({ initialData }: PersonalClientProps) {
         isOpen={modalEmpleadoOpen}
         onClose={() => setModalEmpleadoOpen(false)}
         empleadoAEditar={empleadoAEditar}
+        propiedades={data.propiedades}
         onSubmit={handleCrearOEditarEmpleado}
         isLoading={isPending}
       />

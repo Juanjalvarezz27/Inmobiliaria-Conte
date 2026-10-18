@@ -1,19 +1,20 @@
 "use client";
 
-import React, { useState } from "react";
-import { User, KeyRound, Loader2, RefreshCw } from "lucide-react";
+import { useState } from "react";
+import { User, KeyRound, Loader2, RefreshCw, Building2 } from "lucide-react";
 import { Modal } from "@/components/ui/modal";
 import { FormSectionHeader } from "@/components/ui/form-section-header";
 import { Select } from "@/components/ui/select";
 import { PhoneInput } from "@/components/ui/phone-input";
 import { CargoEmpleado } from "@prisma/client";
-import { CARGO_CONFIG, type EmpleadoItem } from "./types";
+import { CARGO_CONFIG, type EmpleadoItem, type PropiedadOpcion } from "./types";
 import type { CreateEmpleadoInput } from "@/lib/actions/personal";
 
 interface EmpleadoFormModalProps {
   isOpen: boolean;
   onClose: () => void;
   empleadoAEditar?: EmpleadoItem | null;
+  propiedades: PropiedadOpcion[];
   onSubmit: (data: CreateEmpleadoInput) => Promise<boolean>;
   isLoading?: boolean;
 }
@@ -27,10 +28,20 @@ export function EmpleadoFormModal({
   isOpen,
   onClose,
   empleadoAEditar,
+  propiedades,
   onSubmit,
   isLoading = false,
 }: EmpleadoFormModalProps) {
   const hoyStr = new Date().toISOString().split("T")[0];
+
+  const opcionesPropiedades = [
+    { value: "GENERAL", label: "Sede Central / Multipropiedad", sublabel: "Operaciones globales" },
+    ...propiedades.map((p) => ({
+      value: p.id,
+      label: p.nombre,
+      sublabel: p.ciudad,
+    })),
+  ];
 
   const [nombre, setNombre] = useState(empleadoAEditar?.nombre || "");
   const [apellido, setApellido] = useState(empleadoAEditar?.apellido || "");
@@ -46,6 +57,9 @@ export function EmpleadoFormModal({
   );
   const [salarioMensual, setSalarioMensual] = useState<string>(
     empleadoAEditar?.salarioMensual ? empleadoAEditar.salarioMensual.toString() : ""
+  );
+  const [propiedadId, setPropiedadId] = useState<string>(
+    empleadoAEditar?.propiedadId || "GENERAL"
   );
   const [notas, setNotas] = useState(empleadoAEditar?.notas || "");
 
@@ -72,6 +86,7 @@ export function EmpleadoFormModal({
       setCargo(empleadoAEditar.cargo);
       setFechaIngreso(empleadoAEditar.fechaIngreso ? empleadoAEditar.fechaIngreso.split("T")[0] : hoyStr);
       setSalarioMensual(empleadoAEditar.salarioMensual ? empleadoAEditar.salarioMensual.toString() : "");
+      setPropiedadId(empleadoAEditar.propiedadId || "GENERAL");
       setNotas(empleadoAEditar.notas || "");
       setCrearUsuario(Boolean(empleadoAEditar.usuarioId));
     } else {
@@ -84,6 +99,7 @@ export function EmpleadoFormModal({
       setCargo(CargoEmpleado.CONSERJE);
       setFechaIngreso(hoyStr);
       setSalarioMensual("");
+      setPropiedadId("GENERAL");
       setNotas("");
       setCrearUsuario(false);
       setPasswordTemporal("Conte2026*");
@@ -133,6 +149,7 @@ export function EmpleadoFormModal({
       cargo,
       fechaIngreso,
       salarioMensual: salarioMensual ? parseFloat(salarioMensual) : null,
+      propiedadId: propiedadId === "GENERAL" ? null : propiedadId,
       notas: notas.trim() || null,
       crearUsuario,
       passwordTemporal: crearUsuario ? passwordTemporal : null,
@@ -256,6 +273,22 @@ export function EmpleadoFormModal({
                 onChange={(val) => setCargo(val as CargoEmpleado)}
                 options={OPCIONES_CARGO}
                 placeholder="Seleccionar cargo"
+              />
+            </div>
+
+            {/* Inmueble Asignado */}
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                Inmueble Asignado / Centro de Trabajo
+              </label>
+              <Select
+                value={propiedadId}
+                onChange={setPropiedadId}
+                options={opcionesPropiedades}
+                placeholder="Seleccionar inmueble o sede"
+                searchable={true}
+                searchPlaceholder="Buscar inmueble..."
+                icon={<Building2 className="w-4 h-4 text-slate-400" />}
               />
             </div>
 

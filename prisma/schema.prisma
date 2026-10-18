@@ -79,6 +79,7 @@ model Propiedad {
   unidades                 Unidad[]
   transaccionesFinancieras TransaccionFinanciera[]
   tareasEmpleados          TareaEmpleado[]
+  empleados                Empleado[]
 
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
@@ -350,6 +351,9 @@ model Empleado {
   activo         Boolean              @default(true)
   notas          String?
 
+  propiedadId    String?
+  propiedad      Propiedad?           @relation(fields: [propiedadId], references: [id], onDelete: SetNull)
+
   usuarioId      String?              @unique
   usuario        Usuario?             @relation(fields: [usuarioId], references: [id], onDelete: SetNull)
 
@@ -359,6 +363,7 @@ model Empleado {
   createdAt      DateTime             @default(now())
   updatedAt      DateTime             @updatedAt
 
+  @@index([propiedadId])
   @@map("empleados")
 }
 

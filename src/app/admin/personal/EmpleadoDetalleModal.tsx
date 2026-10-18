@@ -1,6 +1,5 @@
 "use client";
 
-import React from "react";
 import {
   User,
   Phone,
@@ -14,6 +13,7 @@ import {
   CheckCircle2,
   AlertTriangle,
   Plus,
+  Building2,
 } from "lucide-react";
 import { Modal } from "@/components/ui/modal";
 import { WhatsAppIcon } from "@/components/icons/whatsapp-icon";
@@ -120,7 +120,7 @@ export function EmpleadoDetalleModal({
           </div>
 
           {/* Información de Contacto y Datos Laborales */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-3 border-t border-slate-200/80 text-xs">
+          <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 pt-3 border-t border-slate-200/80 text-xs">
             {/* Teléfono y WhatsApp */}
             <div className="space-y-1">
               <span className="text-[10px] uppercase font-bold text-slate-400 block">
@@ -139,6 +139,19 @@ export function EmpleadoDetalleModal({
                     <WhatsAppIcon className="w-3.5 h-3.5 text-[#25D366]" />
                   </a>
                 )}
+              </div>
+            </div>
+
+            {/* Inmueble Asignado */}
+            <div className="space-y-1">
+              <span className="text-[10px] uppercase font-bold text-slate-400 block">
+                Inmueble Asignado
+              </span>
+              <div className="flex items-center gap-1.5 font-bold text-slate-800">
+                <Building2 className="w-3.5 h-3.5 text-[#175E38] shrink-0" />
+                <span className="truncate">
+                  {emp.propiedad ? emp.propiedad.nombre : "Sede Central"}
+                </span>
               </div>
             </div>
 
