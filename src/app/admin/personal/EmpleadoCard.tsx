@@ -86,6 +86,43 @@ function getCargoSunColors(cargo: CargoEmpleado) {
   }
 }
 
+// Colores del avatar según el cargo del trabajador
+function getCargoAvatarColors(cargo: CargoEmpleado) {
+  switch (cargo) {
+    case CargoEmpleado.ELECTRICISTA:
+      return "bg-amber-100 text-amber-900 border-amber-200/90";
+    case CargoEmpleado.TECNICO_MANTENIMIENTO:
+    case CargoEmpleado.PLOMERO:
+      return "bg-blue-100 text-blue-900 border-blue-200/90";
+    case CargoEmpleado.SUPERVISOR:
+      return "bg-indigo-100 text-indigo-900 border-indigo-200/90";
+    case CargoEmpleado.ADMINISTRATIVO:
+      return "bg-purple-100 text-purple-900 border-purple-200/90";
+    case CargoEmpleado.SEGURIDAD:
+      return "bg-slate-200 text-slate-800 border-slate-300";
+    case CargoEmpleado.CONSERJE:
+    default:
+      return "bg-emerald-100 text-[#175E38] border-emerald-200/90";
+  }
+}
+
+// Extrae las iniciales del trabajador
+function getInitials(nombre: string, apellido?: string | null): string {
+  const n = (nombre || "").trim();
+  const a = (apellido || "").trim();
+  if (n && a) {
+    return `${n.charAt(0)}${a.charAt(0)}`.toUpperCase();
+  }
+  if (n) {
+    const parts = n.split(/\s+/);
+    if (parts.length >= 2) {
+      return `${parts[0].charAt(0)}${parts[1].charAt(0)}`.toUpperCase();
+    }
+    return n.slice(0, 2).toUpperCase();
+  }
+  return "TR";
+}
+
 export function EmpleadoCard({
   empleado: emp,
   onEditar,
@@ -165,48 +202,60 @@ export function EmpleadoCard({
             </div>
           </div>
 
-          {/* Nombre y Cédula */}
-          <div>
-            <h3 className="font-heading font-black text-slate-900 text-base sm:text-lg leading-snug line-clamp-1 group-hover/empcard:text-[#175E38] transition-colors">
-              {nombreCompleto}
-            </h3>
-            <div className="flex items-center gap-2 mt-1 flex-wrap">
-              <span className="text-xs font-semibold text-slate-500 font-mono bg-slate-100 px-2 py-0.5 rounded-md">
-                {emp.cedula}
-              </span>
-              {!emp.activo && (
-                <span className="text-[11px] font-bold text-rose-600 bg-rose-50 border border-rose-200 px-2 py-0.5 rounded-md">
-                  Inactivo
+          {/* Bloque de Identidad con Avatar y Datos Principales */}
+          <div className="flex items-center gap-3 pt-0.5">
+            {/* Avatar con Iniciales Temáticas */}
+            <div
+              className={`w-11 h-11 rounded-2xl flex items-center justify-center font-heading font-black text-xs shrink-0 border shadow-2xs ${getCargoAvatarColors(
+                emp.cargo
+              )}`}
+            >
+              {getInitials(emp.nombre, emp.apellido)}
+            </div>
+
+            <div className="min-w-0 flex-1">
+              <h3 className="font-heading font-black text-slate-900 text-base leading-tight truncate group-hover/empcard:text-[#175E38] transition-colors">
+                {nombreCompleto}
+              </h3>
+              <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                <span className="text-[11px] font-semibold text-slate-600 font-mono bg-slate-100 px-2 py-0.5 rounded-md border border-slate-200/80">
+                  {emp.cedula}
                 </span>
-              )}
+                {!emp.activo && (
+                  <span className="text-[10px] font-bold text-rose-600 bg-rose-50 border border-rose-200 px-1.5 py-0.5 rounded-md">
+                    Inactivo
+                  </span>
+                )}
+              </div>
             </div>
           </div>
 
-          {/* Inmueble Asignado */}
-          <div className="flex items-center gap-1.5 text-xs text-slate-700 bg-slate-100/90 px-2.5 py-1.5 rounded-xl border border-slate-200/80">
+          {/* Inmueble Asignado: Compacto y Armónico */}
+          <div className="flex items-center gap-1.5 text-xs text-slate-700 bg-slate-50/90 px-2.5 py-1.5 rounded-xl border border-slate-200/70">
             <Building2 className="w-3.5 h-3.5 text-[#175E38] shrink-0" />
             <span className="font-bold truncate">
-              {emp.propiedad ? emp.propiedad.nombre : "Sede Central / Multipropiedad"}
+              {emp.propiedad ? emp.propiedad.nombre : "Sede Central / Asignación General"}
             </span>
             {emp.propiedad?.ciudad && (
-              <span className="text-[10px] text-slate-400 shrink-0 font-normal">
+              <span className="text-[11px] text-slate-400 shrink-0 font-normal">
                 • {emp.propiedad.ciudad}
               </span>
             )}
           </div>
 
-          {/* Teléfono y WhatsApp */}
-          <div className="space-y-1.5 pt-1 border-t border-slate-100">
-            <div className="flex items-center justify-between text-xs text-slate-600">
-              <div className="flex items-center gap-1.5 truncate">
+          {/* Información de Contacto: Agrupada y Limpia */}
+          <div className="p-2.5 rounded-xl bg-slate-50/70 border border-slate-200/70 space-y-1.5 text-xs">
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-1.5 text-slate-700 font-medium truncate">
                 <Phone className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                <span className="font-medium truncate">{emp.telefono}</span>
+                <span className="truncate">{emp.telefono}</span>
               </div>
               {waUrl && (
                 <a
                   href={waUrl}
                   target="_blank"
                   rel="noopener noreferrer"
+                  title="Contactar vía WhatsApp"
                   className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-[#25D366]/10 text-[#128C7E] hover:bg-[#25D366]/20 font-bold text-[11px] hover:scale-105 active:scale-95 transition-all shrink-0"
                 >
                   <WhatsAppIcon className="w-3.5 h-3.5 text-[#25D366]" />
@@ -216,26 +265,26 @@ export function EmpleadoCard({
             </div>
 
             {emp.email && (
-              <div className="flex items-center gap-1.5 text-xs text-slate-500 truncate">
+              <div className="flex items-center gap-1.5 text-slate-500 truncate pt-1 border-t border-slate-200/50">
                 <Mail className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                <span className="truncate">{emp.email}</span>
+                <span className="truncate text-[11px]">{emp.email}</span>
               </div>
             )}
           </div>
 
-          {/* Indicadores: Asistencia de Hoy y Tareas Pendientes */}
-          <div className="grid grid-cols-2 gap-2 pt-1">
+          {/* Indicadores Operativos: Asistencia de Hoy y Órdenes de Trabajo */}
+          <div className="grid grid-cols-2 gap-2 pt-0.5">
             {/* Asistencia Hoy */}
             <div
               onClick={() => onRegistrarAsistencia(emp)}
-              className="p-2 rounded-xl bg-slate-50 border border-slate-200/80 hover:bg-slate-100/80 cursor-pointer transition-colors"
+              className="p-2.5 rounded-xl bg-white border border-slate-200/90 hover:border-slate-300 hover:bg-slate-50/60 cursor-pointer transition-all shadow-2xs group/asis flex flex-col justify-between"
               title="Clic para registrar o ajustar asistencia"
             >
-              <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 flex items-center justify-between">
-                <span>Hoy</span>
-                <Clock className="w-3 h-3 text-slate-400" />
+              <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 flex items-center justify-between mb-1">
+                <span>Asistencia</span>
+                <Clock className="w-3 h-3 text-slate-400 group-hover/asis:text-[#175E38] transition-colors" />
               </div>
-              <div className="mt-0.5">
+              <div>
                 {emp.asistenciaHoy ? (
                   <span
                     className={`inline-flex items-center gap-1 text-[11px] font-bold px-1.5 py-0.5 rounded ${
@@ -254,30 +303,38 @@ export function EmpleadoCard({
                       : "Falta"}
                   </span>
                 ) : (
-                  <span className="text-[11px] font-medium text-slate-400">Sin marcar</span>
+                  <span className="text-[11px] font-semibold text-slate-400 group-hover/asis:text-slate-600 transition-colors">
+                    Sin marcar
+                  </span>
                 )}
               </div>
             </div>
 
-            {/* Tareas Pendientes */}
-            <div className="p-2 rounded-xl bg-slate-50 border border-slate-200/80">
-              <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 flex items-center justify-between">
+            {/* Órdenes / Tareas */}
+            <div className="p-2.5 rounded-xl bg-white border border-slate-200/90 shadow-2xs flex flex-col justify-between">
+              <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 flex items-center justify-between mb-1">
                 <span>Tareas</span>
-                <AlertTriangle
-                  className={`w-3 h-3 ${
-                    emp.tareasPendientesCount > 0 ? "text-amber-500" : "text-slate-300"
-                  }`}
-                />
+                {emp.tareasPendientesCount > 0 ? (
+                  <AlertTriangle className="w-3 h-3 text-amber-500" />
+                ) : (
+                  <CheckCircle2 className="w-3 h-3 text-emerald-500" />
+                )}
               </div>
-              <div className="mt-0.5 flex items-center gap-1.5">
-                <span
-                  className={`text-xs font-black font-heading ${
-                    emp.tareasPendientesCount > 0 ? "text-amber-600" : "text-slate-600"
-                  }`}
-                >
-                  {emp.tareasPendientesCount}
-                </span>
-                <span className="text-[10px] text-slate-400 font-medium">pendientes</span>
+              <div className="flex items-center gap-1.5">
+                {emp.tareasPendientesCount > 0 ? (
+                  <>
+                    <span className="text-xs font-black font-heading text-amber-600">
+                      {emp.tareasPendientesCount}
+                    </span>
+                    <span className="text-[11px] text-amber-700 font-medium">
+                      {emp.tareasPendientesCount === 1 ? "pendiente" : "pendientes"}
+                    </span>
+                  </>
+                ) : (
+                  <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200/70">
+                    Al día
+                  </span>
+                )}
               </div>
             </div>
           </div>
