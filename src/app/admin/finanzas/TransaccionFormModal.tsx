@@ -6,6 +6,7 @@ import {
   Loader2,
   AlertTriangle,
 } from "lucide-react";
+import { toast } from "sonner";
 import { Modal } from "@/components/ui/modal";
 import { FormSectionHeader } from "@/components/ui/form-section-header";
 import { Select } from "@/components/ui/select";
@@ -67,8 +68,6 @@ export function TransaccionFormModal({
   );
   const [notas, setNotas] = useState<string>(transaccionAEditar?.notas || "");
 
-  const [errorLocal, setErrorLocal] = useState<string | null>(null);
-
   // Sincronizar formulario durante render al abrir modal o cambiar transacción
   const [prevTarget, setPrevTarget] = useState<{ id?: string; isOpen: boolean }>({
     id: transaccionAEditar?.id,
@@ -102,24 +101,22 @@ export function TransaccionFormModal({
       setComprobanteUrl("");
       setNotas("");
     }
-    setErrorLocal(null);
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setErrorLocal(null);
 
     const montoNum = parseFloat(monto);
     if (!concepto.trim()) {
-      setErrorLocal("Indica el concepto o descripción del movimiento.");
+      toast.error("Indica el concepto o descripción del movimiento.");
       return;
     }
     if (isNaN(montoNum) || montoNum <= 0) {
-      setErrorLocal("El monto debe ser un número mayor a 0.");
+      toast.error("El monto debe ser un número mayor a 0.");
       return;
     }
     if (!fecha) {
-      setErrorLocal("Selecciona la fecha del movimiento.");
+      toast.error("Selecciona la fecha del movimiento.");
       return;
     }
 
@@ -379,14 +376,6 @@ export function TransaccionFormModal({
             </div>
           </div>
         </div>
-
-        {/* Error local si existe */}
-        {errorLocal && (
-          <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold flex items-center gap-2">
-            <AlertTriangle className="w-4 h-4 shrink-0" />
-            <span>{errorLocal}</span>
-          </div>
-        )}
 
         {/* Botones de Acción Inferiores */}
         <div className="pt-2 border-t border-slate-100 flex flex-col-reverse sm:flex-row items-center justify-end gap-2.5 sm:gap-3">

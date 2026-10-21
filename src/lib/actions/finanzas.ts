@@ -230,6 +230,7 @@ export async function getPropiedadesFinanzasOpciones(): Promise<
       },
     },
     orderBy: { nombre: "asc" },
+    take: 100,
   });
 
   return propiedades.map((p) => ({

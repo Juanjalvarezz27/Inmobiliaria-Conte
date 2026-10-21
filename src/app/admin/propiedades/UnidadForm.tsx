@@ -159,7 +159,14 @@ export function UnidadForm({ propiedades, initialData, onSubmit, onCancel, isLoa
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!codigo.trim() || !propiedadId) return;
+    if (!propiedadId) {
+      toast.error("Debe seleccionar la propiedad a la que pertenece el espacio.");
+      return;
+    }
+    if (!codigo.trim()) {
+      toast.error("El identificador o código del espacio es obligatorio.");
+      return;
+    }
 
     onSubmit({
       codigo: codigo.trim(),

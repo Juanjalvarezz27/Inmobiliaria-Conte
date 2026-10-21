@@ -880,6 +880,7 @@ export async function getPropiedadesCobranzaOpciones() {
     return await prisma.propiedad.findMany({
       select: { id: true, nombre: true, ciudad: true, tipo: true },
       orderBy: { nombre: "asc" },
+      take: 100,
     });
   } catch (error) {
     console.error("Error al obtener opciones de propiedades:", error);

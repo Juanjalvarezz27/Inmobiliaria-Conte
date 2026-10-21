@@ -15,6 +15,7 @@ import { Modal } from "@/components/ui/modal";
 import { getCierreMesData } from "@/lib/actions/finanzas";
 import { MESES, formatearMontoUSD } from "./constants";
 import { construirCierrePdf } from "./generarCierrePdf";
+import { toast } from "sonner";
 
 interface CierreMesModalProps {
   isOpen: boolean;
@@ -90,6 +91,7 @@ export function CierreMesModal({
       }
     } catch (err) {
       console.error("Error al generar PDF de cierre:", err);
+      toast.error("No se pudo generar el reporte PDF del cierre de mes.");
     } finally {
       setIsGeneratingPdf(false);
     }

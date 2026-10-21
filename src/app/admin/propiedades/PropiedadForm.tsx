@@ -23,6 +23,7 @@ import {
 import { TipoPropiedad } from "@prisma/client";
 import type { CreatePropiedadInput, UpdatePropiedadInput } from "@/lib/actions/propiedades";
 import { PhoneInput } from "@/components/ui";
+import { toast } from "sonner";
 
 interface Props {
   initialData?: {
@@ -207,7 +208,18 @@ export function PropiedadForm({ initialData, defaultTipo, onSubmit, onCancel, is
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!nombre.trim() || !direccion.trim() || !ciudad.trim()) return;
+    if (!nombre.trim()) {
+      toast.error("El nombre del inmueble es obligatorio.");
+      return;
+    }
+    if (!direccion.trim()) {
+      toast.error("La dirección física del inmueble es obligatoria.");
+      return;
+    }
+    if (!ciudad.trim()) {
+      toast.error("La ciudad de ubicación es obligatoria.");
+      return;
+    }
 
     if (initialData) {
       onSubmit({

@@ -63,7 +63,6 @@ function PagoFormContent({
   const [referencia, setReferencia] = useState<string>("");
   const [comprobanteUrl, setComprobanteUrl] = useState<string>("");
   const [notas, setNotas] = useState<string>("");
-  const [errorLocal, setErrorLocal] = useState<string | null>(null);
   const [isCompressing, setIsCompressing] = useState(false);
   const [isDragOver, setIsDragOver] = useState(false);
   const [statsCompresion, setStatsCompresion] = useState<{
@@ -110,7 +109,6 @@ function PagoFormContent({
     }
 
     setIsCompressing(true);
-    setErrorLocal(null);
 
     try {
       const res = await comprimirImagen(file);
@@ -145,15 +143,14 @@ function PagoFormContent({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setErrorLocal(null);
 
     if (montoNumero <= 0) {
-      setErrorLocal("El monto del abono debe ser mayor a 0.");
+      toast.error("El monto del abono debe ser mayor a 0.");
       return;
     }
 
     if (!fechaPago) {
-      setErrorLocal("Por favor indique la fecha en la que se efectuó el pago.");
+      toast.error("Por favor indique la fecha en la que se efectuó el pago.");
       return;
     }
 
@@ -524,13 +521,6 @@ function PagoFormContent({
           </div>
         </div>
       </div>
-
-      {errorLocal && (
-        <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-bold flex items-center gap-2">
-          <AlertTriangle className="w-4 h-4 shrink-0" />
-          <span>{errorLocal}</span>
-        </div>
-      )}
 
       {/* Botones de acción inferiores */}
       <div className="pt-2 border-t border-slate-100 grid grid-cols-2 sm:flex sm:justify-end gap-2.5 sm:gap-3">

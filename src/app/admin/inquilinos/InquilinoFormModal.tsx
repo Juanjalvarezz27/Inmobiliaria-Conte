@@ -17,6 +17,7 @@ import { Select } from "@/components/ui/select";
 import { TipoPersona } from "@prisma/client";
 import type { InquilinoConContratos } from "./types";
 import type { CreateInquilinoInput, UpdateInquilinoInput } from "@/lib/actions/inquilinos";
+import { toast } from "sonner";
 
 interface InquilinoFormModalProps {
   isOpen: boolean;
@@ -51,6 +52,24 @@ export function InquilinoFormModal({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!nombre.trim()) {
+      toast.error(
+        tipoPersona === TipoPersona.NATURAL
+          ? "El nombre del arrendatario es obligatorio."
+          : "La razón social de la empresa es obligatoria."
+      );
+      return;
+    }
+    if (!documentoIdentidad.trim()) {
+      toast.error("El documento de identidad o RIF es obligatorio.");
+      return;
+    }
+    if (!telefono.trim() || telefono === "+58") {
+      toast.error("El teléfono de contacto es obligatorio.");
+      return;
+    }
+
     onSubmit({
       nombre: nombre.trim(),
       apellido: tipoPersona === TipoPersona.NATURAL ? apellido.trim() || null : null,
