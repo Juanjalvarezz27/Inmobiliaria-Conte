@@ -115,13 +115,22 @@ export function FilterDropdown({
         onClick={() => setIsOpen((prev) => !prev)}
         className={`w-full flex items-center justify-between gap-2 px-3 sm:px-3.5 ${heightClass} text-xs sm:text-sm font-medium border border-slate-200 rounded-xl bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50 transition-all shadow-2xs cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#1C2539]/20 disabled:opacity-50 disabled:cursor-not-allowed ${buttonClassName}`}
       >
-        <div className="flex items-center gap-2 truncate">
+        <div className="flex items-center gap-2 truncate min-w-0">
           <ActiveIcon
             className={`w-4 h-4 shrink-0 ${
               activeOption?.iconClassName || iconClassName || "text-slate-500"
             }`}
           />
           <span className="truncate">{activeLabel}</span>
+          {typeof activeOption?.count === "number" && (
+            <span
+              className={`text-[10px] sm:text-[11px] font-bold px-1.5 py-0.5 rounded-full shrink-0 ${
+                activeOption.countBadgeClassName || "bg-slate-100 text-slate-700"
+              }`}
+            >
+              {activeOption.count}
+            </span>
+          )}
         </div>
         <ChevronDown
           className={`w-3.5 h-3.5 text-slate-400 shrink-0 transition-transform duration-200 ml-1 ${

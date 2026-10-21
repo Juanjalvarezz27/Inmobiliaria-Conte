@@ -12,6 +12,7 @@ export interface StatCardProps {
   progressPercent?: number;
   className?: string;
   hideSubtitleOnMobile?: boolean;
+  onClick?: () => void;
 }
 
 const COLOR_MAP: Record<
@@ -85,12 +86,29 @@ export function StatCard({
   progressPercent,
   className = "",
   hideSubtitleOnMobile = true,
+  onClick,
 }: StatCardProps) {
   const theme = COLOR_MAP[color] ?? COLOR_MAP.navy;
+  const isClickable = typeof onClick === "function";
 
   return (
     <div
-      className={`group relative overflow-hidden bg-gradient-to-b from-white via-white to-slate-50/70 rounded-2xl p-3 sm:p-4 lg:p-5 border border-slate-200/90 border-b-[3px] border-b-slate-300/90 shadow-[0_4px_18px_-2px_rgba(28,37,57,0.07),0_2px_6px_-1px_rgba(28,37,57,0.04)] hover:shadow-[0_14px_30px_-4px_rgba(28,37,57,0.12),0_4px_10px_-2px_rgba(28,37,57,0.06)] hover:-translate-y-1.5 transition-all duration-300 ${className}`}
+      onClick={onClick}
+      role={isClickable ? "button" : undefined}
+      tabIndex={isClickable ? 0 : undefined}
+      onKeyDown={
+        isClickable
+          ? (e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                onClick();
+              }
+            }
+          : undefined
+      }
+      className={`group relative overflow-hidden bg-gradient-to-b from-white via-white to-slate-50/70 rounded-2xl p-3 sm:p-4 lg:p-5 border border-slate-200/90 border-b-[3px] border-b-slate-300/90 shadow-[0_4px_18px_-2px_rgba(28,37,57,0.07),0_2px_6px_-1px_rgba(28,37,57,0.04)] hover:shadow-[0_14px_30px_-4px_rgba(28,37,57,0.12),0_4px_10px_-2px_rgba(28,37,57,0.06)] hover:-translate-y-1.5 transition-all duration-300 ${
+        isClickable ? "cursor-pointer active:translate-y-0 active:scale-[0.98] select-none" : ""
+      } ${className}`}
     >
       {/* Sol decorativo en esquina superior izquierda */}
       <div className="absolute -top-7 -left-7 w-20 h-20 sm:w-24 sm:h-24 pointer-events-none overflow-hidden rounded-full">

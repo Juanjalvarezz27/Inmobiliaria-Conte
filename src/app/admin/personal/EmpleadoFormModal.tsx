@@ -1,13 +1,14 @@
 "use client";
 
 import { useState } from "react";
-import { User, KeyRound, Loader2, RefreshCw, Building2 } from "lucide-react";
+import { User, KeyRound, Loader2, Building2 } from "lucide-react";
+import { toast } from "sonner";
 import { Modal } from "@/components/ui/modal";
 import { FormSectionHeader } from "@/components/ui/form-section-header";
 import { Select } from "@/components/ui/select";
 import { PhoneInput } from "@/components/ui/phone-input";
 import { CargoEmpleado } from "@prisma/client";
-import { CARGO_CONFIG, type EmpleadoItem, type PropiedadOpcion } from "./types";
+import { CARGO_CONFIG, getFechaLocalHoy, type EmpleadoItem, type PropiedadOpcion } from "./types";
 import type { CreateEmpleadoInput } from "@/lib/actions/personal";
 
 interface EmpleadoFormModalProps {
@@ -34,10 +35,10 @@ export function EmpleadoFormModal({
   onSubmit,
   isLoading = false,
 }: EmpleadoFormModalProps) {
-  const hoyStr = new Date().toISOString().split("T")[0];
+  const hoyStr = getFechaLocalHoy();
 
   const opcionesPropiedades = [
-    { value: "GENERAL", label: "Sede Central / Multipropiedad", sublabel: "Operaciones globales" },
+    { value: "GENERAL", label: "General / Sin propiedad específico" },
     ...propiedades.map((p) => ({
       value: p.id,
       label: p.nombre,
@@ -54,6 +55,9 @@ export function EmpleadoFormModal({
   const [cargo, setCargo] = useState<CargoEmpleado>(
     empleadoAEditar?.cargo || CargoEmpleado.CONSERJE
   );
+  const [cargoPersonalizado, setCargoPersonalizado] = useState(
+    empleadoAEditar?.cargoPersonalizado || ""
+  );
   const [fechaIngreso, setFechaIngreso] = useState(
     empleadoAEditar?.fechaIngreso ? empleadoAEditar.fechaIngreso.split("T")[0] : hoyStr
   );
@@ -65,10 +69,8 @@ export function EmpleadoFormModal({
   );
   const [notas, setNotas] = useState(empleadoAEditar?.notas || "");
 
-  // Gestión de credenciales de acceso para el portal móvil
-  const [crearUsuario, setCrearUsuario] = useState(Boolean(empleadoAEditar?.usuarioId));
-  const [passwordTemporal, setPasswordTemporal] = useState("Conte2026*");
-  const [errorLocal, setErrorLocal] = useState<string | null>(null);
+  // Gestión de contraseña para acceso al portal móvil
+  const [passwordTemporal, setPasswordTemporal] = useState("");
 
   // Sincronizar estado cuando cambia el empleado a editar
   const [prevTarget, setPrevTarget] = useState<{ id?: string; isOpen: boolean; propId?: string | null }>({
@@ -91,11 +93,12 @@ export function EmpleadoFormModal({
       setEmail(empleadoAEditar.email || "");
       setDireccion(empleadoAEditar.direccion || "");
       setCargo(empleadoAEditar.cargo);
+      setCargoPersonalizado(empleadoAEditar.cargoPersonalizado || "");
       setFechaIngreso(empleadoAEditar.fechaIngreso ? empleadoAEditar.fechaIngreso.split("T")[0] : hoyStr);
       setSalarioMensual(empleadoAEditar.salarioMensual ? empleadoAEditar.salarioMensual.toString() : "");
       setPropiedadId(empleadoAEditar.propiedadId || "GENERAL");
       setNotas(empleadoAEditar.notas || "");
-      setCrearUsuario(Boolean(empleadoAEditar.usuarioId));
+      setPasswordTemporal("");
     } else {
       setNombre("");
       setApellido("");
@@ -104,45 +107,43 @@ export function EmpleadoFormModal({
       setEmail("");
       setDireccion("");
       setCargo(CargoEmpleado.CONSERJE);
+      setCargoPersonalizado("");
       setFechaIngreso(hoyStr);
       setSalarioMensual("");
       setPropiedadId(propiedadPreseleccionadaId || "GENERAL");
       setNotas("");
-      setCrearUsuario(false);
-      setPasswordTemporal("Conte2026*");
+      setPasswordTemporal("");
     }
-    setErrorLocal(null);
   }
-
-  // Generador de contraseña aleatoria
-  const generarContrasena = () => {
-    const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789";
-    let pass = "C";
-    for (let i = 0; i < 7; i++) {
-      pass += chars.charAt(Math.floor(Math.random() * chars.length));
-    }
-    pass += "*";
-    setPasswordTemporal(pass);
-  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setErrorLocal(null);
 
     if (!nombre.trim()) {
-      setErrorLocal("El nombre es requerido.");
+      toast.error("El nombre del trabajador es requerido.");
       return;
     }
     if (!cedula.trim()) {
-      setErrorLocal("La cédula de identidad es requerida.");
+      toast.error("La cédula de identidad es requerida.");
       return;
     }
     if (!telefono.trim() || telefono === "+58") {
-      setErrorLocal("El teléfono de contacto es requerido.");
+      toast.error("El teléfono de contacto es requerido.");
       return;
     }
-    if (crearUsuario && !email.trim()) {
-      setErrorLocal("Para habilitar acceso al portal es obligatorio ingresar un correo electrónico.");
+
+    if (cargo === CargoEmpleado.OTRO && !cargoPersonalizado.trim()) {
+      toast.error("Por favor especifique el nombre del cargo.");
+      return;
+    }
+
+    // Validación de contraseña si hay correo
+    if (!empleadoAEditar && email.trim() && !passwordTemporal.trim()) {
+      toast.error("Por favor asigne una contraseña de acceso para el trabajador.");
+      return;
+    }
+    if (passwordTemporal.trim() && passwordTemporal.trim().length < 6) {
+      toast.error("La contraseña de acceso debe tener al menos 6 caracteres.");
       return;
     }
 
@@ -154,12 +155,13 @@ export function EmpleadoFormModal({
       email: email.trim() || null,
       direccion: direccion.trim() || null,
       cargo,
+      cargoPersonalizado: cargo === CargoEmpleado.OTRO ? cargoPersonalizado.trim() : null,
       fechaIngreso,
       salarioMensual: salarioMensual ? parseFloat(salarioMensual) : null,
       propiedadId: propiedadId === "GENERAL" ? null : propiedadId,
       notas: notas.trim() || null,
-      crearUsuario,
-      passwordTemporal: crearUsuario ? passwordTemporal : null,
+      crearUsuario: Boolean(email.trim()),
+      passwordTemporal: passwordTemporal.trim() || null,
     };
 
     const exito = await onSubmit(payload);
@@ -173,18 +175,11 @@ export function EmpleadoFormModal({
       isOpen={isOpen}
       onClose={onClose}
       title={empleadoAEditar ? "Editar Trabajador" : "Registrar Trabajador"}
-      subtitle="Control de personal, asignación de tareas y acceso al portal móvil"
       icon={User}
       headerVariant="green"
       maxWidth="2xl"
     >
       <form onSubmit={handleSubmit} className="space-y-6">
-        {errorLocal && (
-          <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold">
-            {errorLocal}
-          </div>
-        )}
-
         {/* Sección 1: Datos Personales */}
         <div className="space-y-4">
           <FormSectionHeader step={1} title="Datos Personales y Contacto" />
@@ -249,7 +244,7 @@ export function EmpleadoFormModal({
             {/* Correo Electrónico */}
             <div className="sm:col-span-2">
               <label className="block text-xs font-bold text-slate-700 mb-1.5">
-                Correo Electrónico {crearUsuario && <span className="text-rose-500">*</span>}
+                Correo Electrónico (Acceso al Portal Móvil)
               </label>
               <input
                 type="email"
@@ -259,7 +254,7 @@ export function EmpleadoFormModal({
                 className="w-full h-11 px-3.5 rounded-xl border border-slate-300 text-sm font-medium text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#175E38]/20 focus:border-[#175E38] transition-all bg-white"
               />
               <p className="text-[11px] text-slate-400 mt-1">
-                Necesario para enviar notificaciones de tareas y permitir acceso a la aplicación web.
+                Se utilizará como usuario para el inicio de sesión en el Portal del Trabajador (<code>/empleado</code>).
               </p>
             </div>
           </div>
@@ -270,6 +265,22 @@ export function EmpleadoFormModal({
           <FormSectionHeader step={2} title="Ficha Laboral y Cargo" />
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+            {/* Propiedad Asignada a ancho completo */}
+            <div className="sm:col-span-2">
+              <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                Propiedad Asignada
+              </label>
+              <Select
+                value={propiedadId}
+                onChange={setPropiedadId}
+                options={opcionesPropiedades}
+                placeholder="Seleccionar propiedad"
+                searchable={true}
+                searchPlaceholder="Buscar propiedad..."
+                icon={<Building2 className="w-4 h-4 text-slate-400" />}
+              />
+            </div>
+
             {/* Cargo */}
             <div>
               <label className="block text-xs font-bold text-slate-700 mb-1.5">
@@ -280,22 +291,6 @@ export function EmpleadoFormModal({
                 onChange={(val) => setCargo(val as CargoEmpleado)}
                 options={OPCIONES_CARGO}
                 placeholder="Seleccionar cargo"
-              />
-            </div>
-
-            {/* Inmueble Asignado */}
-            <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1.5">
-                Inmueble Asignado / Centro de Trabajo
-              </label>
-              <Select
-                value={propiedadId}
-                onChange={setPropiedadId}
-                options={opcionesPropiedades}
-                placeholder="Seleccionar inmueble o sede"
-                searchable={true}
-                searchPlaceholder="Buscar inmueble..."
-                icon={<Building2 className="w-4 h-4 text-slate-400" />}
               />
             </div>
 
@@ -311,6 +306,22 @@ export function EmpleadoFormModal({
                 className="w-full h-11 px-3.5 rounded-xl border border-slate-300 text-sm font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#175E38]/20 focus:border-[#175E38] transition-all bg-white cursor-pointer"
               />
             </div>
+
+            {/* Campo condicional para especificar cargo cuando es OTRO */}
+            {cargo === CargoEmpleado.OTRO && (
+              <div className="sm:col-span-2 animate-in fade-in-0 duration-200">
+                <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                  Especificar Cargo <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={cargoPersonalizado}
+                  onChange={(e) => setCargoPersonalizado(e.target.value)}
+                  placeholder="Ej: Pintor, Jardinero..."
+                  className="w-full h-11 px-3.5 rounded-xl border border-slate-300 text-sm font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#175E38]/20 focus:border-[#175E38] transition-all bg-white"
+                />
+              </div>
+            )}
 
             {/* Salario u Honorarios (Opcional) */}
             <div>
@@ -355,9 +366,9 @@ export function EmpleadoFormModal({
               <textarea
                 value={notas}
                 onChange={(e) => setNotas(e.target.value)}
-                placeholder="Ej: Técnico certificado en refrigeración y bombas de agua."
-                rows={2}
-                className="w-full p-3 rounded-xl border border-slate-300 text-sm font-medium text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#175E38]/20 focus:border-[#175E38] transition-all bg-white resize-none"
+                placeholder="Especialidad o notas del colaborador..."
+                rows={3}
+                className="w-full p-3 min-h-[84px] rounded-xl border border-slate-300 text-sm font-medium text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#175E38]/20 focus:border-[#175E38] transition-all bg-white resize-none"
               />
             </div>
           </div>
@@ -365,57 +376,63 @@ export function EmpleadoFormModal({
 
         {/* Sección 3: Acceso al Sistema */}
         <div className="space-y-4">
-          <FormSectionHeader step={3} title="Acceso al Portal Móvil" />
+          <FormSectionHeader step={3} title="Credenciales de Acceso al Portal Móvil" />
 
           <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/90 space-y-3">
-            <label className="flex items-start gap-3 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={crearUsuario}
-                onChange={(e) => setCrearUsuario(e.target.checked)}
-                className="w-4 h-4 mt-0.5 rounded text-[#175E38] focus:ring-[#175E38] border-slate-300 cursor-pointer"
-              />
-              <div>
-                <span className="text-sm font-bold text-slate-800">
-                  Habilitar cuenta de acceso para el trabajador
+            {/* Estado de la cuenta */}
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-bold text-slate-800">
+                {empleadoAEditar?.usuarioId
+                  ? "Cuenta de Acceso Vinculada"
+                  : "Acceso al Portal del Trabajador"}
+              </span>
+              {empleadoAEditar?.usuarioId ? (
+                <span className="px-2.5 py-1 rounded-lg text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 shrink-0">
+                  Activa
                 </span>
-                <p className="text-xs text-slate-500 mt-0.5 leading-relaxed">
-                  Permite al trabajador ingresar al Portal Móvil (<code>/empleado</code>) para marcar asistencia, visualizar sus tareas diarias y adjuntar fotos de evidencia.
-                </p>
-              </div>
-            </label>
+              ) : (
+                <span className="px-2.5 py-1 rounded-lg text-[11px] font-bold bg-blue-50 text-blue-700 border border-blue-200 shrink-0">
+                  Automática
+                </span>
+              )}
+            </div>
 
-            {crearUsuario && !empleadoAEditar?.usuarioId && (
-              <div className="pt-3 border-t border-slate-200/80 space-y-2">
+            {/* Input de contraseña */}
+            <div className="pt-3 border-t border-slate-200/80 space-y-2">
+              <div className="flex items-center justify-between">
                 <label className="block text-xs font-bold text-slate-700">
-                  Contraseña Inicial de Acceso
+                  {empleadoAEditar?.usuarioId
+                    ? "Nueva Contraseña (Opcional)"
+                    : "Contraseña Inicial de Acceso"}
                 </label>
-                <div className="flex items-center gap-2">
-                  <div className="relative flex-1">
-                    <KeyRound className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
-                    <input
-                      type="text"
-                      value={passwordTemporal}
-                      onChange={(e) => setPasswordTemporal(e.target.value)}
-                      required={crearUsuario}
-                      className="w-full h-11 pl-10 pr-3.5 rounded-xl border border-slate-300 text-sm font-mono font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#175E38]/20 focus:border-[#175E38] transition-all bg-white"
-                    />
-                  </div>
-                  <button
-                    type="button"
-                    onClick={generarContrasena}
-                    className="h-11 px-3 rounded-xl border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shrink-0"
-                    title="Generar contraseña segura"
-                  >
-                    <RefreshCw className="w-3.5 h-3.5" />
-                    <span className="hidden sm:inline">Generar</span>
-                  </button>
-                </div>
-                <p className="text-[11px] text-slate-500">
-                  El trabajador usará su correo electrónico y esta clave para iniciar sesión.
-                </p>
+                {empleadoAEditar?.usuarioId && (
+                  <span className="text-[11px] font-medium text-slate-400">
+                    Dejar en blanco para mantener la actual
+                  </span>
+                )}
               </div>
-            )}
+
+              <div className="relative">
+                <KeyRound className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input
+                  type="text"
+                  value={passwordTemporal}
+                  onChange={(e) => setPasswordTemporal(e.target.value)}
+                  placeholder={
+                    empleadoAEditar?.usuarioId
+                      ? "Dejar en blanco para mantener la actual..."
+                      : "Ej: Conte2026*"
+                  }
+                  className="w-full h-11 pl-10 pr-3.5 rounded-xl border border-slate-300 text-sm font-medium text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#175E38]/20 focus:border-[#175E38] transition-all bg-white"
+                />
+              </div>
+
+              <p className="text-[11px] text-slate-500">
+                {empleadoAEditar?.usuarioId
+                  ? "Si el trabajador olvidó su clave, escriba una nueva para reestablecerla de inmediato."
+                  : "Contraseña con la que el trabajador iniciará sesión por primera vez."}
+              </p>
+            </div>
           </div>
         </div>
 

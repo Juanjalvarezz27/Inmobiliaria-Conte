@@ -9,6 +9,7 @@ export interface EmpleadoItem {
   email: string | null;
   direccion: string | null;
   cargo: CargoEmpleado;
+  cargoPersonalizado?: string | null;
   fechaIngreso: string;
   salarioMensual: number | null;
   activo: boolean;
@@ -32,6 +33,8 @@ export interface EmpleadoItem {
     asistencias: number;
   };
   tareasPendientesCount: number;
+  asistenciasCount: number;
+  inasistenciasCount: number;
 }
 
 export interface RegistroAsistenciaItem {
@@ -64,6 +67,7 @@ export interface TareaEmpleadoItem {
   fechaCompletada: string | null;
   evidencias: string[];
   notasResolucion: string | null;
+  requiereEvidencia: boolean;
   createdAt: string;
 }
 
@@ -84,9 +88,17 @@ export interface PersonalDashboardData {
     activosCount: number;
     asistieronHoyCount: number;
     tareasPendientesCount: number;
-    tareasUrgentesCount: number;
     tareasCompletadasMesCount: number;
   };
+}
+
+// Helper para obtener fecha actual en formato YYYY-MM-DD respetando la zona horaria local
+export function getFechaLocalHoy(): string {
+  const d = new Date();
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
 }
 
 export const CARGO_CONFIG: Record<
@@ -98,12 +110,12 @@ export const CARGO_CONFIG: Record<
   }
 > = {
   CONSERJE: {
-    label: "Conserje / Limpieza",
+    label: "Conserje",
     badgeClass: "bg-emerald-50 text-emerald-800 border-emerald-200",
     iconColor: "text-emerald-700",
   },
   TECNICO_MANTENIMIENTO: {
-    label: "Técnico Mantenimiento",
+    label: "Mantenimiento",
     badgeClass: "bg-blue-50 text-blue-800 border-blue-200",
     iconColor: "text-blue-700",
   },
@@ -113,31 +125,38 @@ export const CARGO_CONFIG: Record<
     iconColor: "text-amber-700",
   },
   PLOMERO: {
-    label: "Plomero / Fontanero",
+    label: "Plomero",
     badgeClass: "bg-cyan-50 text-cyan-800 border-cyan-200",
     iconColor: "text-cyan-700",
   },
   SEGURIDAD: {
-    label: "Vigilancia / Seguridad",
+    label: "Seguridad",
     badgeClass: "bg-slate-100 text-slate-800 border-slate-300",
     iconColor: "text-slate-700",
   },
   SUPERVISOR: {
-    label: "Supervisor de Operaciones",
+    label: "Supervisor",
     badgeClass: "bg-indigo-50 text-indigo-800 border-indigo-200",
     iconColor: "text-indigo-700",
   },
   ADMINISTRATIVO: {
-    label: "Personal Administrativo",
+    label: "Administrativo",
     badgeClass: "bg-purple-50 text-purple-800 border-purple-200",
     iconColor: "text-purple-700",
   },
   OTRO: {
-    label: "Personal Operativo",
+    label: "Otro",
     badgeClass: "bg-slate-50 text-slate-700 border-slate-200",
     iconColor: "text-slate-600",
   },
 };
+
+export function getCargoLabel(cargo: CargoEmpleado, cargoPersonalizado?: string | null): string {
+  if (cargo === CargoEmpleado.OTRO && cargoPersonalizado && cargoPersonalizado.trim()) {
+    return cargoPersonalizado.trim();
+  }
+  return CARGO_CONFIG[cargo]?.label || "Otro";
+}
 
 export const ESTADO_ASISTENCIA_CONFIG: Record<
   EstadoAsistencia,
@@ -148,29 +167,29 @@ export const ESTADO_ASISTENCIA_CONFIG: Record<
   }
 > = {
   PRESENTE: {
-    label: "Presente / A Tiempo",
+    label: "Presente",
     badgeClass: "bg-emerald-50 text-emerald-800 border-emerald-200",
     dotColor: "bg-emerald-600",
   },
   RETARDO: {
-    label: "Retardo",
-    badgeClass: "bg-amber-50 text-amber-800 border-amber-200",
-    dotColor: "bg-amber-500",
+    label: "Presente",
+    badgeClass: "bg-emerald-50 text-emerald-800 border-emerald-200",
+    dotColor: "bg-emerald-600",
   },
   FALTA_JUSTIFICADA: {
-    label: "Falta Justificada",
+    label: "Justificado",
     badgeClass: "bg-blue-50 text-blue-800 border-blue-200",
     dotColor: "bg-blue-500",
   },
   FALTA_INJUSTIFICADA: {
-    label: "Inasistencia",
+    label: "Ausente",
     badgeClass: "bg-rose-50 text-rose-800 border-rose-200",
     dotColor: "bg-rose-600",
   },
   PERMISO: {
-    label: "Permiso Especial",
-    badgeClass: "bg-purple-50 text-purple-800 border-purple-200",
-    dotColor: "bg-purple-500",
+    label: "Justificado",
+    badgeClass: "bg-blue-50 text-blue-800 border-blue-200",
+    dotColor: "bg-blue-500",
   },
 };
 

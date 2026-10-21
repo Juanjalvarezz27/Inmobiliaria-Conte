@@ -107,6 +107,8 @@ model Unidad {
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
 
+  @@index([propiedadId])
+  @@index([estado])
   @@map("unidades")
 }
 
@@ -184,6 +186,10 @@ model Contrato {
   createdAt                         DateTime       @default(now())
   updatedAt                         DateTime       @updatedAt
 
+  @@index([inquilinoId])
+  @@index([unidadId])
+  @@index([estado])
+  @@index([fechaInicio, fechaFin])
   @@map("contratos")
 }
 
@@ -233,6 +239,9 @@ model Pago {
 
   @@unique([contratoId, periodoMes, periodoAno])
   @@index([periodoAno, periodoMes])
+  @@index([periodoAno, periodoMes, estado])
+  @@index([contratoId])
+  @@index([estado])
   @@map("pagos")
 }
 
@@ -345,8 +354,9 @@ model Empleado {
   telefono       String
   email          String?
   direccion      String?
-  cargo          CargoEmpleado        @default(CONSERJE)
-  fechaIngreso   DateTime             @default(now())
+  cargo              CargoEmpleado        @default(CONSERJE)
+  cargoPersonalizado String?
+  fechaIngreso       DateTime             @default(now())
   salarioMensual Float?               // Salario u honorarios en USD
   activo         Boolean              @default(true)
   notas          String?
@@ -383,6 +393,8 @@ model RegistroAsistencia {
   updatedAt        DateTime         @updatedAt
 
   @@index([empleadoId, fecha])
+  @@index([fecha])
+  @@index([empleadoId, estado])
   @@map("registros_asistencia")
 }
 
@@ -400,12 +412,15 @@ model TareaEmpleado {
   fechaCompletada DateTime?
   evidencias      String[]       // URLs de imágenes en UploadThing
   notasResolucion String?
+  requiereEvidencia Boolean      @default(false)
 
   createdAt       DateTime       @default(now())
   updatedAt       DateTime       @updatedAt
 
   @@index([empleadoId, estado])
   @@index([propiedadId])
+  @@index([estado, fechaCompletada])
+  @@index([estado, createdAt])
   @@map("tareas_empleados")
 }
 

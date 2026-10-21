@@ -1,12 +1,12 @@
 "use client";
 
-import React, { useState, useMemo, useTransition } from "react";
+import React, { useState, useMemo, useTransition, useEffect } from "react";
 import {
   Users,
   Clock,
   CheckCircle2,
   AlertTriangle,
-  Flame,
+  Camera,
   Plus,
   Search,
   Layers,
@@ -15,6 +15,7 @@ import {
   FileCheck2,
   ExternalLink,
   ChevronRight,
+  ChevronLeft,
   ChevronDown,
   ShieldCheck,
   Building2,
@@ -22,6 +23,7 @@ import {
   LogOut,
   MapPin,
   Wrench,
+  Power,
 } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/ui/page-header";
@@ -29,8 +31,11 @@ import { StatCard } from "@/components/ui/stat-card";
 import { FilterDropdown, type FilterDropdownOption } from "@/components/ui/filter-dropdown";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ImageViewerModal } from "@/components/ui/image-viewer-modal";
+import { ConfirmActionModal } from "@/components/ui/confirm-action-modal";
 import { CargoEmpleado, EstadoAsistencia, EstadoTarea } from "@prisma/client";
 import { EmpleadoCard } from "./EmpleadoCard";
+import { AsistenciaCard } from "./AsistenciaCard";
+import { TareaCard } from "./TareaCard";
 import { EmpleadoFormModal } from "./EmpleadoFormModal";
 import { AsistenciaModal } from "./AsistenciaModal";
 import { TareaFormModal } from "./TareaFormModal";
@@ -39,7 +44,6 @@ import { EmpleadoDetalleModal } from "./EmpleadoDetalleModal";
 import {
   CARGO_CONFIG,
   ESTADO_ASISTENCIA_CONFIG,
-  PRIORIDAD_TAREA_CONFIG,
   ESTADO_TAREA_CONFIG,
   type PersonalDashboardData,
   type EmpleadoItem,
@@ -59,6 +63,9 @@ import {
   type RegistrarAsistenciaInput,
   type CreateTareaInput,
 } from "@/lib/actions/personal";
+
+const PAGE_SIZE_TAREAS = 6;
+const PAGE_SIZE_ASISTENCIA = 8;
 
 interface PersonalClientProps {
   initialData: PersonalDashboardData;
@@ -84,6 +91,13 @@ export function PersonalClient({ initialData }: PersonalClientProps) {
 
   const [modalAsistenciaOpen, setModalAsistenciaOpen] = useState(false);
   const [empleadoParaAsistencia, setEmpleadoParaAsistencia] = useState<EmpleadoItem | null>(null);
+  const [registroParaAsistencia, setRegistroParaAsistencia] = useState<RegistroAsistenciaItem | null>(null);
+  const [asistenciaParaSalida, setAsistenciaParaSalida] = useState<{
+    id: string;
+    empleadoNombre: string;
+    empleadoCargo: CargoEmpleado;
+    horaEntrada: string;
+  } | null>(null);
 
   const [modalTareaOpen, setModalTareaOpen] = useState(false);
   const [empleadoPreseleccionadoTarea, setEmpleadoPreseleccionadoTarea] = useState<EmpleadoItem | null>(null);
@@ -94,11 +108,41 @@ export function PersonalClient({ initialData }: PersonalClientProps) {
 
   const [modalDetalleEmpleadoOpen, setModalDetalleEmpleadoOpen] = useState(false);
   const [empleadoSeleccionadoDetalle, setEmpleadoSeleccionadoDetalle] = useState<EmpleadoItem | null>(null);
+  const [scrollToSeccionDetalle, setScrollToSeccionDetalle] = useState<"TAREAS" | null>(null);
 
   // Estados de acordeones desplegables para las 3 pestañas
   const [acordeonesDirectorio, setAcordeonesDirectorio] = useState<Record<string, boolean>>({});
   const [acordeonesAsistencia, setAcordeonesAsistencia] = useState<Record<string, boolean>>({});
   const [acordeonesTareas, setAcordeonesTareas] = useState<Record<string, boolean>>({});
+
+  // Paginación local de 18 en 18 para Órdenes de Trabajo por Inmueble
+  const [paginasTareas, setPaginasTareas] = useState<Record<string, number>>({});
+  // Paginación local de 12 en 12 para Asistencia por Inmueble
+  const [paginasAsistencia, setPaginasAsistencia] = useState<Record<string, number>>({});
+  const [empleadoParaDesactivar, setEmpleadoParaDesactivar] = useState<EmpleadoItem | null>(null);
+
+  // Resetear páginas locales de órdenes de trabajo y asistencia al cambiar filtros o búsqueda
+  useEffect(() => {
+    setPaginasTareas({});
+  }, [filtroPropiedad, filtroEstadoTarea, busqueda]);
+
+  useEffect(() => {
+    setPaginasAsistencia({});
+  }, [filtroPropiedad, filtroCargo, filtroEstado, busqueda]);
+
+  const cambiarPaginaTarea = (grupoId: string, nuevaPagina: number) => {
+    setPaginasTareas((prev) => ({
+      ...prev,
+      [grupoId]: nuevaPagina,
+    }));
+  };
+
+  const cambiarPaginaAsistencia = (grupoId: string, nuevaPagina: number) => {
+    setPaginasAsistencia((prev) => ({
+      ...prev,
+      [grupoId]: nuevaPagina,
+    }));
+  };
 
   const toggleAcordeonDirectorio = (id: string) => {
     setAcordeonesDirectorio((prev) => ({
@@ -255,6 +299,49 @@ export function PersonalClient({ initialData }: PersonalClientProps) {
       { value: "INACTIVOS", label: "Solo Inactivos", count: inactivos },
     ];
   }, [data.empleados]);
+
+  // Opciones para el selector de Módulo / Sección Activa (FilterDropdown en Móviles)
+  const opcionesModulos: FilterDropdownOption[] = useMemo(
+    () => [
+      {
+        value: "directorio",
+        label: "Directorio de Personal",
+        icon: Users,
+        iconClassName: "text-[#175E38]",
+        count: data.empleados.length,
+      },
+      {
+        value: "asistencia",
+        label: "Control de Asistencia",
+        icon: Clock,
+        iconClassName: "text-blue-600",
+        count: data.asistenciasHoy.length,
+      },
+      {
+        value: "tareas",
+        label: "Órdenes de Trabajo",
+        icon: FileCheck2,
+        iconClassName: "text-amber-600",
+        count: data.metricas.tareasPendientesCount,
+      },
+    ],
+    [data.empleados.length, data.asistenciasHoy.length, data.metricas.tareasPendientesCount]
+  );
+
+  // Opciones para el selector de Estado de Tareas (FilterDropdown)
+  const opcionesEstadoTarea: FilterDropdownOption[] = useMemo(() => {
+    const counts = data.tareas.reduce((acc, t) => {
+      acc[t.estado] = (acc[t.estado] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
+
+    return [
+      { value: "TODAS", label: "Todas las Tareas", isGlobal: true, count: data.tareas.length },
+      { value: "PENDIENTE", label: "Pendientes", count: counts["PENDIENTE"] || 0 },
+      { value: "EN_PROCESO", label: "En Proceso", count: counts["EN_PROCESO"] || 0 },
+      { value: "COMPLETADA", label: "Completadas", count: counts["COMPLETADA"] || 0 },
+    ];
+  }, [data.tareas]);
 
   // Filtrado de empleados en tiempo real
   const empleadosFiltrados = useMemo(() => {
@@ -615,6 +702,8 @@ export function PersonalClient({ initialData }: PersonalClientProps) {
                 asistenciaHoy: null,
                 _count: { tareas: 0, asistencias: 0 },
                 tareasPendientesCount: 0,
+                asistenciasCount: 0,
+                inasistenciasCount: 0,
               };
 
               setData((prev) => ({
@@ -641,9 +730,8 @@ export function PersonalClient({ initialData }: PersonalClientProps) {
     });
   };
 
-  // Activar o desactivar empleado
-  const handleToggleEstadoEmpleado = (emp: EmpleadoItem) => {
-    const nuevoEstado = !emp.activo;
+  // Ejecutar cambio de estado del colaborador en BD y estado local
+  const ejecutarToggleEstado = (emp: EmpleadoItem, nuevoEstado: boolean) => {
     startTransition(async () => {
       const res = await toggleEstadoEmpleadoAction(emp.id, nuevoEstado);
       if (res.success) {
@@ -664,6 +752,15 @@ export function PersonalClient({ initialData }: PersonalClientProps) {
         toast.error(res.error || "No se pudo modificar el estado.");
       }
     });
+  };
+
+  // Disparador: confirmar antes de desactivar a un trabajador activo
+  const handleToggleEstadoEmpleado = (emp: EmpleadoItem) => {
+    if (emp.activo) {
+      setEmpleadoParaDesactivar(emp);
+    } else {
+      ejecutarToggleEstado(emp, true);
+    }
   };
 
   // ==================== ACCIONES DE ASISTENCIA ====================
@@ -688,6 +785,14 @@ export function PersonalClient({ initialData }: PersonalClientProps) {
           };
 
           setData((prev) => {
+            const esAsistencia =
+              input.estado === EstadoAsistencia.PRESENTE ||
+              input.estado === EstadoAsistencia.RETARDO ||
+              input.estado === EstadoAsistencia.PERMISO;
+            const esInasistencia =
+              input.estado === EstadoAsistencia.FALTA_JUSTIFICADA ||
+              input.estado === EstadoAsistencia.FALTA_INJUSTIFICADA;
+
             const empleadosActualizados = prev.empleados.map((e) =>
               e.id === input.empleadoId
                 ? {
@@ -699,6 +804,12 @@ export function PersonalClient({ initialData }: PersonalClientProps) {
                         ? e._count.asistencias
                         : e._count.asistencias + 1,
                     },
+                    asistenciasCount: esAsistencia
+                      ? (e.asistenciasCount ?? 0) + (e.asistenciaHoy ? 0 : 1)
+                      : e.asistenciasCount ?? 0,
+                    inasistenciasCount: esInasistencia
+                      ? (e.inasistenciasCount ?? 0) + (e.asistenciaHoy ? 0 : 1)
+                      : e.inasistenciasCount ?? 0,
                   }
                 : e
             );
@@ -723,6 +834,26 @@ export function PersonalClient({ initialData }: PersonalClientProps) {
               },
             };
           });
+
+          // Sincronizar modal de detalle si está abierto
+          setEmpleadoSeleccionadoDetalle((prevDet) => {
+            if (!prevDet || prevDet.id !== input.empleadoId) return prevDet;
+            const esAsist =
+              input.estado === EstadoAsistencia.PRESENTE ||
+              input.estado === EstadoAsistencia.RETARDO ||
+              input.estado === EstadoAsistencia.PERMISO;
+            return {
+              ...prevDet,
+              asistenciasCount: esAsist
+                ? (prevDet.asistenciasCount ?? 0) + 1
+                : prevDet.asistenciasCount,
+              inasistenciasCount: !esAsist
+                ? (prevDet.inasistenciasCount ?? 0) + 1
+                : Math.max(0, (prevDet.inasistenciasCount ?? 1) - 1),
+            };
+          });
+
+          setRegistroParaAsistencia(null);
           resolve(true);
         } else {
           toast.error(res.error || "Error al registrar asistencia");
@@ -792,6 +923,7 @@ export function PersonalClient({ initialData }: PersonalClientProps) {
             fechaCompletada: null,
             evidencias: res.data.evidencias,
             notasResolucion: res.data.notasResolucion,
+            requiereEvidencia: res.data.requiereEvidencia ?? false,
             createdAt: res.data.createdAt.toISOString(),
           };
 
@@ -810,10 +942,6 @@ export function PersonalClient({ initialData }: PersonalClientProps) {
             metricas: {
               ...prev.metricas,
               tareasPendientesCount: prev.metricas.tareasPendientesCount + 1,
-              tareasUrgentesCount:
-                res.data.prioridad === "URGENTE"
-                  ? prev.metricas.tareasUrgentesCount + 1
-                  : prev.metricas.tareasUrgentesCount,
             },
           }));
           resolve(true);
@@ -898,6 +1026,13 @@ export function PersonalClient({ initialData }: PersonalClientProps) {
     });
   };
 
+  // Manejador interactivo para el botón de órdenes/tareas en la tarjeta
+  const handleVerTareasEmpleado = (emp: EmpleadoItem) => {
+    setEmpleadoSeleccionadoDetalle(emp);
+    setScrollToSeccionDetalle("TAREAS");
+    setModalDetalleEmpleadoOpen(true);
+  };
+
   return (
     <div className="space-y-6">
       {/* PageHeader con Título y Botones de Acción */}
@@ -905,17 +1040,17 @@ export function PersonalClient({ initialData }: PersonalClientProps) {
         title="Equipo de Trabajo y Asistencia"
         icon={<Users className="w-6 h-6 text-white" />}
         actions={
-          <div className="flex items-center gap-2.5 flex-wrap">
+          <div className="grid grid-cols-2 gap-2 w-full sm:w-auto sm:flex sm:items-center sm:gap-2.5">
             <button
               type="button"
               onClick={() => {
                 setEmpleadoPreseleccionadoTarea(null);
                 setModalTareaOpen(true);
               }}
-              className="h-11 px-4 rounded-xl text-xs font-bold bg-[#1C2539] text-white hover:bg-[#2a3754] transition-all flex items-center gap-2 cursor-pointer shadow-xs active:translate-y-0.5"
+              className="h-11 px-2.5 sm:px-4 rounded-xl text-xs font-bold bg-[#1C2539] text-white hover:bg-[#2a3754] transition-all flex items-center justify-center gap-1.5 sm:gap-2 cursor-pointer shadow-xs active:translate-y-0.5"
             >
-              <FileCheck2 className="w-4 h-4" />
-              <span>Asignar Tarea</span>
+              <FileCheck2 className="w-4 h-4 shrink-0" />
+              <span className="truncate">Asignar Tarea</span>
             </button>
 
             <button
@@ -924,10 +1059,10 @@ export function PersonalClient({ initialData }: PersonalClientProps) {
                 setEmpleadoAEditar(null);
                 setModalEmpleadoOpen(true);
               }}
-              className="h-11 px-5 rounded-xl text-xs font-bold text-white bg-gradient-to-r from-[#175E38] to-[#124b2d] border-b-[3px] border-b-[#0e3a23] active:translate-y-0.5 transition-all flex items-center gap-2 cursor-pointer shadow-[0_2px_8px_rgba(23,94,56,0.25)]"
+              className="h-11 px-2.5 sm:px-5 rounded-xl text-xs font-bold text-white bg-gradient-to-r from-[#175E38] to-[#124b2d] border-b-[3px] border-b-[#0e3a23] active:translate-y-0.5 transition-all flex items-center justify-center gap-1.5 sm:gap-2 cursor-pointer shadow-[0_2px_8px_rgba(23,94,56,0.25)]"
             >
-              <Plus className="w-4 h-4 stroke-[2.5]" />
-              <span>Registrar Trabajador</span>
+              <Plus className="w-4 h-4 stroke-[2.5] shrink-0" />
+              <span className="truncate">Registrar Trabajador</span>
             </button>
           </div>
         }
@@ -971,63 +1106,104 @@ export function PersonalClient({ initialData }: PersonalClientProps) {
           subtitle="Labores operativas abiertas"
         />
 
-        {/* Tareas Urgentes */}
+        {/* Tareas Completadas del Mes */}
         <StatCard
-          title="Tareas Urgentes"
-          value={data.metricas.tareasUrgentesCount}
-          icon={Flame}
-          color="rose"
-          subtitle="Atención prioritaria inmediata"
+          title="Tareas Completadas"
+          value={data.metricas.tareasCompletadasMesCount}
+          icon={CheckCircle2}
+          color="navy"
+          subtitle="Labores resueltas en el mes"
         />
       </div>
 
-      {/* Selector de Pestañas de Navegación Operativa */}
-      <div className="flex items-center gap-1.5 p-1.5 rounded-2xl bg-slate-100/90 border border-slate-200/90 max-w-fit">
+      {/* Selector de Pestañas de Navegación Operativa (3 Opciones Visibles en Mobile y Desktop) */}
+      <div className="grid grid-cols-3 sm:flex sm:items-center gap-1 sm:gap-1.5 p-1 sm:p-1.5 rounded-2xl bg-slate-100/90 border border-slate-200/90 w-full sm:w-fit">
+        {/* Pestaña: Directorio de Personal */}
         <button
           type="button"
           onClick={() => setActiveTab("directorio")}
-          className={`h-10 px-4 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
+          className={`h-13 sm:h-10 px-1 sm:px-4 rounded-xl text-xs font-bold transition-all flex flex-col sm:flex-row items-center justify-center gap-0.5 sm:gap-2 cursor-pointer ${
             activeTab === "directorio"
-              ? "bg-white text-slate-900 shadow-sm"
+              ? "bg-white text-slate-900 shadow-sm border border-slate-200/80"
               : "text-slate-600 hover:text-slate-900 hover:bg-white/50"
           }`}
         >
-          <Users className="w-3.5 h-3.5 text-[#175E38]" />
-          <span>Directorio de Personal</span>
-          <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-slate-100 font-bold">
+          <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
+            <Users className="w-4 h-4 sm:w-3.5 sm:h-3.5 text-[#175E38] shrink-0" />
+            <span
+              className={`sm:hidden text-[10px] font-extrabold px-1.5 py-0.2 rounded-full leading-none shrink-0 ${
+                activeTab === "directorio"
+                  ? "bg-emerald-100 text-emerald-800"
+                  : "bg-slate-200/90 text-slate-600"
+              }`}
+            >
+              {data.empleados.length}
+            </span>
+          </div>
+          <span className="text-[11px] sm:text-xs font-bold tracking-tight text-center truncate max-w-full">
+            <span className="sm:hidden">Personal</span>
+            <span className="hidden sm:inline">Directorio de Personal</span>
+          </span>
+          <span className="hidden sm:inline-flex text-[10px] px-1.5 py-0.5 rounded-md bg-slate-100 font-bold shrink-0">
             {data.empleados.length}
           </span>
         </button>
 
+        {/* Pestaña: Control de Asistencia */}
         <button
           type="button"
           onClick={() => setActiveTab("asistencia")}
-          className={`h-10 px-4 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
+          className={`h-13 sm:h-10 px-1 sm:px-4 rounded-xl text-xs font-bold transition-all flex flex-col sm:flex-row items-center justify-center gap-0.5 sm:gap-2 cursor-pointer ${
             activeTab === "asistencia"
-              ? "bg-white text-slate-900 shadow-sm"
+              ? "bg-white text-slate-900 shadow-sm border border-slate-200/80"
               : "text-slate-600 hover:text-slate-900 hover:bg-white/50"
           }`}
         >
-          <Clock className="w-3.5 h-3.5 text-blue-600" />
-          <span>Control de Asistencia</span>
-          <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-slate-100 font-bold">
+          <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
+            <Clock className="w-4 h-4 sm:w-3.5 sm:h-3.5 text-blue-600 shrink-0" />
+            <span
+              className={`sm:hidden text-[10px] font-extrabold px-1.5 py-0.2 rounded-full leading-none shrink-0 ${
+                activeTab === "asistencia"
+                  ? "bg-blue-100 text-blue-800"
+                  : "bg-slate-200/90 text-slate-600"
+              }`}
+            >
+              {data.asistenciasHoy.length}
+            </span>
+          </div>
+          <span className="text-[11px] sm:text-xs font-bold tracking-tight text-center truncate max-w-full">
+            <span className="sm:hidden">Asistencia</span>
+            <span className="hidden sm:inline">Control de Asistencia</span>
+          </span>
+          <span className="hidden sm:inline-flex text-[10px] px-1.5 py-0.5 rounded-md bg-slate-100 font-bold shrink-0">
             {data.asistenciasHoy.length}
           </span>
         </button>
 
+        {/* Pestaña: Órdenes de Trabajo */}
         <button
           type="button"
           onClick={() => setActiveTab("tareas")}
-          className={`h-10 px-4 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
+          className={`h-13 sm:h-10 px-1 sm:px-4 rounded-xl text-xs font-bold transition-all flex flex-col sm:flex-row items-center justify-center gap-0.5 sm:gap-2 cursor-pointer ${
             activeTab === "tareas"
-              ? "bg-white text-slate-900 shadow-sm"
+              ? "bg-white text-slate-900 shadow-sm border border-slate-200/80"
               : "text-slate-600 hover:text-slate-900 hover:bg-white/50"
           }`}
         >
-          <FileCheck2 className="w-3.5 h-3.5 text-amber-600" />
-          <span>Órdenes de Trabajo</span>
+          <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
+            <FileCheck2 className="w-4 h-4 sm:w-3.5 sm:h-3.5 text-amber-600 shrink-0" />
+            {data.metricas.tareasPendientesCount > 0 && (
+              <span className="sm:hidden text-[10px] font-extrabold px-1.5 py-0.2 rounded-full leading-none bg-amber-100 text-amber-800 shrink-0">
+                {data.metricas.tareasPendientesCount}
+              </span>
+            )}
+          </div>
+          <span className="text-[11px] sm:text-xs font-bold tracking-tight text-center truncate max-w-full">
+            <span className="sm:hidden">Tareas</span>
+            <span className="hidden sm:inline">Órdenes de Trabajo</span>
+          </span>
           {data.metricas.tareasPendientesCount > 0 && (
-            <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-amber-100 text-amber-800 font-bold">
+            <span className="hidden sm:inline-flex text-[10px] px-1.5 py-0.5 rounded-md bg-amber-100 text-amber-800 font-bold shrink-0">
               {data.metricas.tareasPendientesCount}
             </span>
           )}
@@ -1035,7 +1211,7 @@ export function PersonalClient({ initialData }: PersonalClientProps) {
       </div>
 
       {/* Barra de Filtros Híbridos */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-white p-3 sm:p-4 rounded-2xl border border-slate-200/90 shadow-2xs">
+      <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3 bg-white p-3 sm:p-4 rounded-2xl border border-slate-200/90 shadow-2xs">
         {/* Buscador en tiempo real */}
         <div className="relative flex-1">
           <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
@@ -1055,7 +1231,7 @@ export function PersonalClient({ initialData }: PersonalClientProps) {
         </div>
 
         {/* Desplegables de Filtro Híbridos según la Pestaña */}
-        <div className="flex items-center gap-2 flex-wrap">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:flex lg:items-center gap-2 w-full lg:w-auto">
           {/* Filtro Inmueble transversal a todas las pestañas */}
           <FilterDropdown
             value={filtroPropiedad}
@@ -1063,7 +1239,7 @@ export function PersonalClient({ initialData }: PersonalClientProps) {
             options={opcionesPropiedadesFiltro}
             placeholder="Inmueble"
             icon={Building2}
-            className="w-full sm:w-60"
+            className="w-full lg:w-60"
           />
 
           {activeTab === "directorio" && (
@@ -1075,7 +1251,7 @@ export function PersonalClient({ initialData }: PersonalClientProps) {
                 options={opcionesCargo}
                 placeholder="Cargo"
                 icon={Briefcase}
-                className="w-full sm:w-56"
+                className="w-full lg:w-56"
               />
 
               {/* Filtro Estado */}
@@ -1085,34 +1261,20 @@ export function PersonalClient({ initialData }: PersonalClientProps) {
                 options={opcionesEstado}
                 placeholder="Estado"
                 icon={Layers}
-                className="w-full sm:w-48"
+                className="w-full lg:w-48"
               />
             </>
           )}
 
           {activeTab === "tareas" && (
-            <div className="flex items-center gap-1 p-1 bg-slate-100 rounded-xl">
-              {(["TODAS", "PENDIENTE", "EN_PROCESO", "COMPLETADA"] as const).map((est) => (
-                <button
-                  key={est}
-                  type="button"
-                  onClick={() => setFiltroEstadoTarea(est)}
-                  className={`h-8 px-2.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                    filtroEstadoTarea === est
-                      ? "bg-white text-slate-900 shadow-2xs"
-                      : "text-slate-500 hover:text-slate-900"
-                  }`}
-                >
-                  {est === "TODAS"
-                    ? "Todas"
-                    : est === "PENDIENTE"
-                    ? "Pendientes"
-                    : est === "EN_PROCESO"
-                    ? "En Curso"
-                    : "Completadas"}
-                </button>
-              ))}
-            </div>
+            <FilterDropdown
+              value={filtroEstadoTarea}
+              onChange={(val) => setFiltroEstadoTarea(val as any)}
+              options={opcionesEstadoTarea}
+              placeholder="Estado labor"
+              icon={Layers}
+              className="w-full lg:w-48"
+            />
           )}
         </div>
       </div>
@@ -1216,8 +1378,8 @@ export function PersonalClient({ initialData }: PersonalClientProps) {
                       </div>
 
                       {/* Acciones: Desplegar a la izquierda y Registrar Trabajador a la derecha */}
-                      <div className="w-full sm:w-auto flex items-center justify-between sm:justify-end gap-3 pt-2.5 sm:pt-0 border-t sm:border-t-0 border-slate-100">
-                        <div className="flex items-center gap-2 cursor-pointer text-slate-700 hover:text-black transition-colors">
+                      <div className="w-full sm:w-auto flex items-center justify-between sm:justify-end gap-2.5 sm:gap-3 pt-2.5 sm:pt-0 border-t sm:border-t-0 border-slate-100">
+                        <div className="flex items-center gap-2 cursor-pointer text-slate-700 hover:text-black transition-colors shrink-0">
                           <div
                             className={`w-8 h-8 rounded-xl flex items-center justify-center border border-slate-200/90 bg-white/95 text-slate-700 hover:text-black hover:bg-slate-100 transition-transform duration-200 ease-out shadow-2xs ${
                               estaDesplegada ? "rotate-180 bg-slate-100 text-black border-slate-300" : ""
@@ -1226,7 +1388,7 @@ export function PersonalClient({ initialData }: PersonalClientProps) {
                             <ChevronDown className="w-4 h-4 stroke-[2.5]" />
                           </div>
                           <span className="text-xs font-bold text-slate-600 select-none">
-                            {estaDesplegada ? "Cerrar" : "Ver trabajadores"}
+                            {estaDesplegada ? "Cerrar" : <><span className="hidden min-[380px]:inline">Ver </span>Trabajadores</>}
                           </span>
                         </div>
 
@@ -1238,10 +1400,10 @@ export function PersonalClient({ initialData }: PersonalClientProps) {
                             setPropiedadPreseleccionadaEmpleado(grupo.id === "GENERAL" ? null : grupo.id);
                             setModalEmpleadoOpen(true);
                           }}
-                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#175E38] text-white text-xs font-bold hover:bg-[#124b2d] transition-all shadow-xs cursor-pointer active:translate-y-0.5 whitespace-nowrap"
+                          className="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl bg-[#175E38] text-white text-xs font-bold hover:bg-[#124b2d] transition-all shadow-xs cursor-pointer active:translate-y-0.5 whitespace-nowrap shrink-0"
                         >
                           <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
-                          <span>Registrar Trabajador</span>
+                          <span><span className="hidden min-[400px]:inline">Registrar </span>Trabajador</span>
                         </button>
                       </div>
                     </div>
@@ -1269,6 +1431,7 @@ export function PersonalClient({ initialData }: PersonalClientProps) {
                                 onToggleEstado={handleToggleEstadoEmpleado}
                                 onVerDetalle={(e) => {
                                   setEmpleadoSeleccionadoDetalle(e);
+                                  setScrollToSeccionDetalle(null);
                                   setModalDetalleEmpleadoOpen(true);
                                 }}
                                 onAsignarTarea={(e) => {
@@ -1280,6 +1443,7 @@ export function PersonalClient({ initialData }: PersonalClientProps) {
                                   setEmpleadoParaAsistencia(e);
                                   setModalAsistenciaOpen(true);
                                 }}
+                                onVerTareas={handleVerTareasEmpleado}
                                 isPending={isPending}
                               />
                             ))}
@@ -1312,9 +1476,28 @@ export function PersonalClient({ initialData }: PersonalClientProps) {
                 const estaDesplegada = estaDesplegadaAsistencia(grupo.id);
 
                 const registradosHoy = grupo.empleados.filter((e) => Boolean(e.asistenciaHoy)).length;
-                const presentesHoy = grupo.empleados.filter((e) => e.asistenciaHoy?.estado === EstadoAsistencia.PRESENTE).length;
-                const retardosHoy = grupo.empleados.filter((e) => e.asistenciaHoy?.estado === EstadoAsistencia.RETARDO).length;
+                const presentesHoy = grupo.empleados.filter(
+                  (e) =>
+                    e.asistenciaHoy?.estado === EstadoAsistencia.PRESENTE ||
+                    e.asistenciaHoy?.estado === EstadoAsistencia.RETARDO
+                ).length;
+                const justificadosHoy = grupo.empleados.filter(
+                  (e) =>
+                    e.asistenciaHoy?.estado === EstadoAsistencia.FALTA_JUSTIFICADA ||
+                    e.asistenciaHoy?.estado === EstadoAsistencia.PERMISO
+                ).length;
+                const ausentesHoy = grupo.empleados.filter(
+                  (e) => e.asistenciaHoy?.estado === EstadoAsistencia.FALTA_INJUSTIFICADA
+                ).length;
                 const sinMarcar = grupo.empleados.length - registradosHoy;
+
+                // Paginación local de 12 en 12 por Inmueble para Asistencia
+                const paginaActualAsis = paginasAsistencia[grupo.id] ?? 1;
+                const totalPaginasAsis = Math.ceil(grupo.empleados.length / PAGE_SIZE_ASISTENCIA);
+                const paginaSeguraAsis = totalPaginasAsis > 0 ? Math.min(Math.max(1, paginaActualAsis), totalPaginasAsis) : 1;
+                const inicioAsis = (paginaSeguraAsis - 1) * PAGE_SIZE_ASISTENCIA;
+                const finAsis = inicioAsis + PAGE_SIZE_ASISTENCIA;
+                const empleadosPagina = grupo.empleados.slice(inicioAsis, finAsis);
 
                 return (
                   <section
@@ -1373,12 +1556,17 @@ export function PersonalClient({ initialData }: PersonalClientProps) {
                             </span>
                             {presentesHoy > 0 && (
                               <span className="px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 font-bold text-[11px] border border-emerald-200/70">
-                                {presentesHoy} puntual{presentesHoy > 1 ? "es" : ""}
+                                {presentesHoy} {presentesHoy > 1 ? "presentes" : "presente"}
                               </span>
                             )}
-                            {retardosHoy > 0 && (
-                              <span className="px-2 py-0.5 rounded-md bg-amber-50 text-amber-700 font-bold text-[11px] border border-amber-200/70">
-                                {retardosHoy} con retardo
+                            {justificadosHoy > 0 && (
+                              <span className="px-2 py-0.5 rounded-md bg-blue-50 text-blue-700 font-bold text-[11px] border border-blue-200/70">
+                                {justificadosHoy} {justificadosHoy > 1 ? "justificados" : "justificado"}
+                              </span>
+                            )}
+                            {ausentesHoy > 0 && (
+                              <span className="px-2 py-0.5 rounded-md bg-rose-50 text-rose-700 font-bold text-[11px] border border-rose-200/70">
+                                {ausentesHoy} {ausentesHoy > 1 ? "ausentes" : "ausente"}
                               </span>
                             )}
                             {sinMarcar > 0 && (
@@ -1390,8 +1578,8 @@ export function PersonalClient({ initialData }: PersonalClientProps) {
                         </div>
                       </div>
 
-                      <div className="w-full sm:w-auto flex items-center justify-between sm:justify-end gap-3 pt-2.5 sm:pt-0 border-t sm:border-t-0 border-slate-100">
-                        <div className="flex items-center gap-2 cursor-pointer text-slate-700 hover:text-black transition-colors">
+                      <div className="w-full sm:w-auto flex items-center justify-between sm:justify-end gap-2.5 sm:gap-3 pt-2.5 sm:pt-0 border-t sm:border-t-0 border-slate-100">
+                        <div className="flex items-center gap-2 cursor-pointer text-slate-700 hover:text-black transition-colors shrink-0">
                           <div
                             className={`w-8 h-8 rounded-xl flex items-center justify-center border border-slate-200/90 bg-white/95 text-slate-700 hover:text-black hover:bg-slate-100 transition-transform duration-200 ease-out shadow-2xs ${
                               estaDesplegada ? "rotate-180 bg-slate-100 text-black border-slate-300" : ""
@@ -1400,11 +1588,11 @@ export function PersonalClient({ initialData }: PersonalClientProps) {
                             <ChevronDown className="w-4 h-4 stroke-[2.5]" />
                           </div>
                           <span className="text-xs font-bold text-slate-600 select-none">
-                            {estaDesplegada ? "Cerrar" : "Ver asistencia"}
+                            {estaDesplegada ? "Cerrar" : <><span className="hidden min-[380px]:inline">Ver </span>Asistencia</>}
                           </span>
                         </div>
 
-                        <span className="text-xs font-bold text-slate-700 bg-white border border-slate-200/90 px-3 py-1.5 rounded-xl shadow-2xs">
+                        <span className="text-xs font-bold text-slate-700 bg-white border border-slate-200/90 px-2.5 sm:px-3 py-1.5 rounded-xl shadow-2xs shrink-0">
                           {registradosHoy} de {grupo.empleados.length} hoy
                         </span>
                       </div>
@@ -1418,127 +1606,111 @@ export function PersonalClient({ initialData }: PersonalClientProps) {
                           : "grid-rows-[0fr] opacity-0 pointer-events-none"
                       }`}
                     >
-                      <div className="overflow-hidden min-h-0 border-t border-slate-100 bg-white">
-                        <div className="divide-y divide-slate-100">
-                          {grupo.empleados.map((emp) => {
-                            const asist = emp.asistenciaHoy;
-                            const cargoConfig = CARGO_CONFIG[emp.cargo];
-
-                            return (
-                              <div
-                                key={emp.id}
-                                className="p-4 sm:p-5 hover:bg-slate-50/80 transition-colors flex flex-col sm:flex-row sm:items-center justify-between gap-3"
-                              >
-                                {/* Información del Trabajador */}
-                                <div className="flex items-start sm:items-center gap-3">
-                                  <div className="w-10 h-10 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center font-heading font-black text-[#175E38] shrink-0">
-                                    {emp.nombre.charAt(0)}
-                                    {emp.apellido ? emp.apellido.charAt(0) : ""}
-                                  </div>
-                                  <div>
-                                    <div className="flex items-center gap-2 flex-wrap">
-                                      <span className="font-bold text-slate-900 text-sm">
-                                        {emp.nombre} {emp.apellido || ""}
-                                      </span>
-                                      <span className="text-[11px] font-mono text-slate-400">
-                                        {emp.cedula}
-                                      </span>
-                                      <span
-                                        className={`text-[10px] font-bold px-2 py-0.5 rounded ${cargoConfig.badgeClass}`}
-                                      >
-                                        {cargoConfig.label}
-                                      </span>
-                                    </div>
-
-                                    {/* Estado y Horas de Marcaje */}
-                                    <div className="mt-1 flex items-center gap-3 text-xs text-slate-500 flex-wrap">
-                                      {asist ? (
-                                        <>
-                                          <span
-                                            className={`inline-flex items-center gap-1 font-bold text-[11px] px-2 py-0.5 rounded ${
-                                              ESTADO_ASISTENCIA_CONFIG[asist.estado].badgeClass
-                                            }`}
-                                          >
-                                            <span
-                                              className={`w-1.5 h-1.5 rounded-full ${
-                                                ESTADO_ASISTENCIA_CONFIG[asist.estado].dotColor
-                                              }`}
-                                            />
-                                            {ESTADO_ASISTENCIA_CONFIG[asist.estado].label}
-                                          </span>
-
-                                          <span>
-                                            Entrada:{" "}
-                                            <strong className="text-slate-800">
-                                              {new Date(asist.horaEntrada).toLocaleTimeString("es-VE", {
-                                                hour: "2-digit",
-                                                minute: "2-digit",
-                                              })}
-                                            </strong>
-                                          </span>
-
-                                          {asist.horaSalida ? (
-                                            <span>
-                                              Salida:{" "}
-                                              <strong className="text-slate-800">
-                                                {new Date(asist.horaSalida).toLocaleTimeString("es-VE", {
-                                                  hour: "2-digit",
-                                                  minute: "2-digit",
-                                                })}
-                                              </strong>
-                                            </span>
-                                          ) : (
-                                            <span className="text-amber-600 font-semibold text-[11px]">
-                                              Jornada en curso
-                                            </span>
-                                          )}
-
-                                          {asist.ubicacionEntrada && (
-                                            <span className="text-slate-400 text-[11px]">
-                                              • {asist.ubicacionEntrada}
-                                            </span>
-                                          )}
-                                        </>
-                                      ) : (
-                                        <span className="inline-flex items-center gap-1 font-bold text-[11px] px-2 py-0.5 rounded bg-amber-50 text-amber-800 border border-amber-200">
-                                          <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
-                                          Sin registro de asistencia hoy
-                                        </span>
-                                      )}
-                                    </div>
-                                  </div>
-                                </div>
-
-                                {/* Acciones de Asistencia */}
-                                <div className="flex items-center gap-2 self-end sm:self-auto shrink-0">
-                                  {asist && !asist.horaSalida && (
-                                    <button
-                                      type="button"
-                                      onClick={() => handleMarcarSalidaRapida(asist.id)}
-                                      disabled={isPending}
-                                      className="h-9 px-3 rounded-xl text-xs font-bold bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100 transition-all flex items-center gap-1.5 cursor-pointer shadow-2xs active:translate-y-0.5"
-                                    >
-                                      <LogOut className="w-3.5 h-3.5" />
-                                      <span>Marcar Salida</span>
-                                    </button>
-                                  )}
-
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      setEmpleadoParaAsistencia(emp);
-                                      setModalAsistenciaOpen(true);
-                                    }}
-                                    className="h-9 px-3 rounded-xl text-xs font-bold bg-[#175E38] text-white hover:bg-[#124b2d] border-b-[3px] border-b-[#0e3a23] active:translate-y-0.5 transition-all flex items-center gap-1.5 cursor-pointer shadow-2xs"
-                                  >
-                                    <Clock className="w-3.5 h-3.5" />
-                                    <span>{asist ? "Ajustar Marcaje" : "Registrar Entrada"}</span>
-                                  </button>
-                                </div>
-                              </div>
-                            );
-                          })}
+                      <div className="overflow-hidden min-h-0 border-t border-slate-100 p-4 sm:p-5">
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                          {empleadosPagina.map((emp) => (
+                            <AsistenciaCard
+                              key={emp.id}
+                              empleado={emp}
+                              onRegistrarAsistencia={(colab) => {
+                                setEmpleadoParaAsistencia(colab);
+                                setRegistroParaAsistencia(null);
+                                setModalAsistenciaOpen(true);
+                              }}
+                              onAjustarMarcaje={(colab, reg) => {
+                                setEmpleadoParaAsistencia(colab);
+                                setRegistroParaAsistencia(reg || colab.asistenciaHoy || null);
+                                setModalAsistenciaOpen(true);
+                              }}
+                              onMarcarSalida={(params) => setAsistenciaParaSalida(params)}
+                              onVerFicha={(colab) => {
+                                setEmpleadoSeleccionadoDetalle(colab);
+                                setModalDetalleEmpleadoOpen(true);
+                              }}
+                              isPending={isPending}
+                            />
+                          ))}
                         </div>
+
+                        {/* Controles de paginación */}
+                        {grupo.empleados.length > 0 && (
+                          <div className="pt-4 mt-5 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
+                            <p className="text-slate-500 font-medium shrink-0">
+                              Mostrando{" "}
+                              <strong className="text-slate-800 font-bold">{inicioAsis + 1}</strong> a{" "}
+                              <strong className="text-slate-800 font-bold">
+                                {Math.min(finAsis, grupo.empleados.length)}
+                              </strong>{" "}
+                              de <strong className="text-slate-800 font-bold">{grupo.empleados.length}</strong>{" "}
+                              {grupo.empleados.length === 1 ? "trabajador" : "trabajadores"}
+                            </p>
+
+                            <div className="flex items-center gap-1.5 flex-wrap justify-center">
+                              {/* Anterior */}
+                              <button
+                                type="button"
+                                disabled={paginaSeguraAsis === 1}
+                                onClick={() => cambiarPaginaAsistencia(grupo.id, paginaSeguraAsis - 1)}
+                                className="w-8 h-8 rounded-lg border border-slate-200 bg-white text-slate-500 flex items-center justify-center transition-all hover:bg-slate-50 hover:border-slate-300 disabled:opacity-30 disabled:cursor-not-allowed shadow-2xs cursor-pointer"
+                                aria-label="Página anterior"
+                              >
+                                <ChevronLeft className="w-3.5 h-3.5" />
+                              </button>
+
+                              {/* Números de página */}
+                              {Array.from({ length: Math.max(1, totalPaginasAsis) }, (_, i) => i + 1)
+                                .filter((p) => {
+                                  if (totalPaginasAsis <= 5) return true;
+                                  return p === 1 || p === totalPaginasAsis || Math.abs(p - paginaSeguraAsis) <= 1;
+                                })
+                                .reduce<(number | "...")[]>((acc, p, idx, arr) => {
+                                  if (
+                                    idx > 0 &&
+                                    typeof arr[idx - 1] === "number" &&
+                                    (p as number) - (arr[idx - 1] as number) > 1
+                                  ) {
+                                    acc.push("...");
+                                  }
+                                  acc.push(p);
+                                  return acc;
+                                }, [])
+                                .map((item, idx) =>
+                                  item === "..." ? (
+                                    <span
+                                      key={`ellipsis-${idx}`}
+                                      className="w-8 h-8 flex items-center justify-center text-xs text-slate-400"
+                                    >
+                                      ···
+                                    </span>
+                                  ) : (
+                                    <button
+                                      key={item}
+                                      type="button"
+                                      onClick={() => cambiarPaginaAsistencia(grupo.id, item as number)}
+                                      className={`w-8 h-8 rounded-lg text-xs font-bold transition-all flex items-center justify-center cursor-pointer ${
+                                        paginaSeguraAsis === item
+                                          ? "bg-[#175E38] text-white shadow-xs"
+                                          : "border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 hover:border-slate-300"
+                                      }`}
+                                    >
+                                      {item}
+                                    </button>
+                                  )
+                                )}
+
+                              {/* Siguiente */}
+                              <button
+                                type="button"
+                                disabled={paginaSeguraAsis === totalPaginasAsis || totalPaginasAsis <= 1}
+                                onClick={() => cambiarPaginaAsistencia(grupo.id, paginaSeguraAsis + 1)}
+                                className="w-8 h-8 rounded-lg border border-slate-200 bg-white text-slate-500 flex items-center justify-center transition-all hover:bg-slate-50 hover:border-slate-300 disabled:opacity-30 disabled:cursor-not-allowed shadow-2xs cursor-pointer"
+                                aria-label="Página siguiente"
+                              >
+                                <ChevronRight className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     </div>
                   </section>
@@ -1576,6 +1748,14 @@ export function PersonalClient({ initialData }: PersonalClientProps) {
                 const pendientesCount = grupo.tareas.filter((t) => t.estado === EstadoTarea.PENDIENTE).length;
                 const enProcesoCount = grupo.tareas.filter((t) => t.estado === EstadoTarea.EN_PROCESO).length;
                 const completadasCount = grupo.tareas.filter((t) => t.estado === EstadoTarea.COMPLETADA).length;
+
+                // Paginación local de 18 en 18 por Inmueble
+                const paginaActual = paginasTareas[grupo.id] ?? 1;
+                const totalPaginas = Math.ceil(grupo.tareas.length / PAGE_SIZE_TAREAS);
+                const paginaSegura = totalPaginas > 0 ? Math.min(Math.max(1, paginaActual), totalPaginas) : 1;
+                const inicio = (paginaSegura - 1) * PAGE_SIZE_TAREAS;
+                const fin = inicio + PAGE_SIZE_TAREAS;
+                const tareasPagina = grupo.tareas.slice(inicio, fin);
 
                 return (
                   <section
@@ -1651,8 +1831,8 @@ export function PersonalClient({ initialData }: PersonalClientProps) {
                         </div>
                       </div>
 
-                      <div className="w-full sm:w-auto flex items-center justify-between sm:justify-end gap-3 pt-2.5 sm:pt-0 border-t sm:border-t-0 border-slate-100">
-                        <div className="flex items-center gap-2 cursor-pointer text-slate-700 hover:text-black transition-colors">
+                      <div className="w-full sm:w-auto flex items-center justify-between sm:justify-end gap-2.5 sm:gap-3 pt-2.5 sm:pt-0 border-t sm:border-t-0 border-slate-100">
+                        <div className="flex items-center gap-2 cursor-pointer text-slate-700 hover:text-black transition-colors shrink-0">
                           <div
                             className={`w-8 h-8 rounded-xl flex items-center justify-center border border-slate-200/90 bg-white/95 text-slate-700 hover:text-black hover:bg-slate-100 transition-transform duration-200 ease-out shadow-2xs ${
                               estaDesplegada ? "rotate-180 bg-slate-100 text-black border-slate-300" : ""
@@ -1661,7 +1841,7 @@ export function PersonalClient({ initialData }: PersonalClientProps) {
                             <ChevronDown className="w-4 h-4 stroke-[2.5]" />
                           </div>
                           <span className="text-xs font-bold text-slate-600 select-none">
-                            {estaDesplegada ? "Cerrar" : "Ver órdenes"}
+                            {estaDesplegada ? "Cerrar" : <><span className="hidden min-[380px]:inline">Ver </span>Órdenes</>}
                           </span>
                         </div>
 
@@ -1673,10 +1853,10 @@ export function PersonalClient({ initialData }: PersonalClientProps) {
                             setPropiedadPreseleccionadaTarea(grupo.id === "GENERAL" ? null : grupo.id);
                             setModalTareaOpen(true);
                           }}
-                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#175E38] text-white text-xs font-bold hover:bg-[#124b2d] transition-all shadow-xs cursor-pointer active:translate-y-0.5 whitespace-nowrap"
+                          className="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl bg-[#175E38] text-white text-xs font-bold hover:bg-[#124b2d] transition-all shadow-xs cursor-pointer active:translate-y-0.5 whitespace-nowrap shrink-0"
                         >
                           <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
-                          <span>Asignar Tarea</span>
+                          <span><span className="hidden min-[400px]:inline">Asignar </span>Tarea</span>
                         </button>
                       </div>
                     </div>
@@ -1690,80 +1870,100 @@ export function PersonalClient({ initialData }: PersonalClientProps) {
                       }`}
                     >
                       <div className="overflow-hidden min-h-0 border-t border-slate-100 p-4 sm:p-5">
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                          {grupo.tareas.map((t) => {
-                            const prioridadConfig = PRIORIDAD_TAREA_CONFIG[t.prioridad];
-                            const estadoConfig = ESTADO_TAREA_CONFIG[t.estado];
-
-                            return (
-                              <div
-                                key={t.id}
-                                onClick={() => {
-                                  setTareaSeleccionada(t);
-                                  setModalDetalleTareaOpen(true);
-                                }}
-                                className="group/tcard p-4 sm:p-5 rounded-2xl bg-white border border-slate-200/90 border-b-[3px] border-b-slate-300/90 shadow-[0_4px_16px_-2px_rgba(28,37,57,0.05)] hover:shadow-[0_12px_28px_-4px_rgba(28,37,57,0.1)] hover:-translate-y-1 transition-all cursor-pointer flex flex-col justify-between space-y-3"
-                              >
-                                <div className="space-y-2.5">
-                                  <div className="flex items-center justify-between gap-2">
-                                    <span
-                                      className={`text-[10px] font-bold px-2 py-0.5 rounded border uppercase tracking-wider ${prioridadConfig.badgeClass}`}
-                                    >
-                                      {prioridadConfig.label}
-                                    </span>
-
-                                    <span
-                                      className={`text-[11px] font-bold px-2 py-0.5 rounded border ${estadoConfig.badgeClass}`}
-                                    >
-                                      {estadoConfig.label}
-                                    </span>
-                                  </div>
-
-                                  <h4 className="font-heading font-black text-slate-900 text-sm sm:text-base line-clamp-2 group-hover/tcard:text-[#175E38] transition-colors">
-                                    {t.titulo}
-                                  </h4>
-
-                                  {t.descripcion && (
-                                    <p className="text-xs text-slate-500 line-clamp-2 leading-relaxed">
-                                      {t.descripcion}
-                                    </p>
-                                  )}
-                                </div>
-
-                                <div className="space-y-2 pt-2 border-t border-slate-100 text-xs">
-                                  <div className="flex items-center justify-between text-slate-600">
-                                    <span className="font-bold truncate max-w-[150px]">
-                                      {t.empleadoNombre}
-                                    </span>
-                                    <span className="text-[11px] text-slate-400 font-medium">
-                                      {t.propiedadNombre || "Sede General"}
-                                    </span>
-                                  </div>
-
-                                  <div className="flex items-center justify-between text-[11px] text-slate-400">
-                                    <span>
-                                      Límite:{" "}
-                                      <strong className="text-slate-700">
-                                        {t.fechaLimite
-                                          ? new Date(t.fechaLimite).toLocaleDateString("es-VE", {
-                                              day: "2-digit",
-                                              month: "short",
-                                            })
-                                          : "Sin límite"}
-                                      </strong>
-                                    </span>
-
-                                    {t.evidencias.length > 0 && (
-                                      <span className="inline-flex items-center gap-1 font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded">
-                                        📷 {t.evidencias.length} fotos
-                                      </span>
-                                    )}
-                                  </div>
-                                </div>
-                              </div>
-                            );
-                          })}
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                          {tareasPagina.map((t) => (
+                            <TareaCard
+                              key={t.id}
+                              tarea={t}
+                              onVerDetalle={(tarea) => {
+                                setTareaSeleccionada(tarea);
+                                setModalDetalleTareaOpen(true);
+                              }}
+                            />
+                          ))}
                         </div>
+
+                        {/* Controles de paginación */}
+                        {grupo.tareas.length > 0 && (
+                          <div className="pt-4 mt-5 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
+                            <p className="text-slate-500 font-medium shrink-0">
+                              Mostrando{" "}
+                              <strong className="text-slate-800 font-bold">{inicio + 1}</strong> a{" "}
+                              <strong className="text-slate-800 font-bold">
+                                {Math.min(fin, grupo.tareas.length)}
+                              </strong>{" "}
+                              de <strong className="text-slate-800 font-bold">{grupo.tareas.length}</strong>{" "}
+                              {grupo.tareas.length === 1 ? "orden" : "órdenes"}
+                            </p>
+
+                            <div className="flex items-center gap-1.5 flex-wrap justify-center">
+                              {/* Anterior */}
+                              <button
+                                type="button"
+                                disabled={paginaSegura === 1}
+                                onClick={() => cambiarPaginaTarea(grupo.id, paginaSegura - 1)}
+                                className="w-8 h-8 rounded-lg border border-slate-200 bg-white text-slate-500 flex items-center justify-center transition-all hover:bg-slate-50 hover:border-slate-300 disabled:opacity-30 disabled:cursor-not-allowed shadow-2xs cursor-pointer"
+                                aria-label="Página anterior"
+                              >
+                                <ChevronLeft className="w-3.5 h-3.5" />
+                              </button>
+
+                              {/* Números de página */}
+                              {Array.from({ length: Math.max(1, totalPaginas) }, (_, i) => i + 1)
+                                .filter((p) => {
+                                  if (totalPaginas <= 5) return true;
+                                  return p === 1 || p === totalPaginas || Math.abs(p - paginaSegura) <= 1;
+                                })
+                                .reduce<(number | "...")[]>((acc, p, idx, arr) => {
+                                  if (
+                                    idx > 0 &&
+                                    typeof arr[idx - 1] === "number" &&
+                                    (p as number) - (arr[idx - 1] as number) > 1
+                                  ) {
+                                    acc.push("...");
+                                  }
+                                  acc.push(p);
+                                  return acc;
+                                }, [])
+                                .map((item, idx) =>
+                                  item === "..." ? (
+                                    <span
+                                      key={`ellipsis-${idx}`}
+                                      className="w-8 h-8 flex items-center justify-center text-xs text-slate-400"
+                                    >
+                                      ···
+                                    </span>
+                                  ) : (
+                                    <button
+                                      key={item}
+                                      type="button"
+                                      onClick={() => cambiarPaginaTarea(grupo.id, item as number)}
+                                      className={`w-8 h-8 rounded-lg border text-xs font-bold transition-all shadow-2xs cursor-pointer ${
+                                        item === paginaSegura
+                                          ? "bg-[#175E38] border-[#175E38] text-white shadow-sm"
+                                          : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50 hover:border-slate-300"
+                                      }`}
+                                      aria-label={`Ir a página ${item}`}
+                                      aria-current={item === paginaSegura ? "page" : undefined}
+                                    >
+                                      {item}
+                                    </button>
+                                  )
+                                )}
+
+                              {/* Siguiente */}
+                              <button
+                                type="button"
+                                disabled={paginaSegura === totalPaginas || totalPaginas <= 1}
+                                onClick={() => cambiarPaginaTarea(grupo.id, paginaSegura + 1)}
+                                className="w-8 h-8 rounded-lg border border-slate-200 bg-white text-slate-500 flex items-center justify-center transition-all hover:bg-slate-50 hover:border-slate-300 disabled:opacity-30 disabled:cursor-not-allowed shadow-2xs cursor-pointer"
+                                aria-label="Página siguiente"
+                              >
+                                <ChevronRight className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     </div>
                   </section>
@@ -1793,8 +1993,12 @@ export function PersonalClient({ initialData }: PersonalClientProps) {
       {/* Modal de Asistencia Diaria */}
       <AsistenciaModal
         isOpen={modalAsistenciaOpen}
-        onClose={() => setModalAsistenciaOpen(false)}
+        onClose={() => {
+          setModalAsistenciaOpen(false);
+          setRegistroParaAsistencia(null);
+        }}
         empleado={empleadoParaAsistencia}
+        registroEditar={registroParaAsistencia}
         onSubmit={handleRegistrarAsistencia}
         isLoading={isPending}
       />
@@ -1829,16 +2033,15 @@ export function PersonalClient({ initialData }: PersonalClientProps) {
       {/* Modal de Ficha Integral del Trabajador */}
       <EmpleadoDetalleModal
         isOpen={modalDetalleEmpleadoOpen}
-        onClose={() => setModalDetalleEmpleadoOpen(false)}
+        onClose={() => {
+          setModalDetalleEmpleadoOpen(false);
+          setScrollToSeccionDetalle(null);
+        }}
         empleado={empleadoSeleccionadoDetalle}
+        scrollToSeccion={scrollToSeccionDetalle}
         tareasEmpleado={
           empleadoSeleccionadoDetalle
             ? data.tareas.filter((t) => t.empleadoId === empleadoSeleccionadoDetalle.id)
-            : []
-        }
-        asistenciasEmpleado={
-          empleadoSeleccionadoDetalle
-            ? data.asistenciasHoy.filter((a) => a.empleadoId === empleadoSeleccionadoDetalle.id)
             : []
         }
         onAsignarTarea={(emp) => {
@@ -1847,12 +2050,19 @@ export function PersonalClient({ initialData }: PersonalClientProps) {
         }}
         onRegistrarAsistencia={(emp) => {
           setEmpleadoParaAsistencia(emp);
+          setRegistroParaAsistencia(null);
+          setModalAsistenciaOpen(true);
+        }}
+        onEditarAsistencia={(emp, reg) => {
+          setEmpleadoParaAsistencia(emp);
+          setRegistroParaAsistencia(reg);
           setModalAsistenciaOpen(true);
         }}
         onSeleccionarTarea={(tarea) => {
           setTareaSeleccionada(tarea);
           setModalDetalleTareaOpen(true);
         }}
+        onVerFoto={handleVerFoto}
       />
 
       {/* Visor de Fotos / Comprobantes (ImageViewerModal) */}
@@ -1863,6 +2073,79 @@ export function PersonalClient({ initialData }: PersonalClientProps) {
         initialIndex={imageViewerIndex}
         title="Evidencia Fotográfica de la Labor"
         subtitle="Fotografía tomada en campo por el trabajador de mantenimiento"
+      />
+
+      {/* Modal de Confirmación Reutilizable: Marcar Salida */}
+      <ConfirmActionModal
+        isOpen={Boolean(asistenciaParaSalida)}
+        onClose={() => setAsistenciaParaSalida(null)}
+        onConfirm={() => {
+          if (!asistenciaParaSalida) return;
+          const id = asistenciaParaSalida.id;
+          setAsistenciaParaSalida(null);
+          handleMarcarSalidaRapida(id);
+        }}
+        title="Registrar Salida de Jornada"
+        subtitle="Confirmación de marcaje operativo"
+        variant="warning"
+        icon={LogOut}
+        description="¿Confirmas el registro de salida para este colaborador? Se guardará la hora actual como la finalización formal de su jornada laboral de hoy."
+        itemDetails={
+          asistenciaParaSalida
+            ? [
+                { label: "Colaborador", value: asistenciaParaSalida.empleadoNombre },
+                { label: "Cargo", value: CARGO_CONFIG[asistenciaParaSalida.empleadoCargo].label },
+                {
+                  label: "Hora de Entrada",
+                  value: new Date(asistenciaParaSalida.horaEntrada).toLocaleTimeString("es-VE", {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  }),
+                },
+              ]
+            : []
+        }
+        confirmButtonText="Marcar Salida"
+        cancelButtonText="Cancelar"
+        isLoading={isPending}
+      />
+
+      {/* Modal de Confirmación Reutilizable: Desactivar Trabajador */}
+      <ConfirmActionModal
+        isOpen={Boolean(empleadoParaDesactivar)}
+        onClose={() => setEmpleadoParaDesactivar(null)}
+        onConfirm={() => {
+          if (!empleadoParaDesactivar) return;
+          const emp = empleadoParaDesactivar;
+          setEmpleadoParaDesactivar(null);
+          ejecutarToggleEstado(emp, false);
+        }}
+        title="Desactivar Trabajador"
+        subtitle="Suspensión de cuenta y acceso operativo"
+        variant="danger"
+        icon={Power}
+        description="¿Confirmas la desactivación de este colaborador? Se suspenderá temporalmente su acceso al portal del empleado y no se le podrán asignar nuevas órdenes de trabajo."
+        itemDetails={
+          empleadoParaDesactivar
+            ? [
+                {
+                  label: "Colaborador",
+                  value: `${empleadoParaDesactivar.nombre} ${empleadoParaDesactivar.apellido || ""}`.trim(),
+                },
+                {
+                  label: "Cédula",
+                  value: empleadoParaDesactivar.cedula,
+                },
+                {
+                  label: "Cargo",
+                  value: CARGO_CONFIG[empleadoParaDesactivar.cargo].label,
+                },
+              ]
+            : []
+        }
+        confirmButtonText="Desactivar"
+        cancelButtonText="Cancelar"
+        isLoading={isPending}
       />
     </div>
   );

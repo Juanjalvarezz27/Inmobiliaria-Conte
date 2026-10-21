@@ -21,7 +21,7 @@ import {
 } from "lucide-react";
 import { WhatsAppIcon } from "@/components/icons/whatsapp-icon";
 import { CargoEmpleado, EstadoAsistencia } from "@prisma/client";
-import { CARGO_CONFIG, ESTADO_ASISTENCIA_CONFIG, type EmpleadoItem } from "./types";
+import { CARGO_CONFIG, ESTADO_ASISTENCIA_CONFIG, getCargoLabel, type EmpleadoItem } from "./types";
 
 interface EmpleadoCardProps {
   empleado: EmpleadoItem;
@@ -30,6 +30,7 @@ interface EmpleadoCardProps {
   onVerDetalle: (emp: EmpleadoItem) => void;
   onAsignarTarea: (emp: EmpleadoItem) => void;
   onRegistrarAsistencia: (emp: EmpleadoItem) => void;
+  onVerTareas: (emp: EmpleadoItem) => void;
   isPending?: boolean;
 }
 
@@ -130,6 +131,7 @@ export function EmpleadoCard({
   onVerDetalle,
   onAsignarTarea,
   onRegistrarAsistencia,
+  onVerTareas,
   isPending = false,
 }: EmpleadoCardProps) {
   const cargoConfig = CARGO_CONFIG[emp.cargo] || CARGO_CONFIG.OTRO;
@@ -157,7 +159,7 @@ export function EmpleadoCard({
               className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-bold rounded-lg border shadow-2xs ${cargoConfig.badgeClass}`}
             >
               {getCargoIcon(emp.cargo)}
-              <span className="truncate max-w-[140px] sm:max-w-[170px]">{cargoConfig.label}</span>
+              <span className="truncate max-w-[140px] sm:max-w-[170px]">{getCargoLabel(emp.cargo, emp.cargoPersonalizado)}</span>
             </span>
 
             {/* Acciones Rápidas en la esquina superior derecha */}
@@ -306,11 +308,7 @@ export function EmpleadoCard({
                         ESTADO_ASISTENCIA_CONFIG[emp.asistenciaHoy.estado].dotColor
                       }`}
                     />
-                    {emp.asistenciaHoy.estado === EstadoAsistencia.PRESENTE
-                      ? "Presente"
-                      : emp.asistenciaHoy.estado === EstadoAsistencia.RETARDO
-                      ? "Retardo"
-                      : "Falta"}
+                    {ESTADO_ASISTENCIA_CONFIG[emp.asistenciaHoy.estado]?.label || "Presente"}
                   </span>
                 ) : (
                   <span className="inline-flex items-center gap-1 text-[11px] font-bold px-1.5 py-0.5 rounded bg-amber-50 text-amber-800 border border-amber-200 shadow-2xs">
@@ -321,8 +319,12 @@ export function EmpleadoCard({
               </div>
             </div>
 
-            {/* Órdenes / Tareas */}
-            <div className="p-2.5 rounded-xl bg-white border border-slate-200/90 shadow-2xs flex flex-col justify-between">
+            {/* Órdenes / Tareas (Botón interactivo) */}
+            <div
+              onClick={() => onVerTareas(emp)}
+              className="p-2.5 rounded-xl bg-white border border-slate-200/90 hover:border-amber-300 hover:bg-amber-50/20 shadow-2xs hover:shadow-xs hover:scale-[1.02] active:scale-[0.98] transition-all cursor-pointer flex flex-col justify-between"
+              title="Clic para ver o gestionar órdenes de trabajo asignadas"
+            >
               <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 flex items-center justify-between mb-1">
                 <span>Tareas</span>
                 {emp.tareasPendientesCount > 0 ? (

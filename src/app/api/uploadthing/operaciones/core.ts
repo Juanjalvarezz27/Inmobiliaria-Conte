@@ -4,9 +4,9 @@ import { createUploadthing, type FileRouter } from "uploadthing/next";
 const f = createUploadthing();
 
 export const operacionesFileRouter = {
-  // Fotos de evidencia de tareas de empleados (hasta 3 fotos)
+  // Fotos de evidencia de tareas de empleados (hasta 2 fotos)
   fotoTarea: f({
-    image: { maxFileSize: "2MB", maxFileCount: 3 },
+    image: { maxFileSize: "4MB", maxFileCount: 2 },
   }).onUploadComplete(async ({ file }) => {
     return { url: file.ufsUrl || file.url };
   }),

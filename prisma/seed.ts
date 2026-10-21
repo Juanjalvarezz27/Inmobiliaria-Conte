@@ -179,7 +179,7 @@ async function main() {
         horaEntrada: inicioDia,
         estado: "PRESENTE",
         ubicacionEntrada: "Sede Administrativa Principal",
-        observaciones: "Entrada puntual en turno matutino.",
+        observaciones: null,
       },
     });
   }

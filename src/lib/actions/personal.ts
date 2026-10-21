@@ -28,6 +28,7 @@ const createEmpleadoSchema = z.object({
   email: z.string().email("Correo electrónico inválido").optional().nullable().or(z.literal("")),
   direccion: z.string().optional().nullable(),
   cargo: z.nativeEnum(CargoEmpleado).default(CargoEmpleado.CONSERJE),
+  cargoPersonalizado: z.string().optional().nullable(),
   fechaIngreso: z.string().optional().nullable(),
   salarioMensual: z.number().optional().nullable(),
   notas: z.string().optional().nullable(),
@@ -41,12 +42,130 @@ const updateEmpleadoSchema = createEmpleadoSchema.partial();
 export type CreateEmpleadoInput = z.infer<typeof createEmpleadoSchema>;
 export type UpdateEmpleadoInput = z.infer<typeof updateEmpleadoSchema>;
 
+// Sincronización automática de inasistencias para días laborales pasados no registrados
+export async function sincronizarInasistenciasPasadas(): Promise<{ sincronizadas: number }> {
+  try {
+    const ahora = new Date();
+    const inicioHoy = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate(), 0, 0, 0, 0);
+    const finAyer = new Date(inicioHoy.getTime() - 1);
+
+    // Ventana de evaluación: desde el inicio del mes actual o hasta 30 días atrás
+    const inicioMes = new Date(ahora.getFullYear(), ahora.getMonth(), 1, 0, 0, 0, 0);
+    const limite30Dias = new Date(ahora.getTime() - 30 * 24 * 60 * 60 * 1000);
+    const fechaInicioRango = inicioMes > limite30Dias ? inicioMes : limite30Dias;
+
+    if (fechaInicioRango >= inicioHoy) {
+      return { sincronizadas: 0 };
+    }
+
+    // 1. Obtener empleados activos con fecha de ingreso y de creación en el sistema
+    const empleadosActivos = await prisma.empleado.findMany({
+      where: { activo: true },
+      select: { id: true, fechaIngreso: true, createdAt: true },
+    });
+
+    if (empleadosActivos.length === 0) {
+      return { sincronizadas: 0 };
+    }
+
+    // 2. Traer registros existentes en esa ventana para empleados activos
+    const registrosExistentes = await prisma.registroAsistencia.findMany({
+      where: {
+        empleadoId: { in: empleadosActivos.map((e) => e.id) },
+        fecha: {
+          gte: fechaInicioRango,
+          lte: finAyer,
+        },
+      },
+      select: {
+        empleadoId: true,
+        fecha: true,
+      },
+    });
+
+    // Mapear registros existentes: `${empleadoId}_${YYYY-MM-DD}`
+    const registrosSet = new Set<string>();
+    for (const r of registrosExistentes) {
+      const d = new Date(r.fecha);
+      const k = `${r.empleadoId}_${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+      registrosSet.add(k);
+    }
+
+    // 3. Generar inasistencias para días hábiles (Lunes a Sábado, excluyendo Domingos)
+    const faltasACrear: Array<{
+      empleadoId: string;
+      fecha: Date;
+      horaEntrada: Date;
+      horaSalida: Date | null;
+      estado: EstadoAsistencia;
+      observaciones: string;
+    }> = [];
+
+    for (const emp of empleadosActivos) {
+      // El control de asistencia digital inicia a partir del momento en que el trabajador
+      // es dado de alta en la plataforma (createdAt), o su fecha de ingreso si entra a futuro.
+      // Jamás se generan inasistencias retroactivas para días anteriores a su creación en el sistema.
+      const fechaBaseControl = emp.createdAt > emp.fechaIngreso ? emp.createdAt : emp.fechaIngreso;
+      const inicioEmpleado = fechaBaseControl > fechaInicioRango ? fechaBaseControl : fechaInicioRango;
+      const cursorDia = new Date(
+        inicioEmpleado.getFullYear(),
+        inicioEmpleado.getMonth(),
+        inicioEmpleado.getDate(),
+        0,
+        0,
+        0,
+        0
+      );
+
+      while (cursorDia < inicioHoy) {
+        // Excluir Domingos (0 = Domingo)
+        if (cursorDia.getDay() !== 0) {
+          const diaStr = `${cursorDia.getFullYear()}-${String(cursorDia.getMonth() + 1).padStart(2, "0")}-${String(cursorDia.getDate()).padStart(2, "0")}`;
+          const key = `${emp.id}_${diaStr}`;
+
+          if (!registrosSet.has(key)) {
+            faltasACrear.push({
+              empleadoId: emp.id,
+              fecha: new Date(cursorDia.getFullYear(), cursorDia.getMonth(), cursorDia.getDate(), 12, 0, 0),
+              horaEntrada: new Date(cursorDia.getFullYear(), cursorDia.getMonth(), cursorDia.getDate(), 8, 0, 0),
+              horaSalida: null,
+              estado: EstadoAsistencia.FALTA_INJUSTIFICADA,
+              observaciones: "Inasistencia automática - Jornada sin registro de entrada",
+            });
+            registrosSet.add(key);
+          }
+        }
+        cursorDia.setDate(cursorDia.getDate() + 1);
+      }
+    }
+
+    if (faltasACrear.length > 0) {
+      await prisma.registroAsistencia.createMany({
+        data: faltasACrear,
+        skipDuplicates: true,
+      });
+    }
+
+    return { sincronizadas: faltasACrear.length };
+  } catch (error) {
+    console.error("Error al sincronizar inasistencias pasadas:", error);
+    return { sincronizadas: 0 };
+  }
+}
+
 // Obtención integral de datos para el módulo de personal
 export async function getPersonalData(): Promise<PersonalDashboardData> {
   const hoy = new Date();
   const inicioDia = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate(), 0, 0, 0);
   const finDia = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate(), 23, 59, 59);
   const inicioMes = new Date(hoy.getFullYear(), hoy.getMonth(), 1, 0, 0, 0);
+
+  // Sincronizar automáticamente faltas no registradas en días pasados
+  try {
+    await sincronizarInasistenciasPasadas();
+  } catch (syncErr) {
+    console.error("Aviso al sincronizar inasistencias en getPersonalData:", syncErr);
+  }
 
   // Consultas paralelas optimizadas para Neon Cloud
   const [
@@ -55,8 +174,10 @@ export async function getPersonalData(): Promise<PersonalDashboardData> {
     tareasRaw,
     propiedadesRaw,
     tareasCompletadasMesCount,
+    asistenciasStatsRaw,
   ] = await Promise.all([
     prisma.empleado.findMany({
+      take: 100,
       include: {
         propiedad: {
           select: {
@@ -117,6 +238,7 @@ export async function getPersonalData(): Promise<PersonalDashboardData> {
         },
       },
       orderBy: { horaEntrada: "desc" },
+      take: 200,
     }),
     prisma.tareaEmpleado.findMany({
       include: {
@@ -134,7 +256,7 @@ export async function getPersonalData(): Promise<PersonalDashboardData> {
         },
       },
       orderBy: [{ estado: "asc" }, { createdAt: "desc" }],
-      take: 100,
+      take: 200,
     }),
     prisma.propiedad.findMany({
       where: { activo: true },
@@ -154,10 +276,40 @@ export async function getPersonalData(): Promise<PersonalDashboardData> {
         },
       },
     }),
+    prisma.registroAsistencia.groupBy({
+      by: ["empleadoId", "estado"],
+      _count: { id: true },
+    }),
   ]);
+
+  // Mapa de estadísticas de asistencia e inasistencia por empleado
+  const conteoAsistenciasMap = new Map<string, { asistencias: number; inasistencias: number }>();
+  for (const item of asistenciasStatsRaw) {
+    if (!conteoAsistenciasMap.has(item.empleadoId)) {
+      conteoAsistenciasMap.set(item.empleadoId, { asistencias: 0, inasistencias: 0 });
+    }
+    const record = conteoAsistenciasMap.get(item.empleadoId)!;
+    if (
+      item.estado === EstadoAsistencia.PRESENTE ||
+      item.estado === EstadoAsistencia.RETARDO ||
+      item.estado === EstadoAsistencia.PERMISO
+    ) {
+      record.asistencias += item._count.id;
+    } else if (
+      item.estado === EstadoAsistencia.FALTA_JUSTIFICADA ||
+      item.estado === EstadoAsistencia.FALTA_INJUSTIFICADA
+    ) {
+      record.inasistencias += item._count.id;
+    }
+  }
 
   // Transformación serializable para Client Components
   const empleados: EmpleadoItem[] = empleadosRaw.map((emp) => {
+    const stats = conteoAsistenciasMap.get(emp.id) || {
+      asistencias: emp._count.asistencias,
+      inasistencias: 0,
+    };
+
     const asistenciaHoy = emp.asistencias[0]
       ? {
           id: emp.asistencias[0].id,
@@ -182,6 +334,7 @@ export async function getPersonalData(): Promise<PersonalDashboardData> {
       email: emp.email,
       direccion: emp.direccion,
       cargo: emp.cargo,
+      cargoPersonalizado: emp.cargoPersonalizado,
       fechaIngreso: emp.fechaIngreso.toISOString(),
       salarioMensual: emp.salarioMensual,
       activo: emp.activo,
@@ -200,6 +353,8 @@ export async function getPersonalData(): Promise<PersonalDashboardData> {
       asistenciaHoy,
       _count: emp._count,
       tareasPendientesCount: emp.tareas.length,
+      asistenciasCount: stats.asistencias,
+      inasistenciasCount: stats.inasistencias,
     };
   });
 
@@ -233,6 +388,7 @@ export async function getPersonalData(): Promise<PersonalDashboardData> {
     fechaCompletada: t.fechaCompletada?.toISOString() || null,
     evidencias: t.evidencias,
     notasResolucion: t.notasResolucion,
+    requiereEvidencia: t.requiereEvidencia ?? false,
     createdAt: t.createdAt.toISOString(),
   }));
 
@@ -252,11 +408,6 @@ export async function getPersonalData(): Promise<PersonalDashboardData> {
   const tareasPendientesCount = tareas.filter(
     (t) => t.estado === EstadoTarea.PENDIENTE || t.estado === EstadoTarea.EN_PROCESO
   ).length;
-  const tareasUrgentesCount = tareas.filter(
-    (t) =>
-      (t.estado === EstadoTarea.PENDIENTE || t.estado === EstadoTarea.EN_PROCESO) &&
-      t.prioridad === PrioridadTarea.URGENTE
-  ).length;
 
   return {
     empleados,
@@ -268,7 +419,6 @@ export async function getPersonalData(): Promise<PersonalDashboardData> {
       activosCount,
       asistieronHoyCount,
       tareasPendientesCount,
-      tareasUrgentesCount,
       tareasCompletadasMesCount,
     },
   };
@@ -289,8 +439,9 @@ export async function crearEmpleadoAction(rawInput: CreateEmpleadoInput) {
 
     let usuarioId: string | null = null;
 
-    // Crear cuenta de acceso opcional para el portal del empleado
-    if (validated.crearUsuario && validated.email) {
+    // Crear cuenta de acceso para el portal del empleado si se indicó correo
+    const debeCrearUsuario = (validated.crearUsuario ?? true) && Boolean(validated.email && validated.email.trim() !== "");
+    if (debeCrearUsuario && validated.email) {
       const existeEmail = await prisma.usuario.findUnique({
         where: { email: validated.email },
       });
@@ -339,6 +490,10 @@ export async function crearEmpleadoAction(rawInput: CreateEmpleadoInput) {
         email: validated.email || null,
         direccion: validated.direccion || null,
         cargo: validated.cargo,
+        cargoPersonalizado:
+          validated.cargo === CargoEmpleado.OTRO
+            ? validated.cargoPersonalizado?.trim() || null
+            : null,
         fechaIngreso,
         salarioMensual: validated.salarioMensual ?? null,
         notas: validated.notas || null,
@@ -384,8 +539,37 @@ export async function actualizarEmpleadoAction(id: string, rawInput: UpdateEmple
 
     let usuarioId = empleadoExistente.usuarioId;
 
-    // Crear cuenta si no tenía y el usuario la solicitó ahora
-    if (!usuarioId && validated.crearUsuario && validated.email) {
+    // Actualizar cuenta existente o crear una nueva si se ingresó correo
+    if (usuarioId) {
+      const usuarioUpdateData: { passwordHash?: string; email?: string } = {};
+
+      if (validated.passwordTemporal && validated.passwordTemporal.trim().length >= 6) {
+        usuarioUpdateData.passwordHash = await bcrypt.hash(validated.passwordTemporal.trim(), 10);
+      }
+
+      if (validated.email && validated.email.trim() !== "") {
+        const usuarioActual = await prisma.usuario.findUnique({ where: { id: usuarioId } });
+        if (usuarioActual && usuarioActual.email !== validated.email) {
+          const existeEmail = await prisma.usuario.findUnique({
+            where: { email: validated.email },
+          });
+          if (existeEmail) {
+            return {
+              success: false,
+              error: "El nuevo correo ya está registrado para otro usuario.",
+            };
+          }
+          usuarioUpdateData.email = validated.email;
+        }
+      }
+
+      if (Object.keys(usuarioUpdateData).length > 0) {
+        await prisma.usuario.update({
+          where: { id: usuarioId },
+          data: usuarioUpdateData,
+        });
+      }
+    } else if (validated.email && validated.email.trim() !== "") {
       const existeEmail = await prisma.usuario.findUnique({
         where: { email: validated.email },
       });
@@ -424,7 +608,13 @@ export async function actualizarEmpleadoAction(id: string, rawInput: UpdateEmple
         ...(validated.telefono && { telefono: validated.telefono }),
         email: validated.email !== undefined ? validated.email : empleadoExistente.email,
         direccion: validated.direccion !== undefined ? validated.direccion : empleadoExistente.direccion,
-        ...(validated.cargo && { cargo: validated.cargo }),
+        ...(validated.cargo && {
+          cargo: validated.cargo,
+          cargoPersonalizado:
+            validated.cargo === CargoEmpleado.OTRO
+              ? validated.cargoPersonalizado?.trim() || null
+              : null,
+        }),
         ...(validated.fechaIngreso && { fechaIngreso: new Date(validated.fechaIngreso) }),
         salarioMensual:
           validated.salarioMensual !== undefined
@@ -508,9 +698,21 @@ export async function registrarAsistenciaAction(rawInput: RegistrarAsistenciaInp
   try {
     const validated = registrarAsistenciaSchema.parse(rawInput);
 
-    const baseFecha = validated.fecha ? new Date(validated.fecha) : new Date();
-    const inicioDia = new Date(baseFecha.getFullYear(), baseFecha.getMonth(), baseFecha.getDate(), 0, 0, 0);
-    const finDia = new Date(baseFecha.getFullYear(), baseFecha.getMonth(), baseFecha.getDate(), 23, 59, 59);
+    let inicioDia: Date;
+    let finDia: Date;
+    let baseFecha: Date;
+
+    if (validated.fecha && validated.fecha.includes("-")) {
+      const [y, m, d] = validated.fecha.split("-").map(Number);
+      baseFecha = new Date(y, m - 1, d, 12, 0, 0);
+      inicioDia = new Date(y, m - 1, d, 0, 0, 0);
+      finDia = new Date(y, m - 1, d, 23, 59, 59, 999);
+    } else {
+      const ahora = new Date();
+      baseFecha = ahora;
+      inicioDia = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate(), 0, 0, 0);
+      finDia = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate(), 23, 59, 59, 999);
+    }
 
     // Parsear horas
     const horaEntrada = validated.horaEntrada ? new Date(validated.horaEntrada) : new Date();
@@ -552,7 +754,7 @@ export async function registrarAsistenciaAction(rawInput: RegistrarAsistenciaInp
         horaEntrada,
         horaSalida,
         estado: validated.estado,
-        ubicacionEntrada: validated.ubicacionEntrada || "Administración Central",
+        ubicacionEntrada: validated.ubicacionEntrada || null,
         ubicacionSalida: validated.ubicacionSalida || null,
         observaciones: validated.observaciones || null,
       },
@@ -599,8 +801,9 @@ const createTareaSchema = z.object({
   propiedadId: z.string().optional().nullable(),
   titulo: z.string().min(3, "El título o descripción corta es requerido").trim(),
   descripcion: z.string().optional().nullable(),
-  prioridad: z.nativeEnum(PrioridadTarea).default(PrioridadTarea.NORMAL),
+  prioridad: z.nativeEnum(PrioridadTarea).default(PrioridadTarea.NORMAL).optional(),
   fechaLimite: z.string().optional().nullable(),
+  requiereEvidencia: z.boolean().default(false).optional(),
 });
 
 export type CreateTareaInput = z.infer<typeof createTareaSchema>;
@@ -610,7 +813,15 @@ export async function crearTareaAction(rawInput: CreateTareaInput) {
   try {
     const validated = createTareaSchema.parse(rawInput);
 
-    const fechaLimite = validated.fechaLimite ? new Date(validated.fechaLimite) : null;
+    let fechaLimite: Date | null = null;
+    if (validated.fechaLimite) {
+      if (validated.fechaLimite.includes("-")) {
+        const [y, m, d] = validated.fechaLimite.split("-").map(Number);
+        fechaLimite = new Date(y, m - 1, d, 12, 0, 0);
+      } else {
+        fechaLimite = new Date(validated.fechaLimite);
+      }
+    }
 
     const nuevaTarea = await prisma.tareaEmpleado.create({
       data: {
@@ -622,6 +833,7 @@ export async function crearTareaAction(rawInput: CreateTareaInput) {
         estado: EstadoTarea.PENDIENTE,
         fechaLimite,
         evidencias: [],
+        requiereEvidencia: Boolean(validated.requiereEvidencia),
       },
     });
 
@@ -652,8 +864,8 @@ export async function actualizarEstadoTareaAction(
       return { success: false, error: "Tarea no encontrada." };
     }
 
-    const evidenciasFinales = nuevasEvidencias
-      ? Array.from(new Set([...tareaExistente.evidencias, ...nuevasEvidencias]))
+    const evidenciasFinales = nuevasEvidencias !== undefined
+      ? nuevasEvidencias
       : tareaExistente.evidencias;
 
     const fechaCompletada =
@@ -695,3 +907,47 @@ export async function eliminarTareaAction(tareaId: string) {
     return { success: false, error: msg };
   }
 }
+
+// Obtener historial completo de asistencias e inasistencias de un trabajador
+export async function obtenerHistorialAsistenciaEmpleadoAction(empleadoId: string) {
+  try {
+    const registros = await prisma.registroAsistencia.findMany({
+      where: { empleadoId },
+      orderBy: { fecha: "desc" },
+      take: 200,
+    });
+
+    const data: RegistroAsistenciaItem[] = registros.map((r) => ({
+      id: r.id,
+      empleadoId: r.empleadoId,
+      fecha: r.fecha.toISOString(),
+      horaEntrada: r.horaEntrada.toISOString(),
+      horaSalida: r.horaSalida ? r.horaSalida.toISOString() : null,
+      estado: r.estado,
+      ubicacionEntrada: r.ubicacionEntrada,
+      ubicacionSalida: r.ubicacionSalida,
+      observaciones: r.observaciones,
+      createdAt: r.createdAt.toISOString(),
+    }));
+
+    return { success: true, data };
+  } catch (error: unknown) {
+    console.error("Error en obtenerHistorialAsistenciaEmpleadoAction:", error);
+    const msg = error instanceof Error ? error.message : "Error al cargar el historial";
+    return { success: false, error: msg, data: [] };
+  }
+}
+
+// Acción invocable desde el cliente para forzar sincronización de inasistencias
+export async function sincronizarInasistenciasAction() {
+  try {
+    const res = await sincronizarInasistenciasPasadas();
+    revalidatePath("/admin/personal");
+    return { success: true, count: res.sincronizadas };
+  } catch (error: unknown) {
+    console.error("Error en sincronizarInasistenciasAction:", error);
+    const msg = error instanceof Error ? error.message : "Error al sincronizar";
+    return { success: false, error: msg };
+  }
+}
+
