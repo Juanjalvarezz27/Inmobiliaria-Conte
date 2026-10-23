@@ -15,7 +15,8 @@ import { Modal } from "@/components/ui/modal";
 import { Select } from "@/components/ui/select";
 import { toast } from "sonner";
 import { EstadoContrato, EstadoDeposito, MetodoPago } from "@prisma/client";
-import { formatCurrency } from "../propiedades/constants";
+import { formatCurrency } from "@/lib/formatters";
+import { OPCIONES_METODO_PAGO } from "@/lib/constants/pagos";
 import { cerrarContratoAction } from "@/lib/actions/contratos";
 import type { ContratoConRelaciones } from "./types";
 
@@ -26,14 +27,6 @@ interface FinalizarContratoModalProps {
   modo: "finalizar" | "rescindir";
   onSuccess: (contratoActualizado: ContratoConRelaciones) => void;
 }
-
-const OPCIONES_METODO_PAGO = [
-  { value: MetodoPago.TRANSFERENCIA, label: "Transferencia Bancaria" },
-  { value: MetodoPago.EFECTIVO_USD, label: "Efectivo (USD)" },
-  { value: MetodoPago.PAGO_MOVIL, label: "Pago Móvil" },
-  { value: MetodoPago.ZELLE, label: "Zelle" },
-  { value: MetodoPago.OTRO, label: "Otro Método" },
-];
 
 type TipoResolucion = "REEMBOLSO_TOTAL" | "RETENCION_TOTAL" | "MIXTO";
 

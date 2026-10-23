@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import bcrypt from "bcryptjs";
+import { auth } from "@/auth";
 import {
   CargoEmpleado,
   EstadoAsistencia,
@@ -42,9 +43,80 @@ const updateEmpleadoSchema = createEmpleadoSchema.partial();
 export type CreateEmpleadoInput = z.infer<typeof createEmpleadoSchema>;
 export type UpdateEmpleadoInput = z.infer<typeof updateEmpleadoSchema>;
 
+// Cierre perezoso (Just-In-Time) de jornadas anteriores olvidadas para un empleado específico
+export async function cerrarJornadasIncompletasEmpleado(empleadoId: string): Promise<number> {
+  try {
+    const ahora = new Date();
+    const inicioHoy = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate(), 0, 0, 0, 0);
+
+    const res = await prisma.registroAsistencia.updateMany({
+      where: {
+        empleadoId,
+        horaSalida: null,
+        fecha: { lt: inicioHoy },
+        estado: { in: [EstadoAsistencia.PRESENTE, EstadoAsistencia.RETARDO] },
+      },
+      data: {
+        horaSalida: new Date(inicioHoy.getTime() - 1000),
+        ubicacionSalida: "Cierre Automático",
+        observaciones: "Salida no registrada por el trabajador. Cierre automático por inicio de nuevo turno.",
+      },
+    });
+
+    return res.count;
+  } catch (error) {
+    console.error("Error en cerrarJornadasIncompletasEmpleado:", error);
+    return 0;
+  }
+}
+
+// Cierre masivo en 1 sola consulta atómica (sin bucle N+1)
+export async function cerrarJornadasIncompletasPasadas(): Promise<{ cerradas: number }> {
+  try {
+    const ahora = new Date();
+    const inicioHoy = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate(), 0, 0, 0, 0);
+
+    const res = await prisma.registroAsistencia.updateMany({
+      where: {
+        horaSalida: null,
+        fecha: { lt: inicioHoy },
+        estado: { in: [EstadoAsistencia.PRESENTE, EstadoAsistencia.RETARDO] },
+      },
+      data: {
+        horaSalida: new Date(inicioHoy.getTime() - 1000),
+        ubicacionSalida: "Cierre Automático",
+        observaciones: "Salida no registrada por el trabajador. Cierre automático de jornada.",
+      },
+    });
+
+    return { cerradas: res.count };
+  } catch (error) {
+    console.error("Error en cerrarJornadasIncompletasPasadas:", error);
+    return { cerradas: 0 };
+  }
+}
+
+// Helper para calcular días hábiles (Lunes a Viernes) transcurridos
+function calcularDiasLaborables(desde: Date, hasta: Date): number {
+  let count = 0;
+  const cursor = new Date(desde.getFullYear(), desde.getMonth(), desde.getDate(), 0, 0, 0, 0);
+  const fin = new Date(hasta.getFullYear(), hasta.getMonth(), hasta.getDate(), 0, 0, 0, 0);
+  while (cursor < fin) {
+    const day = cursor.getDay();
+    if (day !== 0 && day !== 6) {
+      count++;
+    }
+    cursor.setDate(cursor.getDate() + 1);
+  }
+  return count;
+}
+
+
 // Sincronización automática de inasistencias para días laborales pasados no registrados
 export async function sincronizarInasistenciasPasadas(): Promise<{ sincronizadas: number }> {
   try {
+    // Primero cerramos automáticamente cualquier jornada anterior que haya quedado abierta
+    await cerrarJornadasIncompletasPasadas();
     const ahora = new Date();
     const inicioHoy = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate(), 0, 0, 0, 0);
     const finAyer = new Date(inicioHoy.getTime() - 1);
@@ -91,7 +163,7 @@ export async function sincronizarInasistenciasPasadas(): Promise<{ sincronizadas
       registrosSet.add(k);
     }
 
-    // 3. Generar inasistencias para días hábiles (Lunes a Sábado, excluyendo Domingos)
+    // 3. Generar inasistencias solo para días hábiles (Lunes a Viernes, excluyendo Sábados y Domingos)
     const faltasACrear: Array<{
       empleadoId: string;
       fecha: Date;
@@ -118,8 +190,8 @@ export async function sincronizarInasistenciasPasadas(): Promise<{ sincronizadas
       );
 
       while (cursorDia < inicioHoy) {
-        // Excluir Domingos (0 = Domingo)
-        if (cursorDia.getDay() !== 0) {
+        // Excluir fines de semana (0 = Domingo, 6 = Sábado)
+        if (cursorDia.getDay() !== 0 && cursorDia.getDay() !== 6) {
           const diaStr = `${cursorDia.getFullYear()}-${String(cursorDia.getMonth() + 1).padStart(2, "0")}-${String(cursorDia.getDate()).padStart(2, "0")}`;
           const key = `${emp.id}_${diaStr}`;
 
@@ -146,6 +218,33 @@ export async function sincronizarInasistenciasPasadas(): Promise<{ sincronizadas
       });
     }
 
+    // Depuración de inasistencias automáticas que pudieran existir en fines de semana
+    const autoInasistenciasFinde = await prisma.registroAsistencia.findMany({
+      where: {
+        observaciones: "Inasistencia automática - Jornada sin registro de entrada",
+        estado: EstadoAsistencia.FALTA_INJUSTIFICADA,
+      },
+      select: { id: true, fecha: true },
+    });
+    const idsFinde = autoInasistenciasFinde
+      .filter((r) => {
+        const dia = new Date(r.fecha).getDay();
+        return dia === 0 || dia === 6;
+      })
+      .map((r) => r.id);
+
+    if (idsFinde.length > 0) {
+      await prisma.registroAsistencia.deleteMany({
+        where: { id: { in: idsFinde } },
+      });
+    }
+
+    // Normalización preventiva de registros con estado RETARDO hacia PRESENTE
+    await prisma.registroAsistencia.updateMany({
+      where: { estado: EstadoAsistencia.RETARDO },
+      data: { estado: EstadoAsistencia.PRESENTE },
+    });
+
     return { sincronizadas: faltasACrear.length };
   } catch (error) {
     console.error("Error al sincronizar inasistencias pasadas:", error);
@@ -160,12 +259,7 @@ export async function getPersonalData(): Promise<PersonalDashboardData> {
   const finDia = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate(), 23, 59, 59);
   const inicioMes = new Date(hoy.getFullYear(), hoy.getMonth(), 1, 0, 0, 0);
 
-  // Sincronizar automáticamente faltas no registradas en días pasados
-  try {
-    await sincronizarInasistenciasPasadas();
-  } catch (syncErr) {
-    console.error("Aviso al sincronizar inasistencias en getPersonalData:", syncErr);
-  }
+  // getPersonalData es 100% de solo lectura (sin escrituras automáticas que consuman Neon)
 
   // Consultas paralelas optimizadas para Neon Cloud
   const [
@@ -303,12 +397,19 @@ export async function getPersonalData(): Promise<PersonalDashboardData> {
     }
   }
 
-  // Transformación serializable para Client Components
+  // Transformación serializable para Client Components (con cálculo virtual de inasistencias en memoria)
   const empleados: EmpleadoItem[] = empleadosRaw.map((emp) => {
     const stats = conteoAsistenciasMap.get(emp.id) || {
       asistencias: emp._count.asistencias,
       inasistencias: 0,
     };
+
+    // Cálculo virtual de inasistencias en memoria sin escrituras en Neon
+    const fechaBase = emp.createdAt > emp.fechaIngreso ? emp.createdAt : emp.fechaIngreso;
+    const inicioCalculo = fechaBase > inicioMes ? fechaBase : inicioMes;
+    const diasHabiles = inicioCalculo < inicioDia ? calcularDiasLaborables(inicioCalculo, inicioDia) : 0;
+    const inasistenciasVirtuales = Math.max(0, diasHabiles - stats.asistencias - stats.inasistencias);
+    const inasistenciasTotal = stats.inasistencias + inasistenciasVirtuales;
 
     const asistenciaHoy = emp.asistencias[0]
       ? {
@@ -354,7 +455,7 @@ export async function getPersonalData(): Promise<PersonalDashboardData> {
       _count: emp._count,
       tareasPendientesCount: emp.tareas.length,
       asistenciasCount: stats.asistencias,
-      inasistenciasCount: stats.inasistencias,
+      inasistenciasCount: inasistenciasTotal,
     };
   });
 
@@ -746,6 +847,9 @@ export async function registrarAsistenciaAction(rawInput: RegistrarAsistenciaInp
       return { success: true, data: actualizado, message: "Asistencia actualizada correctamente." };
     }
 
+    // Cierre perezoso (Just-In-Time) de turnos olvidados anteriores de este empleado
+    await cerrarJornadasIncompletasEmpleado(validated.empleadoId);
+
     // Crear nuevo registro
     const nuevo = await prisma.registroAsistencia.create({
       data: {
@@ -911,11 +1015,17 @@ export async function eliminarTareaAction(tareaId: string) {
 // Obtener historial completo de asistencias e inasistencias de un trabajador
 export async function obtenerHistorialAsistenciaEmpleadoAction(empleadoId: string) {
   try {
-    const registros = await prisma.registroAsistencia.findMany({
-      where: { empleadoId },
-      orderBy: { fecha: "desc" },
-      take: 200,
-    });
+    const [empleado, registros] = await Promise.all([
+      prisma.empleado.findUnique({
+        where: { id: empleadoId },
+        select: { fechaIngreso: true, createdAt: true },
+      }),
+      prisma.registroAsistencia.findMany({
+        where: { empleadoId },
+        orderBy: { fecha: "desc" },
+        take: 200,
+      }),
+    ]);
 
     const data: RegistroAsistenciaItem[] = registros.map((r) => ({
       id: r.id,
@@ -929,6 +1039,48 @@ export async function obtenerHistorialAsistenciaEmpleadoAction(empleadoId: strin
       observaciones: r.observaciones,
       createdAt: r.createdAt.toISOString(),
     }));
+
+    // Generar inasistencias virtuales para días laborales pasados que no tienen registro en BD
+    if (empleado) {
+      const registrosFechasSet = new Set<string>();
+      for (const r of registros) {
+        const d = new Date(r.fecha);
+        registrosFechasSet.add(
+          `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`
+        );
+      }
+
+      const ahora = new Date();
+      const inicioHoy = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate(), 0, 0, 0, 0);
+      const limite30Dias = new Date(ahora.getTime() - 30 * 24 * 60 * 60 * 1000);
+      const fechaBase = empleado.createdAt > empleado.fechaIngreso ? empleado.createdAt : empleado.fechaIngreso;
+      const inicioRango = fechaBase > limite30Dias ? fechaBase : limite30Dias;
+
+      const cursor = new Date(inicioRango.getFullYear(), inicioRango.getMonth(), inicioRango.getDate(), 0, 0, 0, 0);
+      while (cursor < inicioHoy) {
+        if (cursor.getDay() !== 0 && cursor.getDay() !== 6) {
+          const diaStr = `${cursor.getFullYear()}-${String(cursor.getMonth() + 1).padStart(2, "0")}-${String(cursor.getDate()).padStart(2, "0")}`;
+          if (!registrosFechasSet.has(diaStr)) {
+            const fechaDia = new Date(cursor.getFullYear(), cursor.getMonth(), cursor.getDate(), 12, 0, 0);
+            data.push({
+              id: `virtual-falta-${empleadoId}-${diaStr}`,
+              empleadoId,
+              fecha: fechaDia.toISOString(),
+              horaEntrada: new Date(cursor.getFullYear(), cursor.getMonth(), cursor.getDate(), 8, 0, 0).toISOString(),
+              horaSalida: null,
+              estado: EstadoAsistencia.FALTA_INJUSTIFICADA,
+              ubicacionEntrada: "Sin Marcaje",
+              ubicacionSalida: null,
+              observaciones: "Inasistencia automática (Jornada laboral sin marcaje)",
+              createdAt: fechaDia.toISOString(),
+            });
+          }
+        }
+        cursor.setDate(cursor.getDate() + 1);
+      }
+
+      data.sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime());
+    }
 
     return { success: true, data };
   } catch (error: unknown) {
@@ -950,4 +1102,3 @@ export async function sincronizarInasistenciasAction() {
     return { success: false, error: msg };
   }
 }
-

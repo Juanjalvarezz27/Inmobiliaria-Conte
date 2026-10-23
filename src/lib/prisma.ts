@@ -46,6 +46,5 @@ function createPrismaClient(): PrismaClient {
 
 export const prisma = globalForPrisma.prisma ?? createPrismaClient();
 
-if (process.env.NODE_ENV !== "production") {
-  globalForPrisma.prisma = prisma;
-}
+// Mantener siempre la instancia en globalThis para evitar fugas de conexiones en Serverless / HMR
+globalForPrisma.prisma = prisma;

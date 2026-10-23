@@ -49,18 +49,9 @@ interface PagoDetalleModalProps {
   isLoading?: boolean;
 }
 
-const METODO_LABELS: Record<MetodoPago, string> = {
-  EFECTIVO_USD: "Efectivo (USD)",
-  TRANSFERENCIA: "Transferencia Bancaria",
-  PAGO_MOVIL: "Pago Móvil",
-  ZELLE: "Zelle",
-  OTRO: "Otro Método",
-};
+import { NOMBRES_METODOS as METODO_LABELS } from "@/lib/constants/pagos";
+import { MESES as NOMBRES_MESES } from "@/lib/date-utils";
 
-const NOMBRES_MESES = [
-  "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
-  "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre",
-];
 
 export function PagoDetalleModal({
   isOpen,

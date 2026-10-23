@@ -6,7 +6,6 @@ export default async function EmpleadoMantenimientoPage() {
       title="Averías y Reparaciones Asignadas"
       role="EMPLEADO"
       iconType="wrench"
-      description="Aquí podrás ver los reportes técnicos que la administración te ha asignado para inspeccionar y solucionar."
       features={[
         "Ver los reportes de averías con fotos y descripción detallada del problema.",
         "Saber exactamente en qué inmueble o local se encuentra la falla técnica.",

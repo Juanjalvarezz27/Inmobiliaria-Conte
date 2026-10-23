@@ -17,7 +17,7 @@ import {
   formatCurrency,
   WhatsAppIcon,
   getWhatsAppUrl,
-} from "../propiedades/constants";
+} from "@/lib/formatters";
 import type { ContratoConRelaciones } from "./types";
 
 // Sol decorativo en esquina según el estado del contrato

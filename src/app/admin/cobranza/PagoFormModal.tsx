@@ -23,6 +23,7 @@ import { MetodoPago } from "@prisma/client";
 import { comprimirImagen, formatearBytes } from "@/lib/file-compressor";
 import type { PagoItem } from "./types";
 import type { RegistrarPagoInput } from "@/lib/actions/cobranza";
+import { OPCIONES_METODO_PAGO } from "@/lib/constants/pagos";
 
 interface PagoFormModalProps {
   isOpen: boolean;
@@ -31,14 +32,6 @@ interface PagoFormModalProps {
   onSubmit: (data: RegistrarPagoInput) => Promise<boolean>;
   isLoading?: boolean;
 }
-
-const OPCIONES_METODO_PAGO = [
-  { value: MetodoPago.EFECTIVO_USD, label: "Efectivo (USD)" },
-  { value: MetodoPago.TRANSFERENCIA, label: "Transferencia Bancaria" },
-  { value: MetodoPago.PAGO_MOVIL, label: "Pago Móvil" },
-  { value: MetodoPago.ZELLE, label: "Zelle" },
-  { value: MetodoPago.OTRO, label: "Otro Método" },
-];
 
 interface PagoFormContentProps {
   pago: PagoItem;

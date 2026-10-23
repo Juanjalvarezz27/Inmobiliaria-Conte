@@ -69,16 +69,11 @@ function getAsistenciaSunColors(asist: RegistroAsistenciaItem | null | undefined
 
   switch (asist.estado) {
     case EstadoAsistencia.PRESENTE:
+    case EstadoAsistencia.RETARDO:
       return {
         glow: "bg-emerald-500/20",
         ring: "bg-emerald-500/[0.08] border-emerald-400/25",
         sun: "from-[#175E38]/25 to-emerald-400/5",
-      };
-    case EstadoAsistencia.RETARDO:
-      return {
-        glow: "bg-amber-500/20",
-        ring: "bg-amber-500/[0.08] border-amber-400/25",
-        sun: "from-amber-600/25 to-amber-400/5",
       };
     case EstadoAsistencia.FALTA_JUSTIFICADA:
     case EstadoAsistencia.PERMISO:

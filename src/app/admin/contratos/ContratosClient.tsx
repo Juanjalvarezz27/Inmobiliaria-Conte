@@ -40,8 +40,8 @@ import {
   type UpdateContratoInput,
 } from "@/lib/actions/contratos";
 import { EstadoContrato, TipoPropiedad } from "@prisma/client";
+import { formatCurrency } from "@/lib/formatters";
 import {
-  formatCurrency,
   tipoPropiedadBadgeConfig,
   tipoPropiedadCornerSun,
 } from "../propiedades/constants";

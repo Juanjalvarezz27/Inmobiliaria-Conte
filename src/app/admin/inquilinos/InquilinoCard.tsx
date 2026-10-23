@@ -16,7 +16,7 @@ import {
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { TipoPersona } from "@prisma/client";
-import { WhatsAppIcon, getWhatsAppUrl } from "../propiedades/constants";
+import { WhatsAppIcon, getWhatsAppUrl } from "@/lib/formatters";
 import type { InquilinoConContratos } from "./types";
 
 // Sol decorativo en esquina según el tipo de persona

@@ -13,3 +13,4 @@ export * from "./phone-input";
 export * from "./confirm-action-modal";
 export * from "./image-viewer-modal";
 export * from "./filter-dropdown";
+export * from "./paginacion-local";

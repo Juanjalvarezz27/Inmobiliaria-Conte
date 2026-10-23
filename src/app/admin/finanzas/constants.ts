@@ -97,46 +97,10 @@ export const CATEGORIA_CONFIG: Record<
   },
 };
 
-export const METODO_PAGO_CONFIG: Record<
-  MetodoPago,
-  { label: string; badgeClass: string }
-> = {
-  EFECTIVO_USD: {
-    label: "Efectivo USD",
-    badgeClass: "bg-emerald-50 text-emerald-800 border-emerald-200",
-  },
-  TRANSFERENCIA: {
-    label: "Transferencia",
-    badgeClass: "bg-blue-50 text-blue-800 border-blue-200",
-  },
-  PAGO_MOVIL: {
-    label: "Pago Móvil",
-    badgeClass: "bg-indigo-50 text-indigo-800 border-indigo-200",
-  },
-  ZELLE: {
-    label: "Zelle",
-    badgeClass: "bg-purple-50 text-purple-800 border-purple-200",
-  },
-  OTRO: {
-    label: "Otro Método",
-    badgeClass: "bg-slate-100 text-slate-800 border-slate-200",
-  },
-};
+// Re-exportación de configuración centralizada de métodos de pago y meses
+export { METODO_PAGO_CONFIG, OPCIONES_METODO_PAGO } from "@/lib/constants/pagos";
+export { OPCIONES_MESES as MESES } from "@/lib/date-utils";
 
-export const MESES = [
-  { value: "1", label: "Enero" },
-  { value: "2", label: "Febrero" },
-  { value: "3", label: "Marzo" },
-  { value: "4", label: "Abril" },
-  { value: "5", label: "Mayo" },
-  { value: "6", label: "Junio" },
-  { value: "7", label: "Julio" },
-  { value: "8", label: "Agosto" },
-  { value: "9", label: "Septiembre" },
-  { value: "10", label: "Octubre" },
-  { value: "11", label: "Noviembre" },
-  { value: "12", label: "Diciembre" },
-];
 
 export const CATEGORIAS_EGRESO: CategoriaTransaccion[] = [
   CategoriaTransaccion.SERVICIOS_PUBLICOS,

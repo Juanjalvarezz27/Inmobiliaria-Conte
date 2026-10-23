@@ -16,7 +16,7 @@ import { ModuleActionButtons } from "./module-action-buttons";
 interface ModulePlaceholderProps {
   title: string;
   role: Rol;
-  description: string;
+  description?: string;
   badge?: string;
   features: string[];
   iconType?: "building" | "money" | "wrench" | "users" | "doc" | "calendar" | "contract";

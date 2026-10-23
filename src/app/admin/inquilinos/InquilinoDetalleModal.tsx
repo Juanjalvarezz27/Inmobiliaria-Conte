@@ -21,13 +21,10 @@ import {
 import { Modal } from "@/components/ui/modal";
 import { Badge } from "@/components/ui/badge";
 import { TipoPersona, EstadoPago } from "@prisma/client";
-import { WhatsAppIcon, getWhatsAppUrl, formatCurrency } from "../propiedades/constants";
+import { WhatsAppIcon, getWhatsAppUrl, formatCurrency } from "@/lib/formatters";
+import { MESES } from "@/lib/date-utils";
 import type { InquilinoConContratos } from "./types";
 
-const MESES = [
-  "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
-  "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre",
-];
 
 interface InquilinoDetalleModalProps {
   isOpen: boolean;

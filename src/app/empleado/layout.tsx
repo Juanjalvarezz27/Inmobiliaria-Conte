@@ -14,15 +14,15 @@ export default async function EmpleadoLayout({
     redirect("/home/login");
   }
 
-  // Permitir acceso a EMPLEADO y ADMIN
+  // Permitir acceso a EMPLEADO y ADMIN en modo auditoría
   if (session.user.rol !== "EMPLEADO" && session.user.rol !== "ADMIN") {
     redirect("/inquilino/dashboard?unauthorized=empleado");
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-slate-50">
+    <div className="min-h-screen flex flex-col bg-slate-50/70">
       <Navbar user={session.user} />
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
+      <main className="flex-1 max-w-[1720px] w-full mx-auto px-4 sm:px-6 lg:px-10 py-6">
         <PageTransition>{children}</PageTransition>
       </main>
     </div>

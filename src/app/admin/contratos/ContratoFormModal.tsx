@@ -26,7 +26,7 @@ import {
   type ProgresoCompresion,
 } from "@/lib/file-compressor";
 import { toast } from "sonner";
-import { formatCurrency } from "../propiedades/constants";
+import { formatCurrency } from "@/lib/formatters";
 import { EstadoUnidad, MetodoPago } from "@prisma/client";
 import type {
   InquilinoSelector,
@@ -35,14 +35,8 @@ import type {
 } from "./types";
 import type { CreateContratoInput, UpdateContratoInput } from "@/lib/actions/contratos";
 import { eliminarDocumentoContratoAction } from "@/lib/actions/contratos";
+import { OPCIONES_METODO_PAGO } from "@/lib/constants/pagos";
 
-const OPCIONES_METODO_PAGO = [
-  { value: MetodoPago.TRANSFERENCIA, label: "Transferencia Bancaria" },
-  { value: MetodoPago.EFECTIVO_USD, label: "Efectivo (USD)" },
-  { value: MetodoPago.PAGO_MOVIL, label: "Pago Móvil" },
-  { value: MetodoPago.ZELLE, label: "Zelle" },
-  { value: MetodoPago.OTRO, label: "Otro Método" },
-];
 
 interface ContratoFormModalProps {
   isOpen: boolean;

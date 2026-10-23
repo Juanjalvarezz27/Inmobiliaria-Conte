@@ -192,10 +192,10 @@ export function Navbar({ user }: NavbarProps = {}) {
   ];
 
   const empleadoItems: NavItem[] = [
-    { label: "Panel Principal", href: "/empleado/dashboard", description: "Resumen de jornada" },
+    { label: "Panel Principal", href: "/empleado/dashboard", description: "Resumen de jornada y marcaje" },
     { label: "Mis Tareas", href: "/empleado/tareas", description: "Pendientes operativos asignados" },
-    { label: "Mantenimiento", href: "/empleado/mantenimiento", description: "Averías asignadas para reparar" },
     { label: "Marcaje de Asistencia", href: "/empleado/asistencia", description: "Registro diario de entrada y salida" },
+    { label: "Mantenimiento", href: "/empleado/mantenimiento", description: "Averías asignadas para reparar" },
   ];
 
   const inquilinoItems: NavItem[] = [

@@ -449,29 +449,25 @@ export async function getPagosCobranza({
         _sum: { montoEsperado: true, montoPagado: true },
         _count: { id: true },
       }),
-      // Conteo por propiedad para selector de filtro en 1 sola consulta con JOIN indexado (sin queries en cascada)
-      prisma.pago.findMany({
-        where: whereMesGlobal,
-        select: {
-          contrato: {
-            select: {
-              unidad: {
-                select: {
-                  propiedadId: true,
-                },
-              },
-            },
-          },
-        },
-      }).then((pagosMes) => {
+      // Conteo por propiedad para selector de filtro directamente en SQL (sin transferir filas completas por red)
+      prisma.$queryRaw<Array<{ propiedadId: string; count: number }>>`
+        SELECT u."propiedadId", COUNT(p.id)::int as count
+        FROM pagos p
+        JOIN contratos c ON p."contratoId" = c.id
+        JOIN unidades u ON c."unidadId" = u.id
+        WHERE p."periodoMes" = ${mes} AND p."periodoAno" = ${ano}
+        GROUP BY u."propiedadId"
+      `.then((rows) => {
         const conteo: Record<string, number> = {};
-        for (const p of pagosMes) {
-          const propId = p.contrato?.unidad?.propiedadId;
-          if (propId) {
-            conteo[propId] = (conteo[propId] || 0) + 1;
+        for (const r of rows) {
+          if (r.propiedadId) {
+            conteo[r.propiedadId] = Number(r.count);
           }
         }
         return conteo;
+      }).catch((err) => {
+        console.error("Aviso al consultar agregadosPorPropiedad en SQL:", err);
+        return {};
       }),
     ]);
 
