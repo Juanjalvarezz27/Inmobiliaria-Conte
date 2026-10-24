@@ -305,12 +305,12 @@ export function LoginForm() {
 
           <button
             type="button"
-            onClick={() => fillCredentials("empleado@conte.com", "empleado123", "Personal")}
+            onClick={() => fillCredentials("jjsalvarezz@gmail.com", "empleado123", "Personal")}
             className="w-full flex items-center justify-between px-3 py-2 rounded-xl bg-white/5 hover:bg-[#253758] border border-white/10 hover:border-[#3C588A]/60 transition-all text-left cursor-pointer group"
           >
             <div>
               <span className="block text-xs font-bold text-sky-300">Personal</span>
-              <span className="block text-[11px] text-slate-400 font-mono">empleado@conte.com</span>
+              <span className="block text-[11px] text-slate-400 font-mono">jjsalvarezz@gmail.com</span>
             </div>
             <span className="text-[10px] bg-sky-400/10 text-sky-300 px-2 py-0.5 rounded border border-sky-400/30 font-semibold">Auto</span>
           </button>

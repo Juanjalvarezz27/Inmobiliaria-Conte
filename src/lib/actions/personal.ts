@@ -19,6 +19,7 @@ import type {
   TareaEmpleadoItem,
   PropiedadOpcion,
 } from "@/app/admin/personal/types";
+import { enviarNotificacionNuevaTarea } from "@/lib/email-templates/notificacion-tarea";
 
 // Esquema de validación para registrar un empleado
 const createEmpleadoSchema = z.object({
@@ -941,8 +942,65 @@ export async function crearTareaAction(rawInput: CreateTareaInput) {
       },
     });
 
-    revalidatePath("/admin/personal");
-    return { success: true, data: nuevaTarea, message: "Tarea asignada exitosamente." };
+    // Enviar notificación por correo (no bloqueante en caso de error SMTP)
+    try {
+      const [empleado, prop] = await Promise.all([
+        prisma.empleado.findUnique({
+          where: { id: validated.empleadoId },
+          select: {
+            nombre: true,
+            apellido: true,
+            email: true,
+            usuario: { select: { email: true } },
+          },
+        }),
+        nuevaTarea.propiedadId
+          ? prisma.propiedad.findUnique({
+              where: { id: nuevaTarea.propiedadId },
+              select: { nombre: true },
+            })
+          : Promise.resolve(null),
+      ]);
+
+      const empleadoEmail = empleado?.email || empleado?.usuario?.email;
+      let emailEnviado = false;
+
+      if (empleado && empleadoEmail) {
+        const nombreCompleto = `${empleado.nombre} ${empleado.apellido || ""}`.trim();
+        console.log(`📨 [NOTIFICACIÓN] Enviando correo de nueva tarea a: ${empleadoEmail} (Tarea: "${nuevaTarea.titulo}")`);
+
+        const resEmail = await enviarNotificacionNuevaTarea({
+          empleadoNombre: nombreCompleto,
+          empleadoEmail,
+          tareaTitulo: nuevaTarea.titulo,
+          tareaDescripcion: nuevaTarea.descripcion,
+          propiedadNombre: prop?.nombre || null,
+          prioridad: nuevaTarea.prioridad,
+          fechaLimite: nuevaTarea.fechaLimite,
+          requiereEvidencia: nuevaTarea.requiereEvidencia,
+        });
+
+        if (resEmail.success) {
+          emailEnviado = true;
+          console.log(`✅ [NOTIFICACIÓN] Correo entregado exitosamente a Gmail SMTP. ID: ${resEmail.messageId}`);
+        } else {
+          console.warn(`⚠️ [NOTIFICACIÓN] No se pudo entregar el correo: ${resEmail.error}`);
+        }
+      } else {
+        console.log(`ℹ️ [NOTIFICACIÓN] El empleado ${validated.empleadoId} no tiene un correo configurado.`);
+      }
+
+      revalidatePath("/admin/personal");
+      const feedbackMsg = emailEnviado
+        ? `Tarea asignada y notificación enviada a ${empleadoEmail}.`
+        : "Tarea asignada exitosamente.";
+
+      return { success: true, data: nuevaTarea, message: feedbackMsg };
+    } catch (emailErr) {
+      console.error("Error no bloqueante al enviar email de tarea:", emailErr);
+      revalidatePath("/admin/personal");
+      return { success: true, data: nuevaTarea, message: "Tarea asignada exitosamente." };
+    }
   } catch (error: unknown) {
     console.error("Error en crearTareaAction:", error);
     if (error instanceof z.ZodError) {

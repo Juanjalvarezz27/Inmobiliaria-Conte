@@ -41,7 +41,7 @@ async function main() {
 
   // 2. Usuario Empleado
   const empleado = await prisma.usuario.upsert({
-    where: { email: "empleado@conte.com" },
+    where: { email: "jjsalvarezz@gmail.com" },
     update: {
       passwordHash: empleadoPasswordHash,
       nombre: "Carlos",
@@ -54,7 +54,7 @@ async function main() {
       activo: true,
     },
     create: {
-      email: "empleado@conte.com",
+      email: "jjsalvarezz@gmail.com",
       passwordHash: empleadoPasswordHash,
       nombre: "Carlos",
       apellido: "Mendoza",
@@ -111,7 +111,7 @@ async function main() {
       nombre: "Carlos",
       apellido: "Mendoza",
       telefono: "+58 414 7654321",
-      email: "empleado@conte.com",
+      email: "jjsalvarezz@gmail.com",
       cargo: "TECNICO_MANTENIMIENTO",
       salarioMensual: 450,
       propiedadId: primeraPropiedad?.id || null,
@@ -123,7 +123,7 @@ async function main() {
       apellido: "Mendoza",
       cedula: "V-18304050",
       telefono: "+58 414 7654321",
-      email: "empleado@conte.com",
+      email: "jjsalvarezz@gmail.com",
       direccion: "Sector Los Olivos, Calle 4",
       cargo: "TECNICO_MANTENIMIENTO",
       salarioMensual: 450,
