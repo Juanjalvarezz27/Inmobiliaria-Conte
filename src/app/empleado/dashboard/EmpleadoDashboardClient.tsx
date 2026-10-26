@@ -15,6 +15,7 @@ import {
   ArrowRight,
   Loader2,
   Sparkles,
+  ShieldCheck,
 } from "lucide-react";
 import { toast } from "sonner";
 import { StatCard } from "@/components/ui/stat-card";
@@ -172,6 +173,37 @@ export function EmpleadoDashboardClient({ initialData }: Props) {
           className="shadow-2xs"
         />
       </section>
+
+      {/* ACCESO DESTACADO A BITÁCORA DE SEGURIDAD (SOLO VIGILANCIA) */}
+      {empleado.cargo === "SEGURIDAD" && (
+        <div className="rounded-2xl bg-gradient-to-r from-[#175E38] via-[#155332] to-[#1C2539] text-white p-5 sm:p-6 shadow-[0_4px_20px_-2px_rgba(23,94,56,0.3)] border border-emerald-700/60 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div className="flex items-center gap-3.5">
+            <div className="w-12 h-12 rounded-2xl bg-white/10 border border-white/20 flex items-center justify-center shrink-0 backdrop-blur-xs">
+              <ShieldCheck className="w-6 h-6 text-emerald-300" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-bold uppercase tracking-wider text-emerald-200">
+                  Puesto de Control & Vigilancia
+                </span>
+              </div>
+              <h3 className="text-base sm:text-lg font-black font-heading tracking-tight mt-0.5">
+                Bitácora de Seguridad
+              </h3>
+              <p className="text-xs text-emerald-100/80 mt-0.5">
+                Registro de rondas preventivas, inspecciones y reporte de novedades en el inmueble.
+              </p>
+            </div>
+          </div>
+          <Link
+            href="/empleado/minuta"
+            className="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-white text-[#175E38] hover:bg-emerald-50 font-bold text-xs shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer shrink-0 active:scale-95"
+          >
+            <span>Ir a la Bitácora de Seguridad</span>
+            <ArrowRight className="w-4 h-4 stroke-[2.5]" />
+          </Link>
+        </div>
+      )}
 
       {/* 3. SECCIÓN EN 2 COLUMNAS: TAREAS ASIGNADAS Y CONTROL DE LLEGADA */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-8 items-start">

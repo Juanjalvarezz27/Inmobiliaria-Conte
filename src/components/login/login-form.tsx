@@ -309,10 +309,25 @@ export function LoginForm() {
             className="w-full flex items-center justify-between px-3 py-2 rounded-xl bg-white/5 hover:bg-[#253758] border border-white/10 hover:border-[#3C588A]/60 transition-all text-left cursor-pointer group"
           >
             <div>
-              <span className="block text-xs font-bold text-sky-300">Personal</span>
+              <span className="block text-xs font-bold text-sky-300">Personal Operativo</span>
               <span className="block text-[11px] text-slate-400 font-mono">jjsalvarezz@gmail.com</span>
             </div>
             <span className="text-[10px] bg-sky-400/10 text-sky-300 px-2 py-0.5 rounded border border-sky-400/30 font-semibold">Auto</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => fillCredentials("seguridad@conte.com", "seguridad123", "Seguridad / Vigilante")}
+            className="w-full flex items-center justify-between px-3 py-2 rounded-xl bg-white/5 hover:bg-[#253758] border border-white/10 hover:border-[#3C588A]/60 transition-all text-left cursor-pointer group"
+          >
+            <div>
+              <div className="flex items-center gap-1.5">
+                <span className="block text-xs font-bold text-teal-300">Seguridad</span>
+                <span className="text-[10px] text-teal-200/80 font-medium">(Bitácora)</span>
+              </div>
+              <span className="block text-[11px] text-slate-400 font-mono">seguridad@conte.com</span>
+            </div>
+            <span className="text-[10px] bg-teal-400/10 text-teal-300 px-2 py-0.5 rounded border border-teal-400/30 font-semibold">Auto</span>
           </button>
 
           <button

@@ -34,6 +34,11 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             cedula: true,
             rol: true,
             activo: true,
+            empleado: {
+              select: {
+                cargo: true,
+              },
+            },
           },
         });
 
@@ -55,6 +60,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           apellido: user.apellido,
           cedula: user.cedula,
           rol: user.rol,
+          cargo: user.empleado?.cargo || null,
         };
       },
     }),

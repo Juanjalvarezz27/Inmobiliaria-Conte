@@ -2,7 +2,7 @@ import Image from "next/image";
 
 export function Footer() {
   return (
-    <footer className="relative bg-conte-navy text-slate-200 font-sans shrink-0 border-t border-slate-800/50">
+    <footer className="relative z-0 bg-conte-navy text-slate-200 font-sans shrink-0 border-t border-slate-800/50">
       {/* Línea superior con el verde sólido corporativo */}
       <div className="h-2 w-full bg-conte-green" />
 

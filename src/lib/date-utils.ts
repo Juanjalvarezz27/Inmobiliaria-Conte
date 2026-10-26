@@ -128,3 +128,43 @@ export function formatearFechaEspanol(isoStr: string | null | undefined): string
   }
 }
 
+// Formatea cabecera para agrupación de eventos por día con detección de Hoy y Ayer
+export function formatearCabeceraFecha(isoStr: string | null | undefined): {
+  titulo: string;
+  esHoy: boolean;
+  esAyer: boolean;
+  fechaLimpia: string;
+} {
+  if (!isoStr) {
+    return { titulo: "Fecha desconocida", esHoy: false, esAyer: false, fechaLimpia: "Fecha desconocida" };
+  }
+  try {
+    const d = new Date(isoStr);
+    if (isNaN(d.getTime())) {
+      return { titulo: "Fecha inválida", esHoy: false, esAyer: false, fechaLimpia: "Fecha inválida" };
+    }
+
+    const ahora = new Date();
+    const itemDay = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+    const hoyDay = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate()).getTime();
+    const ayerDay = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate() - 1).getTime();
+
+    const esHoy = itemDay === hoyDay;
+    const esAyer = itemDay === ayerDay;
+
+    const diaSem = DIAS_SEMANA[d.getDay()];
+    const diaNum = d.getDate();
+    const mes = MESES[d.getMonth()];
+    const fechaLimpia = `${diaSem}, ${diaNum} de ${mes}`;
+
+    return {
+      titulo: esHoy ? "Hoy" : esAyer ? "Ayer" : fechaLimpia,
+      esHoy,
+      esAyer,
+      fechaLimpia,
+    };
+  } catch {
+    return { titulo: "Fecha desconocida", esHoy: false, esAyer: false, fechaLimpia: "Fecha desconocida" };
+  }
+}
+

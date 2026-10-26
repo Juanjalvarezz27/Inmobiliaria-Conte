@@ -1,4 +1,4 @@
-import { Rol } from "@prisma/client";
+import { Rol, CargoEmpleado } from "@prisma/client";
 import { DefaultSession } from "next-auth";
 
 declare module "next-auth" {
@@ -8,6 +8,7 @@ declare module "next-auth" {
     nombre?: string;
     apellido?: string | null;
     cedula?: string | null;
+    cargo?: CargoEmpleado | null;
   }
 
   interface Session {
@@ -17,6 +18,7 @@ declare module "next-auth" {
       nombre: string;
       apellido?: string | null;
       cedula?: string | null;
+      cargo?: CargoEmpleado | null;
     } & DefaultSession["user"];
   }
 }
@@ -28,5 +30,6 @@ declare module "next-auth/jwt" {
     nombre?: string;
     apellido?: string | null;
     cedula?: string | null;
+    cargo?: CargoEmpleado | null;
   }
 }

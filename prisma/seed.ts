@@ -10,6 +10,7 @@ async function main() {
   const adminPasswordHash = await bcrypt.hash("admin123", passwordSalt);
   const empleadoPasswordHash = await bcrypt.hash("empleado123", passwordSalt);
   const inquilinoPasswordHash = await bcrypt.hash("inquilino123", passwordSalt);
+  const seguridadPasswordHash = await bcrypt.hash("seguridad123", passwordSalt);
 
   // 1. Usuario Administrador
   const admin = await prisma.usuario.upsert({
@@ -95,7 +96,35 @@ async function main() {
     },
   });
 
-  // 4. Obtener inmuebles para asignación de personal
+  // 4. Usuario Empleado Seguridad (Vigilante)
+  const usuarioSeguridad = await prisma.usuario.upsert({
+    where: { email: "seguridad@conte.com" },
+    update: {
+      passwordHash: seguridadPasswordHash,
+      nombre: "Héctor",
+      apellido: "Paredes",
+      cedula: "V-20112233",
+      telefono: "+58 414 5556677",
+      direccion: "Garita de Vigilancia Principal",
+      ubicacion: "Garita Principal de Vigilancia",
+      rol: Rol.EMPLEADO,
+      activo: true,
+    },
+    create: {
+      email: "seguridad@conte.com",
+      passwordHash: seguridadPasswordHash,
+      nombre: "Héctor",
+      apellido: "Paredes",
+      cedula: "V-20112233",
+      telefono: "+58 414 5556677",
+      direccion: "Garita de Vigilancia Principal",
+      ubicacion: "Garita Principal de Vigilancia",
+      rol: Rol.EMPLEADO,
+      activo: true,
+    },
+  });
+
+  // 5. Obtener inmuebles para asignación de personal
   const primeraPropiedad = await prisma.propiedad.findFirst({
     orderBy: { createdAt: "asc" },
   });
@@ -158,7 +187,37 @@ async function main() {
     },
   });
 
-  // 6. Asistencia de hoy para Carlos Mendoza
+  // 7. Perfil Empleado de Seguridad para Héctor Paredes
+  const seguridadPerfil = await prisma.empleado.upsert({
+    where: { cedula: "V-20112233" },
+    update: {
+      nombre: "Héctor",
+      apellido: "Paredes",
+      telefono: "+58 414 5556677",
+      email: "seguridad@conte.com",
+      direccion: "Garita de Vigilancia Principal",
+      cargo: "SEGURIDAD",
+      salarioMensual: 420,
+      propiedadId: primeraPropiedad?.id || null,
+      usuarioId: usuarioSeguridad.id,
+      activo: true,
+    },
+    create: {
+      nombre: "Héctor",
+      apellido: "Paredes",
+      cedula: "V-20112233",
+      telefono: "+58 414 5556677",
+      email: "seguridad@conte.com",
+      direccion: "Garita de Vigilancia Principal",
+      cargo: "SEGURIDAD",
+      salarioMensual: 420,
+      propiedadId: primeraPropiedad?.id || null,
+      usuarioId: usuarioSeguridad.id,
+      activo: true,
+    },
+  });
+
+  // 8. Asistencia de hoy para Carlos Mendoza
   const hoy = new Date();
   const inicioDia = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate(), 7, 30, 0);
 

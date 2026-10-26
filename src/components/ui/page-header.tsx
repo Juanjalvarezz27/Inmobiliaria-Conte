@@ -95,9 +95,9 @@ export function PageHeader({
             </div>
 
             {description && (
-              <p className="text-xs sm:text-sm text-slate-500 leading-relaxed max-w-3xl">
+              <div className="text-xs sm:text-sm text-slate-500 leading-relaxed max-w-3xl">
                 {description}
-              </p>
+              </div>
             )}
           </div>
         </div>

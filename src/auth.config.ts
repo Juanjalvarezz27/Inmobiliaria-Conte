@@ -87,6 +87,7 @@ export const authConfig: NextAuthConfig = {
         token.nombre = user.nombre;
         token.apellido = user.apellido;
         token.cedula = user.cedula;
+        token.cargo = user.cargo;
       }
       return token;
     },
@@ -97,6 +98,7 @@ export const authConfig: NextAuthConfig = {
         session.user.nombre = (token.nombre as string) ?? session.user.name;
         session.user.apellido = token.apellido as string | null | undefined;
         session.user.cedula = token.cedula as string | null | undefined;
+        session.user.cargo = (token.cargo as any) ?? null;
       }
       return session;
     },

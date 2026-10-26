@@ -11,6 +11,13 @@ export const operacionesFileRouter = {
     return { url: file.ufsUrl || file.url };
   }),
 
+  // Fotos de incidencias y novedades de seguridad (hasta 3 fotos)
+  fotoIncidencia: f({
+    image: { maxFileSize: "4MB", maxFileCount: 3 },
+  }).onUploadComplete(async ({ file }) => {
+    return { url: file.ufsUrl || file.url };
+  }),
+
   // Documentos: contratos, recibos, comprobantes de pago (PDF)
   documentoOperativo: f({
     pdf: { maxFileSize: "8MB", maxFileCount: 1 },

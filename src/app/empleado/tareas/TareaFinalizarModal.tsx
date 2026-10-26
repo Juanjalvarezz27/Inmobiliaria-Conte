@@ -59,7 +59,7 @@ export function TareaFinalizarModal({
   const { startUpload, isUploading } = useOperacionesUploadThing("fotoTarea", {
     onClientUploadComplete: (res) => {
       if (res && res.length > 0) {
-        const nuevasUrls = res.map((r) => r.url).filter(Boolean);
+        const nuevasUrls = res.map((r: any) => r.ufsUrl || r.url).filter(Boolean);
         setEvidencias((prev) => [...prev, ...nuevasUrls].slice(0, MAX_FOTOS));
         toast.success(
           nuevasUrls.length === 1

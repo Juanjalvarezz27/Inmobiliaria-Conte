@@ -19,6 +19,7 @@ interface NavbarUser {
   apellido?: string | null;
   cedula?: string | null;
   email?: string | null;
+  cargo?: string | null;
 }
 
 interface NavbarProps {
@@ -186,16 +187,22 @@ export function Navbar({ user }: NavbarProps = {}) {
       items: [
         { label: "Mantenimiento", href: "/admin/mantenimiento", description: "Averías y reparaciones técnicas" },
         { label: "Personal & Asistencia", href: "/admin/personal", description: "Control de equipo y jornada" },
+        { label: "Bitácora de Seguridad", href: "/admin/seguridad", description: "Rondas y novedades" },
         { label: "Agenda & Alertas", href: "/admin/agenda", description: "Citas y recordatorios automáticos" },
       ],
     },
   ];
+
+  const isSeguridad = user?.cargo === "SEGURIDAD" || user?.rol === "ADMIN";
 
   const empleadoItems: NavItem[] = [
     { label: "Panel Principal", href: "/empleado/dashboard", description: "Resumen de jornada y marcaje" },
     { label: "Mis Tareas", href: "/empleado/tareas", description: "Pendientes operativos asignados" },
     { label: "Marcaje de Asistencia", href: "/empleado/asistencia", description: "Registro diario de entrada y salida" },
     { label: "Mantenimiento", href: "/empleado/mantenimiento", description: "Averías asignadas para reparar" },
+    ...(isSeguridad
+      ? [{ label: "Bitácora de Seguridad", href: "/empleado/minuta", description: "Rondas y novedades" }]
+      : []),
   ];
 
   const inquilinoItems: NavItem[] = [

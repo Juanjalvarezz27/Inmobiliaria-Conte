@@ -87,7 +87,7 @@ export function FilterDropdown({
     size === "sm" ? "h-10" : size === "default" ? "h-11" : "h-10 sm:h-11";
 
   return (
-    <div ref={containerRef} className={`relative ${className}`}>
+    <div ref={containerRef} className={`relative ${isOpen ? "z-50" : "z-10"} ${className}`}>
       {/* Capa táctil nativa para móviles (< md) */}
       <select
         value={value}

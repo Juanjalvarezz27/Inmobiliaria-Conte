@@ -22,10 +22,14 @@ export function formatCurrencyDecimals(val: number | null | undefined): string {
 }
 
 // Generador de enlace directo a WhatsApp (limpia caracteres no numéricos)
-export function getWhatsAppUrl(phone: string | null | undefined): string {
+export function getWhatsAppUrl(phone: string | null | undefined, text?: string): string {
   if (!phone) return "#";
   const clean = phone.replace(/\D/g, "");
-  return `https://wa.me/${clean}`;
+  const base = `https://wa.me/${clean}`;
+  if (text) {
+    return `${base}?text=${encodeURIComponent(text)}`;
+  }
+  return base;
 }
 
 // Icono SVG oficial de WhatsApp

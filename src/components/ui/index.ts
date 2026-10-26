@@ -14,3 +14,4 @@ export * from "./confirm-action-modal";
 export * from "./image-viewer-modal";
 export * from "./filter-dropdown";
 export * from "./paginacion-local";
+export * from "./date-filter-picker";
