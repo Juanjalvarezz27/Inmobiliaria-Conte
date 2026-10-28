@@ -45,6 +45,13 @@ export function Navbar({ user }: NavbarProps = {}) {
   const lastScrollY = useRef(0);
   const isMounted = useIsMounted();
 
+  const perfilHref =
+    user?.rol === "ADMIN"
+      ? "/admin/perfil"
+      : user?.rol === "EMPLEADO"
+      ? "/empleado/perfil"
+      : "/inquilino/perfil";
+
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   // Notificación de bienvenida al iniciar sesión exitosamente
@@ -386,19 +393,30 @@ export function Navbar({ user }: NavbarProps = {}) {
             )}
           </div>
 
-          {/* 3. Área de Usuario y Botón de Salir Rojo #CC1A22 */}
+          {/* 3. Área de Usuario (Mi Perfil y Seguridad) y Botón de Salir */}
           {user && (
-            <div className="hidden lg:flex items-center gap-4">
-              <div className="flex flex-col text-right pl-4 border-l border-white/10 select-none">
-                <span className="text-sm font-semibold text-white leading-tight">
-                  {user.nombre} {user.apellido || ""}
-                </span>
-                <span
-                  className={`inline-block text-[9px] font-bold px-1.5 py-0.5 rounded tracking-wider border w-fit mt-1 self-end ${currentRoleStyle.bg} ${currentRoleStyle.border} ${currentRoleStyle.text}`}
-                >
-                  {currentRoleStyle.label}
-                </span>
-              </div>
+            <div className="hidden lg:flex items-center gap-3">
+              <Link
+                href={perfilHref}
+                title="Ver mi perfil y seguridad"
+                className="flex items-center gap-2.5 pl-3 py-1 pr-2 rounded-xl border border-transparent hover:border-white/10 hover:bg-white/5 transition-all select-none group/user cursor-pointer"
+              >
+                <div className="flex flex-col text-right">
+                  <span className="text-sm font-semibold text-white leading-tight group-hover/user:text-emerald-300 transition-colors">
+                    {user.nombre} {user.apellido || ""}
+                  </span>
+                  <span
+                    className={`inline-block text-[9px] font-bold px-1.5 py-0.5 rounded tracking-wider border w-fit mt-1 self-end ${currentRoleStyle.bg} ${currentRoleStyle.border} ${currentRoleStyle.text}`}
+                  >
+                    {currentRoleStyle.label}
+                  </span>
+                </div>
+                <div className="w-8 h-8 rounded-lg bg-white/10 group-hover/user:bg-white/20 border border-white/10 flex items-center justify-center text-slate-300 group-hover/user:text-white transition-all shrink-0">
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                  </svg>
+                </div>
+              </Link>
 
               {/* Botón de Cerrar Sesión en Rojo vibrante institucional #CC1A22 */}
               <LogoutButton variant="red" />
@@ -434,16 +452,20 @@ export function Navbar({ user }: NavbarProps = {}) {
         <div className="lg:hidden fixed inset-x-0 top-20 bottom-0 z-40 bg-[#1C2539] border-t border-white/10 overflow-y-auto animate-fadeIn">
           <div className="p-4 sm:p-6 space-y-5 max-w-md mx-auto pb-24">
             
-            {/* 1. Tarjeta Ejecutiva de Usuario */}
-            <div className="flex items-center justify-between p-3.5 bg-gradient-to-r from-[#202E4A] to-[#1A253C] border border-[#2D4166] rounded-2xl shadow-sm">
+            {/* 1. Tarjeta Ejecutiva de Usuario (Enlace a Mi Perfil) */}
+            <Link
+              href={perfilHref}
+              onClick={() => setMobileMenuOpen(false)}
+              className="flex items-center justify-between p-3.5 bg-gradient-to-r from-[#202E4A] to-[#1A253C] hover:from-[#253658] hover:to-[#1F2C47] border border-[#2D4166] rounded-2xl shadow-sm transition-all group"
+            >
               <div className="flex items-center gap-3 min-w-0">
-                <div className="w-10 h-10 rounded-xl bg-[#253758] border border-[#3C588A]/60 flex items-center justify-center shrink-0 shadow-inner">
-                  <svg className="w-5 h-5 text-slate-200" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <div className="w-10 h-10 rounded-xl bg-[#253758] group-hover:bg-[#2F446C] border border-[#3C588A]/60 flex items-center justify-center shrink-0 shadow-inner text-slate-200">
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                   </svg>
                 </div>
                 <div className="min-w-0">
-                  <div className="text-sm font-bold text-white tracking-tight truncate">
+                  <div className="text-sm font-bold text-white tracking-tight truncate group-hover:text-emerald-300 transition-colors">
                     {user.nombre} {user.apellido || ""}
                   </div>
                   {user.email && (
@@ -453,10 +475,15 @@ export function Navbar({ user }: NavbarProps = {}) {
                   )}
                 </div>
               </div>
-              <span className={`shrink-0 text-[10px] font-bold px-2.5 py-1 rounded-md tracking-wider border uppercase ml-2 ${currentRoleStyle.bg} ${currentRoleStyle.border} ${currentRoleStyle.text}`}>
-                {currentRoleStyle.label}
-              </span>
-            </div>
+              <div className="flex items-center gap-1.5 ml-2 shrink-0">
+                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md tracking-wider border uppercase ${currentRoleStyle.bg} ${currentRoleStyle.border} ${currentRoleStyle.text}`}>
+                  {currentRoleStyle.label}
+                </span>
+                <svg className="w-4 h-4 text-slate-400 group-hover:text-white transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </div>
+            </Link>
 
             {/* 2. Navegación por Rol */}
             {user.rol === "ADMIN" && (
@@ -604,9 +631,26 @@ export function Navbar({ user }: NavbarProps = {}) {
               </div>
             )}
 
-            {/* 3. Botón de Cerrar Sesión Rojo */}
-            <div className="pt-2 border-t border-white/10">
-              <LogoutButton variant="red" className="w-full justify-center py-3.5 text-sm rounded-xl font-semibold shadow-md" />
+            {/* Opción Móvil de Mi Perfil y Seguridad */}
+            <div className="pt-2 border-t border-white/10 space-y-2">
+              <Link
+                href={perfilHref}
+                onClick={() => setMobileMenuOpen(false)}
+                className="flex items-center justify-between px-3.5 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-semibold text-slate-200 hover:text-white transition-colors"
+              >
+                <div className="flex items-center gap-2.5">
+                  <svg className="w-4 h-4 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                  </svg>
+                  <span>Mi Perfil y Seguridad</span>
+                </div>
+                <svg className="w-3.5 h-3.5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </Link>
+
+              {/* Botón de Cerrar Sesión Rojo */}
+              <LogoutButton variant="red" className="w-full justify-center py-3 text-sm rounded-xl font-semibold shadow-md" />
             </div>
           </div>
         </div>,

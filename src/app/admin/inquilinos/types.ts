@@ -12,6 +12,13 @@ export type InquilinoConContratos = {
   email: string | null;
   direccion: string | null;
   activo: boolean;
+  usuarioId?: string | null;
+  usuario?: {
+    id: string;
+    email: string;
+    activo: boolean;
+    mustChangePassword: boolean;
+  } | null;
   createdAt: Date;
   updatedAt: Date;
   _count: {
@@ -53,7 +60,7 @@ export type InquilinosStats = {
   sinContrato: number;
 };
 
-export type ModalMode = "crear" | "editar" | "eliminar" | "archivar" | "reactivar" | "detalle" | null;
+export type ModalMode = "crear" | "editar" | "eliminar" | "archivar" | "reactivar" | "detalle" | "acceso" | null;
 
 export interface InquilinosClientProps {
   inquilinos: InquilinoConContratos[];

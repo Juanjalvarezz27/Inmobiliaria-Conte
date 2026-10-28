@@ -34,6 +34,15 @@ const INQUILINO_LIST_SELECT = {
   email: true,
   direccion: true,
   activo: true,
+  usuarioId: true,
+  usuario: {
+    select: {
+      id: true,
+      email: true,
+      activo: true,
+      mustChangePassword: true,
+    },
+  },
   createdAt: true,
   updatedAt: true,
   _count: {

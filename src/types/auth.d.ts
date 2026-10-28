@@ -9,6 +9,7 @@ declare module "next-auth" {
     apellido?: string | null;
     cedula?: string | null;
     cargo?: CargoEmpleado | null;
+    mustChangePassword?: boolean;
   }
 
   interface Session {
@@ -19,6 +20,7 @@ declare module "next-auth" {
       apellido?: string | null;
       cedula?: string | null;
       cargo?: CargoEmpleado | null;
+      mustChangePassword?: boolean;
     } & DefaultSession["user"];
   }
 }
@@ -31,5 +33,6 @@ declare module "next-auth/jwt" {
     apellido?: string | null;
     cedula?: string | null;
     cargo?: CargoEmpleado | null;
+    mustChangePassword?: boolean;
   }
 }

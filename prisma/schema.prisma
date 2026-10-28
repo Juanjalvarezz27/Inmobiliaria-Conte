@@ -47,12 +47,13 @@ model Usuario {
   passwordHash String
   nombre       String
   apellido     String?
-  cedula       String?  @unique
+  cedula       String?  // Cédula o documento de identidad
   telefono     String?
   direccion    String?
   ubicacion    String?  // Coordenadas o zona (para tracking de empleados)
   rol          Rol      @default(INQUILINO)
   activo       Boolean  @default(true)
+  mustChangePassword Boolean @default(false)
 
   inquilino    Inquilino?
   empleado     Empleado?

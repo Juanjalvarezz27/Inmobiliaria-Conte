@@ -80,7 +80,7 @@ export const authConfig: NextAuthConfig = {
 
       return true;
     },
-    jwt({ token, user }) {
+    jwt({ token, user, trigger, session }) {
       if (user) {
         token.id = user.id;
         token.rol = user.rol;
@@ -88,6 +88,10 @@ export const authConfig: NextAuthConfig = {
         token.apellido = user.apellido;
         token.cedula = user.cedula;
         token.cargo = user.cargo;
+        token.mustChangePassword = user.mustChangePassword;
+      }
+      if (trigger === "update" && session?.mustChangePassword !== undefined) {
+        token.mustChangePassword = session.mustChangePassword;
       }
       return token;
     },
@@ -99,6 +103,7 @@ export const authConfig: NextAuthConfig = {
         session.user.apellido = token.apellido as string | null | undefined;
         session.user.cedula = token.cedula as string | null | undefined;
         session.user.cargo = (token.cargo as any) ?? null;
+        session.user.mustChangePassword = !!token.mustChangePassword;
       }
       return session;
     },

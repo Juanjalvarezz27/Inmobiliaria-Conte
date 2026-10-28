@@ -25,6 +25,7 @@ import { Modal } from "@/components/ui/modal";
 import { FilterDropdown, type FilterDropdownOption } from "@/components/ui/filter-dropdown";
 import { InquilinoFormModal } from "./InquilinoFormModal";
 import { InquilinoDetalleModal } from "./InquilinoDetalleModal";
+import { InquilinoAccesoModal } from "./InquilinoAccesoModal";
 import { InquilinoCard } from "./InquilinoCard";
 import {
   createInquilino,
@@ -51,6 +52,15 @@ export function InquilinosClient({
   const router = useRouter();
   const [inquilinos, setInquilinos] = useState(initialInquilinos);
   const [stats, setStats] = useState(initialStats);
+
+  // Sincronizar estado cuando el servidor refresca los datos tras una mutación
+  useEffect(() => {
+    setInquilinos(initialInquilinos);
+  }, [initialInquilinos]);
+
+  useEffect(() => {
+    setStats(initialStats);
+  }, [initialStats]);
   const [vistaArchivados, setVistaArchivados] = useState(false);
   const [busqueda, setBusqueda] = useState("");
   const [filtroTipo, setFiltroTipo] = useState<string>("TODOS");
@@ -473,7 +483,7 @@ export function InquilinosClient({
         </div>
       ) : (
         <div className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 items-start">
             {inquilinosPagina.map((inq) => (
               <InquilinoCard
                 key={inq.id}
@@ -490,6 +500,10 @@ export function InquilinosClient({
                 }}
                 onReactivar={handleReactivar}
                 onVerFicha={abrirDetalle}
+                onGestionarAcceso={(inquilino) => {
+                  setInquilinoSeleccionado(inquilino);
+                  setModalMode("acceso");
+                }}
               />
             ))}
           </div>
@@ -657,6 +671,17 @@ export function InquilinosClient({
           </div>
         </div>
       </Modal>
+
+      {/* Modal de Gestión de Acceso Digital / Credenciales */}
+      <InquilinoAccesoModal
+        isOpen={modalMode === "acceso"}
+        onClose={() => {
+          setModalMode(null);
+          setInquilinoSeleccionado(null);
+          router.refresh();
+        }}
+        inquilino={inquilinoSeleccionado}
+      />
     </div>
   );
 }

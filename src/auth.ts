@@ -34,6 +34,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             cedula: true,
             rol: true,
             activo: true,
+            mustChangePassword: true,
             empleado: {
               select: {
                 cargo: true,
@@ -61,6 +62,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           cedula: user.cedula,
           rol: user.rol,
           cargo: user.empleado?.cargo || null,
+          mustChangePassword: user.mustChangePassword,
         };
       },
     }),

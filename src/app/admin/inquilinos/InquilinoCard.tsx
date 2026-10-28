@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   User,
@@ -13,6 +13,10 @@ import {
   Store,
   ArrowUpRight,
   Plus,
+  KeyRound,
+  ShieldCheck,
+  Lock,
+  ChevronDown,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { TipoPersona } from "@prisma/client";
@@ -43,6 +47,7 @@ interface InquilinoCardProps {
   onArchivar: (inq: InquilinoConContratos) => void;
   onReactivar: (inq: InquilinoConContratos) => void;
   onVerFicha: (inq: InquilinoConContratos) => void;
+  onGestionarAcceso: (inq: InquilinoConContratos) => void;
 }
 
 export function InquilinoCard({
@@ -53,8 +58,10 @@ export function InquilinoCard({
   onArchivar,
   onReactivar,
   onVerFicha,
+  onGestionarAcceso,
 }: InquilinoCardProps) {
   const router = useRouter();
+  const [espaciosAbiertos, setEspaciosAbiertos] = useState(false);
   const cornerSun = getPersonaCornerSun(inq.tipoPersona);
   const esJuridica = inq.tipoPersona === TipoPersona.JURIDICA;
   const nombreCompleto = esJuridica
@@ -64,7 +71,7 @@ export function InquilinoCard({
   return (
     <div
       key={inq.id}
-      className="group/inqcard relative overflow-hidden bg-gradient-to-b from-white via-white to-slate-50/60 rounded-2xl border border-slate-200/90 border-b-[3px] border-b-slate-300/90 shadow-[0_4px_20px_-2px_rgba(28,37,57,0.07),0_2px_6px_-1px_rgba(28,37,57,0.04)] hover:shadow-[0_16px_36px_-4px_rgba(28,37,57,0.13),0_6px_12px_-2px_rgba(28,37,57,0.06)] hover:-translate-y-1.5 transition-all duration-300 flex flex-col justify-between"
+      className="group/inqcard relative overflow-hidden bg-gradient-to-b from-white via-white to-slate-50/60 rounded-2xl border border-slate-200/90 border-b-[3px] border-b-slate-300/90 shadow-[0_4px_20px_-2px_rgba(28,37,57,0.07),0_2px_6px_-1px_rgba(28,37,57,0.04)] hover:shadow-[0_16px_36px_-4px_rgba(28,37,57,0.13),0_6px_12px_-2px_rgba(28,37,57,0.06)] hover:-translate-y-1.5 transition-all duration-300 flex flex-col"
     >
       {/* Sol decorativo en esquina superior izquierda */}
       <div className="absolute -top-8 -left-8 w-28 h-28 pointer-events-none overflow-hidden rounded-full">
@@ -73,7 +80,7 @@ export function InquilinoCard({
         <div className={`absolute inset-7 rounded-full bg-gradient-to-br ${cornerSun.sun} transition-transform duration-500 group-hover/inqcard:scale-125`} />
       </div>
 
-      <div className="p-5 sm:p-6 space-y-4 relative z-10 flex-1 flex flex-col justify-between">
+      <div className="p-5 sm:p-6 space-y-4 relative z-10 flex flex-col">
         <div className="space-y-3.5">
           {/* Header con Badge y Botones de Acción */}
           <div className="flex items-center justify-between gap-2 relative z-10">
@@ -90,6 +97,31 @@ export function InquilinoCard({
 
             {/* Botones rápidos Editar / Eliminar */}
             <div className="flex items-center gap-1.5 shrink-0">
+              {/* Acceso Digital */}
+              <div className="relative group/btn">
+                <button
+                  type="button"
+                  onClick={() => onGestionarAcceso(inq)}
+                  disabled={isPending}
+                  title="Gestionar acceso digital"
+                  aria-label="Gestionar acceso digital"
+                  className={`w-8 h-8 rounded-xl border flex items-center justify-center transition-all cursor-pointer shadow-2xs hover:scale-105 active:scale-95 ${
+                    inq.usuario
+                      ? inq.usuario.activo
+                        ? inq.usuario.mustChangePassword
+                          ? "bg-amber-50 text-amber-700 border-amber-200/90 hover:bg-amber-100"
+                          : "bg-emerald-50 text-[#175E38] border-emerald-200/90 hover:bg-emerald-100"
+                        : "bg-rose-50 text-rose-700 border-rose-200/90 hover:bg-rose-100"
+                      : "bg-purple-50 text-purple-700 border-purple-200/90 hover:bg-purple-100"
+                  }`}
+                >
+                  <KeyRound className="w-3.5 h-3.5" />
+                </button>
+                <div className="pointer-events-none absolute top-full mt-1.5 right-0 px-2 py-0.5 bg-[#1C2539] text-white text-[10px] font-semibold rounded-md shadow-lg opacity-0 group-hover/btn:opacity-100 transition-opacity duration-150 whitespace-nowrap z-30">
+                  <span>{inq.usuario ? "Acceso Digital" : "Habilitar Acceso"}</span>
+                </div>
+              </div>
+
               {/* Editar */}
               <div className="relative group/btn">
                 <button
@@ -168,6 +200,53 @@ export function InquilinoCard({
                   Sin alquileres activos
                 </Badge>
               )}
+
+              {/* Badge de Acceso Digital */}
+              {inq.usuario ? (
+                inq.usuario.activo ? (
+                  inq.usuario.mustChangePassword ? (
+                    <button
+                      type="button"
+                      onClick={() => onGestionarAcceso(inq)}
+                      className="inline-flex items-center gap-1 text-xs font-bold text-amber-800 bg-amber-50 hover:bg-amber-100 px-2 py-0.5 rounded-md border border-amber-200 transition-all cursor-pointer"
+                      title="Clave temporal asignada. Clic para gestionar"
+                    >
+                      <KeyRound className="w-3 h-3 text-amber-600" />
+                      <span>Clave 123456</span>
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => onGestionarAcceso(inq)}
+                      className="inline-flex items-center gap-1 text-xs font-bold text-[#175E38] bg-emerald-50 hover:bg-emerald-100 px-2 py-0.5 rounded-md border border-emerald-200 transition-all cursor-pointer"
+                      title="Portal digital activo con clave personalizada. Clic para gestionar"
+                    >
+                      <ShieldCheck className="w-3 h-3 text-[#175E38]" />
+                      <span>Portal Activo</span>
+                    </button>
+                  )
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => onGestionarAcceso(inq)}
+                    className="inline-flex items-center gap-1 text-xs font-bold text-rose-700 bg-rose-50 hover:bg-rose-100 px-2 py-0.5 rounded-md border border-rose-200 transition-all cursor-pointer"
+                    title="Acceso suspendido. Clic para gestionar"
+                  >
+                    <Lock className="w-3 h-3 text-rose-500" />
+                    <span>Acceso Suspendido</span>
+                  </button>
+                )
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => onGestionarAcceso(inq)}
+                  className="inline-flex items-center gap-1 text-xs font-bold text-purple-700 bg-purple-50 hover:bg-purple-100 px-2 py-0.5 rounded-md border border-purple-200 transition-all cursor-pointer"
+                  title="Habilitar acceso al portal digital"
+                >
+                  <KeyRound className="w-3 h-3 text-purple-500" />
+                  <span>Sin Acceso</span>
+                </button>
+              )}
             </div>
           </div>
 
@@ -190,73 +269,117 @@ export function InquilinoCard({
             </div>
 
             {/* Correo */}
-            {inq.email && (
-              <p className="text-slate-500 flex items-center gap-1.5 truncate">
-                <Mail className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+            <p className="text-slate-500 flex items-center gap-1.5 truncate">
+              <Mail className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+              {inq.email ? (
                 <span className="truncate">{inq.email}</span>
-              </p>
-            )}
+              ) : (
+                <span className="text-slate-400 italic text-[11px]">Sin correo registrado</span>
+              )}
+            </p>
           </div>
         </div>
 
-        {/* Espacios arrendados si los tiene */}
-        {inq.contratos && inq.contratos.length > 0 && (
-          <div className="pt-2.5 border-t border-slate-100 space-y-2">
-            <div className="flex items-center justify-between">
-              <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block">
-                Espacios en posesión ({inq.contratos.length})
-              </span>
-            </div>
-            <div className="space-y-1.5">
-              {inq.contratos.slice(0, 2).map((c) => (
-                <button
-                  key={c.id}
-                  type="button"
-                  onClick={() => router.push(`/admin/contratos?search=${encodeURIComponent(c.codigo)}`)}
-                  title={`Ir al contrato ${c.codigo} del espacio ${c.unidad.codigo}`}
-                  className="w-full text-left p-2 rounded-xl border border-slate-200/90 bg-gradient-to-r from-slate-50/80 via-white to-slate-50/60 hover:from-emerald-50/50 hover:to-white hover:border-emerald-300 transition-all duration-200 flex items-center justify-between gap-2 group/spacebtn cursor-pointer shadow-2xs hover:shadow-xs active:translate-y-0.5"
+        {/* Espacios arrendados / Acordeón desplegable uniforme */}
+        {inq.contratos && inq.contratos.length > 0 ? (
+          <div className="pt-2.5 border-t border-slate-100">
+            <button
+              type="button"
+              onClick={() => setEspaciosAbiertos(!espaciosAbiertos)}
+              className={`w-full px-3 py-2 rounded-xl border flex items-center justify-between text-xs font-bold transition-all cursor-pointer shadow-2xs active:translate-y-0.5 ${
+                espaciosAbiertos
+                  ? "bg-emerald-50/90 border-emerald-300 text-[#175E38] shadow-xs"
+                  : "bg-slate-50/80 hover:bg-slate-100/80 border-slate-200/90 text-slate-700"
+              }`}
+              aria-expanded={espaciosAbiertos}
+              title={espaciosAbiertos ? "Ocultar espacios en posesión" : "Ver espacios en posesión"}
+            >
+              <div className="flex items-center gap-2">
+                <div
+                  className={`w-6 h-6 rounded-lg flex items-center justify-center shrink-0 transition-colors ${
+                    espaciosAbiertos
+                      ? "bg-[#175E38] text-white"
+                      : "bg-emerald-100/80 text-[#175E38]"
+                  }`}
                 >
-                  <div className="flex items-center gap-2 min-w-0">
-                    <div className="w-7 h-7 rounded-lg bg-emerald-50 text-[#175E38] border border-emerald-200/70 flex items-center justify-center shrink-0 group-hover/spacebtn:scale-105 group-hover/spacebtn:bg-[#175E38] group-hover/spacebtn:text-white transition-all">
-                      <Store className="w-3.5 h-3.5" />
-                    </div>
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-1.5">
-                        <span className="font-extrabold text-xs text-slate-900 font-heading">
-                          Espacio {c.unidad.codigo}
-                        </span>
-                        <span className="text-[10px] font-mono font-bold text-slate-400">
-                          ({c.codigo})
-                        </span>
-                      </div>
-                      <p className="text-[10px] font-medium text-slate-500 truncate" title={c.unidad.propiedad.nombre}>
-                        {c.unidad.propiedad.nombre}
-                      </p>
-                    </div>
-                  </div>
+                  <Store className="w-3.5 h-3.5" />
+                </div>
+                <span>Espacios en posesión ({inq.contratos.length})</span>
+              </div>
+              <div className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-500">
+                <span>{espaciosAbiertos ? "Ocultar" : "Ver"}</span>
+                <ChevronDown
+                  className={`w-3.5 h-3.5 transition-transform duration-300 ${
+                    espaciosAbiertos ? "rotate-180 text-[#175E38]" : "text-slate-400"
+                  }`}
+                />
+              </div>
+            </button>
 
-                  <div className="flex items-center gap-1 text-[10px] font-bold text-[#175E38] group-hover/spacebtn:text-[#124b2d] bg-white group-hover/spacebtn:bg-emerald-50 px-2 py-1 rounded-md border border-slate-200/80 group-hover/spacebtn:border-emerald-300 shrink-0 shadow-2xs transition-all">
-                    <span>Ver</span>
-                    <ArrowUpRight className="w-3 h-3 group-hover/spacebtn:translate-x-0.5 group-hover/spacebtn:-translate-y-0.5 transition-transform" />
-                  </div>
-                </button>
-              ))}
-              {inq.contratos.length > 2 && (
-                <button
-                  type="button"
-                  onClick={() => onVerFicha(inq)}
-                  className="text-[10px] font-bold text-slate-500 hover:text-slate-800 transition-colors block text-center w-full pt-0.5 cursor-pointer"
-                >
-                  +{inq.contratos.length - 2} espacios más en ficha técnica →
-                </button>
-              )}
+            {/* Transición CSS Grid Row ultra fluida */}
+            <div
+              className={`grid transition-all duration-300 ease-in-out ${
+                espaciosAbiertos
+                  ? "grid-rows-[1fr] opacity-100 mt-2"
+                  : "grid-rows-[0fr] opacity-0 pointer-events-none"
+              }`}
+            >
+              <div className="overflow-hidden space-y-1.5 max-h-56 overflow-y-auto pr-0.5">
+                {inq.contratos.map((c) => (
+                  <button
+                    key={c.id}
+                    type="button"
+                    onClick={() => router.push(`/admin/contratos?search=${encodeURIComponent(c.codigo)}`)}
+                    title={`Ir al contrato ${c.codigo} del espacio ${c.unidad.codigo}`}
+                    className="w-full text-left p-2 rounded-xl border border-slate-200/90 bg-gradient-to-r from-slate-50/80 via-white to-slate-50/60 hover:from-emerald-50/50 hover:to-white hover:border-emerald-300 transition-all duration-200 flex items-center justify-between gap-2 group/spacebtn cursor-pointer shadow-2xs hover:shadow-xs active:translate-y-0.5"
+                  >
+                    <div className="flex items-center gap-2 min-w-0">
+                      <div className="w-7 h-7 rounded-lg bg-emerald-50 text-[#175E38] border border-emerald-200/70 flex items-center justify-center shrink-0 group-hover/spacebtn:scale-105 group-hover/spacebtn:bg-[#175E38] group-hover/spacebtn:text-white transition-all">
+                        <Store className="w-3.5 h-3.5" />
+                      </div>
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-1.5">
+                          <span className="font-extrabold text-xs text-slate-900 font-heading">
+                            Espacio {c.unidad.codigo}
+                          </span>
+                          <span className="text-[10px] font-mono font-bold text-slate-400">
+                            ({c.codigo})
+                          </span>
+                        </div>
+                        <p className="text-[10px] font-medium text-slate-500 truncate" title={c.unidad.propiedad.nombre}>
+                          {c.unidad.propiedad.nombre}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-1 text-[10px] font-bold text-[#175E38] group-hover/spacebtn:text-[#124b2d] bg-white group-hover/spacebtn:bg-emerald-50 px-2 py-1 rounded-md border border-slate-200/80 group-hover/spacebtn:border-emerald-300 shrink-0 shadow-2xs transition-all">
+                      <span>Ver</span>
+                      <ArrowUpRight className="w-3 h-3 group-hover/spacebtn:translate-x-0.5 group-hover/spacebtn:-translate-y-0.5 transition-transform" />
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="pt-2.5 border-t border-slate-100">
+            <div className="w-full px-3 py-2 rounded-xl border border-slate-200/70 bg-slate-50/60 flex items-center justify-between text-xs text-slate-500 select-none">
+              <div className="flex items-center gap-2">
+                <div className="w-6 h-6 rounded-lg bg-slate-200/70 text-slate-400 flex items-center justify-center shrink-0">
+                  <Store className="w-3.5 h-3.5" />
+                </div>
+                <span className="font-semibold text-slate-600">Espacios en posesión</span>
+              </div>
+              <span className="text-[10px] font-bold text-slate-400 bg-white px-2 py-0.5 rounded-md border border-slate-200/80">
+                0 activos
+              </span>
             </div>
           </div>
         )}
       </div>
 
       {/* Footer 50/50: Ver Ficha y Crear Contrato */}
-      <div className="border-t border-slate-100 bg-gradient-to-b from-slate-50/70 to-slate-100/60 p-3 sm:p-3.5 grid grid-cols-2 gap-2 relative z-10">
+      <div className="border-t border-slate-100 bg-gradient-to-b from-slate-50/70 to-slate-100/60 p-3 sm:p-3.5 grid grid-cols-2 gap-2 relative z-10 mt-auto">
         <button
           type="button"
           onClick={() => onVerFicha(inq)}
