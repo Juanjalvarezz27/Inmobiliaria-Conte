@@ -1,4 +1,10 @@
 import React from "react";
+import {
+  formatearFechaNumerica,
+  formatearFechaEspanol,
+  formatearHora12,
+  formatearFechaLarga as dateUtilsFechaLarga,
+} from "./date-utils";
 
 // Formateador de moneda en USD (sin decimales para cánones enteros, ej: $150)
 export function formatCurrency(val: number | null | undefined): string {
@@ -30,6 +36,55 @@ export function getWhatsAppUrl(phone: string | null | undefined, text?: string):
     return `${base}?text=${encodeURIComponent(text)}`;
   }
   return base;
+}
+
+// Formateador estándar de montos en Dólares Americanos (ej: "$150.00 USD")
+export function formatUSD(monto: number | null | undefined): string {
+  if (monto === null || monto === undefined || isNaN(monto)) return "$0.00 USD";
+  const num = Number(monto);
+  const formatted = new Intl.NumberFormat("en-US", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(num);
+  return `$${formatted} USD`;
+}
+
+// Formateador estándar de montos en Bolívares (ej: "Bs. 5.420,50")
+export function formatBS(monto: number | null | undefined): string {
+  if (monto === null || monto === undefined || isNaN(monto)) return "Bs. 0,00";
+  const num = Number(monto);
+  const formatted = new Intl.NumberFormat("es-VE", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(num);
+  return `Bs. ${formatted}`;
+}
+
+// Formateador de fecha del día en español institucional determinista
+// Ej: "Jueves, 29 de Octubre de 2026"
+export function formatFechaHoy(): string {
+  return dateUtilsFechaLarga(new Date());
+}
+
+// Formateador de fecha corta determinista (DD/MM/YYYY)
+export function formatFechaCorta(fecha: Date | string | null | undefined): string {
+  if (!fecha) return "No registrada";
+  const str = typeof fecha === "string" ? fecha : fecha.toISOString();
+  return formatearFechaNumerica(str);
+}
+
+// Formateador de fecha larga formal determinista (ej: "29 de Octubre de 2026")
+export function formatFechaLarga(fecha: Date | string | null | undefined): string {
+  if (!fecha) return "No registrada";
+  const str = typeof fecha === "string" ? fecha : fecha.toISOString();
+  return formatearFechaEspanol(str);
+}
+
+// Formateador de hora en formato 12 horas determinista
+export function formatHora12(fecha: Date | string | null | undefined): string {
+  if (!fecha) return "--:--";
+  const str = typeof fecha === "string" ? fecha : fecha.toISOString();
+  return formatearHora12(str);
 }
 
 // Icono SVG oficial de WhatsApp

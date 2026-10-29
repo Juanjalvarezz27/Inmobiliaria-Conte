@@ -11,7 +11,10 @@ import {
   PrioridadTarea,
   EstadoTarea,
   Rol,
+  Prisma,
 } from "@prisma/client";
+import { PaginationParams, PaginatedResult } from "@/types/pagination";
+import { resolvePagination, createPaginatedResponse } from "@/lib/pagination-helper";
 import type {
   PersonalDashboardData,
   EmpleadoItem,
@@ -272,7 +275,6 @@ export async function getPersonalData(): Promise<PersonalDashboardData> {
     asistenciasStatsRaw,
   ] = await Promise.all([
     prisma.empleado.findMany({
-      take: 100,
       include: {
         propiedad: {
           select: {
@@ -333,7 +335,6 @@ export async function getPersonalData(): Promise<PersonalDashboardData> {
         },
       },
       orderBy: { horaEntrada: "desc" },
-      take: 200,
     }),
     prisma.tareaEmpleado.findMany({
       include: {
@@ -351,7 +352,6 @@ export async function getPersonalData(): Promise<PersonalDashboardData> {
         },
       },
       orderBy: [{ estado: "asc" }, { createdAt: "desc" }],
-      take: 200,
     }),
     prisma.propiedad.findMany({
       where: { activo: true },
@@ -1071,17 +1071,24 @@ export async function eliminarTareaAction(tareaId: string) {
 }
 
 // Obtener historial completo de asistencias e inasistencias de un trabajador
-export async function obtenerHistorialAsistenciaEmpleadoAction(empleadoId: string) {
+export async function obtenerHistorialAsistenciaEmpleadoAction(
+  empleadoId: string,
+  params?: PaginationParams
+) {
   try {
-    const [empleado, registros] = await Promise.all([
+    const { page, pageSize, skip, take } = resolvePagination(params, 50);
+
+    const [empleado, total, registros] = await Promise.all([
       prisma.empleado.findUnique({
         where: { id: empleadoId },
         select: { fechaIngreso: true, createdAt: true },
       }),
+      prisma.registroAsistencia.count({ where: { empleadoId } }),
       prisma.registroAsistencia.findMany({
         where: { empleadoId },
         orderBy: { fecha: "desc" },
-        take: 200,
+        skip: params?.page ? skip : 0,
+        take: params?.pageSize ? take : undefined,
       }),
     ]);
 
@@ -1140,11 +1147,18 @@ export async function obtenerHistorialAsistenciaEmpleadoAction(empleadoId: strin
       data.sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime());
     }
 
-    return { success: true, data };
+    return {
+      success: true,
+      data,
+      total,
+      page,
+      pageSize,
+      totalPages: Math.max(1, Math.ceil(total / pageSize)),
+    };
   } catch (error: unknown) {
     console.error("Error en obtenerHistorialAsistenciaEmpleadoAction:", error);
     const msg = error instanceof Error ? error.message : "Error al cargar el historial";
-    return { success: false, error: msg, data: [] };
+    return { success: false, error: msg, data: [], total: 0, page: 1, pageSize: 50, totalPages: 1 };
   }
 }
 
@@ -1159,4 +1173,175 @@ export async function sincronizarInasistenciasAction() {
     const msg = error instanceof Error ? error.message : "Error al sincronizar";
     return { success: false, error: msg };
   }
+}
+
+// Filtros para consulta paginada de asistencias
+export interface FiltrosAsistenciaPersonal extends PaginationParams {
+  empleadoId?: string;
+  estado?: EstadoAsistencia;
+  fecha?: string;
+}
+
+// Consulta paginada real en servidor para historial de asistencias
+export async function getAsistenciasPaginadasAction(
+  filtros: FiltrosAsistenciaPersonal = {}
+): Promise<PaginatedResult<RegistroAsistenciaItem>> {
+  const session = await auth();
+  if (!session?.user?.id) throw new Error("No autenticado");
+
+  const { page, pageSize, skip, take } = resolvePagination(filtros, 15);
+  const where: Prisma.RegistroAsistenciaWhereInput = {};
+
+  if (filtros.empleadoId && filtros.empleadoId !== "TODOS") {
+    where.empleadoId = filtros.empleadoId;
+  }
+
+  if (filtros.estado) {
+    where.estado = filtros.estado;
+  }
+
+  if (filtros.fecha) {
+    const [y, m, d] = filtros.fecha.split("-").map(Number);
+    if (y && m && d) {
+      const inicio = new Date(y, m - 1, d, 0, 0, 0);
+      const fin = new Date(y, m - 1, d, 23, 59, 59, 999);
+      where.fecha = { gte: inicio, lte: fin };
+    }
+  }
+
+  if (filtros.search && filtros.search.trim()) {
+    const q = filtros.search.trim();
+    where.empleado = {
+      OR: [
+        { nombre: { contains: q, mode: "insensitive" } },
+        { apellido: { contains: q, mode: "insensitive" } },
+        { cedula: { contains: q, mode: "insensitive" } },
+      ],
+    };
+  }
+
+  const [total, registros] = await prisma.$transaction([
+    prisma.registroAsistencia.count({ where }),
+    prisma.registroAsistencia.findMany({
+      where,
+      skip,
+      take,
+      orderBy: [{ fecha: "desc" }, { horaEntrada: "desc" }],
+      include: {
+        empleado: {
+          select: {
+            nombre: true,
+            apellido: true,
+            cargo: true,
+          },
+        },
+      },
+    }),
+  ]);
+
+  const items: RegistroAsistenciaItem[] = registros.map((r) => ({
+    id: r.id,
+    empleadoId: r.empleadoId,
+    empleadoNombre: `${r.empleado.nombre} ${r.empleado.apellido || ""}`.trim(),
+    empleadoCargo: r.empleado.cargo,
+    fecha: r.fecha.toISOString(),
+    horaEntrada: r.horaEntrada.toISOString(),
+    horaSalida: r.horaSalida ? r.horaSalida.toISOString() : null,
+    estado: r.estado,
+    ubicacionEntrada: r.ubicacionEntrada,
+    ubicacionSalida: r.ubicacionSalida,
+    observaciones: r.observaciones,
+    createdAt: r.createdAt.toISOString(),
+  }));
+
+  return createPaginatedResponse(items, total, page, pageSize);
+}
+
+// Filtros para consulta paginada de tareas
+export interface FiltrosTareasPersonal extends PaginationParams {
+  empleadoId?: string;
+  propiedadId?: string;
+  estado?: EstadoTarea;
+  prioridad?: PrioridadTarea;
+}
+
+// Consulta paginada real en servidor para tareas asignadas
+export async function getTareasPaginadasAction(
+  filtros: FiltrosTareasPersonal = {}
+): Promise<PaginatedResult<TareaEmpleadoItem>> {
+  const session = await auth();
+  if (!session?.user?.id) throw new Error("No autenticado");
+
+  const { page, pageSize, skip, take } = resolvePagination(filtros, 15);
+  const where: Prisma.TareaEmpleadoWhereInput = {};
+
+  if (filtros.empleadoId && filtros.empleadoId !== "TODOS") {
+    where.empleadoId = filtros.empleadoId;
+  }
+
+  if (filtros.propiedadId && filtros.propiedadId !== "TODAS") {
+    where.propiedadId = filtros.propiedadId;
+  }
+
+  if (filtros.estado) {
+    where.estado = filtros.estado;
+  }
+
+  if (filtros.prioridad) {
+    where.prioridad = filtros.prioridad;
+  }
+
+  if (filtros.search && filtros.search.trim()) {
+    const q = filtros.search.trim();
+    where.OR = [
+      { titulo: { contains: q, mode: "insensitive" } },
+      { descripcion: { contains: q, mode: "insensitive" } },
+      { empleado: { nombre: { contains: q, mode: "insensitive" } } },
+    ];
+  }
+
+  const [total, tareasRaw] = await prisma.$transaction([
+    prisma.tareaEmpleado.count({ where }),
+    prisma.tareaEmpleado.findMany({
+      where,
+      skip,
+      take,
+      orderBy: [{ estado: "asc" }, { createdAt: "desc" }],
+      include: {
+        empleado: {
+          select: {
+            nombre: true,
+            apellido: true,
+            cargo: true,
+          },
+        },
+        propiedad: {
+          select: {
+            nombre: true,
+          },
+        },
+      },
+    }),
+  ]);
+
+  const items: TareaEmpleadoItem[] = tareasRaw.map((t) => ({
+    id: t.id,
+    titulo: t.titulo,
+    descripcion: t.descripcion,
+    empleadoId: t.empleadoId,
+    empleadoNombre: `${t.empleado.nombre} ${t.empleado.apellido || ""}`.trim(),
+    empleadoCargo: t.empleado.cargo,
+    propiedadId: t.propiedadId,
+    propiedadNombre: t.propiedad?.nombre || null,
+    prioridad: t.prioridad,
+    estado: t.estado,
+    fechaLimite: t.fechaLimite ? t.fechaLimite.toISOString() : null,
+    fechaCompletada: t.fechaCompletada ? t.fechaCompletada.toISOString() : null,
+    evidencias: t.evidencias,
+    notasResolucion: t.notasResolucion,
+    requiereEvidencia: t.requiereEvidencia,
+    createdAt: t.createdAt.toISOString(),
+  }));
+
+  return createPaginatedResponse(items, total, page, pageSize);
 }

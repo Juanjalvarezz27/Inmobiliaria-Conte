@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { EstadoContrato, EstadoPago, MetodoPago, Prisma, TransaccionPago } from "@prisma/client";
 import { eliminarArchivosUploadThing } from "@/lib/uploadthing-server";
+import { getPropiedadesOpciones } from "./propiedades";
 import type { PagoItem, EstadisticasCobranza } from "@/app/admin/cobranza/types";
 
 const PAGE_SIZE = 20;
@@ -357,6 +358,30 @@ export async function sincronizarCuotasMes(mes: number, ano: number) {
   }
 }
 
+// Conteo de pagos por inmueble delegado a PostgreSQL para evitar transferir objetos por red
+async function obtenerConteoPagosPorPropiedad(mes: number, ano: number): Promise<Record<string, number>> {
+  try {
+    const rows = await prisma.$queryRaw<Array<{ propiedadId: string; count: number }>>`
+      SELECT u."propiedadId", COUNT(p.id)::int as count
+      FROM pagos p
+      JOIN contratos c ON p."contratoId" = c.id
+      JOIN unidades u ON c."unidadId" = u.id
+      WHERE p."periodoMes" = ${mes} AND p."periodoAno" = ${ano}
+      GROUP BY u."propiedadId"
+    `;
+    const conteo: Record<string, number> = {};
+    for (const r of rows) {
+      if (r.propiedadId) {
+        conteo[r.propiedadId] = Number(r.count);
+      }
+    }
+    return conteo;
+  } catch (err) {
+    console.error("Aviso al consultar agregadosPorPropiedad en SQL:", err);
+    return {};
+  }
+}
+
 /**
  * Consulta de cobranzas con filtros, orden y estadísticas
  */
@@ -450,25 +475,7 @@ export async function getPagosCobranza({
         _count: { id: true },
       }),
       // Conteo por propiedad para selector de filtro directamente en SQL (sin transferir filas completas por red)
-      prisma.$queryRaw<Array<{ propiedadId: string; count: number }>>`
-        SELECT u."propiedadId", COUNT(p.id)::int as count
-        FROM pagos p
-        JOIN contratos c ON p."contratoId" = c.id
-        JOIN unidades u ON c."unidadId" = u.id
-        WHERE p."periodoMes" = ${mes} AND p."periodoAno" = ${ano}
-        GROUP BY u."propiedadId"
-      `.then((rows) => {
-        const conteo: Record<string, number> = {};
-        for (const r of rows) {
-          if (r.propiedadId) {
-            conteo[r.propiedadId] = Number(r.count);
-          }
-        }
-        return conteo;
-      }).catch((err) => {
-        console.error("Aviso al consultar agregadosPorPropiedad en SQL:", err);
-        return {};
-      }),
+      obtenerConteoPagosPorPropiedad(mes, ano),
     ]);
 
     // Fallback reactivo: si no se forzó sincronización y el mes no tenía cuotas generadas, sincronizar al vuelo
@@ -493,29 +500,7 @@ export async function getPagosCobranza({
             _sum: { montoEsperado: true, montoPagado: true },
             _count: { id: true },
           }),
-          prisma.pago.findMany({
-            where: whereMesGlobal,
-            select: {
-              contrato: {
-                select: {
-                  unidad: {
-                    select: {
-                      propiedadId: true,
-                    },
-                  },
-                },
-              },
-            },
-          }).then((pagosMes) => {
-            const conteo: Record<string, number> = {};
-            for (const p of pagosMes) {
-              const propId = p.contrato?.unidad?.propiedadId;
-              if (propId) {
-                conteo[propId] = (conteo[propId] || 0) + 1;
-              }
-            }
-            return conteo;
-          }),
+          obtenerConteoPagosPorPropiedad(mes, ano),
         ]);
       }
     }
@@ -869,19 +854,10 @@ export async function anularPago(pagoId: string) {
 }
 
 /**
- * Obtiene lista reducida de propiedades para selector de filtros
+ * Obtiene lista reducida de propiedades para selector de filtros (aprovecha la caché Edge)
  */
 export async function getPropiedadesCobranzaOpciones() {
-  try {
-    return await prisma.propiedad.findMany({
-      select: { id: true, nombre: true, ciudad: true, tipo: true },
-      orderBy: { nombre: "asc" },
-      take: 100,
-    });
-  } catch (error) {
-    console.error("Error al obtener opciones de propiedades:", error);
-    return [];
-  }
+  return await getPropiedadesOpciones();
 }
 
 /**

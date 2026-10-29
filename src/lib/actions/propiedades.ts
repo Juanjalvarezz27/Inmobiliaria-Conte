@@ -1,7 +1,7 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag, unstable_cache } from "next/cache";
 import { Prisma, TipoPropiedad, TipoUnidad, EstadoContrato, EstadoUnidad } from "@prisma/client";
 import { eliminarArchivosUploadThing } from "@/lib/uploadthing-server";
 
@@ -61,7 +61,6 @@ export async function getPropiedades() {
           select: { unidades: true },
         },
       },
-      take: 100,
     });
   } catch (error) {
     console.error("Error al obtener propiedades:", error);
@@ -147,6 +146,7 @@ export async function createPropiedad(data: CreatePropiedadInput) {
       });
 
       revalidatePath("/admin/propiedades");
+      revalidateTag("propiedades-catalogo", "max");
       return { success: true, data: result };
     }
 
@@ -166,6 +166,7 @@ export async function createPropiedad(data: CreatePropiedadInput) {
     });
 
     revalidatePath("/admin/propiedades");
+    revalidateTag("propiedades-catalogo", "max");
     return { success: true, data: nuevaPropiedad };
   } catch (error) {
     console.error("Error al crear propiedad:", error);
@@ -193,6 +194,7 @@ export async function updatePropiedad(id: string, data: UpdatePropiedadInput) {
     });
 
     revalidatePath("/admin/propiedades");
+    revalidateTag("propiedades-catalogo", "max");
     return { success: true, data: actualizada };
   } catch (error) {
     console.error("Error al actualizar propiedad:", error);
@@ -256,6 +258,7 @@ export async function deletePropiedad(id: string) {
       revalidatePath("/admin/propiedades");
       revalidatePath("/admin/contratos");
       revalidatePath("/admin/cobranza");
+      revalidateTag("propiedades-catalogo", "max");
 
       return {
         success: true,
@@ -277,6 +280,7 @@ export async function deletePropiedad(id: string) {
 
     revalidatePath("/admin/propiedades");
     revalidatePath("/admin/contratos");
+    revalidateTag("propiedades-catalogo", "max");
 
     return {
       success: true,
@@ -299,6 +303,7 @@ export async function reactivarPropiedad(id: string) {
 
     revalidatePath("/admin/propiedades");
     revalidatePath("/admin/contratos");
+    revalidateTag("propiedades-catalogo", "max");
 
     return {
       success: true,
@@ -310,10 +315,11 @@ export async function reactivarPropiedad(id: string) {
   }
 }
 
-// Obtener lista reducida de propiedades para selectores y filtros (ultra ligero)
-export async function getPropiedadesOpciones() {
-  try {
+// Consulta en caché Edge para opciones de inmuebles (1 hora de TTL o revalidación inmediata por tag)
+export const getPropiedadesOpcionesCached = unstable_cache(
+  async () => {
     return await prisma.propiedad.findMany({
+      where: { activo: true },
       select: {
         id: true,
         nombre: true,
@@ -321,8 +327,19 @@ export async function getPropiedadesOpciones() {
         tipo: true,
       },
       orderBy: { nombre: "asc" },
-      take: 200,
     });
+  },
+  ["catalogo-propiedades-opciones"],
+  {
+    revalidate: 3600,
+    tags: ["propiedades-catalogo"],
+  }
+);
+
+// Obtener lista reducida de propiedades para selectores y filtros (ultra ligero con Edge Cache)
+export async function getPropiedadesOpciones() {
+  try {
+    return await getPropiedadesOpcionesCached();
   } catch (error) {
     console.error("Error al obtener opciones de propiedades:", error);
     return [];

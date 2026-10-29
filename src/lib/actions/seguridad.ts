@@ -11,6 +11,9 @@ import {
   type SeguridadDashboardData,
 } from "@/lib/types/seguridad";
 import { formatearHora12, formatearFechaCorta } from "@/lib/date-utils";
+import { PaginationParams, PaginatedResult } from "@/types/pagination";
+import { resolvePagination, createPaginatedResponse } from "@/lib/pagination-helper";
+import { Prisma } from "@prisma/client";
 
 // Esquema de validación para registro de incidencias
 const registrarIncidenciaSchema = z.object({
@@ -374,27 +377,58 @@ export async function eliminarIncidenciaAction(
   }
 }
 
-// 4. Obtener datos para la vista ejecutiva de Auditoría (Admin)
-export async function getSeguridadDashboardDataAction(): Promise<SeguridadDashboardData> {
+// Filtros estructurados para consulta paginada de novedades
+export interface FiltrosNovedades extends PaginationParams {
+  propiedadId?: string;
+  categoria?: CategoriaNovedad;
+  fecha?: string;
+}
+
+// Consulta paginada real en servidor para bitácora e incidencias
+export async function getNovedadesPaginadasAction(
+  filtros: FiltrosNovedades = {}
+): Promise<PaginatedResult<IncidenciaItem>> {
   const session = await auth();
-  if (!session?.user?.id || session.user.rol !== "ADMIN") {
-    throw new Error("Acceso restringido para administradores");
+  if (!session?.user?.id) {
+    throw new Error("No autenticado");
   }
 
-  const ahora = new Date();
-  const inicioMes = new Date(ahora.getFullYear(), ahora.getMonth(), 1, 0, 0, 0);
-  const inicioHoy = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate(), 0, 0, 0);
+  const { page, pageSize, skip, take } = resolvePagination(filtros, 15);
+  const where: Prisma.NovedadMinutaWhereInput = {};
 
-  const [propiedades, novedades] = await Promise.all([
-    prisma.propiedad.findMany({
-      where: { activo: true },
-      select: { id: true, nombre: true, ciudad: true },
-      orderBy: { nombre: "asc" },
-    }),
+  if (filtros.propiedadId && filtros.propiedadId !== "TODOS") {
+    where.minuta = { propiedadId: filtros.propiedadId };
+  }
+
+  if (filtros.categoria && (filtros.categoria as string) !== "TODOS") {
+    where.categoria = filtros.categoria;
+  }
+
+  if (filtros.fecha) {
+    const [y, m, d] = filtros.fecha.split("-").map(Number);
+    if (y && m && d) {
+      const inicio = new Date(y, m - 1, d, 0, 0, 0);
+      const fin = new Date(y, m - 1, d, 23, 59, 59, 999);
+      where.hora = { gte: inicio, lte: fin };
+    }
+  }
+
+  if (filtros.search && filtros.search.trim()) {
+    const q = filtros.search.trim();
+    where.OR = [
+      { titulo: { contains: q, mode: "insensitive" } },
+      { descripcion: { contains: q, mode: "insensitive" } },
+      { minuta: { empleado: { nombre: { contains: q, mode: "insensitive" } } } },
+    ];
+  }
+
+  const [total, novedades] = await prisma.$transaction([
+    prisma.novedadMinuta.count({ where }),
     prisma.novedadMinuta.findMany({
-      where: {
-        hora: { gte: inicioMes },
-      },
+      where,
+      skip,
+      take,
+      orderBy: { hora: "desc" },
       include: {
         minuta: {
           include: {
@@ -403,16 +437,15 @@ export async function getSeguridadDashboardDataAction(): Promise<SeguridadDashbo
           },
         },
       },
-      orderBy: { hora: "desc" },
     }),
   ]);
 
-  const incidencias: IncidenciaItem[] = novedades.map((n) => ({
+  const items: IncidenciaItem[] = novedades.map((n) => ({
     id: n.id,
     propiedadId: n.minuta.propiedad?.id || "",
     propiedadNombre: n.minuta.propiedad?.nombre || "Sin Inmueble",
     empleadoId: n.minuta.empleado.id,
-    empleadoNombre: `${n.minuta.empleado.nombre} ${n.minuta.empleado.apellido}`,
+    empleadoNombre: `${n.minuta.empleado.nombre} ${n.minuta.empleado.apellido || ""}`.trim(),
     empleadoCedula: n.minuta.empleado.cedula,
     empleadoTelefono: n.minuta.empleado.telefono,
     fecha: n.hora.toISOString(),
@@ -425,13 +458,74 @@ export async function getSeguridadDashboardDataAction(): Promise<SeguridadDashbo
     createdAt: n.createdAt.toISOString(),
   }));
 
-  const incidenciasHoy = incidencias.filter(
-    (i) => new Date(i.fecha) >= inicioHoy
-  ).length;
+  return createPaginatedResponse(items, total, page, pageSize);
+}
 
-  const propiedadesUnicas = new Set(
-    incidencias.map((i) => i.propiedadId).filter(Boolean)
-  ).size;
+// 4. Obtener datos para la vista ejecutiva de Auditoría (Admin) con métricas en SQL
+export async function getSeguridadDashboardDataAction(): Promise<SeguridadDashboardData> {
+  const session = await auth();
+  if (!session?.user?.id || session.user.rol !== "ADMIN") {
+    throw new Error("Acceso restringido para administradores");
+  }
+
+  const ahora = new Date();
+  const inicioMes = new Date(ahora.getFullYear(), ahora.getMonth(), 1, 0, 0, 0);
+  const inicioHoy = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate(), 0, 0, 0);
+
+  // Ejecución concurrente con conteos delegados a PostgreSQL
+  const [propiedades, totalIncidenciasMes, incidenciasHoy, gruposPropiedad, novedadesRecientes] =
+    await Promise.all([
+      prisma.propiedad.findMany({
+        where: { activo: true },
+        select: { id: true, nombre: true, ciudad: true },
+        orderBy: { nombre: "asc" },
+      }),
+      prisma.novedadMinuta.count({
+        where: { hora: { gte: inicioMes } },
+      }),
+      prisma.novedadMinuta.count({
+        where: { hora: { gte: inicioHoy } },
+      }),
+      prisma.minutaGuardia.groupBy({
+        by: ["propiedadId"],
+        where: {
+          fecha: { gte: inicioMes },
+          propiedadId: { not: null },
+        },
+      }),
+      prisma.novedadMinuta.findMany({
+        where: {
+          hora: { gte: inicioHoy },
+        },
+        include: {
+          minuta: {
+            include: {
+              propiedad: { select: { id: true, nombre: true } },
+              empleado: { select: { id: true, nombre: true, apellido: true, cedula: true, telefono: true } },
+            },
+          },
+        },
+        orderBy: { hora: "desc" },
+      }),
+    ]);
+
+  const incidencias: IncidenciaItem[] = novedadesRecientes.map((n) => ({
+    id: n.id,
+    propiedadId: n.minuta.propiedad?.id || "",
+    propiedadNombre: n.minuta.propiedad?.nombre || "Sin Inmueble",
+    empleadoId: n.minuta.empleado.id,
+    empleadoNombre: `${n.minuta.empleado.nombre} ${n.minuta.empleado.apellido || ""}`.trim(),
+    empleadoCedula: n.minuta.empleado.cedula,
+    empleadoTelefono: n.minuta.empleado.telefono,
+    fecha: n.hora.toISOString(),
+    horaFormateada: formatearHora12(n.hora.toISOString()),
+    fechaFormateada: formatearFechaCorta(n.hora.toISOString()),
+    categoria: n.categoria as CategoriaNovedad,
+    titulo: n.titulo,
+    descripcion: n.descripcion,
+    fotos: n.fotos || [],
+    createdAt: n.createdAt.toISOString(),
+  }));
 
   const fotosRegistradas = incidencias.reduce(
     (acc, curr) => acc + (curr.fotos?.length || 0),
@@ -441,9 +535,9 @@ export async function getSeguridadDashboardDataAction(): Promise<SeguridadDashbo
   return {
     incidencias,
     metricas: {
-      totalIncidenciasMes: incidencias.length,
+      totalIncidenciasMes,
       incidenciasHoy,
-      propiedadesReportadas: propiedadesUnicas,
+      propiedadesReportadas: gruposPropiedad.length,
       fotosRegistradas,
     },
     propiedades,

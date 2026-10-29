@@ -4,6 +4,8 @@ import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { Prisma, EstadoUnidad, TipoUnidad, EstadoContrato } from "@prisma/client";
 import { eliminarArchivosUploadThing } from "@/lib/uploadthing-server";
+import { PaginationParams, PaginatedResult } from "@/types/pagination";
+import { resolvePagination, createPaginatedResponse } from "@/lib/pagination-helper";
 
 export interface CreateUnidadInput {
   codigo: string;
@@ -83,6 +85,51 @@ const UNIDAD_SELECT = Prisma.validator<Prisma.UnidadSelect>()({
   },
 });
 
+// Filtros para consulta paginada de unidades
+export interface FiltrosUnidades extends PaginationParams {
+  propiedadId?: string;
+  estado?: EstadoUnidad;
+  tipo?: TipoUnidad;
+}
+
+// Consulta paginada real en servidor para unidades (sin tope de take: 300)
+export async function getUnidadesPaginadasAction(
+  filtros: FiltrosUnidades = {}
+): Promise<PaginatedResult<any>> {
+  const { page, pageSize, skip, take } = resolvePagination(filtros, 15);
+  const where: Prisma.UnidadWhereInput = {};
+
+  if (filtros.propiedadId && filtros.propiedadId !== "TODAS") {
+    where.propiedadId = filtros.propiedadId;
+  }
+  if (filtros.estado) {
+    where.estado = filtros.estado;
+  }
+  if (filtros.tipo) {
+    where.tipo = filtros.tipo;
+  }
+  if (filtros.search && filtros.search.trim()) {
+    const q = filtros.search.trim();
+    where.OR = [
+      { codigo: { contains: q, mode: "insensitive" } },
+      { descripcion: { contains: q, mode: "insensitive" } },
+    ];
+  }
+
+  const [total, unidades] = await prisma.$transaction([
+    prisma.unidad.count({ where }),
+    prisma.unidad.findMany({
+      where,
+      orderBy: { createdAt: "desc" },
+      select: UNIDAD_SELECT,
+      skip,
+      take,
+    }),
+  ]);
+
+  return createPaginatedResponse(unidades, total, page, pageSize);
+}
+
 // Obtener todas las unidades (opcionalmente filtradas por propiedad) optimizado
 export async function getUnidades(propiedadId?: string) {
   try {
@@ -90,7 +137,6 @@ export async function getUnidades(propiedadId?: string) {
       where: propiedadId ? { propiedadId } : undefined,
       orderBy: { createdAt: "desc" },
       select: UNIDAD_SELECT,
-      take: 300,
     });
   } catch (error) {
     console.error("Error al obtener unidades:", error);

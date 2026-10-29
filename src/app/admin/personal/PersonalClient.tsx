@@ -11,22 +11,14 @@ import {
   Layers,
   FileCheck2,
   Building2,
-  LogOut,
-  Power,
   Briefcase,
 } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/ui/page-header";
 import { StatCard } from "@/components/ui/stat-card";
 import { FilterDropdown, type FilterDropdownOption } from "@/components/ui/filter-dropdown";
-import { ImageViewerModal } from "@/components/ui/image-viewer-modal";
-import { ConfirmActionModal } from "@/components/ui/confirm-action-modal";
 import { CargoEmpleado, EstadoAsistencia, EstadoTarea } from "@prisma/client";
-import { EmpleadoFormModal } from "./EmpleadoFormModal";
-import { AsistenciaModal } from "./AsistenciaModal";
-import { TareaFormModal } from "./TareaFormModal";
-import { TareaDetalleModal } from "./TareaDetalleModal";
-import { EmpleadoDetalleModal } from "./EmpleadoDetalleModal";
+import { PersonalModalsContainer } from "./PersonalModalsContainer";
 import {
   CARGO_CONFIG,
   type PersonalDashboardData,
@@ -35,19 +27,6 @@ import {
   type RegistroAsistenciaItem,
 } from "./types";
 import {
-  crearEmpleadoAction,
-  actualizarEmpleadoAction,
-  toggleEstadoEmpleadoAction,
-  registrarAsistenciaAction,
-  marcarSalidaAction,
-  crearTareaAction,
-  actualizarEstadoTareaAction,
-  eliminarTareaAction,
-  type CreateEmpleadoInput,
-  type RegistrarAsistenciaInput,
-  type CreateTareaInput,
-} from "@/lib/actions/personal";
-import {
   type GrupoDirectorio,
   type GrupoAsistencia,
   type GrupoTareas,
@@ -55,6 +34,7 @@ import {
 import { PersonalDirectorioTab } from "./tabs/PersonalDirectorioTab";
 import { PersonalAsistenciaTab } from "./tabs/PersonalAsistenciaTab";
 import { PersonalTareasTab } from "./tabs/PersonalTareasTab";
+import { usePersonalMutations } from "./hooks/usePersonalMutations";
 
 interface PersonalClientProps {
   initialData: PersonalDashboardData;
@@ -279,8 +259,9 @@ export function PersonalClient({ initialData }: PersonalClientProps) {
     });
   }, [data.empleados, filtroPropiedad, filtroCargo, filtroEstado, busqueda]);
 
-  // Agrupación de empleados por Inmueble para el Directorio
+  // Agrupación de empleados por Inmueble para el Directorio (solo calculada en tab de directorio)
   const gruposDirectorio: GrupoDirectorio[] = useMemo(() => {
+    if (activeTab !== "directorio") return [];
     const mapa = new Map<string, EmpleadoItem[]>();
     for (const emp of empleadosFiltrados) {
       const key = emp.propiedadId || "GENERAL";
@@ -335,10 +316,11 @@ export function PersonalClient({ initialData }: PersonalClientProps) {
     }
 
     return resultado;
-  }, [empleadosFiltrados, data.propiedades]);
+  }, [activeTab, empleadosFiltrados, data.propiedades]);
 
-  // Filtrado de empleados para la pestaña de asistencia
+  // Filtrado de empleados para la pestaña de asistencia (solo activo en tab asistencia)
   const empleadosAsistenciaFiltrados = useMemo(() => {
+    if (activeTab !== "asistencia") return [];
     return data.empleados.filter((emp) => {
       if (!emp.activo) return false;
 
@@ -360,10 +342,11 @@ export function PersonalClient({ initialData }: PersonalClientProps) {
 
       return true;
     });
-  }, [data.empleados, filtroPropiedad, busqueda]);
+  }, [activeTab, data.empleados, filtroPropiedad, busqueda]);
 
-  // Agrupación de asistencia por Inmueble
+  // Agrupación de asistencia por Inmueble (solo calculada en tab asistencia)
   const gruposAsistencia: GrupoAsistencia[] = useMemo(() => {
+    if (activeTab !== "asistencia") return [];
     const mapa = new Map<string, EmpleadoItem[]>();
     for (const emp of empleadosAsistenciaFiltrados) {
       const key = emp.propiedadId || "GENERAL";
@@ -418,10 +401,11 @@ export function PersonalClient({ initialData }: PersonalClientProps) {
     }
 
     return resultado;
-  }, [empleadosAsistenciaFiltrados, data.propiedades]);
+  }, [activeTab, empleadosAsistenciaFiltrados, data.propiedades]);
 
-  // Filtrado de tareas
+  // Filtrado de tareas (solo activo en tab tareas)
   const tareasFiltradas = useMemo(() => {
+    if (activeTab !== "tareas") return [];
     return data.tareas.filter((t) => {
       const empAsignado = data.empleados.find((e) => e.id === t.empleadoId);
       const propIdEfectivo = t.propiedadId || empAsignado?.propiedadId || null;
@@ -447,10 +431,11 @@ export function PersonalClient({ initialData }: PersonalClientProps) {
 
       return true;
     });
-  }, [data.tareas, data.empleados, filtroPropiedad, filtroEstadoTarea, busqueda]);
+  }, [activeTab, data.tareas, data.empleados, filtroPropiedad, filtroEstadoTarea, busqueda]);
 
-  // Agrupación de tareas por Inmueble
+  // Agrupación de tareas por Inmueble (solo calculada en tab tareas)
   const gruposTareas: GrupoTareas[] = useMemo(() => {
+    if (activeTab !== "tareas") return [];
     const mapa = new Map<string, TareaEmpleadoItem[]>();
     for (const t of tareasFiltradas) {
       const empAsignado = data.empleados.find((e) => e.id === t.empleadoId);
@@ -506,7 +491,7 @@ export function PersonalClient({ initialData }: PersonalClientProps) {
     }
 
     return resultado;
-  }, [tareasFiltradas, data.propiedades, data.empleados]);
+  }, [activeTab, tareasFiltradas, data.propiedades, data.empleados]);
 
   // Abrir visor de fotos
   const handleVerFoto = (url: string) => {
@@ -515,385 +500,25 @@ export function PersonalClient({ initialData }: PersonalClientProps) {
     setImageViewerOpen(true);
   };
 
-  // Acciones de Empleado
-  const handleCrearOEditarEmpleado = async (input: CreateEmpleadoInput): Promise<boolean> => {
-    return new Promise((resolve) => {
-      startTransition(async () => {
-        try {
-          if (empleadoAEditar) {
-            const res = await actualizarEmpleadoAction(empleadoAEditar.id, input);
-            if (res.success && res.data) {
-              toast.success("Trabajador actualizado exitosamente.");
-              const propiedadActualizada = input.propiedadId
-                ? data.propiedades.find((p) => p.id === input.propiedadId) || null
-                : null;
-
-              setData((prev) => ({
-                ...prev,
-                empleados: prev.empleados.map((e) =>
-                  e.id === empleadoAEditar.id
-                    ? {
-                        ...e,
-                        ...res.data,
-                        propiedadId: res.data.propiedadId,
-                        propiedad: propiedadActualizada,
-                        fechaIngreso: res.data.fechaIngreso.toISOString(),
-                        usuarioId: res.data.usuarioId,
-                      }
-                    : e
-                ),
-              }));
-              resolve(true);
-            } else {
-              toast.error(res.error || "No se pudo actualizar el trabajador.");
-              resolve(false);
-            }
-          } else {
-            const res = await crearEmpleadoAction(input);
-            if (res.success && res.data) {
-              toast.success("Trabajador registrado exitosamente.");
-              const propiedadNueva = input.propiedadId
-                ? data.propiedades.find((p) => p.id === input.propiedadId) || null
-                : null;
-
-              const nuevoEmp: EmpleadoItem = {
-                id: res.data.id,
-                nombre: res.data.nombre,
-                apellido: res.data.apellido,
-                cedula: res.data.cedula,
-                telefono: res.data.telefono,
-                email: res.data.email,
-                direccion: res.data.direccion,
-                cargo: res.data.cargo,
-                fechaIngreso: res.data.fechaIngreso.toISOString(),
-                salarioMensual: res.data.salarioMensual,
-                activo: res.data.activo,
-                notas: res.data.notas,
-                propiedadId: res.data.propiedadId,
-                propiedad: propiedadNueva,
-                usuarioId: res.data.usuarioId,
-                asistenciaHoy: null,
-                _count: { tareas: 0, asistencias: 0 },
-                tareasPendientesCount: 0,
-                asistenciasCount: 0,
-                inasistenciasCount: 0,
-              };
-
-              setData((prev) => ({
-                ...prev,
-                empleados: [nuevoEmp, ...prev.empleados],
-                metricas: {
-                  ...prev.metricas,
-                  totalEmpleados: prev.metricas.totalEmpleados + 1,
-                  activosCount: prev.metricas.activosCount + 1,
-                },
-              }));
-              resolve(true);
-            } else {
-              toast.error(res.error || "No se pudo registrar el trabajador.");
-              resolve(false);
-            }
-          }
-        } catch (err: unknown) {
-          const msg = err instanceof Error ? err.message : "Error inesperado";
-          toast.error(msg);
-          resolve(false);
-        }
-      });
-    });
-  };
-
-  const ejecutarToggleEstado = (emp: EmpleadoItem, nuevoEstado: boolean) => {
-    startTransition(async () => {
-      const res = await toggleEstadoEmpleadoAction(emp.id, nuevoEstado);
-      if (res.success) {
-        toast.success(res.message);
-        setData((prev) => ({
-          ...prev,
-          empleados: prev.empleados.map((e) =>
-            e.id === emp.id ? { ...e, activo: nuevoEstado } : e
-          ),
-          metricas: {
-            ...prev.metricas,
-            activosCount: nuevoEstado
-              ? prev.metricas.activosCount + 1
-              : prev.metricas.activosCount - 1,
-          },
-        }));
-      } else {
-        toast.error(res.error || "No se pudo modificar el estado.");
-      }
-    });
-  };
-
-  const handleToggleEstadoEmpleado = (emp: EmpleadoItem) => {
-    if (emp.activo) {
-      setEmpleadoParaDesactivar(emp);
-    } else {
-      ejecutarToggleEstado(emp, true);
-    }
-  };
-
-  // Acciones de Asistencia
-  const handleRegistrarAsistencia = async (input: RegistrarAsistenciaInput): Promise<boolean> => {
-    return new Promise((resolve) => {
-      startTransition(async () => {
-        const res = await registrarAsistenciaAction(input);
-        if (res.success && res.data) {
-          toast.success(res.message);
-
-          const asistenciaItem: RegistroAsistenciaItem = {
-            id: res.data.id,
-            empleadoId: res.data.empleadoId,
-            fecha: res.data.fecha.toISOString(),
-            horaEntrada: res.data.horaEntrada.toISOString(),
-            horaSalida: res.data.horaSalida?.toISOString() || null,
-            estado: res.data.estado,
-            ubicacionEntrada: res.data.ubicacionEntrada,
-            ubicacionSalida: res.data.ubicacionSalida,
-            observaciones: res.data.observaciones,
-            createdAt: res.data.createdAt.toISOString(),
-          };
-
-          setData((prev) => {
-            const esAsistencia =
-              input.estado === EstadoAsistencia.PRESENTE ||
-              input.estado === EstadoAsistencia.RETARDO ||
-              input.estado === EstadoAsistencia.PERMISO;
-            const esInasistencia =
-              input.estado === EstadoAsistencia.FALTA_JUSTIFICADA ||
-              input.estado === EstadoAsistencia.FALTA_INJUSTIFICADA;
-
-            const empleadosActualizados = prev.empleados.map((e) =>
-              e.id === input.empleadoId
-                ? {
-                    ...e,
-                    asistenciaHoy: asistenciaItem,
-                    _count: {
-                      ...e._count,
-                      asistencias: e.asistenciaHoy
-                        ? e._count.asistencias
-                        : e._count.asistencias + 1,
-                    },
-                    asistenciasCount: esAsistencia
-                      ? (e.asistenciasCount ?? 0) + (e.asistenciaHoy ? 0 : 1)
-                      : e.asistenciasCount ?? 0,
-                    inasistenciasCount: esInasistencia
-                      ? (e.inasistenciasCount ?? 0) + (e.asistenciaHoy ? 0 : 1)
-                      : e.inasistenciasCount ?? 0,
-                  }
-                : e
-            );
-
-            const asistenciasActualizadas = [
-              asistenciaItem,
-              ...prev.asistenciasHoy.filter((a) => a.empleadoId !== input.empleadoId),
-            ];
-
-            const presentesCount = asistenciasActualizadas.filter(
-              (a) =>
-                a.estado === EstadoAsistencia.PRESENTE || a.estado === EstadoAsistencia.RETARDO
-            ).length;
-
-            return {
-              ...prev,
-              empleados: empleadosActualizados,
-              asistenciasHoy: asistenciasActualizadas,
-              metricas: {
-                ...prev.metricas,
-                asistieronHoyCount: presentesCount,
-              },
-            };
-          });
-
-          setEmpleadoSeleccionadoDetalle((prevDet) => {
-            if (!prevDet || prevDet.id !== input.empleadoId) return prevDet;
-            const esAsist =
-              input.estado === EstadoAsistencia.PRESENTE ||
-              input.estado === EstadoAsistencia.RETARDO ||
-              input.estado === EstadoAsistencia.PERMISO;
-            return {
-              ...prevDet,
-              asistenciasCount: esAsist
-                ? (prevDet.asistenciasCount ?? 0) + 1
-                : prevDet.asistenciasCount,
-              inasistenciasCount: !esAsist
-                ? (prevDet.inasistenciasCount ?? 0) + 1
-                : Math.max(0, (prevDet.inasistenciasCount ?? 1) - 1),
-            };
-          });
-
-          setRegistroParaAsistencia(null);
-          resolve(true);
-        } else {
-          toast.error(res.error || "Error al registrar asistencia");
-          resolve(false);
-        }
-      });
-    });
-  };
-
-  const handleMarcarSalidaRapida = (asistenciaId: string) => {
-    startTransition(async () => {
-      const res = await marcarSalidaAction(asistenciaId);
-      if (res.success && res.data) {
-        toast.success(res.message);
-        setData((prev) => ({
-          ...prev,
-          asistenciasHoy: prev.asistenciasHoy.map((a) =>
-            a.id === asistenciaId
-              ? {
-                  ...a,
-                  horaSalida: res.data.horaSalida ? res.data.horaSalida.toISOString() : null,
-                }
-              : a
-          ),
-          empleados: prev.empleados.map((e) =>
-            e.asistenciaHoy?.id === asistenciaId
-              ? {
-                  ...e,
-                  asistenciaHoy: {
-                    ...e.asistenciaHoy,
-                    horaSalida: res.data.horaSalida ? res.data.horaSalida.toISOString() : null,
-                  },
-                }
-              : e
-          ),
-        }));
-      } else {
-        toast.error(res.error || "No se pudo registrar la salida.");
-      }
-    });
-  };
-
-  // Acciones de Tareas
-  const handleCrearTarea = async (input: CreateTareaInput): Promise<boolean> => {
-    return new Promise((resolve) => {
-      startTransition(async () => {
-        const res = await crearTareaAction(input);
-        if (res.success && res.data) {
-          toast.success(res.message);
-
-          const emp = data.empleados.find((e) => e.id === input.empleadoId);
-          const prop = data.propiedades.find((p) => p.id === input.propiedadId);
-
-          const nuevaTareaItem: TareaEmpleadoItem = {
-            id: res.data.id,
-            titulo: res.data.titulo,
-            descripcion: res.data.descripcion,
-            empleadoId: res.data.empleadoId,
-            empleadoNombre: emp ? `${emp.nombre} ${emp.apellido || ""}`.trim() : "Trabajador",
-            empleadoCargo: emp ? emp.cargo : CargoEmpleado.CONSERJE,
-            propiedadId: res.data.propiedadId,
-            propiedadNombre: prop ? prop.nombre : null,
-            prioridad: res.data.prioridad,
-            estado: res.data.estado,
-            fechaLimite: res.data.fechaLimite ? res.data.fechaLimite.toISOString() : null,
-            fechaCompletada: null,
-            evidencias: res.data.evidencias,
-            notasResolucion: res.data.notasResolucion,
-            requiereEvidencia: res.data.requiereEvidencia ?? false,
-            createdAt: res.data.createdAt.toISOString(),
-          };
-
-          setData((prev) => ({
-            ...prev,
-            tareas: [nuevaTareaItem, ...prev.tareas],
-            empleados: prev.empleados.map((e) =>
-              e.id === input.empleadoId
-                ? {
-                    ...e,
-                    tareasPendientesCount: e.tareasPendientesCount + 1,
-                    _count: { ...e._count, tareas: e._count.tareas + 1 },
-                  }
-                : e
-            ),
-            metricas: {
-              ...prev.metricas,
-              tareasPendientesCount: prev.metricas.tareasPendientesCount + 1,
-            },
-          }));
-          resolve(true);
-        } else {
-          toast.error(res.error || "No se pudo asignar la tarea");
-          resolve(false);
-        }
-      });
-    });
-  };
-
-  const handleActualizarEstadoTarea = async (
-    tareaId: string,
-    estado: EstadoTarea,
-    notasResolucion?: string | null,
-    nuevasEvidencias?: string[]
-  ): Promise<boolean> => {
-    return new Promise((resolve) => {
-      startTransition(async () => {
-        const res = await actualizarEstadoTareaAction(
-          tareaId,
-          estado,
-          notasResolucion,
-          nuevasEvidencias
-        );
-        if (res.success && res.data) {
-          toast.success(res.message);
-
-          setData((prev) => {
-            const tareasActualizadas = prev.tareas.map((t) =>
-              t.id === tareaId
-                ? {
-                    ...t,
-                    estado: res.data.estado,
-                    notasResolucion: res.data.notasResolucion,
-                    evidencias: res.data.evidencias,
-                    fechaCompletada: res.data.fechaCompletada
-                      ? res.data.fechaCompletada.toISOString()
-                      : null,
-                  }
-                : t
-            );
-
-            const pendientesCount = tareasActualizadas.filter(
-              (t) => t.estado === EstadoTarea.PENDIENTE || t.estado === EstadoTarea.EN_PROCESO
-            ).length;
-
-            return {
-              ...prev,
-              tareas: tareasActualizadas,
-              metricas: {
-                ...prev.metricas,
-                tareasPendientesCount: pendientesCount,
-              },
-            };
-          });
-          resolve(true);
-        } else {
-          toast.error(res.error || "No se pudo actualizar el estado de la tarea");
-          resolve(false);
-        }
-      });
-    });
-  };
-
-  const handleEliminarTarea = async (tareaId: string): Promise<boolean> => {
-    return new Promise((resolve) => {
-      startTransition(async () => {
-        const res = await eliminarTareaAction(tareaId);
-        if (res.success) {
-          toast.success(res.message);
-          setData((prev) => ({
-            ...prev,
-            tareas: prev.tareas.filter((t) => t.id !== tareaId),
-          }));
-          resolve(true);
-        } else {
-          toast.error(res.error || "No se pudo eliminar la tarea");
-          resolve(false);
-        }
-      });
-    });
-  };
+  // Mutaciones desacopladas del módulo de Personal
+  const {
+    handleCrearOEditarEmpleado,
+    ejecutarToggleEstado,
+    handleToggleEstadoEmpleado,
+    handleRegistrarAsistencia,
+    handleMarcarSalidaRapida,
+    handleCrearTarea,
+    handleActualizarEstadoTarea,
+    handleEliminarTarea,
+  } = usePersonalMutations({
+    data,
+    setData,
+    startTransition,
+    empleadoAEditar,
+    setEmpleadoParaDesactivar,
+    setRegistroParaAsistencia,
+    setEmpleadoSeleccionadoDetalle,
+  });
 
   const handleVerTareasEmpleado = (emp: EmpleadoItem) => {
     setEmpleadoSeleccionadoDetalle(emp);
@@ -1222,171 +847,99 @@ export function PersonalClient({ initialData }: PersonalClientProps) {
         />
       )}
 
-      {/* Modales del Módulo */}
-      <EmpleadoFormModal
-        isOpen={modalEmpleadoOpen}
-        onClose={() => {
+      {/* Contenedor Modularizado de Modales y Diálogos */}
+      <PersonalModalsContainer
+        modalEmpleadoOpen={modalEmpleadoOpen}
+        onCloseModalEmpleado={() => {
           setModalEmpleadoOpen(false);
           setPropiedadPreseleccionadaEmpleado(null);
         }}
         empleadoAEditar={empleadoAEditar}
-        propiedadPreseleccionadaId={propiedadPreseleccionadaEmpleado}
+        propiedadPreseleccionadaEmpleado={propiedadPreseleccionadaEmpleado}
         propiedades={data.propiedades}
-        onSubmit={handleCrearOEditarEmpleado}
-        isLoading={isPending}
-      />
+        onSubmitEmpleado={handleCrearOEditarEmpleado}
 
-      <AsistenciaModal
-        isOpen={modalAsistenciaOpen}
-        onClose={() => {
+        modalAsistenciaOpen={modalAsistenciaOpen}
+        onCloseModalAsistencia={() => {
           setModalAsistenciaOpen(false);
           setRegistroParaAsistencia(null);
         }}
-        empleado={empleadoParaAsistencia}
-        registroEditar={registroParaAsistencia}
-        onSubmit={handleRegistrarAsistencia}
-        isLoading={isPending}
-      />
+        empleadoParaAsistencia={empleadoParaAsistencia}
+        registroParaAsistencia={registroParaAsistencia}
+        onSubmitAsistencia={handleRegistrarAsistencia}
 
-      <TareaFormModal
-        isOpen={modalTareaOpen}
-        onClose={() => {
+        modalTareaOpen={modalTareaOpen}
+        onCloseModalTarea={() => {
           setModalTareaOpen(false);
           setEmpleadoPreseleccionadoTarea(null);
           setPropiedadPreseleccionadaTarea(null);
         }}
         empleados={data.empleados}
-        propiedades={data.propiedades}
-        empleadoPreseleccionado={empleadoPreseleccionadoTarea}
-        propiedadPreseleccionadaId={propiedadPreseleccionadaTarea}
-        onSubmit={handleCrearTarea}
-        isLoading={isPending}
-      />
+        empleadoPreseleccionadoTarea={empleadoPreseleccionadoTarea}
+        propiedadPreseleccionadaTarea={propiedadPreseleccionadaTarea}
+        onSubmitTarea={handleCrearTarea}
 
-      <TareaDetalleModal
-        isOpen={modalDetalleTareaOpen}
-        onClose={() => setModalDetalleTareaOpen(false)}
-        tarea={tareaSeleccionada}
-        onActualizarEstado={handleActualizarEstadoTarea}
+        modalDetalleTareaOpen={modalDetalleTareaOpen}
+        onCloseModalDetalleTarea={() => setModalDetalleTareaOpen(false)}
+        tareaSeleccionada={tareaSeleccionada}
+        onActualizarEstadoTarea={handleActualizarEstadoTarea}
         onEliminarTarea={handleEliminarTarea}
         onVerFoto={handleVerFoto}
-        isLoading={isPending}
-      />
 
-      <EmpleadoDetalleModal
-        isOpen={modalDetalleEmpleadoOpen}
-        onClose={() => {
+        modalDetalleEmpleadoOpen={modalDetalleEmpleadoOpen}
+        onCloseModalDetalleEmpleado={() => {
           setModalDetalleEmpleadoOpen(false);
           setScrollToSeccionDetalle(null);
         }}
-        empleado={empleadoSeleccionadoDetalle}
-        scrollToSeccion={scrollToSeccionDetalle}
+        empleadoSeleccionadoDetalle={empleadoSeleccionadoDetalle}
+        scrollToSeccionDetalle={scrollToSeccionDetalle}
         tareasEmpleado={
           empleadoSeleccionadoDetalle
             ? data.tareas.filter((t) => t.empleadoId === empleadoSeleccionadoDetalle.id)
             : []
         }
-        onAsignarTarea={(emp) => {
+        onAsignarTareaDesdeDetalle={(emp) => {
           setEmpleadoPreseleccionadoTarea(emp);
           setModalTareaOpen(true);
         }}
-        onRegistrarAsistencia={(emp) => {
+        onRegistrarAsistenciaDesdeDetalle={(emp) => {
           setEmpleadoParaAsistencia(emp);
           setRegistroParaAsistencia(null);
           setModalAsistenciaOpen(true);
         }}
-        onEditarAsistencia={(emp, reg) => {
+        onEditarAsistenciaDesdeDetalle={(emp, reg) => {
           setEmpleadoParaAsistencia(emp);
           setRegistroParaAsistencia(reg);
           setModalAsistenciaOpen(true);
         }}
-        onSeleccionarTarea={(tarea) => {
+        onSeleccionarTareaDesdeDetalle={(tarea) => {
           setTareaSeleccionada(tarea);
           setModalDetalleTareaOpen(true);
         }}
-        onVerFoto={handleVerFoto}
-      />
 
-      {/* Visor de Fotos / Comprobantes */}
-      <ImageViewerModal
-        isOpen={imageViewerOpen}
-        onClose={() => setImageViewerOpen(false)}
-        images={imageViewerUrls}
-        initialIndex={imageViewerIndex}
-        title="Evidencia Fotográfica de la Labor"
-        subtitle="Fotografía tomada en campo por el trabajador de mantenimiento"
-      />
+        imageViewerOpen={imageViewerOpen}
+        onCloseImageViewer={() => setImageViewerOpen(false)}
+        imageViewerUrls={imageViewerUrls}
+        imageViewerIndex={imageViewerIndex}
 
-      {/* Modal de Confirmación: Marcar Salida */}
-      <ConfirmActionModal
-        isOpen={Boolean(asistenciaParaSalida)}
-        onClose={() => setAsistenciaParaSalida(null)}
-        onConfirm={() => {
+        asistenciaParaSalida={asistenciaParaSalida}
+        onCloseConfirmSalida={() => setAsistenciaParaSalida(null)}
+        onConfirmSalida={() => {
           if (!asistenciaParaSalida) return;
           const id = asistenciaParaSalida.id;
           setAsistenciaParaSalida(null);
           handleMarcarSalidaRapida(id);
         }}
-        title="Registrar Salida de Jornada"
-        subtitle="Confirmación de marcaje operativo"
-        variant="warning"
-        icon={LogOut}
-        description="¿Confirmas el registro de salida para este colaborador? Se guardará la hora actual como la finalización formal de su jornada laboral de hoy."
-        itemDetails={
-          asistenciaParaSalida
-            ? [
-                { label: "Colaborador", value: asistenciaParaSalida.empleadoNombre },
-                { label: "Cargo", value: CARGO_CONFIG[asistenciaParaSalida.empleadoCargo].label },
-                {
-                  label: "Hora de Entrada",
-                  value: new Date(asistenciaParaSalida.horaEntrada).toLocaleTimeString("es-VE", {
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  }),
-                },
-              ]
-            : []
-        }
-        confirmButtonText="Marcar Salida"
-        cancelButtonText="Cancelar"
-        isLoading={isPending}
-      />
 
-      {/* Modal de Confirmación: Desactivar Trabajador */}
-      <ConfirmActionModal
-        isOpen={Boolean(empleadoParaDesactivar)}
-        onClose={() => setEmpleadoParaDesactivar(null)}
-        onConfirm={() => {
+        empleadoParaDesactivar={empleadoParaDesactivar}
+        onCloseConfirmDesactivar={() => setEmpleadoParaDesactivar(null)}
+        onConfirmDesactivar={() => {
           if (!empleadoParaDesactivar) return;
           const emp = empleadoParaDesactivar;
           setEmpleadoParaDesactivar(null);
           ejecutarToggleEstado(emp, false);
         }}
-        title="Desactivar Trabajador"
-        subtitle="Suspensión de cuenta y acceso operativo"
-        variant="danger"
-        icon={Power}
-        description="¿Confirmas la desactivación de este colaborador? Se suspenderá temporalmente su acceso al portal del empleado y no se le podrán asignar nuevas órdenes de trabajo."
-        itemDetails={
-          empleadoParaDesactivar
-            ? [
-                {
-                  label: "Colaborador",
-                  value: `${empleadoParaDesactivar.nombre} ${empleadoParaDesactivar.apellido || ""}`.trim(),
-                },
-                {
-                  label: "Cédula",
-                  value: empleadoParaDesactivar.cedula,
-                },
-                {
-                  label: "Cargo",
-                  value: CARGO_CONFIG[empleadoParaDesactivar.cargo].label,
-                },
-              ]
-            : []
-        }
-        confirmButtonText="Desactivar"
-        cancelButtonText="Cancelar"
+
         isLoading={isPending}
       />
     </div>

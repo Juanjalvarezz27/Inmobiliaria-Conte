@@ -1,18 +1,31 @@
-import { ModulePlaceholder } from "@/components/layout/module-placeholder";
+import { auth } from "@/auth";
+import { redirect } from "next/navigation";
+import { getInquilinoContratosData } from "@/lib/actions/inquilinoPortal";
+import { InquilinoContratoClient } from "./InquilinoContratoClient";
+
+export const dynamic = "force-dynamic";
 
 export default async function InquilinoContratoPage() {
+  const session = await auth();
+
+  if (!session?.user) {
+    redirect("/home/login");
+  }
+
+  // Permitir solo a INQUILINO y ADMIN
+  if (session.user.rol !== "INQUILINO" && session.user.rol !== "ADMIN") {
+    redirect("/empleado/dashboard?unauthorized=inquilino");
+  }
+
+  const { contratos, esAdminModoSupervision, inquilinoNombre, documentoIdentidad } =
+    await getInquilinoContratosData();
+
   return (
-    <ModulePlaceholder
-      title="Mi Contrato de Arrendamiento"
-      role="INQUILINO"
-      iconType="contract"
-      description="Aquí podrás consultar en cualquier momento los términos y condiciones de tu contrato de alquiler."
-      features={[
-        "Ver los datos de tu local o inmueble: número, metraje y centro comercial.",
-        "Consultar el monto fijado de tu mensualidad de arrendamiento y depósito en garantía.",
-        "Revisar las fechas de inicio y vencimiento de tu contrato vigente.",
-        "Descargar una copia digital de tu contrato legal firmado en formato PDF.",
-      ]}
+    <InquilinoContratoClient
+      contratos={contratos}
+      esAdminModoSupervision={esAdminModoSupervision}
+      inquilinoNombre={inquilinoNombre}
+      documentoIdentidad={documentoIdentidad}
     />
   );
 }

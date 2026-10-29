@@ -11,6 +11,8 @@ import {
   MetodoPago,
   Prisma,
 } from "@prisma/client";
+import { PaginationParams, PaginatedResult } from "@/types/pagination";
+import { resolvePagination, createPaginatedResponse } from "@/lib/pagination-helper";
 import { eliminarDocumentosUploadThing } from "@/lib/uploadthing-server";
 
 // Esquema de validación para registrar un contrato
@@ -184,34 +186,95 @@ export async function getContratoDetalle(id: string) {
   }
 }
 
+// Filtros para consulta paginada de contratos
+export interface FiltrosContratos extends PaginationParams {
+  estado?: EstadoContrato | "TODOS";
+}
+
+// Consulta paginada real en servidor para contratos (sin tope de take: 200)
+export async function getContratosPaginadosAction(
+  filtros: FiltrosContratos = {}
+): Promise<PaginatedResult<any>> {
+  const { page, pageSize, skip, take } = resolvePagination(filtros, 15);
+  const estado = filtros.estado && filtros.estado !== "TODOS" ? filtros.estado : undefined;
+  const q = filtros.search?.trim().toLowerCase();
+
+  const where: Prisma.ContratoWhereInput = {
+    ...(estado ? { estado } : {}),
+    ...(q
+      ? {
+          OR: [
+            { codigo: { contains: q, mode: "insensitive" } },
+            { inquilino: { nombre: { contains: q, mode: "insensitive" } } },
+            { inquilino: { apellido: { contains: q, mode: "insensitive" } } },
+            { inquilino: { documentoIdentidad: { contains: q, mode: "insensitive" } } },
+            { unidad: { codigo: { contains: q, mode: "insensitive" } } },
+            { unidad: { propiedad: { nombre: { contains: q, mode: "insensitive" } } } },
+          ],
+        }
+      : {}),
+  };
+
+  const [total, contratos] = await prisma.$transaction([
+    prisma.contrato.count({ where }),
+    prisma.contrato.findMany({
+      where,
+      select: CONTRATO_LIST_SELECT,
+      orderBy: { createdAt: "desc" },
+      skip,
+      take,
+    }),
+  ]);
+
+  return createPaginatedResponse(contratos, total, page, pageSize);
+}
+
 // Obtener listado de contratos con filtros y proyección ligera
 export async function getContratos(filtros?: {
   estado?: EstadoContrato | "TODOS";
   search?: string;
+  page?: number;
+  pageSize?: number;
 }) {
   try {
     const estado = filtros?.estado && filtros.estado !== "TODOS" ? filtros.estado : undefined;
     const q = filtros?.search?.trim().toLowerCase();
 
+    const where: Prisma.ContratoWhereInput = {
+      ...(estado ? { estado } : {}),
+      ...(q
+        ? {
+            OR: [
+              { codigo: { contains: q, mode: "insensitive" } },
+              { inquilino: { nombre: { contains: q, mode: "insensitive" } } },
+              { inquilino: { apellido: { contains: q, mode: "insensitive" } } },
+              { inquilino: { documentoIdentidad: { contains: q, mode: "insensitive" } } },
+              { unidad: { codigo: { contains: q, mode: "insensitive" } } },
+              { unidad: { propiedad: { nombre: { contains: q, mode: "insensitive" } } } },
+            ],
+          }
+        : {}),
+    };
+
+    if (filtros?.page || filtros?.pageSize) {
+      const { skip, take, page, pageSize } = resolvePagination(filtros, 15);
+      const [total, contratos] = await prisma.$transaction([
+        prisma.contrato.count({ where }),
+        prisma.contrato.findMany({
+          where,
+          select: CONTRATO_LIST_SELECT,
+          orderBy: { createdAt: "desc" },
+          skip,
+          take,
+        }),
+      ]);
+      return { success: true, data: contratos, total, page, pageSize, totalPages: Math.ceil(total / pageSize) };
+    }
+
     const contratos = await prisma.contrato.findMany({
-      where: {
-        ...(estado ? { estado } : {}),
-        ...(q
-          ? {
-              OR: [
-                { codigo: { contains: q, mode: "insensitive" } },
-                { inquilino: { nombre: { contains: q, mode: "insensitive" } } },
-                { inquilino: { apellido: { contains: q, mode: "insensitive" } } },
-                { inquilino: { documentoIdentidad: { contains: q, mode: "insensitive" } } },
-                { unidad: { codigo: { contains: q, mode: "insensitive" } } },
-                { unidad: { propiedad: { nombre: { contains: q, mode: "insensitive" } } } },
-              ],
-            }
-          : {}),
-      },
+      where,
       select: CONTRATO_LIST_SELECT,
       orderBy: { createdAt: "desc" },
-      take: 200,
     });
 
     return { success: true, data: contratos };

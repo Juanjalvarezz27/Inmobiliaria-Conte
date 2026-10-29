@@ -86,6 +86,7 @@ model Propiedad {
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
 
+  @@index([activo])
   @@map("propiedades")
 }
 
@@ -312,6 +313,7 @@ model TransaccionFinanciera {
   @@index([tipo])
   @@index([categoria])
   @@index([propiedadId])
+  @@index([propiedadId, fecha])
   @@map("transacciones_financieras")
 }
 
@@ -377,6 +379,7 @@ model Empleado {
   updatedAt      DateTime             @updatedAt
 
   @@index([propiedadId])
+  @@index([activo])
   @@map("empleados")
 }
 
@@ -397,6 +400,7 @@ model RegistroAsistencia {
 
   @@index([empleadoId, fecha])
   @@index([fecha])
+  @@index([fecha, horaEntrada])
   @@index([empleadoId, estado])
   @@map("registros_asistencia")
 }
@@ -492,7 +496,10 @@ model NovedadMinuta {
   updatedAt   DateTime         @updatedAt
 
   @@index([minutaId])
+  @@index([minutaId, hora])
+  @@index([hora])
   @@index([categoria])
+  @@index([categoria, hora])
   @@map("novedades_minuta")
 }
 

@@ -53,6 +53,13 @@ export interface DataTableProps<T> {
   mobileLayout?: "auto" | "table" | "cards";
   renderMobileCard?: (item: T, index: number) => React.ReactNode;
   className?: string;
+  // Propiedades opcionales para modo servidor (Dual-Mode)
+  mode?: "client" | "server";
+  totalCount?: number;
+  serverPage?: number;
+  onPageChange?: (page: number) => void;
+  onSearchChange?: (search: string) => void;
+  onPageSizeChange?: (pageSize: number) => void;
 }
 
 // El estado "viewOverride" solo se activa cuando el usuario presiona el toggle.
@@ -161,6 +168,12 @@ export function DataTable<T>({
   mobileLayout = "auto",
   renderMobileCard,
   className = "",
+  mode = "client",
+  totalCount,
+  serverPage,
+  onPageChange,
+  onSearchChange,
+  onPageSizeChange,
 }: DataTableProps<T>) {
   const [searchQuery, setSearchQuery] = useState("");
   const [sortColumnKey, setSortColumnKey] = useState<string | null>(null);
@@ -168,12 +181,15 @@ export function DataTable<T>({
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(initialPageSize);
 
+  // Detección de modo de ejecución: servidor vs cliente en memoria
+  const isServer = mode === "server" || totalCount !== undefined;
+
   // Override manual por parte del usuario. "auto" = deja que CSS decida.
   const [viewOverride, setViewOverride] = useState<ViewOverride>("auto");
 
-  // Filtrado
+  // Filtrado en cliente (omitido si la búsqueda ya la resuelve el servidor)
   const filteredData = useMemo(() => {
-    if (!searchQuery.trim()) return data;
+    if (isServer || !searchQuery.trim()) return data;
     const query = searchQuery.toLowerCase().trim();
     if (searchFilter) return data.filter((item) => searchFilter(item, query));
     return data.filter((item) =>
@@ -182,11 +198,11 @@ export function DataTable<T>({
         return String(val).toLowerCase().includes(query);
       })
     );
-  }, [data, searchQuery, searchFilter]);
+  }, [isServer, data, searchQuery, searchFilter]);
 
-  // Ordenamiento
+  // Ordenamiento en cliente
   const sortedData = useMemo(() => {
-    if (!sortColumnKey) return filteredData;
+    if (isServer || !sortColumnKey) return filteredData;
     const column = columns.find((col) => col.key === sortColumnKey);
     if (!column) return filteredData;
 
@@ -212,16 +228,20 @@ export function DataTable<T>({
         ? (valA as number) > (valB as number) ? 1 : -1
         : (valA as number) < (valB as number) ? 1 : -1;
     });
-  }, [filteredData, sortColumnKey, sortDirection, columns]);
+  }, [isServer, filteredData, sortColumnKey, sortDirection, columns]);
 
-  // Paginación
-  const totalItems = sortedData.length;
+  // Paginación y conteo según el modo de operación
+  const totalItems = isServer ? (totalCount ?? data.length) : sortedData.length;
   const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
-  const validCurrentPage = Math.min(currentPage, totalPages);
+  const activePage = isServer ? (serverPage ?? currentPage) : currentPage;
+  const validCurrentPage = Math.min(Math.max(1, activePage), totalPages);
+
+  // En modo cliente se fragmenta en memoria; en modo servidor ya viene paginado
   const paginatedData = useMemo(() => {
+    if (isServer) return data;
     const startIndex = (validCurrentPage - 1) * pageSize;
     return sortedData.slice(startIndex, startIndex + pageSize);
-  }, [sortedData, validCurrentPage, pageSize]);
+  }, [isServer, data, sortedData, validCurrentPage, pageSize]);
 
   const handleSort = (columnKey: string) => {
     if (sortColumnKey === columnKey) {
@@ -323,6 +343,24 @@ export function DataTable<T>({
     );
   };
 
+  const handlePageChange = (updater: (p: number) => number) => {
+    const nextPage = updater(validCurrentPage);
+    if (isServer && onPageChange) {
+      onPageChange(nextPage);
+    } else {
+      setCurrentPage(nextPage);
+    }
+  };
+
+  const handlePageSizeChange = (size: number) => {
+    if (isServer && onPageSizeChange) {
+      onPageSizeChange(size);
+    } else {
+      setPageSize(size);
+      setCurrentPage(1);
+    }
+  };
+
   // Props comunes de paginación para reutilizar en ambas vistas
   const paginationProps = {
     startRecord,
@@ -332,8 +370,8 @@ export function DataTable<T>({
     totalPages,
     pageSize,
     pageSizeOptions,
-    onPageChange: setCurrentPage,
-    onPageSizeChange: (size: number) => { setPageSize(size); setCurrentPage(1); },
+    onPageChange: handlePageChange,
+    onPageSizeChange: handlePageSizeChange,
   };
 
   return (
@@ -368,8 +406,16 @@ export function DataTable<T>({
                     type="text"
                     value={searchQuery}
                     onChange={(e) => {
-                      setSearchQuery(e.target.value);
-                      setCurrentPage(1);
+                      const val = e.target.value;
+                      setSearchQuery(val);
+                      if (isServer && onSearchChange) {
+                        onSearchChange(val);
+                      }
+                      if (isServer && onPageChange) {
+                        onPageChange(1);
+                      } else {
+                        setCurrentPage(1);
+                      }
                     }}
                     placeholder={searchPlaceholder}
                     className="w-full pl-9 pr-8 py-2 text-xs sm:text-sm bg-slate-50 hover:bg-white focus:bg-white border border-slate-200 rounded-xl focus:outline-hidden focus:ring-2 focus:ring-slate-800 transition-colors"
@@ -377,7 +423,17 @@ export function DataTable<T>({
                   {searchQuery && (
                     <button
                       type="button"
-                      onClick={() => setSearchQuery("")}
+                      onClick={() => {
+                        setSearchQuery("");
+                        if (isServer && onSearchChange) {
+                          onSearchChange("");
+                        }
+                        if (isServer && onPageChange) {
+                          onPageChange(1);
+                        } else {
+                          setCurrentPage(1);
+                        }
+                      }}
                       className="absolute inset-y-0 right-0 pr-2.5 flex items-center text-slate-400 hover:text-slate-600 cursor-pointer"
                     >
                       <X className="w-3.5 h-3.5" />

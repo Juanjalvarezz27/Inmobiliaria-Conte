@@ -1,13 +1,14 @@
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { InquilinoDashboardClient } from "./InquilinoDashboardClient";
+import { getInquilinoDashboardData } from "@/lib/actions/inquilinoPortal";
 
 export const dynamic = "force-dynamic";
 
 export default async function InquilinoDashboardPage() {
   const session = await auth();
 
-  // Consultar estado en tiempo real en la base de datos para no depender del JWT estático de la sesión
+  // Consultar estado de clave provisional en la base de datos
   let mustChangePassword = false;
   if (session?.user?.id) {
     const usuario = await prisma.usuario.findUnique({
@@ -16,6 +17,9 @@ export default async function InquilinoDashboardPage() {
     });
     mustChangePassword = usuario?.mustChangePassword ?? false;
   }
+
+  // Obtener resumen financiero consolidado y locales arrendados
+  const { resumen, locales } = await getInquilinoDashboardData();
 
   // Fecha actual formateada en español institucional
   const fechaHoy = new Intl.DateTimeFormat("es-ES", {
@@ -29,10 +33,12 @@ export default async function InquilinoDashboardPage() {
 
   return (
     <InquilinoDashboardClient
-      nombre={session?.user?.nombre || "Inquilino"}
+      nombre={resumen.inquilinoNombre || session?.user?.nombre || "Inquilino"}
       email={session?.user?.email || ""}
       mustChangePasswordInitial={mustChangePassword}
       fechaFormateada={fechaFormateada}
+      resumen={resumen}
+      locales={locales}
     />
   );
 }
