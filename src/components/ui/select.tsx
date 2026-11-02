@@ -235,7 +235,9 @@ export function Select({
             });
           }
         }}
-        className={`w-full flex items-center justify-between text-left h-11 text-sm font-medium border rounded-xl bg-white transition-all shadow-2xs cursor-pointer ${
+        className={`w-full flex items-center justify-between text-left ${
+          selectedOption?.sublabel ? "min-h-[3rem] py-2" : "h-11"
+        } text-sm font-medium border rounded-xl bg-white transition-all shadow-2xs cursor-pointer ${
           icon ? "pl-10" : "pl-3.5"
         } pr-3.5 ${
           isOpen
@@ -245,34 +247,60 @@ export function Select({
         aria-haspopup="listbox"
         aria-expanded={isOpen}
       >
-        <div className="flex items-center gap-2 truncate min-w-0 pr-1">
+        <div className="flex-1 min-w-0 pr-2">
           {selectedOption ? (
-            <>
-              <span className="text-slate-900 font-semibold truncate">
-                {selectedOption.label}
-                {selectedOption.sublabel && (
-                  <span className="font-normal text-slate-500 ml-1.5">
-                    · {selectedOption.sublabel}
+            selectedOption.sublabel ? (
+              <div className="flex flex-col gap-0.5 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-slate-900 font-bold text-xs sm:text-sm">
+                    {selectedOption.label}
+                  </span>
+                  {selectedOption.badge && (
+                    <span
+                      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-extrabold border shrink-0 uppercase tracking-wider ${
+                        getBadgeStyles(selectedOption.badge.variant).pill
+                      }`}
+                    >
+                      <span
+                        className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+                          getBadgeStyles(selectedOption.badge.variant).dot
+                        }`}
+                      />
+                      {selectedOption.badge.text}
+                    </span>
+                  )}
+                </div>
+                <div className="text-[11px] sm:text-xs text-slate-500 font-medium leading-tight">
+                  {selectedOption.sublabel}
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2 truncate">
+                <span className="text-slate-900 font-semibold truncate">
+                  {selectedOption.label}
+                </span>
+                {selectedOption.badge && (
+                  <span
+                    className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-extrabold border shrink-0 uppercase tracking-wider ${
+                      getBadgeStyles(selectedOption.badge.variant).pill
+                    }`}
+                  >
+                    <span
+                      className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+                        getBadgeStyles(selectedOption.badge.variant).dot
+                      }`}
+                    />
+                    {selectedOption.badge.text}
                   </span>
                 )}
-              </span>
-              {selectedOption.badge && (
-                <span
-                  className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-extrabold border shrink-0 uppercase tracking-wider ${
-                    getBadgeStyles(selectedOption.badge.variant).pill
-                  }`}
-                >
-                  <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${getBadgeStyles(selectedOption.badge.variant).dot}`} />
-                  {selectedOption.badge.text}
-                </span>
-              )}
-            </>
+              </div>
+            )
           ) : (
             <span className="text-slate-400">{placeholder}</span>
           )}
         </div>
         <ChevronDown
-          className={`w-4 h-4 shrink-0 text-slate-400 transition-transform duration-200 ml-2 ${
+          className={`w-4 h-4 shrink-0 text-slate-400 transition-transform duration-200 ml-1.5 ${
             isOpen ? "rotate-180 text-[#175E38]" : ""
           }`}
         />
@@ -369,8 +397,8 @@ export function Select({
                         )}
 
                         <div className="min-w-0 flex-1">
-                          {/* Título Principal y Subtítulo */}
-                          <div className="flex items-baseline gap-1.5 flex-wrap">
+                          {/* Título Principal */}
+                          <div className="flex items-center gap-1.5">
                             <span
                               className={`text-xs sm:text-sm font-extrabold ${
                                 isSelected ? "text-[#175E38]" : "text-slate-900"
@@ -378,16 +406,18 @@ export function Select({
                             >
                               {opt.label}
                             </span>
-                            {opt.sublabel && (
-                              <span className="text-xs font-semibold text-slate-500 truncate">
-                                · {opt.sublabel}
-                              </span>
-                            )}
                           </div>
+
+                          {/* Subtítulo en su propia línea */}
+                          {opt.sublabel && (
+                            <p className="text-[11px] sm:text-xs font-medium text-slate-500 mt-0.5 leading-snug">
+                              {opt.sublabel}
+                            </p>
+                          )}
 
                           {/* Descripción / Especificaciones */}
                           {opt.description && (
-                            <p className="text-[11px] sm:text-xs text-slate-500 truncate mt-1 leading-normal">
+                            <p className="text-[11px] text-slate-400 mt-0.5 leading-normal">
                               {opt.description}
                             </p>
                           )}

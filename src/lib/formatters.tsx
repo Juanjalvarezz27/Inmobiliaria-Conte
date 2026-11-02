@@ -6,7 +6,7 @@ import {
   formatearFechaLarga as dateUtilsFechaLarga,
 } from "./date-utils";
 
-// Formateador de moneda en USD (sin decimales para cánones enteros, ej: $150)
+// Formateador de moneda en USD (sin decimales para mensualidades enteras, ej: $150)
 export function formatCurrency(val: number | null | undefined): string {
   if (val === null || val === undefined) return "—";
   return new Intl.NumberFormat("en-US", {

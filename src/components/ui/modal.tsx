@@ -117,7 +117,7 @@ export function Modal({
                   {title}
                 </h3>
                 {subtitle && (
-                  <p className={`text-[11px] sm:text-xs font-medium mt-0.5 leading-snug truncate sm:overflow-visible ${headerStyles.subtitleColor}`}>
+                  <p className={`text-[11px] sm:text-xs font-medium mt-0.5 leading-snug line-clamp-1 sm:line-clamp-2 ${headerStyles.subtitleColor}`}>
                     {subtitle}
                   </p>
                 )}

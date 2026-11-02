@@ -2,11 +2,34 @@
 
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
 import { z } from "zod";
 import { EstadoContrato, EstadoPago, MetodoPago, Prisma, TransaccionPago } from "@prisma/client";
 import { eliminarArchivosUploadThing } from "@/lib/uploadthing-server";
 import { getPropiedadesOpciones } from "./propiedades";
 import type { PagoItem, EstadisticasCobranza } from "@/app/admin/cobranza/types";
+import { enviarNotificacionPagoConfirmadoInquilino } from "@/lib/email-templates/notificacion-pago-confirmado";
+import { enviarNotificacionPagoRechazadoInquilino } from "@/lib/email-templates/notificacion-pago-rechazado";
+
+/**
+ * Ejecuta tareas asíncronas no críticas (como envío de correos SMTP) en segundo plano
+ * garantizando que la Server Action responda al cliente en milisegundos sin bloqueos.
+ */
+function ejecutarEnSegundoPlano(tarea: () => Promise<unknown>) {
+  try {
+    after(async () => {
+      try {
+        await tarea();
+      } catch (err) {
+        console.error("Error en tarea de segundo plano:", err);
+      }
+    });
+  } catch {
+    tarea().catch((err) => {
+      console.error("Error en tarea de segundo plano (fallback):", err);
+    });
+  }
+}
 
 const PAGE_SIZE = 20;
 
@@ -103,6 +126,11 @@ const PAGO_SELECT = {
           telefonoSecundario: true,
           email: true,
           direccion: true,
+          usuario: {
+            select: {
+              email: true,
+            },
+          },
         },
       },
     },
@@ -295,7 +323,7 @@ export async function sincronizarCuotasMes(mes: number, ano: number) {
           estado: esVencido ? EstadoPago.VENCIDO : EstadoPago.PENDIENTE,
         });
       } else if (pagoActual.montoPagado === 0 && pagoActual.estado !== EstadoPago.PAGADO) {
-        // Cuota existente no pagada: mantener sincronizada si el canon o día de cobro cambió
+        // Cuota existente no pagada: mantener sincronizada si la mensualidad o día de cobro cambió
         const esVencido = ahora > fechaVencimiento;
         const requiereActualizacion =
           pagoActual.montoEsperado !== contrato.montoAlquiler ||
@@ -323,7 +351,7 @@ export async function sincronizarCuotasMes(mes: number, ano: number) {
       });
     }
 
-    // Actualización de cuotas pendientes cuyo canon o día cambió
+    // Actualización de cuotas pendientes cuya mensualidad o día cambió
     if (pagosParaActualizar.length > 0) {
       await prisma.$transaction(
         pagosParaActualizar.map((item) =>
@@ -397,7 +425,7 @@ export async function getPagosCobranza({
   mes: number;
   ano: number;
   propiedadId?: string;
-  estado?: EstadoPago | "TODOS";
+  estado?: EstadoPago | "TODOS" | "POR_CONFIRMAR";
   busqueda?: string;
   pagina?: number;
   forzarSincronizacion?: boolean;
@@ -423,9 +451,14 @@ export async function getPagosCobranza({
     }
 
     // Filtro por estado
-    if (estado && estado !== "TODOS") {
+    if (estado === "POR_CONFIRMAR") {
       whereAnd.push({
-        estado: estado,
+        estado: { not: EstadoPago.PAGADO },
+        comprobanteUrl: { not: null },
+      });
+    } else if (estado && estado !== "TODOS") {
+      whereAnd.push({
+        estado: estado as EstadoPago,
       });
     }
 
@@ -455,7 +488,14 @@ export async function getPagosCobranza({
     const skip = (Math.max(1, pagina) - 1) * PAGE_SIZE;
 
     // Ejecución concurrente a Neon Cloud: listado ligero + agregados SQL nativos (sin traer todas las filas)
-    let [totalRegistros, registros, agregadosPorEstado, agregadosPorPropiedad] = await Promise.all([
+    let [
+      totalRegistros,
+      registros,
+      agregadosPorEstado,
+      agregadosPorPropiedad,
+      cantidadPorConfirmarMes,
+      cantidadPorConfirmarGlobal,
+    ] = await Promise.all([
       prisma.pago.count({ where }),
       prisma.pago.findMany({
         where,
@@ -476,13 +516,36 @@ export async function getPagosCobranza({
       }),
       // Conteo por propiedad para selector de filtro directamente en SQL (sin transferir filas completas por red)
       obtenerConteoPagosPorPropiedad(mes, ano),
+      // Pagos reportados con comprobante pendientes de confirmación en el mes
+      prisma.pago.count({
+        where: {
+          periodoMes: mes,
+          periodoAno: ano,
+          estado: { not: EstadoPago.PAGADO },
+          comprobanteUrl: { not: null },
+        },
+      }),
+      // Pagos reportados con comprobante pendientes de confirmación en cualquier periodo
+      prisma.pago.count({
+        where: {
+          estado: { not: EstadoPago.PAGADO },
+          comprobanteUrl: { not: null },
+        },
+      }),
     ]);
 
     // Fallback reactivo: si no se forzó sincronización y el mes no tenía cuotas generadas, sincronizar al vuelo
     if (!forzarSincronizacion && agregadosPorEstado.length === 0) {
       const sync = await sincronizarCuotasMes(mes, ano);
       if (sync.success && sync.generados && sync.generados > 0) {
-        [totalRegistros, registros, agregadosPorEstado, agregadosPorPropiedad] = await Promise.all([
+        [
+          totalRegistros,
+          registros,
+          agregadosPorEstado,
+          agregadosPorPropiedad,
+          cantidadPorConfirmarMes,
+          cantidadPorConfirmarGlobal,
+        ] = await Promise.all([
           prisma.pago.count({ where }),
           prisma.pago.findMany({
             where,
@@ -501,6 +564,20 @@ export async function getPagosCobranza({
             _count: { id: true },
           }),
           obtenerConteoPagosPorPropiedad(mes, ano),
+          prisma.pago.count({
+            where: {
+              periodoMes: mes,
+              periodoAno: ano,
+              estado: { not: EstadoPago.PAGADO },
+              comprobanteUrl: { not: null },
+            },
+          }),
+          prisma.pago.count({
+            where: {
+              estado: { not: EstadoPago.PAGADO },
+              comprobanteUrl: { not: null },
+            },
+          }),
         ]);
       }
     }
@@ -555,6 +632,8 @@ export async function getPagosCobranza({
       cantidadPendientes,
       cantidadVencidos,
       cantidadParciales,
+      cantidadPorConfirmar: cantidadPorConfirmarMes,
+      cantidadPorConfirmarGlobal,
       porcentajeRecaudado,
       conteoPorPropiedad: agregadosPorPropiedad,
     };
@@ -589,6 +668,8 @@ export async function getPagosCobranza({
         cantidadPendientes: 0,
         cantidadVencidos: 0,
         cantidadParciales: 0,
+        cantidadPorConfirmar: 0,
+        cantidadPorConfirmarGlobal: 0,
         porcentajeRecaudado: 0,
       },
     };
@@ -691,9 +772,36 @@ export async function registrarPago(input: RegistrarPagoInput) {
       });
     });
 
+    // Enviar notificación por correo al inquilino en segundo plano (respuesta instantánea < 150ms)
+    const inquilino = pagoActualizado.contrato.inquilino;
+    const emailDestino = inquilino.email || inquilino.usuario?.email;
+    if (emailDestino && emailDestino.includes("@")) {
+      const saldoRestante = Math.max(0, pagoActualizado.montoEsperado - pagoActualizado.montoPagado);
+      ejecutarEnSegundoPlano(async () => {
+        await enviarNotificacionPagoConfirmadoInquilino({
+          inquilinoNombre: `${inquilino.nombre} ${inquilino.apellido || ""}`.trim(),
+          inquilinoEmail: emailDestino,
+          unidadCodigo: pagoActualizado.contrato.unidad.codigo,
+          propiedadNombre: pagoActualizado.contrato.unidad.propiedad.nombre,
+          periodoMes: pagoActualizado.periodoMes,
+          periodoAno: pagoActualizado.periodoAno,
+          montoAbonado: montoPagado,
+          montoTotalEsperado: pagoActualizado.montoEsperado,
+          montoTotalPagado: pagoActualizado.montoPagado,
+          saldoRestante,
+          estadoPago: pagoActualizado.estado,
+          metodoPago,
+          referencia: referencia ? referencia.trim() : null,
+          fechaPago: fechaPagoDate,
+        });
+      });
+    }
+
     revalidatePath("/admin/cobranza");
     revalidatePath("/admin/inquilinos");
     revalidatePath("/admin/contratos");
+    revalidatePath("/inquilino/pagos");
+    revalidatePath("/inquilino/dashboard");
 
     return {
       success: true,
@@ -776,6 +884,8 @@ export async function eliminarTransaccionPago(transaccionId: string) {
     revalidatePath("/admin/cobranza");
     revalidatePath("/admin/inquilinos");
     revalidatePath("/admin/contratos");
+    revalidatePath("/inquilino/pagos");
+    revalidatePath("/inquilino/dashboard");
 
     return {
       success: true,
@@ -845,6 +955,8 @@ export async function anularPago(pagoId: string) {
     revalidatePath("/admin/cobranza");
     revalidatePath("/admin/inquilinos");
     revalidatePath("/admin/contratos");
+    revalidatePath("/inquilino/pagos");
+    revalidatePath("/inquilino/dashboard");
 
     return { success: true };
   } catch (error) {
@@ -878,5 +990,78 @@ export async function getPagoDetalle(pagoId: string) {
   } catch (error) {
     console.error("Error al obtener detalle del pago:", error);
     return { success: false, error: "No se pudo cargar la ficha del pago" };
+  }
+}
+
+/**
+ * Rechaza o descarta un comprobante bancario reportado por el inquilino notificándole el motivo
+ */
+export async function rechazarComprobanteReportadoAction(pagoId: string, motivo?: string) {
+  try {
+    const pago = await prisma.pago.findUnique({
+      where: { id: pagoId },
+      include: {
+        contrato: {
+          include: {
+            inquilino: {
+              include: {
+                usuario: { select: { email: true } },
+              },
+            },
+            unidad: {
+              include: {
+                propiedad: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!pago) {
+      return { success: false, error: "El registro de cobro no existe." };
+    }
+
+    const notasActualizadas = [
+      pago.notas,
+      `[${new Date().toLocaleDateString("es-VE")}] Comprobante descartado por administración: ${motivo?.trim() || "No coincide con movimientos bancarios"}.`,
+    ]
+      .filter(Boolean)
+      .join(" - ");
+
+    // Limpiar el capture y la referencia para que el inquilino pueda corregirlo
+    await prisma.pago.update({
+      where: { id: pagoId },
+      data: {
+        comprobanteUrl: null,
+        notas: notasActualizadas,
+      },
+    });
+
+    // Enviar alerta al inquilino en segundo plano (respuesta instantánea < 150ms)
+    const emailDestino = pago.contrato.inquilino.email || pago.contrato.inquilino.usuario?.email;
+    if (emailDestino && emailDestino.includes("@")) {
+      ejecutarEnSegundoPlano(async () => {
+        await enviarNotificacionPagoRechazadoInquilino({
+          inquilinoNombre: `${pago.contrato.inquilino.nombre} ${pago.contrato.inquilino.apellido || ""}`.trim(),
+          inquilinoEmail: emailDestino,
+          unidadCodigo: pago.contrato.unidad.codigo,
+          propiedadNombre: pago.contrato.unidad.propiedad.nombre,
+          periodoMes: pago.periodoMes,
+          periodoAno: pago.periodoAno,
+          referencia: pago.referencia,
+          motivo: motivo?.trim() || null,
+        });
+      });
+    }
+
+    revalidatePath("/admin/cobranza");
+    revalidatePath("/inquilino/pagos");
+    revalidatePath("/inquilino/dashboard");
+
+    return { success: true, message: "Comprobante descartado y notificado al inquilino." };
+  } catch (error) {
+    console.error("Error al rechazar comprobante:", error);
+    return { success: false, error: "Ocurrió un error al descartar el comprobante." };
   }
 }

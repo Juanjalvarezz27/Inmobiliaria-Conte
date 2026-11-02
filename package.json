@@ -13,7 +13,8 @@
     "db:studio": "prisma studio",
     "db:push": "prisma db push",
     "db:seed": "prisma db seed",
-    "email:test": "node --env-file=.env scripts/test-email.mjs"
+    "email:test": "node --env-file=.env scripts/test-email.mjs",
+    "test:reset-leyma": "tsx scripts/setup-leyma-test.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

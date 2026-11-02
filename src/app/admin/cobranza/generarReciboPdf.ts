@@ -321,7 +321,7 @@ export async function construirReciboPdf(pago: PagoItem): Promise<Blob> {
 
   // Lado Derecho: Totales
   const bloqueTotalesX = margenDer - 170;
-  page.drawText("Subtotal / Canon:", { x: bloqueTotalesX, y: seccionPagoY - 5, size: 8.5, font: fontRegular, color: textoGris });
+  page.drawText("Subtotal / Mensualidad:", { x: bloqueTotalesX, y: seccionPagoY - 5, size: 8.5, font: fontRegular, color: textoGris });
   const subtotalTxt = `$${pago.montoEsperado.toFixed(2)}`;
   page.drawText(subtotalTxt, {
     x: margenDer - fontSemiBold.widthOfTextAtSize(subtotalTxt, 8.5),

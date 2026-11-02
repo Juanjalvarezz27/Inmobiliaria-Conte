@@ -120,24 +120,24 @@ export function StatCard({
       </div>
 
       {/* Contenido principal */}
-      <div className="flex items-start justify-between gap-1.5 mb-2 sm:mb-3 relative z-10">
-        <span className="text-[10px] sm:text-xs font-bold text-slate-800 uppercase tracking-wider leading-snug line-clamp-2 min-w-0">
+      <div className="flex items-start justify-between gap-1.5 mb-2 sm:mb-2.5 relative z-10">
+        <span className="text-[10.5px] sm:text-xs font-bold text-slate-600 uppercase tracking-wider leading-snug line-clamp-2 min-w-0">
           {title}
         </span>
         <div
-          className={`w-7 h-7 sm:w-9 sm:h-9 shrink-0 rounded-xl flex items-center justify-center shadow-xs ${theme.iconBox} ${theme.iconText}`}
+          className={`w-7 h-7 sm:w-8.5 sm:h-8.5 shrink-0 rounded-xl flex items-center justify-center shadow-xs ${theme.iconBox} ${theme.iconText}`}
         >
-          <Icon className="w-3.5 h-3.5 sm:w-4.5 sm:h-4.5" />
+          <Icon className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
         </div>
       </div>
 
       <div className="flex flex-col relative z-10">
-        <span className="text-xl sm:text-2xl lg:text-3xl font-black font-heading text-slate-900 tracking-tight leading-tight">
+        <span className="text-lg sm:text-xl lg:text-2xl font-extrabold font-heading text-slate-900 tracking-tight leading-tight">
           {value}
         </span>
         {subtitle && (
           <span
-            className={`text-[11px] sm:text-xs text-slate-500 font-medium mt-1 leading-snug line-clamp-2 ${
+            className={`text-[11px] sm:text-xs text-slate-500 font-medium mt-0.5 leading-snug line-clamp-2 ${
               hideSubtitleOnMobile ? "hidden sm:block" : ""
             }`}
           >

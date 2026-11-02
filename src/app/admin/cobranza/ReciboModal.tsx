@@ -524,7 +524,7 @@ export function ReciboModal({ isOpen, onClose, pago }: ReciboModalProps) {
                         {unidad.codigo}
                       </span>
                       <span className="text-[11px] font-bold text-slate-700 truncate">
-                        Canon de Alquiler
+                        Mensualidad de Alquiler
                       </span>
                     </div>
                     <span className="text-[10px] font-semibold text-slate-500 bg-white px-1.5 py-0.5 rounded border border-slate-200/70">
@@ -597,96 +597,80 @@ export function ReciboModal({ isOpen, onClose, pago }: ReciboModalProps) {
                   </span>
                 </div>
 
-                {/* Detalle de Liquidación y Totales (Distribución Ejecutiva en 2 Tarjetas) */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 sm:gap-3.5">
-                  {/* Tarjeta Detalle del Pago */}
-                  <div className="bg-slate-50/80 border border-slate-200/80 rounded-xl sm:rounded-2xl p-3 sm:p-4 flex flex-col justify-between space-y-2.5 sm:space-y-3">
+                {/* Detalle de Liquidación y Totales (Distribución Equilibrada en 2 Tarjetas Simétricas) */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 sm:gap-3.5 items-stretch">
+                  {/* Tarjeta 1: Detalle del Pago */}
+                  <div className="bg-slate-50/80 border border-slate-200/80 rounded-xl sm:rounded-2xl p-3 sm:p-4 flex flex-col justify-between space-y-2.5">
                     <div>
                       <div className="flex items-center gap-2 text-slate-500 pb-1.5 border-b border-slate-200/60 mb-2 sm:mb-2.5">
-                        <CreditCard className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-slate-600" />
-                        <span className="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider">Detalle del Pago</span>
+                        <CreditCard className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#175E38]" />
+                        <span className="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider">
+                          Detalle del Pago
+                        </span>
                       </div>
                       <div className="space-y-1.5 sm:space-y-2 text-xs">
                         <div className="flex justify-between items-center">
-                          <span className="text-slate-500 font-medium">Método:</span>
-                          <span className="font-bold text-slate-900 bg-white px-2 sm:px-2.5 py-0.5 rounded-md border border-slate-200/80 shadow-2xs text-[11px] sm:text-xs">
+                          <span className="text-slate-500 font-medium">Método Utilizado:</span>
+                          <span className="font-bold text-slate-900 bg-white px-2.5 py-0.5 rounded-lg border border-slate-200/80 shadow-2xs text-[11px] sm:text-xs">
                             {pago.metodoPago ? METODO_LABELS[pago.metodoPago] : "Efectivo"}
                           </span>
                         </div>
                         {pago.referencia && (
                           <div className="flex justify-between items-center">
-                            <span className="text-slate-500 font-medium">Referencia:</span>
-                            <span className="font-mono font-bold text-slate-900 bg-white px-2 sm:px-2.5 py-0.5 rounded-md border border-slate-200/80 shadow-2xs text-[11px] sm:text-xs">
+                            <span className="text-slate-500 font-medium">N° de Referencia:</span>
+                            <span className="font-mono font-bold text-slate-900 bg-white px-2.5 py-0.5 rounded-lg border border-slate-200/80 shadow-2xs text-[11px] sm:text-xs">
                               #{pago.referencia}
                             </span>
                           </div>
                         )}
-                        {pago.notas && (
-                          <div className="text-[10px] sm:text-[11px] text-slate-500 italic pt-0.5 sm:pt-1">
-                            Nota: {pago.notas}
-                          </div>
-                        )}
+                        <div className="flex justify-between items-center">
+                          <span className="text-slate-500 font-medium">Fecha de Liquidación:</span>
+                          <span className="font-mono font-semibold text-slate-800 text-[11px] sm:text-xs">
+                            {fechaEmisionStr}
+                          </span>
+                        </div>
                       </div>
                     </div>
 
-                    {/* Vista Previa del Comprobante / Soporte Bancario Subido */}
-                    {pago.comprobanteUrl ? (
-                      <div className="pt-2 border-t border-slate-200/60 space-y-1.5">
-                        <div className="flex items-center justify-between text-[11px]">
-                          <span className="font-bold text-slate-700 flex items-center gap-1">
-                            <Receipt className="w-3.5 h-3.5 text-[#175E38]" />
-                            <span>Comprobante de Pago Subido</span>
-                          </span>
-                          <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
-                            Adjunto
-                          </span>
-                        </div>
-
-                        <div
-                          onClick={() => setVisorImagenAbierto(true)}
-                          className="group relative h-28 sm:h-32 w-full rounded-xl overflow-hidden border border-slate-200 bg-slate-900/5 hover:border-emerald-400 transition-all cursor-pointer shadow-2xs flex items-center justify-center"
-                          title="Clic para ampliar comprobante en pantalla completa"
-                        >
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img
-                            src={pago.comprobanteUrl}
-                            alt="Comprobante de pago subido"
-                            crossOrigin="anonymous"
-                            referrerPolicy="no-referrer"
-                            className="w-full h-full object-contain transition-transform duration-300 group-hover:scale-105"
-                          />
-                          <div className="absolute inset-0 bg-slate-950/0 group-hover:bg-slate-950/40 transition-colors flex items-center justify-center">
-                            <span className="opacity-0 group-hover:opacity-100 transition-opacity px-2.5 py-1 rounded-lg bg-black/75 text-white text-xs font-bold flex items-center gap-1.5 shadow-md">
-                              <ZoomIn className="w-3.5 h-3.5 text-emerald-400" />
-                              <span>Ampliar Comprobante</span>
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="pt-2 border-t border-slate-200/60">
-                        <div className="p-2 rounded-xl bg-slate-100/80 border border-slate-200/70 text-center">
-                          <span className="text-[11px] text-slate-500 font-medium">
-                            Liquidación en Efectivo • Sin voucher digital
-                          </span>
-                        </div>
+                    {pago.notas && (
+                      <div className="pt-2 border-t border-slate-200/60 text-[10px] sm:text-[11px] text-slate-500 italic">
+                        <span className="font-semibold text-slate-600 not-italic">Nota:</span> {pago.notas}
                       </div>
                     )}
                   </div>
 
-                  {/* Tarjeta Resumen Financiero */}
-                  <div className="bg-gradient-to-br from-slate-50 via-slate-50 to-emerald-50/40 border border-slate-200/80 rounded-xl sm:rounded-2xl p-3 sm:p-4 flex flex-col justify-between space-y-2.5 sm:space-y-3">
-                    <div className="space-y-1.5 sm:space-y-2">
-                      <div className="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-slate-500 pb-1.5 border-b border-slate-200/60">
-                        Resumen de Cobro
+                  {/* Tarjeta 2: Resumen Financiero de Cobro */}
+                  <div className="bg-gradient-to-br from-slate-50 via-white to-emerald-50/30 border border-slate-200/80 rounded-xl sm:rounded-2xl p-3 sm:p-4 flex flex-col justify-between space-y-2.5">
+                    <div>
+                      <div className="flex items-center gap-2 text-slate-500 pb-1.5 border-b border-slate-200/60 mb-2 sm:mb-2.5">
+                        <Receipt className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#175E38]" />
+                        <span className="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider">
+                          Resumen de Cobro
+                        </span>
                       </div>
-                      <div className="flex justify-between items-center text-xs">
-                        <span className="text-slate-500 font-medium">Subtotal / Canon:</span>
-                        <span className="font-bold text-slate-900 text-xs sm:text-sm">${pago.montoEsperado.toFixed(2)}</span>
+                      <div className="space-y-1.5 sm:space-y-2 text-xs">
+                        <div className="flex justify-between items-center">
+                          <span className="text-slate-500 font-medium">Subtotal / Mensualidad:</span>
+                          <span className="font-bold text-slate-900 text-xs sm:text-sm">
+                            ${pago.montoEsperado.toFixed(2)} USD
+                          </span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span className="text-slate-500 font-medium">Estado de Solvencia:</span>
+                          <span
+                            className={`text-[10px] sm:text-[11px] font-bold px-2 py-0.5 rounded-md border ${
+                              esSolvente
+                                ? "bg-emerald-50 text-emerald-800 border-emerald-300"
+                                : "bg-blue-50 text-blue-800 border-blue-300"
+                            }`}
+                          >
+                            {esSolvente ? "Totalmente Solvente" : "Abono Parcial"}
+                          </span>
+                        </div>
                       </div>
                     </div>
 
-                    <div className="pt-1.5 sm:pt-2 border-t border-slate-200/80 space-y-1">
+                    <div className="pt-2 border-t border-slate-200/80 space-y-1">
                       <div className="flex justify-between items-baseline gap-2">
                         <span className="text-[11px] sm:text-xs font-bold uppercase tracking-wider text-[#175E38]">
                           Total Cancelado:
@@ -696,7 +680,7 @@ export function ReciboModal({ isOpen, onClose, pago }: ReciboModalProps) {
                         </span>
                       </div>
                       {saldoRestante > 0 && (
-                        <div className="flex justify-between items-center text-[11px] sm:text-xs font-bold text-rose-700 bg-rose-50 px-2 sm:px-2.5 py-1 rounded-lg border border-rose-200">
+                        <div className="flex justify-between items-center text-[10px] sm:text-[11px] font-bold text-rose-700 bg-rose-50 px-2 py-0.5 rounded-lg border border-rose-200">
                           <span>Saldo Pendiente:</span>
                           <span>${saldoRestante.toFixed(2)} USD</span>
                         </div>
@@ -704,6 +688,54 @@ export function ReciboModal({ isOpen, onClose, pago }: ReciboModalProps) {
                     </div>
                   </div>
                 </div>
+
+                {/* Tarjeta 3: Comprobante / Soporte Bancario Adjunto (Banda Horizontal Dedicada) */}
+                {pago.comprobanteUrl && (
+                  <div className="bg-slate-50/90 border border-slate-200/90 rounded-xl sm:rounded-2xl p-3 sm:p-3.5 flex items-center justify-between gap-3 shadow-2xs">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div
+                        onClick={() => setVisorImagenAbierto(true)}
+                        className="group relative w-16 h-14 sm:w-20 sm:h-16 rounded-xl overflow-hidden border border-slate-200 bg-white hover:border-emerald-500 transition-all cursor-pointer shrink-0 shadow-2xs flex items-center justify-center p-1"
+                        title="Clic para ampliar comprobante en pantalla completa"
+                      >
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={pago.comprobanteUrl}
+                          alt="Comprobante de pago subido"
+                          crossOrigin="anonymous"
+                          referrerPolicy="no-referrer"
+                          className="w-full h-full object-contain transition-transform duration-300 group-hover:scale-105"
+                        />
+                        <div className="absolute inset-0 bg-slate-950/0 group-hover:bg-slate-950/35 transition-colors flex items-center justify-center">
+                          <ZoomIn className="w-4 h-4 text-emerald-400 opacity-0 group-hover:opacity-100 transition-opacity" />
+                        </div>
+                      </div>
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs sm:text-sm font-bold text-slate-900 font-heading truncate">
+                            Comprobante de Pago <span className="hidden sm:inline">Subido</span>
+                          </span>
+                          <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200 shrink-0">
+                            Adjunto
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-slate-500 font-medium truncate mt-0.5">
+                          Soporte digital adjuntado para la auditoría de este cobro
+                        </p>
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => setVisorImagenAbierto(true)}
+                      className="px-2.5 sm:px-3.5 py-2 rounded-xl text-xs font-bold bg-white text-slate-700 hover:bg-slate-100 hover:text-slate-900 border border-slate-200/90 shadow-2xs transition-all flex items-center gap-1.5 cursor-pointer shrink-0 active:translate-y-0.5"
+                    >
+                      <Eye className="w-3.5 h-3.5 text-[#175E38]" />
+                      <span className="hidden sm:inline">Ampliar</span>
+                      <span className="sm:hidden text-xs font-bold">Ver</span>
+                    </button>
+                  </div>
+                )}
               </div>
 
               {/* Botones de Acción: Compartir & Previsualizar PDF */}
@@ -712,7 +744,7 @@ export function ReciboModal({ isOpen, onClose, pago }: ReciboModalProps) {
                   type="button"
                   onClick={handleCompartir}
                   disabled={compartiendo}
-                  className="w-full sm:w-auto sm:min-w-[160px] px-4 h-11 rounded-xl text-xs sm:text-sm font-bold text-slate-700 bg-white border border-slate-300 hover:bg-slate-50 shadow-2xs transition-all flex items-center justify-center gap-2 cursor-pointer active:translate-y-0.5 disabled:opacity-60"
+                  className="w-full sm:w-auto sm:min-w-[160px] px-3 sm:px-4 h-11 rounded-xl text-xs sm:text-sm font-bold text-slate-700 bg-white border border-slate-300 hover:bg-slate-50 shadow-2xs transition-all flex items-center justify-center gap-2 cursor-pointer active:translate-y-0.5 disabled:opacity-60"
                   title="Compartir documento por WhatsApp, Correo u otras aplicaciones"
                 >
                   {compartiendo ? (
@@ -720,24 +752,26 @@ export function ReciboModal({ isOpen, onClose, pago }: ReciboModalProps) {
                   ) : (
                     <Share2 className="w-4 h-4 text-slate-600 shrink-0" />
                   )}
-                  <span>Compartir</span>
+                  <span className="truncate">Compartir</span>
                 </button>
 
                 <button
                   type="button"
                   onClick={handlePrevisualizarPdf}
                   disabled={generandoPdf}
-                  className="w-full sm:w-auto sm:min-w-[190px] px-5 h-11 rounded-xl text-xs sm:text-sm font-bold bg-gradient-to-r from-[#175E38] to-[#124b2d] hover:bg-[#124b2d] text-white border-b-[3px] border-b-[#0e3a23] shadow-[0_2px_8px_rgba(23,94,56,0.25)] transition-all flex items-center justify-center gap-2 cursor-pointer active:translate-y-0.5 disabled:opacity-60"
+                  className="w-full sm:w-auto sm:min-w-[190px] px-3 sm:px-5 h-11 rounded-xl text-xs sm:text-sm font-bold bg-gradient-to-r from-[#175E38] to-[#124b2d] hover:bg-[#124b2d] text-white border-b-[3px] border-b-[#0e3a23] shadow-[0_2px_8px_rgba(23,94,56,0.25)] transition-all flex items-center justify-center gap-2 cursor-pointer active:translate-y-0.5 disabled:opacity-60"
                 >
                   {generandoPdf ? (
                     <>
                       <Loader2 className="w-4 h-4 animate-spin shrink-0" />
-                      <span>Construyendo PDF...</span>
+                      <span className="truncate">Construyendo PDF...</span>
                     </>
                   ) : (
                     <>
                       <Eye className="w-4 h-4 shrink-0" />
-                      <span>Previsualizar PDF</span>
+                      <span className="truncate">
+                        <span className="hidden sm:inline">Previsualizar </span>PDF
+                      </span>
                     </>
                   )}
                 </button>

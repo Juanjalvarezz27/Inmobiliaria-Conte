@@ -143,10 +143,10 @@ export function ContratoDetalleModal({
               </p>
             </div>
 
-            {/* Canon mensual destacado */}
+            {/* Mensualidad destacada */}
             <div className="sm:text-right bg-emerald-50/60 sm:bg-transparent p-2.5 sm:p-0 rounded-xl border border-emerald-100 sm:border-0">
               <span className="text-[10px] font-bold text-[#175E38] uppercase tracking-wider block">
-                Canon Mensual
+                Mensualidad
               </span>
               <span className="text-xl sm:text-2xl font-black font-heading text-slate-900 block leading-tight">
                 {formatCurrency(contrato.montoAlquiler)}

@@ -673,7 +673,7 @@ export function ContratoFormModal({
                 <span>Preservación Histórica de Pagos Garantizada</span>
               </div>
               <p className="text-emerald-800 leading-relaxed">
-                Todas las mensualidades que ya fueron pagadas mantendrán intacto su valor histórico original (${initialData.montoAlquiler.toFixed(2)} USD). El nuevo canon (${parseFloat(montoAlquiler || "0").toFixed(2)} USD) y día de corte (Día {diaCobro || initialData.diaCobro}) se aplicarán automáticamente a las cuotas pendientes y a los períodos futuros por cobrar.
+                Todas las mensualidades que ya fueron pagadas mantendrán intacto su valor histórico original (${initialData.montoAlquiler.toFixed(2)} USD). La nueva mensualidad (${parseFloat(montoAlquiler || "0").toFixed(2)} USD) y día de corte (Día {diaCobro || initialData.diaCobro}) se aplicarán automáticamente a las cuotas pendientes y a los períodos futuros por cobrar.
               </p>
             </div>
           )}

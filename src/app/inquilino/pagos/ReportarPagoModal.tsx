@@ -1,0 +1,529 @@
+"use client";
+
+import React, { useState, useRef, useEffect, useMemo } from "react";
+import { Modal, FormSectionHeader } from "@/components/ui";
+import { Select, type SelectOption } from "@/components/ui/select";
+import { useOperacionesUploadThing } from "@/lib/uploadthing";
+import { comprimirImagen } from "@/lib/file-compressor";
+import { toast } from "sonner";
+import { MetodoPago } from "@prisma/client";
+import { OPCIONES_METODO_PAGO } from "@/lib/constants/pagos";
+import { reportarPagoInquilinoAction, type ReportarPagoInput } from "@/lib/actions/inquilinoPortal";
+import type { PagoItem } from "@/app/admin/cobranza/types";
+import { MESES } from "@/lib/date-utils";
+import {
+  Upload,
+  FileText,
+  DollarSign,
+  Calendar,
+  CreditCard,
+  Hash,
+  FileCheck,
+  CheckCircle2,
+  Trash2,
+  Loader2,
+  AlertCircle,
+  ExternalLink,
+  Building2,
+  Clock,
+} from "lucide-react";
+
+interface ReportarPagoModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  pagosPendientes: PagoItem[];
+  pagoPreseleccionado?: PagoItem | null;
+  onSuccess?: () => void;
+}
+
+export function ReportarPagoModal({
+  isOpen,
+  onClose,
+  pagosPendientes,
+  pagoPreseleccionado,
+  onSuccess,
+}: ReportarPagoModalProps) {
+  const [pagoId, setPagoId] = useState<string>(
+    pagoPreseleccionado?.id || pagosPendientes[0]?.id || ""
+  );
+
+  // Cuota actualmente seleccionada y su saldo deudor máximo
+  const cuotaSeleccionada =
+    pagosPendientes.find((p) => p.id === pagoId) || pagoPreseleccionado || pagosPendientes[0];
+
+  const saldoMaximo = cuotaSeleccionada
+    ? Math.max(0, Number((cuotaSeleccionada.montoEsperado - cuotaSeleccionada.montoPagado).toFixed(2)))
+    : 0;
+
+  const [montoReportado, setMontoReportado] = useState<number>(saldoMaximo);
+  const [metodoPago, setMetodoPago] = useState<MetodoPago>(MetodoPago.PAGO_MOVIL);
+  const [referencia, setReferencia] = useState<string>("");
+  const [fechaPago, setFechaPago] = useState<string>(() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  });
+  const [notas, setNotas] = useState<string>("");
+
+  // Manejo de comprobante bancario (UploadThing + compresión WebP silenciosa)
+  const [comprobanteUrl, setComprobanteUrl] = useState<string>("");
+  const [isCompressing, setIsCompressing] = useState<boolean>(false);
+  const [isDragOver, setIsDragOver] = useState<boolean>(false);
+
+  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Sincronizar cuota preseleccionada y limpiar campos al abrir el modal
+  useEffect(() => {
+    if (isOpen) {
+      const idSeleccionado = pagoPreseleccionado?.id || pagosPendientes[0]?.id || "";
+      setPagoId(idSeleccionado);
+      const cuota = pagosPendientes.find((p) => p.id === idSeleccionado) || pagoPreseleccionado || pagosPendientes[0];
+      if (cuota) {
+        setMontoReportado(Math.max(0, cuota.montoEsperado - cuota.montoPagado));
+      }
+      setReferencia("");
+      setNotas("");
+      setComprobanteUrl("");
+    }
+  }, [isOpen, pagoPreseleccionado, pagosPendientes]);
+
+  const { startUpload, isUploading } = useOperacionesUploadThing("comprobantePago", {
+    onClientUploadComplete: (res) => {
+      if (res && res[0]) {
+        const url = res[0].ufsUrl || res[0].url;
+        setComprobanteUrl(url);
+        toast.success("Comprobante subido correctamente.");
+      }
+    },
+    onUploadError: (err) => {
+      console.error("Error en upload:", err);
+      toast.error(`Error al cargar comprobante: ${err.message}`);
+    },
+  });
+
+  // Al cambiar la cuota seleccionada, actualizar monto
+  const handleCambioCuota = (nuevaCuotaId: string) => {
+    setPagoId(nuevaCuotaId);
+    const c = pagosPendientes.find((p) => p.id === nuevaCuotaId);
+    if (c) {
+      setMontoReportado(Math.max(0, c.montoEsperado - c.montoPagado));
+    }
+  };
+
+  // Opciones limpias para el selector híbrido cuando hay múltiples cuotas
+  const opcionesCuotas = useMemo((): SelectOption[] => {
+    return pagosPendientes.map((p) => {
+      const mesNombre = MESES[p.periodoMes - 1] || `Mes ${p.periodoMes}`;
+      const localStr = p.contrato?.unidad?.codigo || "Espacio";
+      const propStr = p.contrato?.unidad?.propiedad?.nombre || "";
+      const deuda = Math.max(0, p.montoEsperado - p.montoPagado);
+      return {
+        value: p.id,
+        label: `${mesNombre} ${p.periodoAno}`,
+        sublabel: `${localStr}${propStr ? ` · ${propStr}` : ""}`,
+        badge: {
+          text: `$${deuda.toFixed(2)} USD`,
+          variant: "emerald",
+        },
+      };
+    });
+  }, [pagosPendientes]);
+
+  const handleProcesarArchivo = async (file: File) => {
+    if (!file) return;
+
+    if (!file.type.startsWith("image/") && file.type !== "application/pdf") {
+      toast.error("Formato no compatible. Por favor sube una imagen (JPG, PNG) o documento PDF.");
+      return;
+    }
+
+    if (file.type === "application/pdf") {
+      if (file.size > 4 * 1024 * 1024) {
+        toast.error("El comprobante PDF no puede superar los 4 MB.");
+        return;
+      }
+      await startUpload([file]);
+      return;
+    }
+
+    setIsCompressing(true);
+    try {
+      const res = await comprimirImagen(file, {
+        formatoSalida: "image/webp",
+        calidad: 0.8,
+        maxDimension: 1600,
+      });
+      await startUpload([res.file]);
+    } catch (err) {
+      console.error("Error comprimiendo imagen:", err);
+      toast.error("No se pudo procesar la imagen. Intentando subir original...");
+      await startUpload([file]);
+    } finally {
+      setIsCompressing(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!pagoId) {
+      toast.error("Debes seleccionar una cuota a pagar.");
+      return;
+    }
+    if (!referencia.trim()) {
+      toast.error("Debes ingresar el número de referencia o confirmación bancaria.");
+      return;
+    }
+    if (!comprobanteUrl.trim()) {
+      toast.error("Es obligatorio adjuntar el comprobante o captura de la transacción.");
+      return;
+    }
+    if (montoReportado <= 0) {
+      toast.error("El monto debe ser mayor a 0.");
+      return;
+    }
+    if (saldoMaximo > 0 && montoReportado > saldoMaximo) {
+      toast.error(
+        `El monto reportado ($${montoReportado.toFixed(2)} USD) no puede superar el saldo pendiente de esta mensualidad ($${saldoMaximo.toFixed(2)} USD).`
+      );
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const payload: ReportarPagoInput = {
+        pagoId,
+        montoReportado: Number(montoReportado),
+        fechaPago,
+        metodoPago,
+        referencia: referencia.trim(),
+        comprobanteUrl: comprobanteUrl.trim(),
+        notas: notas.trim() || undefined,
+      };
+
+      const res = await reportarPagoInquilinoAction(payload);
+      if (res.success) {
+        toast.success(res.message);
+        onSuccess?.();
+        onClose();
+      } else {
+        toast.error(res.error || "No se pudo reportar el pago.");
+      }
+    } catch (err) {
+      console.error("Error en reporte:", err);
+      toast.error("Error inesperado al reportar el pago.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  return (
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title="Reportar Pago de Alquiler"
+      icon={CreditCard}
+      headerVariant="green"
+      maxWidth="lg"
+    >
+      <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-5">
+        {/* Paso 1: Selección de Cuota y Monto */}
+        <div className="space-y-3 sm:space-y-3.5">
+          <FormSectionHeader
+            step={1}
+            title="Cuota a Solventar"
+          />
+
+          {/* Selector de Cuota Único (Sin duplicidades ni bloqueos de overflow) */}
+          <div className="space-y-1.5">
+            <label className="block text-xs font-bold text-slate-700 uppercase tracking-wide">
+              Mensualidad a Solventar <span className="text-emerald-700">*</span>
+            </label>
+            <Select
+              value={pagoId}
+              onChange={handleCambioCuota}
+              options={opcionesCuotas}
+              disabled={isSubmitting}
+              placeholder="Seleccionar cuota pendiente..."
+            />
+
+            {/* Fecha de corte mensual si está configurada */}
+            {cuotaSeleccionada?.contrato?.diaCobro && (
+              <div className="flex items-center justify-end text-[11px] text-slate-500 font-medium px-1 pt-0.5">
+                <span className="flex items-center gap-1 text-slate-600 font-semibold">
+                  <Clock className="w-3 h-3 text-slate-400 shrink-0" />
+                  <span>Corte: Día {cuotaSeleccionada.contrato.diaCobro} de cada mes</span>
+                </span>
+              </div>
+            )}
+          </div>
+
+          {/* Formulario de Monto y Fecha (Uno debajo de otro) */}
+          <div className="space-y-3 sm:space-y-3.5 pt-1">
+            <div>
+              <div className="flex items-center justify-between mb-1.5 flex-wrap gap-1">
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wide">
+                  Monto Reportado (USD) <span className="text-emerald-700">*</span>
+                </label>
+                {saldoMaximo > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setMontoReportado(saldoMaximo)}
+                    className="text-[10px] font-bold text-[#175E38] hover:underline cursor-pointer"
+                  >
+                    Llenar total (${saldoMaximo.toFixed(2)})
+                  </button>
+                )}
+              </div>
+              <div className="relative">
+                <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400 font-bold text-xs">
+                  $
+                </span>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0.01"
+                  max={saldoMaximo > 0 ? saldoMaximo : undefined}
+                  value={montoReportado || ""}
+                  onChange={(e) => setMontoReportado(Number(e.target.value))}
+                  disabled={isSubmitting}
+                  required
+                  className={`w-full h-11 pl-8 pr-3 rounded-xl border bg-white text-xs sm:text-sm font-bold text-slate-800 focus:outline-hidden focus:ring-2 shadow-2xs ${
+                    saldoMaximo > 0 && montoReportado > saldoMaximo
+                      ? "border-rose-400 focus:ring-rose-500/20 focus:border-rose-500"
+                      : "border-slate-200 focus:ring-[#175E38]/20 focus:border-[#175E38]"
+                  }`}
+                  placeholder="0.00"
+                />
+              </div>
+              {saldoMaximo > 0 && montoReportado > saldoMaximo ? (
+                <p className="text-[11px] text-rose-600 font-bold mt-1">
+                  Excede el saldo pendiente (${saldoMaximo.toFixed(2)} USD)
+                </p>
+              ) : (
+                <p className="text-[11px] text-slate-400 font-medium mt-1">
+                  Máximo a reportar: ${saldoMaximo.toFixed(2)} USD
+                </p>
+              )}
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wide mb-1.5">
+                Fecha de la Transferencia <span className="text-emerald-700">*</span>
+              </label>
+              <input
+                type="date"
+                value={fechaPago}
+                onChange={(e) => setFechaPago(e.target.value)}
+                disabled={isSubmitting}
+                required
+                className="w-full h-11 px-3 rounded-xl border border-slate-200 bg-white text-xs sm:text-sm font-semibold text-slate-800 focus:outline-hidden focus:ring-2 focus:ring-[#175E38]/20 focus:border-[#175E38] shadow-2xs"
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Paso 2: Detalles Bancarios */}
+        <div className="space-y-3 sm:space-y-3.5">
+          <FormSectionHeader
+            step={2}
+            title="Detalles Bancarios"
+          />
+
+          <div className="space-y-3 sm:space-y-3.5">
+            <div>
+              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wide mb-1.5">
+                Método de Pago <span className="text-emerald-700">*</span>
+              </label>
+              <Select
+                value={metodoPago}
+                onChange={(val) => setMetodoPago(val as MetodoPago)}
+                options={OPCIONES_METODO_PAGO}
+                disabled={isSubmitting}
+                placeholder="Seleccionar método..."
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wide mb-1.5">
+                N° de Referencia / Confirmación <span className="text-emerald-700">*</span>
+              </label>
+              <input
+                type="text"
+                value={referencia}
+                onChange={(e) => setReferencia(e.target.value)}
+                disabled={isSubmitting}
+                required
+                placeholder="Ej: 049281 / Ref 1234"
+                className="w-full h-11 px-3 rounded-xl border border-slate-200 bg-white text-xs sm:text-sm font-semibold text-slate-800 focus:outline-hidden focus:ring-2 focus:ring-[#175E38]/20 focus:border-[#175E38] shadow-2xs"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wide mb-1.5">
+                Observaciones o Notas Adicionales (Opcional)
+              </label>
+              <input
+                type="text"
+                value={notas}
+                onChange={(e) => setNotas(e.target.value)}
+                disabled={isSubmitting}
+                placeholder="Ej: Pago realizado desde cuenta Banesco de titular Juan..."
+                className="w-full h-11 px-3 rounded-xl border border-slate-200 bg-white text-xs sm:text-sm text-slate-700 focus:outline-hidden focus:ring-2 focus:ring-[#175E38]/20 focus:border-[#175E38] shadow-2xs"
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Paso 3: Comprobante de Pago (UploadThing) */}
+        <div className="space-y-3">
+          <FormSectionHeader
+            step={3}
+            title="Comprobante o Capture"
+          />
+
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*,application/pdf"
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              if (f) handleProcesarArchivo(f);
+            }}
+            className="hidden"
+          />
+
+          {comprobanteUrl ? (
+            <div className="flex items-center justify-between p-3.5 bg-emerald-50/80 border border-emerald-200 rounded-2xl shadow-2xs">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-12 h-12 rounded-xl border border-emerald-200 bg-white shrink-0 overflow-hidden shadow-2xs flex items-center justify-center">
+                  {comprobanteUrl.toLowerCase().endsWith(".pdf") ? (
+                    <FileText className="w-6 h-6 text-emerald-700" />
+                  ) : (
+                    <img
+                      src={comprobanteUrl}
+                      alt="Capture de pago"
+                      className="w-full h-full object-cover"
+                    />
+                  )}
+                </div>
+                <div className="min-w-0">
+                  <div className="flex items-center gap-1.5 text-xs font-black text-emerald-900">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                    <span>Comprobante listo</span>
+                  </div>
+
+                  <a
+                    href={comprobanteUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-[11px] text-emerald-700 hover:text-emerald-900 font-semibold underline flex items-center gap-1 mt-0.5"
+                  >
+                    <span>Ver archivo adjunto</span>
+                    <ExternalLink className="w-3 h-3" />
+                  </a>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setComprobanteUrl("");
+                  if (fileInputRef.current) fileInputRef.current.value = "";
+                }}
+                disabled={isSubmitting}
+                className="w-9 h-9 rounded-xl bg-rose-50 text-rose-600 hover:bg-rose-100 border border-rose-200/80 flex items-center justify-center transition-all cursor-pointer shadow-2xs shrink-0 ml-2"
+                title="Eliminar y subir otro"
+              >
+                <Trash2 className="w-4 h-4" />
+              </button>
+            </div>
+          ) : (
+            <div
+              onDragOver={(e) => {
+                e.preventDefault();
+                setIsDragOver(true);
+              }}
+              onDragLeave={() => setIsDragOver(false)}
+              onDrop={(e) => {
+                e.preventDefault();
+                setIsDragOver(false);
+                const f = e.dataTransfer.files?.[0];
+                if (f) handleProcesarArchivo(f);
+              }}
+              onClick={() => {
+                if (!isUploading && !isCompressing) {
+                  fileInputRef.current?.click();
+                }
+              }}
+              className={`border-2 border-dashed rounded-2xl p-5 text-center transition-all flex flex-col items-center justify-center gap-2 cursor-pointer ${
+                isDragOver
+                  ? "border-[#175E38] bg-emerald-50/50"
+                  : isUploading || isCompressing
+                  ? "cursor-wait bg-slate-50 border-slate-300"
+                  : "border-slate-300 hover:border-[#175E38]/60 bg-slate-50/60 hover:bg-slate-50"
+              }`}
+            >
+              {isCompressing ? (
+                <div className="py-2 flex flex-col items-center gap-1.5">
+                  <Loader2 className="w-6 h-6 animate-spin text-[#175E38]" />
+                  <span className="text-xs font-bold text-slate-800">
+                    Optimizando captura bancaria...
+                  </span>
+                </div>
+              ) : isUploading ? (
+                <div className="py-2 flex flex-col items-center gap-1.5">
+                  <Loader2 className="w-6 h-6 animate-spin text-[#175E38]" />
+                  <span className="text-xs font-bold text-slate-800">
+                    Subiendo a bóveda digital...
+                  </span>
+                </div>
+              ) : (
+                <>
+                  <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center">
+                    <Upload className="w-5 h-5 stroke-[2.5]" />
+                  </div>
+                  <div>
+                    <p className="text-xs font-bold text-slate-800">
+                      Toca para subir tu comprobante <span className="hidden sm:inline">o arrástralo aquí</span>
+                    </p>
+                    <p className="text-[11px] text-slate-500 mt-0.5">
+                      Capturas en JPG, PNG o PDF (máx. 4 MB)
+                    </p>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Acciones Inferiores (Grid 2 columnas en mobile, flex centrado en desktop) */}
+        <div className="pt-3 border-t border-slate-100 grid grid-cols-2 gap-2.5 sm:flex sm:items-center sm:justify-end">
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={isSubmitting || isUploading || isCompressing}
+            className="w-full sm:w-auto px-4 h-11 rounded-xl text-xs sm:text-sm font-bold bg-slate-100 text-slate-700 hover:bg-slate-200 transition-colors cursor-pointer disabled:opacity-50"
+          >
+            Cancelar
+          </button>
+          <button
+            type="submit"
+            disabled={isSubmitting || isUploading || isCompressing || !comprobanteUrl}
+            className="w-full sm:w-auto px-6 h-11 rounded-xl text-xs sm:text-sm font-bold bg-gradient-to-r from-[#175E38] to-[#124b2d] hover:brightness-105 text-white border-b-[3px] border-b-[#0e3a23] active:translate-y-0.5 transition-all shadow-[0_2px_8px_rgba(23,94,56,0.3)] flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+          >
+            {isSubmitting ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                <span>Enviando...</span>
+              </>
+            ) : (
+              <span>Enviar Reporte</span>
+            )}
+          </button>
+        </div>
+      </form>
+    </Modal>
+  );
+}

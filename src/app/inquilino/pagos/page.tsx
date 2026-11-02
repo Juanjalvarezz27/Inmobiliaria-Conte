@@ -1,18 +1,31 @@
-import { ModulePlaceholder } from "@/components/layout/module-placeholder";
+import { auth } from "@/auth";
+import { redirect } from "next/navigation";
+import { getInquilinoPagosDataAction } from "@/lib/actions/inquilinoPortal";
+import { InquilinoPagosClient } from "./InquilinoPagosClient";
+
+export const dynamic = "force-dynamic";
 
 export default async function InquilinoPagosPage() {
+  const session = await auth();
+
+  if (!session?.user) {
+    redirect("/home/login");
+  }
+
+  // Permitir solo a INQUILINO y ADMIN en supervisión
+  if (session.user.rol !== "INQUILINO" && session.user.rol !== "ADMIN") {
+    redirect("/empleado/dashboard?unauthorized=inquilino");
+  }
+
+  const { pagos, resumen, esAdminModoSupervision, inquilinoNombre } =
+    await getInquilinoPagosDataAction();
+
   return (
-    <ModulePlaceholder
-      title="Mis Pagos y Recibos Digitales"
-      role="INQUILINO"
-      iconType="money"
-      description="Aquí podrás consultar el estado de tu cuenta de alquiler y descargar tus comprobantes oficiales de pago."
-      features={[
-        "Revisar si tu mensualidad actual está al día o si tienes algún saldo pendiente por cancelar.",
-        "Ver la fecha límite de pago para evitar recargos o retrasos.",
-        "Consultar el historial completo de todas las mensualidades que has pagado.",
-        "Descargar tus recibos oficiales en formato PDF listos para imprimir o guardar.",
-      ]}
+    <InquilinoPagosClient
+      initialPagos={pagos}
+      resumen={resumen}
+      esAdminModoSupervision={esAdminModoSupervision}
+      inquilinoNombre={inquilinoNombre}
     />
   );
 }

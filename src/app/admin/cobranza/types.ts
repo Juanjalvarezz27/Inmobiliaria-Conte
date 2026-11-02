@@ -95,6 +95,8 @@ export interface EstadisticasCobranza {
   cantidadPendientes: number;
   cantidadVencidos: number;
   cantidadParciales: number;
+  cantidadPorConfirmar?: number;
+  cantidadPorConfirmarGlobal?: number;
   porcentajeRecaudado: number;
   conteoPorPropiedad?: Record<string, number>;
 }
@@ -104,7 +106,7 @@ export interface FiltrosCobranza {
   mes: number;
   ano: number;
   propiedadId?: string;
-  estado?: EstadoPago | "TODOS";
+  estado?: EstadoPago | "TODOS" | "POR_CONFIRMAR";
   busqueda?: string;
   pagina?: number;
   forzarSincronizacion?: boolean;

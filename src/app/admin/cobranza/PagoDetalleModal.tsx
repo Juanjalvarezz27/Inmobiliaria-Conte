@@ -6,6 +6,7 @@ import {
   User,
   Store,
   ExternalLink,
+  Eye,
   RotateCcw,
   AlertTriangle,
   Loader2,
@@ -37,6 +38,7 @@ import {
 import { EstadoPago, MetodoPago, TipoPersona } from "@prisma/client";
 import type { PagoItem } from "./types";
 import { toast } from "sonner";
+import { rechazarComprobanteReportadoAction } from "@/lib/actions/cobranza";
 
 interface PagoDetalleModalProps {
   isOpen: boolean;
@@ -46,6 +48,7 @@ interface PagoDetalleModalProps {
   onEliminarTransaccion?: (transaccionId: string) => Promise<boolean>;
   onRegistrarNuevo?: (pago: PagoItem) => void;
   onVerRecibo?: (pago: PagoItem) => void;
+  onRechazado?: () => void;
   isLoading?: boolean;
 }
 
@@ -61,12 +64,36 @@ export function PagoDetalleModal({
   onEliminarTransaccion,
   onRegistrarNuevo,
   onVerRecibo,
+  onRechazado,
   isLoading = false,
 }: PagoDetalleModalProps) {
   const [confirmandoAnulacion, setConfirmandoAnulacion] = useState(false);
   const [anulando, setAnulando] = useState(false);
   const [eliminandoId, setEliminandoId] = useState<string | null>(null);
   const [confirmandoEliminarId, setConfirmandoEliminarId] = useState<string | null>(null);
+  const [isRechazando, setIsRechazando] = useState(false);
+
+  const handleRechazarComprobante = async () => {
+    if (!pago) return;
+    const motivo = window.prompt(
+      "Ingresa el motivo del rechazo para notificar al inquilino:",
+      "El comprobante no coincide con los movimientos bancarios o no es legible."
+    );
+    if (motivo === null) return;
+    setIsRechazando(true);
+    try {
+      const res = await rechazarComprobanteReportadoAction(pago.id, motivo);
+      if (res.success) {
+        toast.success("Comprobante descartado y notificado al inquilino.");
+        onClose();
+        if (onRechazado) onRechazado();
+      } else {
+        toast.error(res.error || "No se pudo descartar el comprobante.");
+      }
+    } finally {
+      setIsRechazando(false);
+    }
+  };
 
   // Estado para visualizador de imágenes en pantalla grande
   const [visorImagenes, setVisorImagenes] = useState<{
@@ -88,6 +115,9 @@ export function PagoDetalleModal({
   const unidad = contrato.unidad;
   const propiedad = unidad.propiedad;
   const saldoPendiente = Math.max(0, pago.montoEsperado - pago.montoPagado);
+  const matchMontoReportado = pago.notas?.match(/\(\$([0-9]+(?:\.[0-9]{1,2})?)\)/);
+  const montoReportadoParsed = matchMontoReportado ? parseFloat(matchMontoReportado[1]) : null;
+  const esAbonoReportado = Boolean(montoReportadoParsed && montoReportadoParsed < saldoPendiente);
   const porcentajeAmortizado = Math.min(
     100,
     Math.round((pago.montoPagado / (pago.montoEsperado || 1)) * 100)
@@ -574,6 +604,75 @@ export function PagoDetalleModal({
             </div>
           </div>
         </div>
+
+        {/* Aviso de Comprobante Reportado por Inquilino */}
+        {pago.comprobanteUrl && pago.estado !== EstadoPago.PAGADO && (
+          <div className="p-4 rounded-2xl bg-blue-50/90 border border-blue-200/90 shadow-2xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-blue-600 text-white flex items-center justify-center shrink-0 shadow-2xs">
+                <Receipt className="w-5 h-5" />
+              </div>
+              <div>
+                <h4 className="text-xs sm:text-sm font-black text-slate-900 font-heading">
+                  Comprobante Bancario Reportado por Inquilino
+                </h4>
+                <p className="text-xs text-slate-600 mt-0.5">
+                  {montoReportadoParsed ? (
+                    <strong className="text-blue-900 font-black">
+                      {esAbonoReportado ? "Abono reportado" : "Monto reportado"}: ${montoReportadoParsed.toFixed(2)} USD •{" "}
+                    </strong>
+                  ) : null}
+                  {pago.referencia ? `Referencia: ${pago.referencia} • ` : ""}
+                  Adjuntado para conciliación. Puedes revisar el comprobante y liquidar la cuota.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 w-full sm:w-auto">
+              <button
+                type="button"
+                onClick={() =>
+                  setVisorImagenes({
+                    isOpen: true,
+                    images: [pago.comprobanteUrl!],
+                    initialIndex: 0,
+                    title: `Comprobante de Pago • ${unidad.codigo}`,
+                    subtitle: `Referencia: ${pago.referencia || "Sin ref"}`,
+                  })
+                }
+                className="w-full sm:w-auto h-9 px-3 rounded-xl text-xs font-bold bg-white text-blue-700 hover:bg-blue-100 border border-blue-200/90 transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-xs active:translate-y-0.5"
+              >
+                <Eye className="w-3.5 h-3.5" />
+                <span>Ver Capture</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={handleRechazarComprobante}
+                disabled={isRechazando}
+                className="w-full sm:w-auto h-9 px-3 rounded-xl text-xs font-bold bg-rose-50 text-rose-700 hover:bg-rose-100 border border-rose-200/90 transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-xs active:translate-y-0.5 disabled:opacity-50"
+                title="Descartar comprobante y notificar al inquilino"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>Rechazar</span>
+              </button>
+
+              {onRegistrarNuevo && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    onClose();
+                    onRegistrarNuevo(pago);
+                  }}
+                  className="w-full sm:w-auto h-9 px-3.5 rounded-xl text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-xs active:translate-y-0.5"
+                >
+                  <CheckCircle className="w-3.5 h-3.5" />
+                  <span>Confirmar Pago</span>
+                </button>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* 4. Libro Mayor de Transacciones (Abonos) */}
         <div className="p-3.5 sm:p-4 rounded-2xl bg-white border border-slate-200/90 shadow-2xs space-y-3.5">

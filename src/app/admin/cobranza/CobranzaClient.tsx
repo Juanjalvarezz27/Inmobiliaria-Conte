@@ -148,6 +148,13 @@ export function CobranzaClient({
         isGlobal: true,
       },
       {
+        value: "POR_CONFIRMAR",
+        label: "Por Confirmar (Capture)",
+        icon: Receipt,
+        iconClassName: "text-blue-600",
+        count: estadisticas.cantidadPorConfirmar ?? 0,
+      },
+      {
         value: EstadoPago.PENDIENTE,
         label: "Por Cobrar (Pendiente)",
         icon: Clock,
@@ -259,7 +266,16 @@ export function CobranzaClient({
     const res = await registrarPago(input);
     if (res.success) {
       toast.success("Pago registrado exitosamente.");
-      recargarCobranzas(mes, ano, pagina);
+
+      // Limpia el filtro superior si estaba filtrado por estado específico (ej: POR_CONFIRMAR)
+      if (estadoFiltro !== "TODOS") {
+        setEstadoFiltro("TODOS");
+        setPagina(1);
+        recargarCobranzas(mes, ano, 1, propiedadId, "TODOS", busqueda);
+      } else {
+        recargarCobranzas(mes, ano, pagina);
+      }
+
       if (pagoADetalle && pagoADetalle.id === input.pagoId) {
         const resDetalle = await getPagoDetalle(pagoADetalle.id);
         if (resDetalle.success && resDetalle.pago) {
@@ -427,6 +443,46 @@ export function CobranzaClient({
         />
       </div>
 
+      {/* Banner de alerta: Pagos por confirmar reportados por inquilinos */}
+      {((estadisticas.cantidadPorConfirmar && estadisticas.cantidadPorConfirmar > 0) ||
+        (estadisticas.cantidadPorConfirmarGlobal && estadisticas.cantidadPorConfirmarGlobal > 0)) && (
+        <div className="p-4 bg-gradient-to-r from-blue-50 via-indigo-50/70 to-blue-50 border border-blue-200/90 rounded-2xl shadow-2xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-blue-600 text-white flex items-center justify-center shrink-0 shadow-2xs">
+              <Receipt className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h4 className="text-sm font-black text-slate-900 font-heading">
+                  {estadisticas.cantidadPorConfirmar && estadisticas.cantidadPorConfirmar > 0
+                    ? `${estadisticas.cantidadPorConfirmar} pago(s) reportado(s) por confirmar en ${nombreMesActual}`
+                    : `${estadisticas.cantidadPorConfirmarGlobal} pago(s) reportado(s) por confirmar en otros periodos`}
+                </h4>
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-blue-100 text-blue-800 border border-blue-300">
+                  Requiere Conciliación
+                </span>
+              </div>
+              <p className="text-xs text-slate-600 mt-0.5">
+                Inquilinos han adjuntado comprobantes bancarios. Revisa y confirma para actualizar su solvencia.
+              </p>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => {
+              setEstadoFiltro("POR_CONFIRMAR");
+              setPagina(1);
+              recargarCobranzas(mes, ano, 1, propiedadId, "POR_CONFIRMAR", busqueda);
+            }}
+            className="w-full sm:w-auto h-9 px-4 rounded-xl text-xs font-bold bg-[#1C2539] hover:bg-[#2a3754] text-white transition-all flex items-center justify-center gap-1.5 cursor-pointer shrink-0 shadow-xs active:translate-y-0.5"
+          >
+            <span>Filtrar Por Confirmar</span>
+            <ChevronRight className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      )}
+
       {/* Barra de Filtros Adaptativa (Móvil: apilados verticalmente a ancho completo) */}
       <div className="bg-white border border-slate-200/90 rounded-2xl p-3 sm:p-4 shadow-2xs space-y-3">
         <div className="flex flex-col md:flex-row md:items-center gap-3">
@@ -517,7 +573,12 @@ export function CobranzaClient({
               ano={ano}
               isLoadingDetalle={isLoadingDetalle}
               onVerFicha={(id) => abrirDetalle(id)}
-              onRegistrarPago={(id) => abrirDetalle(id, true)}
+              onRegistrarPago={(id) => {
+                if (estadoFiltro === "POR_CONFIRMAR") {
+                  setEstadoFiltro("TODOS");
+                }
+                abrirDetalle(id, true);
+              }}
               onVerRecibo={(p) => setPagoARecibo(p)}
             />
           ))}
@@ -627,8 +688,22 @@ export function CobranzaClient({
         pago={pagoADetalle}
         onAnular={handleAnularPago}
         onEliminarTransaccion={handleEliminarTransaccion}
-        onRegistrarNuevo={(p) => setPagoAEditar(p)}
+        onRegistrarNuevo={(p) => {
+          if (estadoFiltro === "POR_CONFIRMAR") {
+            setEstadoFiltro("TODOS");
+          }
+          setPagoAEditar(p);
+        }}
         onVerRecibo={(p) => setPagoARecibo(p)}
+        onRechazado={() => {
+          if (estadoFiltro === "POR_CONFIRMAR") {
+            setEstadoFiltro("TODOS");
+            setPagina(1);
+            recargarCobranzas(mes, ano, 1, propiedadId, "TODOS", busqueda);
+          } else {
+            recargarCobranzas(mes, ano, pagina);
+          }
+        }}
         isLoading={isPending}
       />
 

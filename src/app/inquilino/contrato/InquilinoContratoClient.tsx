@@ -314,16 +314,16 @@ export function InquilinoContratoClient({
                           <DollarSign className="w-5 h-5 stroke-[2.2]" />
                         </div>
                         <div className="min-w-0">
-                          <span className="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-[#175E38] block truncate">
+                          <span className="text-[10.5px] font-semibold uppercase tracking-wider text-[#175E38] block truncate">
                             Mensualidad
                           </span>
-                          <h3 className="text-xl sm:text-2xl font-black text-slate-900 font-heading whitespace-nowrap">
+                          <h3 className="text-base sm:text-lg font-bold text-slate-900 font-heading whitespace-nowrap">
                             ${contratoActual.montoAlquiler.toFixed(2)} USD
                           </h3>
                         </div>
                       </div>
                       <div className="self-start sm:self-center shrink-0">
-                        <span className="px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider bg-emerald-50 text-emerald-800 border border-emerald-200">
+                        <span className="px-2 py-0.5 rounded-md text-[10px] font-semibold uppercase tracking-wider bg-emerald-50 text-emerald-800 border border-emerald-200">
                           Mensual
                         </span>
                       </div>
@@ -436,10 +436,10 @@ export function InquilinoContratoClient({
                           <ShieldCheck className="w-5 h-5 stroke-[2.2]" />
                         </div>
                         <div className="min-w-0">
-                          <span className="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-amber-800 block truncate">
+                          <span className="text-[10.5px] font-semibold uppercase tracking-wider text-amber-800 block truncate">
                             Depósito de Garantía
                           </span>
-                          <h3 className="text-xl sm:text-2xl font-black text-slate-900 font-heading whitespace-nowrap">
+                          <h3 className="text-base sm:text-lg font-bold text-slate-900 font-heading whitespace-nowrap">
                             {contratoActual.deposito.monto
                               ? `$${contratoActual.deposito.monto.toFixed(2)} USD`
                               : "No Aplica"}
@@ -449,7 +449,7 @@ export function InquilinoContratoClient({
 
                       <div className="self-start sm:self-center shrink-0">
                         <span
-                          className={`px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider border ${
+                          className={`px-2 py-0.5 rounded-md text-[10px] font-semibold uppercase tracking-wider border ${
                             contratoActual.deposito.estado === "COBRADO"
                               ? "bg-emerald-50 text-[#175E38] border-emerald-200"
                               : contratoActual.deposito.estado === "PENDIENTE"

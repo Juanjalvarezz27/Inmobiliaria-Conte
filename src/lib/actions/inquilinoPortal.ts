@@ -1,5 +1,33 @@
+"use server";
+
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/auth";
+import { revalidatePath } from "next/cache";
+import { after } from "next/server";
+import { z } from "zod";
+import { MetodoPago } from "@prisma/client";
+import type { PagoItem } from "@/app/admin/cobranza/types";
+import { enviarNotificacionPagoReportadoAdmin } from "@/lib/email-templates/notificacion-pago-reportado";
+
+/**
+ * Ejecuta tareas asíncronas secundarias (como emails SMTP) en segundo plano
+ * para responder inmediatamente a las Server Actions del portal del inquilino.
+ */
+function ejecutarEnSegundoPlano(tarea: () => Promise<unknown>) {
+  try {
+    after(async () => {
+      try {
+        await tarea();
+      } catch (err) {
+        console.error("Error en tarea de segundo plano:", err);
+      }
+    });
+  } catch {
+    tarea().catch((err) => {
+      console.error("Error en tarea de segundo plano (fallback):", err);
+    });
+  }
+}
 
 export type SemaforoEstado = "AL_DIA" | "POR_PAGAR" | "EN_MORA" | "SIN_CONTRATO";
 
@@ -487,4 +515,310 @@ export async function getInquilinoContratosData(): Promise<{
     inquilinoNombre: `${inquilino.nombre} ${inquilino.apellido || ""}`.trim(),
     documentoIdentidad: inquilino.documentoIdentidad,
   };
+}
+
+// 3. Obtener listado de cuotas y estado de pagos para el portal del inquilino
+export async function getInquilinoPagosDataAction(): Promise<{
+  pagos: PagoItem[];
+  resumen: ResumenFinancieroInquilino;
+  esAdminModoSupervision: boolean;
+  inquilinoNombre: string;
+}> {
+  const session = await auth();
+  if (!session?.user?.id) throw new Error("No autenticado");
+
+  // Buscar el perfil Inquilino vinculado al usuario
+  let inquilino = await prisma.inquilino.findUnique({
+    where: { usuarioId: session.user.id },
+    include: {
+      contratos: {
+        include: {
+          unidad: { include: { propiedad: true } },
+          pagos: {
+            orderBy: [{ periodoAno: "desc" }, { periodoMes: "desc" }],
+            include: {
+              transacciones: { orderBy: { fechaPago: "desc" } },
+            },
+          },
+        },
+      },
+    },
+  });
+
+  if (!inquilino && session.user.email) {
+    inquilino = await prisma.inquilino.findFirst({
+      where: { email: session.user.email },
+      include: {
+        contratos: {
+          include: {
+            unidad: { include: { propiedad: true } },
+            pagos: {
+              orderBy: [{ periodoAno: "desc" }, { periodoMes: "desc" }],
+              include: {
+                transacciones: { orderBy: { fechaPago: "desc" } },
+              },
+            },
+          },
+        },
+      },
+    });
+  }
+
+  let esAdminModoSupervision = false;
+  if (!inquilino && session.user.rol === "ADMIN") {
+    esAdminModoSupervision = true;
+    inquilino = await prisma.inquilino.findFirst({
+      where: { activo: true, contratos: { some: {} } },
+      include: {
+        contratos: {
+          include: {
+            unidad: { include: { propiedad: true } },
+            pagos: {
+              orderBy: [{ periodoAno: "desc" }, { periodoMes: "desc" }],
+              include: {
+                transacciones: { orderBy: { fechaPago: "desc" } },
+              },
+            },
+          },
+        },
+      },
+    });
+  }
+
+  const { resumen } = await getInquilinoDashboardData();
+
+  if (!inquilino || inquilino.contratos.length === 0) {
+    return {
+      pagos: [],
+      resumen,
+      esAdminModoSupervision,
+      inquilinoNombre: session.user.name || "Inquilino",
+    };
+  }
+
+  // Aplanar todos los pagos de los contratos del inquilino serializados para Client Components
+  const todosLosPagos: PagoItem[] = [];
+
+  for (const c of inquilino.contratos) {
+    for (const p of c.pagos) {
+      todosLosPagos.push({
+        id: p.id,
+        contratoId: p.contratoId,
+        periodoMes: p.periodoMes,
+        periodoAno: p.periodoAno,
+        montoEsperado: p.montoEsperado,
+        montoPagado: p.montoPagado,
+        fechaVencimiento: p.fechaVencimiento.toISOString(),
+        fechaPago: p.fechaPago ? p.fechaPago.toISOString() : null,
+        metodoPago: p.metodoPago,
+        referencia: p.referencia,
+        comprobanteUrl: p.comprobanteUrl,
+        estado: p.estado,
+        notas: p.notas,
+        createdAt: p.createdAt.toISOString(),
+        updatedAt: p.updatedAt.toISOString(),
+        transacciones: p.transacciones.map((t) => ({
+          id: t.id,
+          pagoId: t.pagoId,
+          monto: t.monto,
+          fechaPago: t.fechaPago.toISOString(),
+          metodoPago: t.metodoPago,
+          referencia: t.referencia,
+          comprobanteUrl: t.comprobanteUrl,
+          notas: t.notas,
+          createdAt: t.createdAt.toISOString(),
+        })),
+        contrato: {
+          id: c.id,
+          codigo: c.codigo,
+          diaCobro: c.diaCobro,
+          moneda: c.moneda,
+          fechaInicio: c.fechaInicio.toISOString(),
+          fechaFin: c.fechaFin.toISOString(),
+          montoAlquiler: c.montoAlquiler,
+          depositoGarantia: c.depositoGarantia,
+          estado: c.estado,
+          documentoUrl: c.documentoUrl,
+          notas: c.notas,
+          unidad: {
+            id: c.unidad.id,
+            codigo: c.unidad.codigo,
+            tipo: c.unidad.tipo,
+            piso: c.unidad.piso,
+            areaMt2: c.unidad.areaMt2,
+            precioAlquiler: c.unidad.precioAlquiler,
+            descripcion: c.unidad.descripcion,
+            imagenes: c.unidad.imagenes,
+            propiedad: {
+              id: c.unidad.propiedad.id,
+              nombre: c.unidad.propiedad.nombre,
+              tipo: c.unidad.propiedad.tipo,
+              direccion: c.unidad.propiedad.direccion,
+              ciudad: c.unidad.propiedad.ciudad,
+              propietario: c.unidad.propiedad.propietario,
+              telefonoContacto: c.unidad.propiedad.telefonoContacto,
+            },
+          },
+          inquilino: {
+            id: inquilino.id,
+            nombre: inquilino.nombre,
+            apellido: inquilino.apellido,
+            documentoIdentidad: inquilino.documentoIdentidad,
+            telefono: inquilino.telefono,
+            telefonoSecundario: inquilino.telefonoSecundario,
+            email: inquilino.email,
+            tipoPersona: inquilino.tipoPersona,
+            direccion: inquilino.direccion,
+          },
+        },
+      });
+    }
+  }
+
+  // Ordenar cronológicamente (más recientes primero)
+  todosLosPagos.sort((a, b) => {
+    if (a.periodoAno !== b.periodoAno) return b.periodoAno - a.periodoAno;
+    return b.periodoMes - a.periodoMes;
+  });
+
+  return {
+    pagos: todosLosPagos,
+    resumen,
+    esAdminModoSupervision,
+    inquilinoNombre: `${inquilino.nombre} ${inquilino.apellido || ""}`.trim(),
+  };
+}
+
+const reportarPagoSchema = z.object({
+  pagoId: z.string().min(1, "El identificador de la cuota es requerido"),
+  montoReportado: z.coerce.number().positive("El monto debe ser mayor a 0"),
+  fechaPago: z.string().min(1, "La fecha de pago es requerida"),
+  metodoPago: z.nativeEnum(MetodoPago),
+  referencia: z.string().trim().min(3, "La referencia o número de comprobante es requerida"),
+  comprobanteUrl: z.string().url("Debes adjuntar el comprobante o captura de pago"),
+  notas: z.string().optional().nullable(),
+});
+
+export type ReportarPagoInput = z.infer<typeof reportarPagoSchema>;
+
+// 4. Reporte de pago bancario por parte del inquilino (queda en auditoría para el Admin)
+export async function reportarPagoInquilinoAction(input: ReportarPagoInput): Promise<{
+  success: boolean;
+  message?: string;
+  error?: string;
+}> {
+  try {
+    const session = await auth();
+    if (!session?.user?.id) throw new Error("No autenticado");
+
+    const validacion = reportarPagoSchema.safeParse(input);
+    if (!validacion.success) {
+      return {
+        success: false,
+        error: validacion.error.issues[0]?.message || "Datos del reporte de pago inválidos",
+      };
+    }
+
+    const { pagoId, montoReportado, fechaPago, metodoPago, referencia, comprobanteUrl, notas } =
+      validacion.data;
+
+    const pago = await prisma.pago.findUnique({
+      where: { id: pagoId },
+      include: {
+        contrato: {
+          include: {
+            inquilino: true,
+            unidad: {
+              include: {
+                propiedad: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!pago) {
+      return { success: false, error: "La cuota seleccionada no existe" };
+    }
+
+    // Verificar autorización: el inquilino autenticado debe ser el dueño del contrato (salvo ADMIN en supervisión)
+    const esAdmin = session.user.rol === "ADMIN";
+    const esDueno =
+      pago.contrato.inquilino.usuarioId === session.user.id ||
+      pago.contrato.inquilino.email === session.user.email;
+
+    if (!esAdmin && !esDueno) {
+      return {
+        success: false,
+        error: "No tienes autorización para reportar pagos de este contrato",
+      };
+    }
+
+    // Validación estricta de negocio: No permitir reportar un monto superior al saldo pendiente
+    const saldoPendiente = Math.max(0, Number((pago.montoEsperado - pago.montoPagado).toFixed(2)));
+    if (montoReportado > saldoPendiente) {
+      return {
+        success: false,
+        error: `El monto reportado ($${montoReportado.toFixed(2)} USD) no puede superar el saldo pendiente de esta mensualidad ($${saldoPendiente.toFixed(2)} USD).`,
+      };
+    }
+
+    // Actualizar la cuota con el soporte del inquilino para auditoría administrativa
+    const fechaObj = new Date(fechaPago);
+    const notasLimpias = [
+      pago.notas,
+      `Reportado por inquilino: ${referencia} ($${montoReportado.toFixed(2)}) el ${fechaPago}.`,
+      notas?.trim() || "",
+    ]
+      .filter(Boolean)
+      .join(" - ");
+
+    await prisma.pago.update({
+      where: { id: pagoId },
+      data: {
+        metodoPago,
+        referencia: referencia.trim(),
+        comprobanteUrl: comprobanteUrl.trim(),
+        fechaPago: isNaN(fechaObj.getTime()) ? new Date() : fechaObj,
+        notas: notasLimpias,
+      },
+    });
+
+    // Enviar notificación por correo al administrador en segundo plano (respuesta instantánea < 150ms)
+    ejecutarEnSegundoPlano(async () => {
+      await enviarNotificacionPagoReportadoAdmin({
+        inquilinoNombre: `${pago.contrato.inquilino.nombre} ${pago.contrato.inquilino.apellido || ""}`.trim(),
+        inquilinoCedula: pago.contrato.inquilino.documentoIdentidad,
+        inquilinoTelefono: pago.contrato.inquilino.telefono,
+        inquilinoEmail: pago.contrato.inquilino.email,
+        propiedadNombre: pago.contrato.unidad.propiedad.nombre,
+        unidadCodigo: pago.contrato.unidad.codigo,
+        periodoMes: pago.periodoMes,
+        periodoAno: pago.periodoAno,
+        montoCanon: pago.montoEsperado,
+        montoReportado,
+        metodoPago,
+        referencia: referencia.trim(),
+        fechaPago,
+        comprobanteUrl: comprobanteUrl.trim(),
+        notas: notas?.trim() || null,
+      });
+    });
+
+    revalidatePath("/inquilino/pagos");
+    revalidatePath("/inquilino/dashboard");
+    revalidatePath("/admin/cobranza");
+
+    return {
+      success: true,
+      message: "¡Pago reportado exitosamente! Tu comprobante fue enviado a la administración para su verificación.",
+    };
+  } catch (error) {
+    console.error("Error al reportar pago de inquilino:", error);
+    return {
+      success: false,
+      error: "Ocurrió un error al registrar el reporte de pago.",
+    };
+  }
 }

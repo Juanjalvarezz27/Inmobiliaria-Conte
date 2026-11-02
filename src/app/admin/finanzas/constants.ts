@@ -73,7 +73,7 @@ export const CATEGORIA_CONFIG: Record<
   },
   ALQUILER_COBRANZA: {
     label: "Cobranza de Alquiler",
-    descripcion: "Canon devengado de contratos activos",
+    descripcion: "Mensualidad devengada de contratos activos",
     colorBadge: "bg-emerald-50 text-[#175E38] border-emerald-200",
     icon: Home,
   },

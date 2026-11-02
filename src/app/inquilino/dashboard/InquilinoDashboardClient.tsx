@@ -354,58 +354,58 @@ export function InquilinoDashboardClient({
               {/* Cabecera del Espacio Arrendado */}
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div className="flex items-center gap-2.5 min-w-0">
-                  <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-700 border border-blue-200/90 flex items-center justify-center shrink-0">
-                    <Building2 className="w-5 h-5 stroke-[2.2]" />
+                  <div className="w-9 h-9 rounded-xl bg-blue-50 text-blue-700 border border-blue-200/90 flex items-center justify-center shrink-0">
+                    <Building2 className="w-4.5 h-4.5 stroke-[2.2]" />
                   </div>
                   <div className="min-w-0">
-                    <span className="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-slate-500 block truncate">
+                    <span className="text-[10.5px] font-semibold uppercase tracking-wider text-slate-400 block truncate">
                       Espacio Arrendado
                     </span>
-                    <h3 className="text-xl sm:text-2xl font-black text-slate-900 font-heading truncate">
+                    <h3 className="text-base sm:text-lg font-bold text-slate-900 font-heading truncate">
                       {locales[0].codigoLocal}
                     </h3>
                   </div>
                 </div>
 
                 <div className="flex items-center gap-1.5 flex-wrap self-start sm:self-center shrink-0">
-                  <span className="px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider bg-slate-100 text-slate-700 border border-slate-200">
+                  <span className="px-2 py-0.5 rounded-md text-[10px] font-semibold uppercase tracking-wider bg-slate-100 text-slate-700 border border-slate-200">
                     {locales[0].tipoUnidad}
                   </span>
-                  <span className="px-2.5 py-1 rounded-lg text-[10px] font-mono font-bold bg-blue-50 text-blue-700 border border-blue-200">
+                  <span className="px-2 py-0.5 rounded-md text-[10px] font-mono font-bold bg-blue-50 text-blue-700 border border-blue-200">
                     {locales[0].contratoCodigo}
                   </span>
                 </div>
               </div>
 
               {/* Ubicación */}
-              <div className="flex items-center gap-2 text-xs text-slate-600 font-medium">
-                <Building2 className="w-4 h-4 text-slate-400 shrink-0" />
+              <div className="flex items-center gap-1.5 text-xs text-slate-500 font-medium">
+                <Building2 className="w-3.5 h-3.5 text-slate-400 shrink-0" />
                 <span>{locales[0].propiedadNombre}</span>
               </div>
 
               {/* Ficha métrica vertical: una debajo de otra */}
-              <div className="grid grid-cols-1 gap-2 sm:gap-2.5 pt-1">
-                <div className="bg-slate-50/90 rounded-xl p-3 border border-slate-200/70 flex items-center justify-between">
-                  <span className="text-[11px] sm:text-xs text-slate-600 uppercase font-bold tracking-wider">Nivel / Piso</span>
-                  <span className="font-bold text-slate-900 text-sm">
+              <div className="grid grid-cols-1 gap-2 pt-1">
+                <div className="bg-slate-50/70 rounded-xl px-3 py-2.5 border border-slate-200/70 flex items-center justify-between">
+                  <span className="text-xs text-slate-500 font-medium">Nivel / Piso</span>
+                  <span className="font-semibold text-slate-800 text-xs sm:text-sm">
                     {locales[0].piso ? `Piso ${locales[0].piso}` : "Planta Principal"}
                   </span>
                 </div>
-                <div className="bg-slate-50/90 rounded-xl p-3 border border-slate-200/70 flex items-center justify-between">
-                  <span className="text-[11px] sm:text-xs text-slate-600 uppercase font-bold tracking-wider">Superficie</span>
-                  <span className="font-bold text-slate-900 text-sm">
+                <div className="bg-slate-50/70 rounded-xl px-3 py-2.5 border border-slate-200/70 flex items-center justify-between">
+                  <span className="text-xs text-slate-500 font-medium">Superficie</span>
+                  <span className="font-semibold text-slate-800 text-xs sm:text-sm">
                     {locales[0].areaMt2 !== null ? `${locales[0].areaMt2} m²` : "No especificada"}
                   </span>
                 </div>
-                <div className="bg-slate-50/90 rounded-xl p-3 border border-slate-200/70 flex items-center justify-between">
-                  <span className="text-[11px] sm:text-xs text-slate-600 uppercase font-bold tracking-wider">Mensualidad</span>
-                  <span className="font-bold text-[#175E38] text-sm">
+                <div className="bg-slate-50/70 rounded-xl px-3 py-2.5 border border-slate-200/70 flex items-center justify-between">
+                  <span className="text-xs text-slate-500 font-medium">Mensualidad</span>
+                  <span className="font-bold text-[#175E38] text-xs sm:text-sm">
                     ${locales[0].mensualidad.toFixed(2)} USD
                   </span>
                 </div>
-                <div className="bg-slate-50/90 rounded-xl p-3 border border-slate-200/70 flex items-center justify-between">
-                  <span className="text-[11px] sm:text-xs text-slate-600 uppercase font-bold tracking-wider">Día de Corte</span>
-                  <span className="font-bold text-slate-900 text-sm">
+                <div className="bg-slate-50/70 rounded-xl px-3 py-2.5 border border-slate-200/70 flex items-center justify-between">
+                  <span className="text-xs text-slate-500 font-medium">Día de corte</span>
+                  <span className="font-semibold text-slate-800 text-xs sm:text-sm">
                     Día {locales[0].diaCobro} de cada mes
                   </span>
                 </div>
@@ -442,10 +442,10 @@ export function InquilinoDashboardClient({
                     )}
                   </div>
                   <div className="min-w-0">
-                    <span className="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-slate-500 block truncate">
+                    <span className="text-[10.5px] font-semibold uppercase tracking-wider text-slate-400 block truncate">
                       Estado de Cuenta
                     </span>
-                    <h3 className="text-xl sm:text-2xl font-black text-slate-900 font-heading truncate">
+                    <h3 className="text-base sm:text-lg font-bold text-slate-900 font-heading truncate">
                       {resumen.semaforoEstado === "AL_DIA"
                         ? "Al día • Solvente"
                         : resumen.semaforoEstado === "POR_PAGAR"
@@ -456,7 +456,7 @@ export function InquilinoDashboardClient({
                 </div>
 
                 <div className="flex items-center self-start sm:self-center shrink-0">
-                  <span className={`px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider border ${
+                  <span className={`px-2 py-0.5 rounded-md text-[10px] font-semibold uppercase tracking-wider border ${
                     resumen.semaforoEstado === "AL_DIA"
                       ? "bg-emerald-50 text-[#175E38] border-emerald-200"
                       : resumen.semaforoEstado === "POR_PAGAR"
@@ -473,125 +473,125 @@ export function InquilinoDashboardClient({
               </div>
 
               {/* Sublínea contextual */}
-              <div className="flex items-center gap-2 text-xs text-slate-600 font-medium">
-                <CalendarDays className="w-4 h-4 text-slate-400 shrink-0" />
+              <div className="flex items-center gap-1.5 text-xs text-slate-500 font-medium">
+                <CalendarDays className="w-3.5 h-3.5 text-slate-400 shrink-0" />
                 <span>Facturación regular y registro contable</span>
               </div>
 
               {/* Ficha métrica vertical: una debajo de otra (sincronizada con la tarjeta izquierda) */}
-              <div className="grid grid-cols-1 gap-2 sm:gap-2.5 pt-1">
+              <div className="grid grid-cols-1 gap-2 pt-1">
                 {resumen.semaforoEstado === "EN_MORA" ? (
                   <>
-                    <div className="bg-rose-50/80 rounded-xl p-3 border border-rose-200/80 flex items-center justify-between">
-                      <span className="text-[11px] sm:text-xs text-rose-900 uppercase font-bold tracking-wider">
+                    <div className="bg-rose-50/70 rounded-xl px-3 py-2.5 border border-rose-200/80 flex items-center justify-between">
+                      <span className="text-xs text-rose-900 font-medium">
                         Saldo Vencido
                       </span>
-                      <span className="font-black text-[#CC1A22] text-sm">
+                      <span className="font-bold text-[#CC1A22] text-xs sm:text-sm">
                         ${resumen.montoDeudaVencida.toFixed(2)} USD
                       </span>
                     </div>
 
-                    <div className="bg-slate-50/90 rounded-xl p-3 border border-slate-200/70 flex items-center justify-between">
-                      <span className="text-[11px] sm:text-xs text-slate-600 uppercase font-bold tracking-wider">
+                    <div className="bg-slate-50/70 rounded-xl px-3 py-2.5 border border-slate-200/70 flex items-center justify-between">
+                      <span className="text-xs text-slate-500 font-medium">
                         Período en Mora
                       </span>
-                      <span className="font-black text-rose-950 text-sm">
+                      <span className="font-bold text-rose-950 text-xs sm:text-sm">
                         {resumen.periodoVencidoTexto || "Cuota vencida"}
                       </span>
                     </div>
 
-                    <div className="bg-slate-50/90 rounded-xl p-3 border border-slate-200/70 flex items-center justify-between">
-                      <span className="text-[11px] sm:text-xs text-slate-600 uppercase font-bold tracking-wider">
+                    <div className="bg-slate-50/70 rounded-xl px-3 py-2.5 border border-slate-200/70 flex items-center justify-between">
+                      <span className="text-xs text-slate-500 font-medium">
                         Cuotas Pendientes
                       </span>
-                      <span className="font-bold text-slate-900 text-sm">
+                      <span className="font-semibold text-slate-800 text-xs sm:text-sm">
                         {resumen.cuotasVencidasCount} mensualidad(es)
                       </span>
                     </div>
 
-                    <div className="bg-slate-50/90 rounded-xl p-3 border border-slate-200/70 flex items-center justify-between">
-                      <span className="text-[11px] sm:text-xs text-slate-600 uppercase font-bold tracking-wider">
+                    <div className="bg-slate-50/70 rounded-xl px-3 py-2.5 border border-slate-200/70 flex items-center justify-between">
+                      <span className="text-xs text-slate-500 font-medium">
                         Último Período
                       </span>
-                      <span className="font-bold text-slate-900 text-sm">
+                      <span className="font-semibold text-slate-800 text-xs sm:text-sm">
                         {resumen.ultimoPeriodoPagado ? `${resumen.ultimoPeriodoPagado} (Solvente)` : "Sin registros previos"}
                       </span>
                     </div>
                   </>
                 ) : resumen.semaforoEstado === "POR_PAGAR" ? (
                   <>
-                    <div className="bg-amber-50/80 rounded-xl p-3 border border-amber-200/80 flex items-center justify-between">
-                      <span className="text-[11px] sm:text-xs text-amber-900 uppercase font-bold tracking-wider">
+                    <div className="bg-amber-50/70 rounded-xl px-3 py-2.5 border border-amber-200/80 flex items-center justify-between">
+                      <span className="text-xs text-amber-900 font-medium">
                         Cuota Pendiente
                       </span>
-                      <span className="font-black text-amber-800 text-sm">
+                      <span className="font-bold text-amber-800 text-xs sm:text-sm">
                         ${resumen.montoPorPagar.toFixed(2)} USD
                       </span>
                     </div>
 
-                    <div className="bg-slate-50/90 rounded-xl p-3 border border-slate-200/70 flex items-center justify-between">
-                      <span className="text-[11px] sm:text-xs text-slate-600 uppercase font-bold tracking-wider">
+                    <div className="bg-slate-50/70 rounded-xl px-3 py-2.5 border border-slate-200/70 flex items-center justify-between">
+                      <span className="text-xs text-slate-500 font-medium">
                         Período por Pagar
                       </span>
-                      <span className="font-bold text-slate-900 text-sm">
+                      <span className="font-semibold text-slate-800 text-xs sm:text-sm">
                         {resumen.periodoProximoVencimiento}
                       </span>
                     </div>
 
-                    <div className="bg-slate-50/90 rounded-xl p-3 border border-slate-200/70 flex items-center justify-between">
-                      <span className="text-[11px] sm:text-xs text-slate-600 uppercase font-bold tracking-wider">
+                    <div className="bg-slate-50/70 rounded-xl px-3 py-2.5 border border-slate-200/70 flex items-center justify-between">
+                      <span className="text-xs text-slate-500 font-medium">
                         Fecha de Corte
                       </span>
-                      <span className="font-bold text-[#175E38] text-sm">
+                      <span className="font-bold text-[#175E38] text-xs sm:text-sm">
                         Día {resumen.proximoDiaCorte || 10} del mes {resumen.diasParaVencer !== null ? `(en ${resumen.diasParaVencer}d)` : ""}
                       </span>
                     </div>
 
-                    <div className="bg-slate-50/90 rounded-xl p-3 border border-slate-200/70 flex items-center justify-between">
-                      <span className="text-[11px] sm:text-xs text-slate-600 uppercase font-bold tracking-wider">
+                    <div className="bg-slate-50/70 rounded-xl px-3 py-2.5 border border-slate-200/70 flex items-center justify-between">
+                      <span className="text-xs text-slate-500 font-medium">
                         Último Período
                       </span>
-                      <span className="font-bold text-slate-900 text-sm">
+                      <span className="font-semibold text-slate-800 text-xs sm:text-sm">
                         {resumen.ultimoPeriodoPagado ? `${resumen.ultimoPeriodoPagado} (Solvente)` : "Sin registros previos"}
                       </span>
                     </div>
                   </>
                 ) : (
                   <>
-                    <div className="bg-slate-50/90 rounded-xl p-3 border border-slate-200/70 flex items-center justify-between">
-                      <span className="text-[11px] sm:text-xs text-slate-600 uppercase font-bold tracking-wider">
+                    <div className="bg-slate-50/70 rounded-xl px-3 py-2.5 border border-slate-200/70 flex items-center justify-between">
+                      <span className="text-xs text-slate-500 font-medium">
                         Último Período
                       </span>
-                      <span className="font-bold text-[#175E38] text-sm">
+                      <span className="font-bold text-[#175E38] text-xs sm:text-sm">
                         {resumen.ultimoPeriodoPagado ? `${resumen.ultimoPeriodoPagado} (Solvente)` : "Sin registros previos"}
                       </span>
                     </div>
 
-                    <div className="bg-slate-50/90 rounded-xl p-3 border border-slate-200/70 flex items-center justify-between">
-                      <span className="text-[11px] sm:text-xs text-slate-600 uppercase font-bold tracking-wider">
+                    <div className="bg-slate-50/70 rounded-xl px-3 py-2.5 border border-slate-200/70 flex items-center justify-between">
+                      <span className="text-xs text-slate-500 font-medium">
                         Total Solventadas
                       </span>
-                      <span className="font-bold text-slate-900 text-sm">
+                      <span className="font-semibold text-slate-800 text-xs sm:text-sm">
                         {resumen.cuotasPagadasCount} cuota(s) al día
                       </span>
                     </div>
 
                     {resumen.periodoProximoVencimiento && (
-                      <div className="bg-slate-50/90 rounded-xl p-3 border border-slate-200/70 flex items-center justify-between">
-                        <span className="text-[11px] sm:text-xs text-slate-600 uppercase font-bold tracking-wider">
+                      <div className="bg-slate-50/70 rounded-xl px-3 py-2.5 border border-slate-200/70 flex items-center justify-between">
+                        <span className="text-xs text-slate-500 font-medium">
                           Próxima Cuota
                         </span>
-                        <span className="font-bold text-slate-900 text-sm">
+                        <span className="font-semibold text-slate-800 text-xs sm:text-sm">
                           {resumen.periodoProximoVencimiento} (${resumen.montoMensualidadTotal.toFixed(2)} USD)
                         </span>
                       </div>
                     )}
 
-                    <div className="bg-slate-50/90 rounded-xl p-3 border border-slate-200/70 flex items-center justify-between">
-                      <span className="text-[11px] sm:text-xs text-slate-600 uppercase font-bold tracking-wider">
+                    <div className="bg-slate-50/70 rounded-xl px-3 py-2.5 border border-slate-200/70 flex items-center justify-between">
+                      <span className="text-xs text-slate-500 font-medium">
                         Fecha de Corte
                       </span>
-                      <span className="font-bold text-[#175E38] text-sm">
+                      <span className="font-semibold text-slate-800 text-xs sm:text-sm">
                         Día {resumen.proximoDiaCorte || 10} del mes {resumen.diasParaVencer !== null ? `(en ${resumen.diasParaVencer}d)` : ""}
                       </span>
                     </div>

@@ -17,7 +17,14 @@ import { EstadoPago } from "@prisma/client";
 import type { PagoItem } from "./types";
 
 // Estilo del sol decorativo en esquina según el estado del cobro
-const getPagoCornerSun = (estado: EstadoPago) => {
+const getPagoCornerSun = (estado: EstadoPago, esPorConfirmar = false) => {
+  if (esPorConfirmar) {
+    return {
+      glow: "bg-blue-500/20",
+      ring: "bg-blue-500/[0.08] border-blue-400/25",
+      sun: "from-blue-600/30 to-blue-400/5",
+    };
+  }
   switch (estado) {
     case EstadoPago.PAGADO:
       return {
@@ -87,12 +94,22 @@ export function PagoCard({
     mensajeWp = `Hola ${inquilino.nombre}, le saludamos de Inmobiliaria Conté. Le recordamos que la mensualidad ($${pago.montoEsperado.toFixed(2)} USD) del espacio ${unidad.codigo} vence próximamente. Quedamos a su orden para recibir el comprobante.`;
   }
   const urlWhatsapp = `https://wa.me/${telLimpio}?text=${encodeURIComponent(mensajeWp)}`;
-  const cornerSun = getPagoCornerSun(pago.estado);
+  const esPorConfirmar = Boolean(pago.comprobanteUrl) && pago.estado !== EstadoPago.PAGADO;
+  const matchMontoReportado = pago.notas?.match(/\(\$([0-9]+(?:\.[0-9]{1,2})?)\)/);
+  const montoReportadoParsed = matchMontoReportado ? parseFloat(matchMontoReportado[1]) : null;
+  const esAbonoReportado = Boolean(
+    esPorConfirmar && montoReportadoParsed && montoReportadoParsed < saldoPendiente
+  );
+  const cornerSun = getPagoCornerSun(pago.estado, esPorConfirmar);
 
   return (
     <div
       key={pago.id}
-      className="group/pagocard relative overflow-hidden bg-gradient-to-b from-white via-white to-slate-50/70 rounded-2xl border border-slate-200/90 border-b-[3px] border-b-slate-300/90 shadow-[0_4px_18px_-2px_rgba(28,37,57,0.07),0_2px_6px_-1px_rgba(28,37,57,0.04)] hover:shadow-[0_14px_30px_-4px_rgba(28,37,57,0.12),0_4px_10px_-2px_rgba(28,37,57,0.06)] hover:-translate-y-1.5 transition-all duration-300 flex flex-col justify-between"
+      className={`group/pagocard relative overflow-hidden bg-gradient-to-b from-white via-white to-slate-50/70 rounded-2xl border border-b-[3px] shadow-[0_4px_18px_-2px_rgba(28,37,57,0.07),0_2px_6px_-1px_rgba(28,37,57,0.04)] hover:shadow-[0_14px_30px_-4px_rgba(28,37,57,0.12),0_4px_10px_-2px_rgba(28,37,57,0.06)] hover:-translate-y-1.5 transition-all duration-300 flex flex-col justify-between ${
+        esPorConfirmar
+          ? "border-blue-300/90 border-b-blue-400/90 ring-2 ring-blue-500/10"
+          : "border-slate-200/90 border-b-slate-300/90"
+      }`}
     >
       {/* Sol decorativo en esquina superior izquierda */}
       <div className="absolute -top-8 -left-8 w-28 h-28 pointer-events-none overflow-hidden rounded-full">
@@ -106,38 +123,45 @@ export function PagoCard({
         {/* Fila 1: Estado a la izquierda y Espacio/Local a la derecha */}
         <div className="flex items-center justify-between gap-2">
           {/* Badge de Estado */}
-          <span
-            className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold border shrink-0 ${
-              pago.estado === EstadoPago.PAGADO
-                ? "bg-emerald-50 text-[#175E38] border-emerald-200/90"
-                : pago.estado === EstadoPago.VENCIDO
-                ? "bg-rose-50 text-[#CC1A22] border-rose-200/90"
-                : pago.estado === EstadoPago.PARCIAL
-                ? "bg-blue-50 text-blue-700 border-blue-200/90"
-                : "bg-amber-50 text-amber-700 border-amber-200/90"
-            }`}
-          >
-            <span
-              className={`w-1.5 h-1.5 rounded-full ${
-                pago.estado === EstadoPago.PAGADO
-                  ? "bg-[#175E38]"
-                  : pago.estado === EstadoPago.VENCIDO
-                  ? "bg-[#CC1A22]"
-                  : pago.estado === EstadoPago.PARCIAL
-                  ? "bg-blue-600"
-                  : "bg-amber-500"
-              }`}
-            />
-            <span>
-              {pago.estado === EstadoPago.PAGADO
-                ? "Pagado"
-                : pago.estado === EstadoPago.VENCIDO
-                ? "Vencido (Mora)"
-                : pago.estado === EstadoPago.PARCIAL
-                ? "Abono Parcial"
-                : "Por Cobrar"}
+          {esPorConfirmar ? (
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-black bg-blue-50 text-blue-700 border border-blue-200/90 shadow-2xs shrink-0">
+              <span className="w-2 h-2 rounded-full bg-blue-600 animate-pulse" />
+              <span>Por Confirmar</span>
             </span>
-          </span>
+          ) : (
+            <span
+              className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold border shrink-0 ${
+                pago.estado === EstadoPago.PAGADO
+                  ? "bg-emerald-50 text-[#175E38] border-emerald-200/90"
+                  : pago.estado === EstadoPago.VENCIDO
+                  ? "bg-rose-50 text-[#CC1A22] border-rose-200/90"
+                  : pago.estado === EstadoPago.PARCIAL
+                  ? "bg-blue-50 text-blue-700 border-blue-200/90"
+                  : "bg-amber-50 text-amber-700 border-amber-200/90"
+              }`}
+            >
+              <span
+                className={`w-1.5 h-1.5 rounded-full ${
+                  pago.estado === EstadoPago.PAGADO
+                    ? "bg-[#175E38]"
+                    : pago.estado === EstadoPago.VENCIDO
+                    ? "bg-[#CC1A22]"
+                    : pago.estado === EstadoPago.PARCIAL
+                    ? "bg-blue-600"
+                    : "bg-amber-500"
+                }`}
+              />
+              <span>
+                {pago.estado === EstadoPago.PAGADO
+                  ? "Pagado"
+                  : pago.estado === EstadoPago.VENCIDO
+                  ? "Vencido (Mora)"
+                  : pago.estado === EstadoPago.PARCIAL
+                  ? "Abono Parcial"
+                  : "Por Cobrar"}
+              </span>
+            </span>
+          )}
 
           {/* Identificador de Espacio / Local */}
           <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-100/90 text-slate-700 font-bold text-xs border border-slate-200/80 shrink-0 max-w-[130px]">
@@ -178,6 +202,25 @@ export function PagoCard({
             <span>WhatsApp</span>
           </a>
         </div>
+
+        {/* Fila de Comprobante Reportado */}
+        {esPorConfirmar && (
+          <div className="flex items-center justify-between px-3 py-2 rounded-xl bg-blue-50/90 border border-blue-200/90 text-xs text-blue-900">
+            <span className="flex items-center gap-1.5 font-bold truncate">
+              <Receipt className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+              <span className="truncate">
+                {esAbonoReportado && montoReportadoParsed
+                  ? `Abono: $${montoReportadoParsed.toFixed(2)} USD`
+                  : "Comprobante reportado"}
+              </span>
+            </span>
+            {pago.referencia && (
+              <span className="font-mono font-bold text-blue-700 text-[11px] bg-blue-100/90 px-2 py-0.5 rounded-md truncate max-w-[130px]">
+                Ref: {pago.referencia}
+              </span>
+            )}
+          </div>
+        )}
 
         {/* Fila 4: Bloque Financiero en 2 Cajas Métricas Estructuradas */}
         <div className="grid grid-cols-2 gap-2.5 pt-1">
@@ -316,6 +359,8 @@ export function PagoCard({
           className={`w-full h-10 px-3 rounded-xl text-xs font-bold text-white transition-all flex items-center justify-center gap-1.5 cursor-pointer active:translate-y-0.5 ${
             pago.estado === EstadoPago.PAGADO
               ? "bg-indigo-600 hover:bg-indigo-700 border-b-[3px] border-b-indigo-800 shadow-[0_2px_8px_rgba(79,70,229,0.35)]"
+              : esPorConfirmar
+              ? "bg-blue-600 hover:bg-blue-700 border-b-[3px] border-b-blue-800 shadow-[0_2px_8px_rgba(37,99,235,0.35)]"
               : "bg-[#175E38] hover:bg-[#124b2d] border-b-[3px] border-b-[#0e3a23] shadow-[0_2px_6px_rgba(23,94,56,0.3)]"
           }`}
         >
@@ -323,6 +368,11 @@ export function PagoCard({
             <>
               <Receipt className="w-3.5 h-3.5 shrink-0" />
               <span className="truncate">Recibo</span>
+            </>
+          ) : esPorConfirmar ? (
+            <>
+              <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
+              <span className="truncate">Confirmar Pago</span>
             </>
           ) : (
             <>

@@ -88,7 +88,7 @@ export default async function AdminDashboardPage() {
       title: "Contratos de Arrendamiento",
       category: "Inmuebles & Contratos",
       badge: "Marco Legal",
-      description: "Gestión de canones en divisas/Bs, depósitos en garantía, plazos y PDF oficial firmado.",
+      description: "Gestión de mensualidades en divisas/Bs, depósitos en garantía, plazos y PDF oficial firmado.",
       href: "/admin/contratos",
       actionText: "Revisar Contratos",
       icon: FileText,
