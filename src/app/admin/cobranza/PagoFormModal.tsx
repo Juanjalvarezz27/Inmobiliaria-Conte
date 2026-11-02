@@ -9,6 +9,7 @@ import {
   CheckCircle,
   CheckCircle2,
   AlertTriangle,
+  AlertCircle,
   Loader2,
   Trash2,
   DollarSign,
@@ -22,7 +23,7 @@ import { toast } from "sonner";
 import { MetodoPago, EstadoPago } from "@prisma/client";
 import { comprimirImagen, formatearBytes } from "@/lib/file-compressor";
 import type { PagoItem } from "./types";
-import type { RegistrarPagoInput } from "@/lib/actions/cobranza";
+import { rechazarComprobanteReportadoAction, type RegistrarPagoInput } from "@/lib/actions/cobranza";
 import { OPCIONES_METODO_PAGO } from "@/lib/constants/pagos";
 
 interface PagoFormModalProps {
@@ -30,6 +31,7 @@ interface PagoFormModalProps {
   onClose: () => void;
   pago: PagoItem | null;
   onSubmit: (data: RegistrarPagoInput) => Promise<boolean>;
+  onRechazado?: () => void;
   isLoading?: boolean;
 }
 
@@ -37,6 +39,7 @@ interface PagoFormContentProps {
   pago: PagoItem;
   onClose: () => void;
   onSubmit: (data: RegistrarPagoInput) => Promise<boolean>;
+  onRechazado?: () => void;
   isLoading?: boolean;
 }
 
@@ -44,6 +47,7 @@ function PagoFormContent({
   pago,
   onClose,
   onSubmit,
+  onRechazado,
   isLoading = false,
 }: PagoFormContentProps) {
   const saldoRestante = Math.max(0, Number((pago.montoEsperado - pago.montoPagado).toFixed(2)));
@@ -73,6 +77,29 @@ function PagoFormContent({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isCompressing, setIsCompressing] = useState(false);
   const [isDragOver, setIsDragOver] = useState(false);
+  const [isRechazando, setIsRechazando] = useState(false);
+  const [modalRechazoAbierto, setModalRechazoAbierto] = useState(false);
+  const [motivoRechazoInput, setMotivoRechazoInput] = useState(
+    "El comprobante no coincide con los movimientos bancarios o no es legible."
+  );
+
+  const handleConfirmarRechazo = async () => {
+    if (!pago || !motivoRechazoInput.trim()) return;
+    setIsRechazando(true);
+    try {
+      const res = await rechazarComprobanteReportadoAction(pago.id, motivoRechazoInput.trim());
+      if (res.success) {
+        toast.success("Comprobante descartado y notificado al inquilino.");
+        setModalRechazoAbierto(false);
+        onClose();
+        if (onRechazado) onRechazado();
+      } else {
+        toast.error(res.error || "No se pudo descartar el comprobante.");
+      }
+    } finally {
+      setIsRechazando(false);
+    }
+  };
   const [statsCompresion, setStatsCompresion] = useState<{
     original: string;
     final: string;
@@ -184,7 +211,8 @@ function PagoFormContent({
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
+    <>
+      <form onSubmit={handleSubmit} className="space-y-4">
       {/* Ficha resumen del cobro con desglose financiero */}
       <div className="bg-slate-50 border border-slate-200/90 rounded-2xl p-3.5 sm:p-4 space-y-3 shadow-2xs">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2.5 border-b border-slate-200/80">
@@ -543,43 +571,118 @@ function PagoFormContent({
       </div>
 
       {/* Botones de acción inferiores */}
-      <div className="pt-2 border-t border-slate-100 grid grid-cols-2 sm:flex sm:justify-end gap-2.5 sm:gap-3">
-        <button
-          type="button"
-          onClick={onClose}
-          disabled={isLoading || isSubmitting || isUploading || isCompressing}
-          className="w-full sm:w-auto px-4 h-11 rounded-xl text-xs sm:text-sm font-bold bg-slate-100 text-slate-700 hover:bg-slate-200 transition-colors cursor-pointer disabled:opacity-50"
-        >
-          Cancelar
-        </button>
-        <button
-          type="submit"
-          disabled={isLoading || isSubmitting || isUploading || isCompressing}
-          className={`w-full sm:w-auto px-6 h-11 rounded-xl text-xs sm:text-sm font-bold text-white active:translate-y-0.5 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 ${
-            esPorConfirmar
-              ? "bg-blue-600 hover:bg-blue-700 border-b-[3px] border-b-blue-800 shadow-[0_2px_8px_rgba(37,99,235,0.35)]"
-              : "bg-gradient-to-r from-[#175E38] to-[#124b2d] hover:brightness-105 border-b-[3px] border-b-[#0e3a23] shadow-[0_2px_8px_rgba(23,94,56,0.3)]"
-          }`}
-        >
-          {isLoading || isSubmitting ? (
-            <>
-              <Loader2 className="w-4 h-4 animate-spin" />
-              <span>Guardando...</span>
-            </>
-          ) : esPorConfirmar ? (
-            <>
-              <CheckCircle2 className="w-4 h-4" />
-              <span>Confirmar Pago</span>
-            </>
-          ) : (
-            <>
-              <CheckCircle className="w-4 h-4" />
-              <span>Registrar Pago</span>
-            </>
-          )}
-        </button>
+      <div className="pt-3 border-t border-slate-100 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5">
+        {esPorConfirmar ? (
+          <button
+            type="button"
+            onClick={() => setModalRechazoAbierto(true)}
+            disabled={isLoading || isSubmitting || isRechazando}
+            className="h-11 px-4 rounded-xl text-xs sm:text-sm font-bold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200/90 transition-all flex items-center justify-center gap-1.5 cursor-pointer active:translate-y-0.5 disabled:opacity-50 order-2 sm:order-1 shadow-2xs"
+          >
+            <Trash2 className="w-4 h-4 text-rose-600 shrink-0" />
+            <span>Rechazar Comprobante</span>
+          </button>
+        ) : (
+          <div className="hidden sm:block" />
+        )}
+
+        <div className="grid grid-cols-2 sm:flex sm:items-center gap-2.5 order-1 sm:order-2">
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={isLoading || isSubmitting || isUploading || isCompressing || isRechazando}
+            className="w-full sm:w-auto px-4 h-11 rounded-xl text-xs sm:text-sm font-bold bg-slate-100 text-slate-700 hover:bg-slate-200 transition-colors cursor-pointer disabled:opacity-50"
+          >
+            Cancelar
+          </button>
+          <button
+            type="submit"
+            disabled={isLoading || isSubmitting || isUploading || isCompressing || isRechazando}
+            className={`w-full sm:w-auto px-6 h-11 rounded-xl text-xs sm:text-sm font-bold text-white active:translate-y-0.5 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 ${
+              esPorConfirmar
+                ? "bg-blue-600 hover:bg-blue-700 border-b-[3px] border-b-blue-800 shadow-[0_2px_8px_rgba(37,99,235,0.35)]"
+                : "bg-gradient-to-r from-[#175E38] to-[#124b2d] hover:brightness-105 border-b-[3px] border-b-[#0e3a23] shadow-[0_2px_8px_rgba(23,94,56,0.3)]"
+            }`}
+          >
+            {isLoading || isSubmitting ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                <span>Guardando...</span>
+              </>
+            ) : esPorConfirmar ? (
+              <>
+                <CheckCircle2 className="w-4 h-4" />
+                <span>Confirmar Pago</span>
+              </>
+            ) : (
+              <>
+                <CheckCircle className="w-4 h-4" />
+                <span>Registrar Pago</span>
+              </>
+            )}
+          </button>
+        </div>
       </div>
     </form>
+
+    {/* Modal Institucional de Confirmación de Descarte / Rechazo */}
+    <Modal
+      isOpen={modalRechazoAbierto}
+      onClose={() => setModalRechazoAbierto(false)}
+      title="Descartar Comprobante de Pago"
+      icon={AlertCircle}
+      headerVariant="red"
+      maxWidth="md"
+    >
+      <div className="space-y-4">
+        <p className="text-xs text-slate-600 leading-relaxed">
+          Se eliminará el comprobante adjunto y se enviará una notificación por correo al inquilino explicándole el motivo para que pueda corregir y volver a reportar su pago.
+        </p>
+
+        <div className="space-y-1.5">
+          <label className="block text-xs font-bold text-slate-700 uppercase tracking-wide">
+            Motivo del Descarte <span className="text-[#CC1A22]">*</span>
+          </label>
+          <textarea
+            rows={3}
+            value={motivoRechazoInput}
+            onChange={(e) => setMotivoRechazoInput(e.target.value)}
+            className="w-full p-3 rounded-xl border border-slate-200 bg-white text-xs text-slate-800 focus:outline-hidden focus:ring-2 focus:ring-[#CC1A22]/20 focus:border-[#CC1A22] shadow-2xs resize-none font-medium"
+            placeholder="Explica al inquilino la razón (ej: referencia ilegible o no acreditada en banco)..."
+          />
+        </div>
+
+        <div className="grid grid-cols-2 gap-2.5 pt-2">
+          <button
+            type="button"
+            onClick={() => setModalRechazoAbierto(false)}
+            disabled={isRechazando}
+            className="h-11 px-4 rounded-xl text-xs font-bold bg-white text-slate-700 hover:bg-slate-100 border border-slate-300 transition-all cursor-pointer shadow-2xs active:translate-y-0.5 disabled:opacity-50"
+          >
+            Cancelar
+          </button>
+          <button
+            type="button"
+            onClick={handleConfirmarRechazo}
+            disabled={isRechazando || !motivoRechazoInput.trim()}
+            className="h-11 px-4 rounded-xl text-xs font-bold bg-[#CC1A22] hover:bg-[#a81219] text-white border-b-[3px] border-b-[#7a0d12] transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs active:translate-y-0.5 disabled:opacity-50"
+          >
+            {isRechazando ? (
+              <>
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                <span>Descartando...</span>
+              </>
+            ) : (
+              <>
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>Confirmar Descarte</span>
+              </>
+            )}
+          </button>
+        </div>
+      </div>
+    </Modal>
+  </>
   );
 }
 
@@ -588,6 +691,7 @@ export function PagoFormModal({
   onClose,
   pago,
   onSubmit,
+  onRechazado,
   isLoading = false,
 }: PagoFormModalProps) {
   if (!pago) return null;
@@ -616,6 +720,7 @@ export function PagoFormModal({
         pago={pago}
         onClose={onClose}
         onSubmit={onSubmit}
+        onRechazado={onRechazado}
         isLoading={isLoading}
       />
     </Modal>

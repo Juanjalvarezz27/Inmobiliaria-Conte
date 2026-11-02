@@ -678,6 +678,16 @@ export function CobranzaClient({
         onClose={() => setPagoAEditar(null)}
         pago={pagoAEditar}
         onSubmit={handleRegistrarPago}
+        onRechazado={() => {
+          setPagoAEditar(null);
+          if (estadoFiltro === "POR_CONFIRMAR") {
+            setEstadoFiltro("TODOS");
+            setPagina(1);
+            recargarCobranzas(mes, ano, 1, propiedadId, "TODOS", busqueda);
+          } else {
+            recargarCobranzas(mes, ano, pagina);
+          }
+        }}
         isLoading={isPending}
       />
 

@@ -413,6 +413,10 @@ export function InquilinoPagosClient({
             const esVencido = pago.estado === "VENCIDO" && !esEnVerificacion;
             const esPendiente = pago.estado === "PENDIENTE" && !esEnVerificacion && !esParcial;
 
+            // Detección de comprobante previamente descartado por la administración
+            const matchRechazo = pago.notas?.match(/Comprobante descartado por administración:\s*([^.\n]+)/i);
+            const motivoRechazo = matchRechazo ? matchRechazo[1].trim() : null;
+
             return (
               <div
                 key={pago.id}
@@ -529,6 +533,19 @@ export function InquilinoPagosClient({
                       </div>
                     )}
                   </div>
+
+                  {/* Aviso de Comprobante Descartado / Rechazado */}
+                  {!esPagado && !esEnVerificacion && motivoRechazo && (
+                    <div className="p-2.5 rounded-xl bg-rose-50 border border-rose-200/90 text-xs text-rose-800 space-y-0.5 animate-in fade-in-50">
+                      <div className="flex items-center gap-1.5 font-bold text-rose-900">
+                        <AlertCircle className="w-3.5 h-3.5 text-[#CC1A22] shrink-0" />
+                        <span>Comprobante anterior descartado</span>
+                      </div>
+                      <p className="text-[11px] text-rose-700 leading-snug pl-5">
+                        Motivo: {motivoRechazo}
+                      </p>
+                    </div>
+                  )}
                 </div>
 
                 {/* Footer de Acciones (Grid 2 columnas simétricas o botón ancho completo) */}

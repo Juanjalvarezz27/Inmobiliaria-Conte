@@ -9,6 +9,7 @@ import {
   Eye,
   RotateCcw,
   AlertTriangle,
+  AlertCircle,
   Loader2,
   CheckCircle,
   Clock,
@@ -71,29 +72,6 @@ export function PagoDetalleModal({
   const [anulando, setAnulando] = useState(false);
   const [eliminandoId, setEliminandoId] = useState<string | null>(null);
   const [confirmandoEliminarId, setConfirmandoEliminarId] = useState<string | null>(null);
-  const [isRechazando, setIsRechazando] = useState(false);
-
-  const handleRechazarComprobante = async () => {
-    if (!pago) return;
-    const motivo = window.prompt(
-      "Ingresa el motivo del rechazo para notificar al inquilino:",
-      "El comprobante no coincide con los movimientos bancarios o no es legible."
-    );
-    if (motivo === null) return;
-    setIsRechazando(true);
-    try {
-      const res = await rechazarComprobanteReportadoAction(pago.id, motivo);
-      if (res.success) {
-        toast.success("Comprobante descartado y notificado al inquilino.");
-        onClose();
-        if (onRechazado) onRechazado();
-      } else {
-        toast.error(res.error || "No se pudo descartar el comprobante.");
-      }
-    } finally {
-      setIsRechazando(false);
-    }
-  };
 
   // Estado para visualizador de imágenes en pantalla grande
   const [visorImagenes, setVisorImagenes] = useState<{
@@ -628,49 +606,22 @@ export function PagoDetalleModal({
               </div>
             </div>
 
-            <div className="flex items-center gap-2 w-full sm:w-auto">
-              <button
-                type="button"
-                onClick={() =>
-                  setVisorImagenes({
-                    isOpen: true,
-                    images: [pago.comprobanteUrl!],
-                    initialIndex: 0,
-                    title: `Comprobante de Pago • ${unidad.codigo}`,
-                    subtitle: `Referencia: ${pago.referencia || "Sin ref"}`,
-                  })
-                }
-                className="w-full sm:w-auto h-9 px-3 rounded-xl text-xs font-bold bg-white text-blue-700 hover:bg-blue-100 border border-blue-200/90 transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-xs active:translate-y-0.5"
-              >
-                <Eye className="w-3.5 h-3.5" />
-                <span>Ver Capture</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={handleRechazarComprobante}
-                disabled={isRechazando}
-                className="w-full sm:w-auto h-9 px-3 rounded-xl text-xs font-bold bg-rose-50 text-rose-700 hover:bg-rose-100 border border-rose-200/90 transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-xs active:translate-y-0.5 disabled:opacity-50"
-                title="Descartar comprobante y notificar al inquilino"
-              >
-                <Trash2 className="w-3.5 h-3.5" />
-                <span>Rechazar</span>
-              </button>
-
-              {onRegistrarNuevo && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    onClose();
-                    onRegistrarNuevo(pago);
-                  }}
-                  className="w-full sm:w-auto h-9 px-3.5 rounded-xl text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-xs active:translate-y-0.5"
-                >
-                  <CheckCircle className="w-3.5 h-3.5" />
-                  <span>Confirmar Pago</span>
-                </button>
-              )}
-            </div>
+            <button
+              type="button"
+              onClick={() =>
+                setVisorImagenes({
+                  isOpen: true,
+                  images: [pago.comprobanteUrl!],
+                  initialIndex: 0,
+                  title: `Comprobante de Pago • ${unidad.codigo}`,
+                  subtitle: `Referencia: ${pago.referencia || "Sin ref"}`,
+                })
+              }
+              className="w-full sm:w-auto h-9 px-3.5 rounded-xl text-xs font-bold bg-white text-blue-700 hover:bg-blue-100 border border-blue-200/90 transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-xs active:translate-y-0.5 shrink-0"
+            >
+              <Eye className="w-3.5 h-3.5" />
+              <span>Ver Capture</span>
+            </button>
           </div>
         )}
 
@@ -960,11 +911,19 @@ export function PagoDetalleModal({
                       onClose();
                       onRegistrarNuevo(pago);
                     }}
-                    className="w-full sm:w-auto px-4 h-11 rounded-xl text-xs sm:text-sm font-bold bg-[#175E38] text-white hover:bg-[#124b2d] border-b-[3px] border-b-[#0e3a23] transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-[0_2px_8px_rgba(23,94,56,0.25)] active:translate-y-0.5"
+                    className={`w-full sm:w-auto px-4 h-11 rounded-xl text-xs sm:text-sm font-bold text-white transition-all flex items-center justify-center gap-1.5 cursor-pointer active:translate-y-0.5 ${
+                      Boolean(pago.comprobanteUrl)
+                        ? "bg-blue-600 hover:bg-blue-700 border-b-[3px] border-b-blue-800 shadow-[0_2px_8px_rgba(37,99,235,0.35)]"
+                        : "bg-[#175E38] hover:bg-[#124b2d] border-b-[3px] border-b-[#0e3a23] shadow-[0_2px_8px_rgba(23,94,56,0.25)]"
+                    }`}
                   >
                     <DollarSign className="w-4 h-4" />
                     <span className="truncate">
-                      {pago.estado === EstadoPago.PARCIAL ? "Abonar Restante" : "Registrar Pago"}
+                      {Boolean(pago.comprobanteUrl)
+                        ? "Comprobar Pago"
+                        : pago.estado === EstadoPago.PARCIAL
+                        ? "Abonar Restante"
+                        : "Registrar Pago"}
                     </span>
                   </button>
                 )}
