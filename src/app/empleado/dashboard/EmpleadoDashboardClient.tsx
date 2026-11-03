@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import {
@@ -16,6 +16,7 @@ import {
   Loader2,
   Sparkles,
   ShieldCheck,
+  Wrench,
 } from "lucide-react";
 import { toast } from "sonner";
 import { StatCard } from "@/components/ui/stat-card";
@@ -24,7 +25,8 @@ import {
   type PortalEmpleadoData,
 } from "@/lib/actions/personal-portal";
 import { CARGO_CONFIG } from "@/app/admin/personal/types";
-import { EstadoTarea } from "@prisma/client";
+import { EstadoTarea, EstadoTicket } from "@prisma/client";
+import { CATEGORIAS_TICKET } from "@/lib/constants/mantenimiento";
 import { formatearHora12 } from "@/lib/date-utils";
 
 interface Props {
@@ -92,9 +94,47 @@ export function EmpleadoDashboardClient({ initialData }: Props) {
 
   const prevAsistenciaHoy = (d: PortalEmpleadoData) => d.asistenciaHoy !== null;
 
-  const tareasDestacadas = tareas
-    .filter((t) => t.estado !== EstadoTarea.COMPLETADA && t.estado !== EstadoTarea.CANCELADA)
-    .slice(0, 4);
+  // 1. Tareas: si hay pendientes, todas las pendientes. Si no hay pendientes, la última que completó.
+  const tareasActivas = useMemo(() => {
+    return (tareas || []).filter(
+      (t) => t.estado === EstadoTarea.PENDIENTE || t.estado === EstadoTarea.EN_PROCESO
+    );
+  }, [tareas]);
+
+  const tareasActivasCount = tareasActivas.length;
+
+  const tareasDestacadas = useMemo(() => {
+    if (tareasActivas.length > 0) {
+      return tareasActivas;
+    }
+    const completadas = (tareas || [])
+      .filter((t) => t.estado === EstadoTarea.COMPLETADA)
+      .sort((a, b) => {
+        const fechaA = a.fechaCompletada ? new Date(a.fechaCompletada).getTime() : new Date(a.createdAt).getTime();
+        const fechaB = b.fechaCompletada ? new Date(b.fechaCompletada).getTime() : new Date(b.createdAt).getTime();
+        return fechaB - fechaA;
+      });
+    return completadas.slice(0, 1);
+  }, [tareas, tareasActivas]);
+
+  // 2. Mantenimiento: si hay pendientes, todas las pendientes. Si no hay pendientes, la última que resolvió.
+  const ticketsActivos = useMemo(() => {
+    return (data.ticketsMantenimiento || []).filter(
+      (t) => t.estado === EstadoTicket.PENDIENTE || t.estado === EstadoTicket.EN_PROCESO
+    );
+  }, [data.ticketsMantenimiento]);
+
+  const ticketsActivosCount = ticketsActivos.length;
+
+  const ticketsDestacados = useMemo(() => {
+    if (ticketsActivos.length > 0) {
+      return ticketsActivos;
+    }
+    const resueltos = (data.ticketsMantenimiento || [])
+      .filter((t) => t.estado === EstadoTicket.RESUELTO)
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    return resueltos.slice(0, 1);
+  }, [data.ticketsMantenimiento, ticketsActivos]);
 
   return (
     <div className="space-y-6 sm:space-y-8 animate-fadeIn pb-12">
@@ -149,19 +189,19 @@ export function EmpleadoDashboardClient({ initialData }: Props) {
           className="shadow-2xs"
         />
         <StatCard
-          title="Completadas del Mes"
-          value={metricas.tareasCompletadasMes}
-          icon={CheckCircle2}
-          color="emerald"
-          subtitle="Productividad mensual"
+          title="Averías Asignadas"
+          value={metricas.ticketsActivos || 0}
+          icon={Wrench}
+          color={(metricas.ticketsActivos || 0) > 0 ? "amber" : "emerald"}
+          subtitle={(metricas.ticketsActivos || 0) > 0 ? "Órdenes de mantenimiento" : "Sin averías pendientes"}
           className="shadow-2xs"
         />
         <StatCard
-          title="Total Asignadas"
-          value={tareas.length}
-          icon={CheckSquare}
-          color="indigo"
-          subtitle="Órdenes activas"
+          title="Completadas del Mes"
+          value={metricas.tareasCompletadasMes + (metricas.ticketsResueltosMes || 0)}
+          icon={CheckCircle2}
+          color="emerald"
+          subtitle="Labores y averías concluidas"
           className="shadow-2xs"
         />
         <StatCard
@@ -205,108 +245,42 @@ export function EmpleadoDashboardClient({ initialData }: Props) {
         </div>
       )}
 
-      {/* 3. SECCIÓN EN 2 COLUMNAS: TAREAS ASIGNADAS Y CONTROL DE LLEGADA */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-8 items-start">
-        {/* COLUMNA 1: ÓRDENES DE TRABAJO ASIGNADAS */}
-        <div className="rounded-2xl bg-white border border-slate-200/90 border-b-[3px] border-b-slate-300/90 p-5 sm:p-6 shadow-2xs relative overflow-hidden">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5 sm:gap-3 mb-4 pb-3 border-b border-slate-100">
-            <div className="flex items-center gap-2.5 min-w-0">
-              <div className="w-8 h-8 rounded-xl bg-emerald-50 text-[#175E38] flex items-center justify-center border border-emerald-100 shrink-0">
-                <CheckSquare className="w-4 h-4 stroke-[2.5]" />
-              </div>
-              <h3 className="font-heading font-black text-slate-900 text-sm sm:text-base tracking-tight truncate">
-                Órdenes de Trabajo Asignadas
-              </h3>
-            </div>
-            <Link
-              href="/empleado/tareas"
-              className="self-start sm:self-auto inline-flex items-center gap-1.5 text-xs font-bold text-[#175E38] hover:text-[#124b2d] transition-colors px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-lg sm:rounded-xl bg-emerald-50/70 sm:bg-transparent hover:bg-emerald-100 sm:hover:bg-emerald-50 whitespace-nowrap"
-            >
-              <span>Ver todas</span>
-              <ArrowRight className="w-3.5 h-3.5 shrink-0" />
-            </Link>
-          </div>
-
-          {tareasDestacadas.length === 0 ? (
-            <div className="text-center py-10 px-4">
-              <div className="w-12 h-12 rounded-full bg-emerald-50 text-[#175E38] flex items-center justify-center mx-auto mb-2.5 border border-emerald-100">
-                <Sparkles className="w-6 h-6" />
-              </div>
-              <p className="text-sm font-bold text-slate-800">¡Estás al día con tus labores!</p>
-              <p className="text-xs text-slate-400 mt-0.5">
-                No tienes tareas pendientes asignadas en este momento.
-              </p>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {tareasDestacadas.map((tarea) => {
-                return (
-                  <div
-                    key={tarea.id}
-                    className="p-4 rounded-xl border border-slate-200/80 bg-slate-50/50 hover:bg-slate-50 transition-all flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3.5"
-                  >
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2 mb-1.5 flex-wrap">
-                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-extrabold uppercase tracking-wider bg-amber-50 text-amber-800 border border-amber-300/80 shadow-2xs">
-                          <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
-                          <span>Pendiente</span>
-                        </span>
-
-                        {tarea.propiedadNombre && (
-                          <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-slate-600 bg-slate-100/90 px-2 py-0.5 rounded-md border border-slate-200/70 truncate max-w-[200px]">
-                            <Building2 className="w-3 h-3 text-slate-400 shrink-0" />
-                            <span className="truncate">{tarea.propiedadNombre}</span>
-                          </span>
-                        )}
-                      </div>
-
-                      <h4 className="text-sm sm:text-base font-extrabold text-slate-900 tracking-tight truncate">
-                        {tarea.titulo}
-                      </h4>
-                    </div>
-
-                    <div className="flex items-center gap-2 shrink-0">
-                      <Link
-                        href="/empleado/tareas"
-                        className="h-8.5 px-3 rounded-xl text-xs font-bold bg-[#175E38] text-white hover:bg-[#124b2d] border-b-[2px] border-b-[#0e3a23] active:translate-y-0.5 transition-all shadow-[0_2px_6px_rgba(23,94,56,0.3)] flex items-center gap-1.5 cursor-pointer"
-                      >
-                        <CheckSquare className="w-3.5 h-3.5 stroke-[2.5]" />
-                        <span>Completar</span>
-                      </Link>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
+      {/* 3. CONTROL HORARIO Y JORNADA (CONSOLA STANDALONE ANCHO COMPLETO) */}
+      <section className="group relative overflow-hidden bg-gradient-to-b from-white via-white to-slate-50/70 rounded-2xl p-5 sm:p-6 border border-slate-200/90 border-b-[3px] border-b-slate-300/90 shadow-[0_4px_18px_-2px_rgba(28,37,57,0.07),0_2px_6px_-1px_rgba(28,37,57,0.04)] hover:shadow-[0_14px_30px_-4px_rgba(28,37,57,0.12),0_4px_10px_-2px_rgba(28,37,57,0.06)] transition-all duration-300">
+        {/* Sol decorativo ambiental en esquina superior izquierda */}
+        <div className="absolute -top-7 -left-7 w-24 h-24 sm:w-28 sm:h-28 pointer-events-none overflow-hidden rounded-full z-0">
+          <div className="absolute inset-0 rounded-full blur-xl bg-emerald-500/20" />
+          <div className="absolute inset-2 rounded-full bg-white/10 border border-emerald-400/30" />
+          <div className="absolute inset-5 rounded-full bg-gradient-to-br from-[#175E38]/30 to-transparent transition-transform duration-500 group-hover:scale-125" />
         </div>
 
-        {/* COLUMNA 2: CONTROL HORARIO Y MARCAJE DE JORNADA */}
-        <div className="rounded-2xl bg-white border border-slate-200/90 border-b-[3px] border-b-slate-300/90 p-5 sm:p-6 shadow-2xs relative overflow-hidden">
-          <div className="absolute top-0 right-0 -mr-16 -mt-16 w-48 h-48 rounded-full bg-[#175E38]/10 blur-3xl pointer-events-none" />
-
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5 sm:gap-3 mb-4 pb-3 border-b border-slate-100 relative z-10">
-            <div className="flex items-center gap-2.5 min-w-0">
-              <div className="w-8 h-8 rounded-xl bg-emerald-50 text-[#175E38] flex items-center justify-center border border-emerald-100 shrink-0">
-                <Clock className="w-4 h-4 stroke-[2.5]" />
-              </div>
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5 sm:gap-3 mb-4 pb-3 border-b border-slate-100 relative z-10">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="w-8 h-8 rounded-xl bg-emerald-50 text-[#175E38] flex items-center justify-center border border-emerald-100 shrink-0 shadow-2xs">
+              <Clock className="w-4 h-4 stroke-[2.5]" />
+            </div>
+            <div>
               <h3 className="font-heading font-black text-slate-900 text-sm sm:text-base tracking-tight truncate">
                 Control Horario y Llegada
               </h3>
+              <p className="text-[11px] text-slate-400 hidden sm:block">
+                Monitoreo de asistencia y registro de jornada laboral diaria
+              </p>
             </div>
-            <Link
-              href="/empleado/asistencia"
-              className="self-start sm:self-auto inline-flex items-center gap-1.5 text-xs font-bold text-[#175E38] hover:text-[#124b2d] transition-colors px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-lg sm:rounded-xl bg-emerald-50/70 sm:bg-transparent hover:bg-emerald-100 sm:hover:bg-emerald-50 whitespace-nowrap"
-            >
-              <span>Ver historial</span>
-              <ArrowRight className="w-3.5 h-3.5 shrink-0" />
-            </Link>
           </div>
+          <Link
+            href="/empleado/asistencia"
+            className="self-start sm:self-auto inline-flex items-center gap-1.5 text-xs font-bold text-[#175E38] hover:text-[#124b2d] transition-colors px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-lg sm:rounded-xl bg-emerald-50/70 sm:bg-transparent hover:bg-emerald-100 sm:hover:bg-emerald-50 whitespace-nowrap"
+          >
+            <span>Ver historial</span>
+            <ArrowRight className="w-3.5 h-3.5 shrink-0" />
+          </Link>
+        </div>
 
-          <div className="space-y-4 relative z-10">
-            {/* Estado actual de la jornada */}
-            {!asistenciaHoy ? (
-              <div className="p-4 rounded-xl bg-slate-50/70 border border-slate-200/80">
+        <div className="relative z-10">
+          {!asistenciaHoy ? (
+            <div className="p-4 sm:p-5 rounded-xl bg-slate-50/80 border border-slate-200/90 flex flex-col md:flex-row md:items-center md:justify-between gap-4 shadow-2xs">
+              <div className="min-w-0">
                 <div className="flex items-center gap-2 mb-1">
                   <span className="w-2.5 h-2.5 rounded-full bg-slate-400 shrink-0" />
                   <span className="text-xs font-bold text-slate-700 uppercase tracking-wider">
@@ -314,12 +288,33 @@ export function EmpleadoDashboardClient({ initialData }: Props) {
                   </span>
                 </div>
                 <p className="text-xs text-slate-500 leading-relaxed">
-                  Aún no has registrado tu entrada de hoy. Presiona el botón verde inferior al iniciar tus labores.
+                  Aún no has registrado tu entrada de hoy. Presiona el botón para computar la jornada al iniciar tus labores.
                 </p>
               </div>
-            ) : !asistenciaHoy.horaSalida ? (
-              <div className="p-4 rounded-xl bg-emerald-50/60 border border-emerald-200/80">
-                <div className="flex items-center justify-between gap-2 mb-2">
+
+              <button
+                type="button"
+                onClick={handleMarcaje}
+                disabled={isPunching}
+                className="h-11 px-6 rounded-xl font-heading font-black text-xs text-white bg-gradient-to-r from-[#175E38] to-[#124b2d] hover:from-[#124b2d] hover:to-[#0e3a23] border-b-[3px] border-b-[#0e3a23] active:translate-y-0.5 transition-all shadow-[0_2px_8px_rgba(23,94,56,0.25)] flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 shrink-0"
+              >
+                {isPunching ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>Registrando...</span>
+                  </>
+                ) : (
+                  <>
+                    <LogIn className="w-4 h-4 stroke-[2.5]" />
+                    <span>Registrar Entrada</span>
+                  </>
+                )}
+              </button>
+            </div>
+          ) : !asistenciaHoy.horaSalida ? (
+            <div className="p-4 sm:p-5 rounded-xl bg-emerald-50/70 border border-emerald-200/90 flex flex-col md:flex-row md:items-center md:justify-between gap-4 shadow-2xs">
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center justify-between sm:justify-start gap-2.5 mb-2">
                   <div className="flex items-center gap-2">
                     <span className="relative flex h-2.5 w-2.5">
                       <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
@@ -329,12 +324,12 @@ export function EmpleadoDashboardClient({ initialData }: Props) {
                       Jornada en curso
                     </span>
                   </div>
-                  <span className="text-[11px] font-bold text-emerald-700 bg-emerald-100/70 px-2 py-0.5 rounded-md">
+                  <span className="text-[11px] font-bold text-emerald-700 bg-emerald-100/80 px-2 py-0.5 rounded-md border border-emerald-200">
                     Activo
                   </span>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3 mt-3 pt-3 border-t border-emerald-200/60">
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 pt-2 border-t border-emerald-200/70">
                   <div>
                     <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
                       Entrada Registrada
@@ -351,17 +346,46 @@ export function EmpleadoDashboardClient({ initialData }: Props) {
                       {asistenciaHoy.ubicacionEntrada || empleado.propiedadNombre || "Marcaje Móvil"}
                     </span>
                   </div>
+                  <div className="hidden sm:block">
+                    <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
+                      Estado
+                    </span>
+                    <span className="text-xs font-bold text-emerald-700 block mt-0.5">
+                      Laborando
+                    </span>
+                  </div>
                 </div>
               </div>
-            ) : (
-              <div className="p-4 rounded-xl bg-slate-50 border border-slate-200/80">
+
+              <button
+                type="button"
+                onClick={handleMarcaje}
+                disabled={isPunching}
+                className="h-11 px-6 rounded-xl font-heading font-black text-xs text-white bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-700 hover:to-amber-800 border-b-[3px] border-b-amber-900 active:translate-y-0.5 transition-all shadow-[0_2px_8px_rgba(217,119,6,0.25)] flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 shrink-0"
+              >
+                {isPunching ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>Registrando...</span>
+                  </>
+                ) : (
+                  <>
+                    <LogOut className="w-4 h-4 stroke-[2.5]" />
+                    <span>Marcar Salida</span>
+                  </>
+                )}
+              </button>
+            </div>
+          ) : (
+            <div className="p-4 sm:p-5 rounded-xl bg-slate-50 border border-slate-200/90 flex flex-col md:flex-row md:items-center md:justify-between gap-4 shadow-2xs">
+              <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2 mb-2 text-[#175E38]">
                   <CheckCircle2 className="w-4 h-4 shrink-0" />
                   <span className="text-xs font-black uppercase tracking-wider text-slate-900">
                     Jornada de Hoy Finalizada
                   </span>
                 </div>
-                <div className="grid grid-cols-2 gap-3 mt-2 pt-2 border-t border-slate-200/70">
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 pt-2 border-t border-slate-200/70">
                   <div>
                     <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
                       Hora de Entrada
@@ -378,68 +402,299 @@ export function EmpleadoDashboardClient({ initialData }: Props) {
                       {formatearHora12(asistenciaHoy.horaSalida)}
                     </span>
                   </div>
+                  <div className="hidden sm:block">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                      Cumplimiento
+                    </span>
+                    <span className="text-xs font-bold text-emerald-700 block mt-0.5">
+                      Completado
+                    </span>
+                  </div>
                 </div>
               </div>
-            )}
 
-            {/* Pie de acción con botón refinado y no masivo */}
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pt-3 border-t border-slate-100">
-              <span className="text-xs text-slate-400 font-medium">
-                {!asistenciaHoy
-                  ? "Registra tu entrada para computar la jornada"
-                  : !asistenciaHoy.horaSalida
-                  ? "Recuerda marcar al terminar tus labores"
-                  : "Marcaje diario completado"}
-              </span>
-
-              {!asistenciaHoy ? (
-                <button
-                  type="button"
-                  onClick={handleMarcaje}
-                  disabled={isPunching}
-                  className="h-10 px-5 rounded-xl font-heading font-black text-xs text-white bg-gradient-to-r from-[#175E38] to-[#124b2d] hover:from-[#124b2d] hover:to-[#0e3a23] border-b-[2px] border-b-[#0e3a23] active:translate-y-0.5 transition-all shadow-[0_2px_8px_rgba(23,94,56,0.25)] flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 shrink-0"
-                >
-                  {isPunching ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      <span>Registrando...</span>
-                    </>
-                  ) : (
-                    <>
-                      <LogIn className="w-4 h-4 stroke-[2.5]" />
-                      <span>Registrar Entrada</span>
-                    </>
-                  )}
-                </button>
-              ) : !asistenciaHoy.horaSalida ? (
-                <button
-                  type="button"
-                  onClick={handleMarcaje}
-                  disabled={isPunching}
-                  className="h-10 px-5 rounded-xl font-heading font-black text-xs text-white bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-700 hover:to-amber-800 border-b-[2px] border-b-amber-900 active:translate-y-0.5 transition-all shadow-[0_2px_8px_rgba(217,119,6,0.25)] flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 shrink-0"
-                >
-                  {isPunching ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      <span>Registrando...</span>
-                    </>
-                  ) : (
-                    <>
-                      <LogOut className="w-4 h-4 stroke-[2.5]" />
-                      <span>Marcar Salida</span>
-                    </>
-                  )}
-                </button>
-              ) : (
-                <div className="h-9 px-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-[#175E38] font-bold text-xs flex items-center gap-1.5 shrink-0">
-                  <CheckCircle2 className="w-3.5 h-3.5" />
-                  <span>Jornada Finalizada</span>
-                </div>
-              )}
+              <div className="h-10 px-4 rounded-xl bg-emerald-50 border border-emerald-200 text-[#175E38] font-bold text-xs flex items-center justify-center gap-1.5 shrink-0 shadow-2xs">
+                <CheckCircle2 className="w-4 h-4" />
+                <span>Jornada Finalizada</span>
+              </div>
             </div>
+          )}
+        </div>
+      </section>
+
+      {/* 4. ASIGNACIONES DE TRABAJO (2 COLUMNAS PARALELAS 50/50 CON ALTURAS IDÉNTICAS) */}
+      <section className="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-8 items-stretch">
+        {/* COLUMNA 1: ÓRDENES DE MANTENIMIENTO */}
+        <div className="group relative overflow-hidden bg-gradient-to-b from-white via-white to-slate-50/70 rounded-2xl p-5 sm:p-6 border border-slate-200/90 border-b-[3px] border-b-slate-300/90 shadow-[0_4px_18px_-2px_rgba(28,37,57,0.07),0_2px_6px_-1px_rgba(28,37,57,0.04)] hover:shadow-[0_14px_30px_-4px_rgba(28,37,57,0.12),0_4px_10px_-2px_rgba(28,37,57,0.06)] transition-all duration-300 h-full flex flex-col justify-between">
+          {/* Sol decorativo ambiental en esquina superior izquierda */}
+          <div className="absolute -top-7 -left-7 w-24 h-24 sm:w-28 sm:h-28 pointer-events-none overflow-hidden rounded-full z-0">
+            <div className="absolute inset-0 rounded-full blur-xl bg-emerald-500/20" />
+            <div className="absolute inset-2 rounded-full bg-white/10 border border-emerald-400/30" />
+            <div className="absolute inset-5 rounded-full bg-gradient-to-br from-[#175E38]/30 to-transparent transition-transform duration-500 group-hover:scale-125" />
+          </div>
+
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5 sm:gap-3 mb-4 pb-3 border-b border-slate-100 relative z-10 shrink-0">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="w-8 h-8 rounded-xl bg-emerald-50 text-[#175E38] flex items-center justify-center border border-emerald-100 shrink-0 shadow-2xs">
+                <Wrench className="w-4 h-4 stroke-[2.5]" />
+              </div>
+              <div className="flex items-center gap-2 truncate">
+                <h3 className="font-heading font-black text-slate-900 text-sm sm:text-base tracking-tight truncate">
+                  Órdenes de Mantenimiento
+                </h3>
+                {ticketsActivosCount > 0 ? (
+                  <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200 shrink-0">
+                    {ticketsActivosCount} {ticketsActivosCount === 1 ? "pendiente" : "pendientes"}
+                  </span>
+                ) : ticketsDestacados.length > 0 ? (
+                  <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-[#175E38] border border-emerald-200 shrink-0">
+                    Al día
+                  </span>
+                ) : null}
+              </div>
+            </div>
+            <Link
+              href="/empleado/mantenimiento"
+              className="self-start sm:self-auto inline-flex items-center gap-1.5 text-xs font-bold text-[#175E38] hover:text-[#124b2d] transition-colors px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-lg sm:rounded-xl bg-emerald-50/70 sm:bg-transparent hover:bg-emerald-100 sm:hover:bg-emerald-50 whitespace-nowrap"
+            >
+              <span>Ver todas</span>
+              <ArrowRight className="w-3.5 h-3.5 shrink-0" />
+            </Link>
+          </div>
+
+          <div className="relative z-10 flex-1 flex flex-col justify-between">
+            {ticketsDestacados.length === 0 ? (
+              <div className="flex-1 flex flex-col items-center justify-center py-8 px-4 text-center min-h-[160px]">
+                <div className="w-12 h-12 rounded-full bg-emerald-50 text-[#175E38] flex items-center justify-center mx-auto mb-2.5 border border-emerald-100 shadow-2xs">
+                  <Wrench className="w-6 h-6" />
+                </div>
+                <p className="text-sm font-bold text-slate-800">¡Sin averías asignadas!</p>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  No tienes órdenes de mantenimiento asignadas en este momento.
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-3 flex-1 flex flex-col justify-between">
+                {ticketsDestacados.map((ticket) => {
+                  const esResuelto = ticket.estado === EstadoTicket.RESUELTO;
+                  const esEnProceso = ticket.estado === EstadoTicket.EN_PROCESO;
+                  return (
+                    <div
+                      key={ticket.id}
+                      className="p-3.5 sm:p-4 rounded-xl border border-slate-200/80 bg-slate-50/70 hover:bg-slate-100/70 transition-all flex flex-col justify-between gap-3 shadow-2xs"
+                    >
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2 mb-1.5 flex-wrap">
+                          <span
+                            className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10.5px] font-extrabold uppercase tracking-wider border shadow-2xs ${
+                              esResuelto
+                                ? "bg-emerald-50 text-[#175E38] border-emerald-200"
+                                : esEnProceso
+                                ? "bg-blue-50 text-blue-800 border-blue-200"
+                                : "bg-amber-50 text-amber-800 border-amber-200"
+                            }`}
+                          >
+                            {esResuelto ? (
+                              <CheckCircle2 className="w-3 h-3 text-[#175E38]" />
+                            ) : (
+                              <span
+                                className={`w-1.5 h-1.5 rounded-full ${
+                                  esEnProceso ? "bg-blue-500" : "bg-amber-500"
+                                } animate-pulse`}
+                              />
+                            )}
+                            <span>{esResuelto ? "Resuelto" : esEnProceso ? "En Proceso" : "Pendiente"}</span>
+                          </span>
+
+                          <span className="font-mono text-[10.5px] font-bold text-slate-700 bg-white px-2 py-0.5 rounded-md border border-slate-200 shadow-2xs">
+                            {ticket.codigo}
+                          </span>
+
+                          <span className="inline-flex items-center gap-1 text-[10.5px] font-semibold text-slate-600 bg-white px-2 py-0.5 rounded-md border border-slate-200 truncate max-w-[180px]">
+                            <Building2 className="w-3 h-3 text-slate-400 shrink-0" />
+                            <span className="truncate">
+                              {ticket.propiedadNombre}
+                              {ticket.unidadCodigo ? ` • Local ${ticket.unidadCodigo}` : " • Áreas Comunes"}
+                            </span>
+                          </span>
+                        </div>
+
+                        <h4 className="text-xs sm:text-sm font-extrabold text-slate-900 tracking-tight line-clamp-2">
+                          {ticket.titulo}
+                        </h4>
+
+                        <div className="flex items-center gap-2 text-[11px] text-slate-500 mt-1">
+                          <span className="font-semibold text-slate-600">
+                            {ticket.categoriaPersonalizada ||
+                              CATEGORIAS_TICKET[ticket.categoria]?.label ||
+                              ticket.categoria}
+                          </span>
+                          {ticket.fotosAveriaCount > 0 && (
+                            <>
+                              <span>•</span>
+                              <span className="text-slate-400">{ticket.fotosAveriaCount} fotos</span>
+                            </>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="flex items-center justify-end pt-1 border-t border-slate-200/50">
+                        <Link
+                          href="/empleado/mantenimiento"
+                          className={`h-8 px-3 rounded-lg text-xs font-bold border-b-[2px] active:translate-y-0.5 transition-all shadow-xs flex items-center gap-1.5 cursor-pointer whitespace-nowrap ${
+                            esResuelto
+                              ? "bg-[#1C2539] text-white hover:bg-[#2a3754] border-b-slate-900"
+                              : "bg-[#175E38] text-white hover:bg-[#124b2d] border-b-[#0e3a23]"
+                          }`}
+                        >
+                          {esResuelto ? (
+                            <>
+                              <CheckCircle2 className="w-3 h-3 text-emerald-400" />
+                              <span>Ver Registro</span>
+                            </>
+                          ) : (
+                            <>
+                              <Wrench className="w-3 h-3 stroke-[2.5]" />
+                              <span>Atender Avería</span>
+                            </>
+                          )}
+                        </Link>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </div>
-      </div>
+
+        {/* COLUMNA 2: ÓRDENES DE TRABAJO ASIGNADAS (TAREAS OPERATIVAS) */}
+        <div className="group relative overflow-hidden bg-gradient-to-b from-white via-white to-slate-50/70 rounded-2xl p-5 sm:p-6 border border-slate-200/90 border-b-[3px] border-b-slate-300/90 shadow-[0_4px_18px_-2px_rgba(28,37,57,0.07),0_2px_6px_-1px_rgba(28,37,57,0.04)] hover:shadow-[0_14px_30px_-4px_rgba(28,37,57,0.12),0_4px_10px_-2px_rgba(28,37,57,0.06)] transition-all duration-300 h-full flex flex-col justify-between">
+          {/* Sol decorativo ambiental en esquina superior izquierda */}
+          <div className="absolute -top-7 -left-7 w-24 h-24 sm:w-28 sm:h-28 pointer-events-none overflow-hidden rounded-full z-0">
+            <div className="absolute inset-0 rounded-full blur-xl bg-emerald-500/20" />
+            <div className="absolute inset-2 rounded-full bg-white/10 border border-emerald-400/30" />
+            <div className="absolute inset-5 rounded-full bg-gradient-to-br from-[#175E38]/30 to-transparent transition-transform duration-500 group-hover:scale-125" />
+          </div>
+
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5 sm:gap-3 mb-4 pb-3 border-b border-slate-100 relative z-10 shrink-0">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="w-8 h-8 rounded-xl bg-emerald-50 text-[#175E38] flex items-center justify-center border border-emerald-100 shrink-0 shadow-2xs">
+                <CheckSquare className="w-4 h-4 stroke-[2.5]" />
+              </div>
+              <div className="flex items-center gap-2 truncate">
+                <h3 className="font-heading font-black text-slate-900 text-sm sm:text-base tracking-tight truncate">
+                  Órdenes de Trabajo Asignadas
+                </h3>
+                {tareasActivasCount > 0 ? (
+                  <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200 shrink-0">
+                    {tareasActivasCount} {tareasActivasCount === 1 ? "pendiente" : "pendientes"}
+                  </span>
+                ) : tareasDestacadas.length > 0 ? (
+                  <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-[#175E38] border border-emerald-200 shrink-0">
+                    Al día
+                  </span>
+                ) : null}
+              </div>
+            </div>
+            <Link
+              href="/empleado/tareas"
+              className="self-start sm:self-auto inline-flex items-center gap-1.5 text-xs font-bold text-[#175E38] hover:text-[#124b2d] transition-colors px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-lg sm:rounded-xl bg-emerald-50/70 sm:bg-transparent hover:bg-emerald-100 sm:hover:bg-emerald-50 whitespace-nowrap"
+            >
+              <span>Ver todas</span>
+              <ArrowRight className="w-3.5 h-3.5 shrink-0" />
+            </Link>
+          </div>
+
+          <div className="relative z-10 flex-1 flex flex-col justify-between">
+            {tareasDestacadas.length === 0 ? (
+              <div className="flex-1 flex flex-col items-center justify-center py-8 px-4 text-center min-h-[160px]">
+                <div className="w-12 h-12 rounded-full bg-emerald-50 text-[#175E38] flex items-center justify-center mx-auto mb-2.5 border border-emerald-100 shadow-2xs">
+                  <Sparkles className="w-6 h-6" />
+                </div>
+                <p className="text-sm font-bold text-slate-800">¡Estás al día con tus labores!</p>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  No tienes tareas pendientes asignadas en este momento.
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-3 flex-1 flex flex-col justify-between">
+                {tareasDestacadas.map((tarea) => {
+                  const esCompletada = tarea.estado === EstadoTarea.COMPLETADA;
+                  const esEnProceso = tarea.estado === EstadoTarea.EN_PROCESO;
+                  return (
+                    <div
+                      key={tarea.id}
+                      className="p-4 rounded-xl border border-slate-200/80 bg-slate-50/70 hover:bg-slate-100/70 transition-all flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3.5 shadow-2xs"
+                    >
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2 mb-1.5 flex-wrap">
+                          <span
+                            className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-extrabold uppercase tracking-wider border shadow-2xs ${
+                              esCompletada
+                                ? "bg-emerald-50 text-[#175E38] border-emerald-200"
+                                : esEnProceso
+                                ? "bg-blue-50 text-blue-800 border-blue-200"
+                                : "bg-amber-50 text-amber-800 border-amber-300/80"
+                            }`}
+                          >
+                            {esCompletada ? (
+                              <CheckCircle2 className="w-3.5 h-3.5 text-[#175E38]" />
+                            ) : (
+                              <span
+                                className={`w-1.5 h-1.5 rounded-full ${
+                                  esEnProceso ? "bg-blue-500" : "bg-amber-500"
+                                } animate-pulse`}
+                              />
+                            )}
+                            <span>
+                              {esCompletada ? "Completada" : esEnProceso ? "En Proceso" : "Pendiente"}
+                            </span>
+                          </span>
+
+                          {tarea.propiedadNombre && (
+                            <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-slate-600 bg-slate-100/90 px-2 py-0.5 rounded-md border border-slate-200/70 truncate max-w-[200px]">
+                              <Building2 className="w-3 h-3 text-slate-400 shrink-0" />
+                              <span className="truncate">{tarea.propiedadNombre}</span>
+                            </span>
+                          )}
+                        </div>
+
+                        <h4 className="text-sm sm:text-base font-extrabold text-slate-900 tracking-tight truncate">
+                          {tarea.titulo}
+                        </h4>
+                      </div>
+
+                      <div className="flex items-center gap-2 shrink-0">
+                        <Link
+                          href="/empleado/tareas"
+                          className={`h-8.5 px-3 rounded-xl text-xs font-bold border-b-[2px] active:translate-y-0.5 transition-all flex items-center gap-1.5 cursor-pointer ${
+                            esCompletada
+                              ? "bg-[#1C2539] text-white hover:bg-[#2a3754] border-b-slate-900 shadow-xs"
+                              : "bg-[#175E38] text-white hover:bg-[#124b2d] border-b-[#0e3a23] shadow-[0_2px_6px_rgba(23,94,56,0.3)]"
+                          }`}
+                        >
+                          {esCompletada ? (
+                            <>
+                              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                              <span>Ver Registro</span>
+                            </>
+                          ) : (
+                            <>
+                              <CheckSquare className="w-3.5 h-3.5 stroke-[2.5]" />
+                              <span>Completar</span>
+                            </>
+                          )}
+                        </Link>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+      </section>
     </div>
   );
 }

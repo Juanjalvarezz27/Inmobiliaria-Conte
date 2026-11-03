@@ -144,7 +144,7 @@ export function FilterDropdown({
         <div
           className={`hidden md:block absolute ${
             align === "left" ? "left-0" : "right-0"
-          } top-full mt-1.5 ${menuWidth} bg-white border border-slate-200/90 rounded-xl shadow-xl py-1.5 z-50 animate-in fade-in-0 zoom-in-95 duration-100 max-h-72 overflow-y-auto`}
+          } top-full mt-1.5 ${menuWidth} max-w-[calc(100vw-2rem)] bg-white border border-slate-200/90 rounded-xl shadow-xl py-1.5 z-50 animate-in fade-in-0 zoom-in-95 duration-100 max-h-72 overflow-y-auto`}
         >
           {options.map((opt, idx) => {
             const isSelected = opt.value === value;
@@ -157,6 +157,7 @@ export function FilterDropdown({
               <React.Fragment key={opt.value}>
                 <button
                   type="button"
+                  title={opt.label}
                   onClick={() => {
                     onChange(opt.value);
                     setIsOpen(false);
@@ -167,13 +168,13 @@ export function FilterDropdown({
                       : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
                   }`}
                 >
-                  <div className="flex items-center gap-2 truncate pr-2">
+                  <div className="flex items-center gap-2 min-w-0 flex-1 pr-2">
                     <OptionIcon
                       className={`w-4 h-4 shrink-0 ${
                         opt.iconClassName || "text-slate-400"
                       }`}
                     />
-                    <div className="truncate text-left">
+                    <div className="min-w-0 flex-1 text-left">
                       <p className="truncate font-medium">{opt.label}</p>
                       {opt.subtitle && (
                         <p className="text-[10px] text-slate-400 truncate">

@@ -1,17 +1,20 @@
-import { ModulePlaceholder } from "@/components/layout/module-placeholder";
+import { getTicketsEmpleado } from "@/lib/actions/mantenimiento";
+import { EmpleadoMantenimientoClient } from "./EmpleadoMantenimientoClient";
+
+export const dynamic = "force-dynamic";
+
+export const metadata = {
+  title: "Averías y Reparaciones Asignadas | Inmobiliaria Conté",
+  description: "Portal técnico para trabajadores y especialistas de mantenimiento.",
+};
 
 export default async function EmpleadoMantenimientoPage() {
+  const data = await getTicketsEmpleado();
+
   return (
-    <ModulePlaceholder
-      title="Averías y Reparaciones Asignadas"
-      role="EMPLEADO"
-      iconType="wrench"
-      features={[
-        "Ver los reportes de averías con fotos y descripción detallada del problema.",
-        "Saber exactamente en qué inmueble o local se encuentra la falla técnica.",
-        "Completar el reporte de solución: describir el arreglo realizado y los gastos requeridos.",
-        "Avisar automáticamente a la administración en cuanto el problema quede resuelto.",
-      ]}
+    <EmpleadoMantenimientoClient
+      ticketsIniciales={data.tickets}
+      empleado={data.empleado}
     />
   );
 }

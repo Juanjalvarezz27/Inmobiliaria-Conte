@@ -4,7 +4,16 @@ import { revalidatePath } from "next/cache";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/auth";
-import { Rol, CargoEmpleado, EstadoAsistencia, EstadoTarea, PrioridadTarea } from "@prisma/client";
+import {
+  Rol,
+  CargoEmpleado,
+  EstadoAsistencia,
+  EstadoTarea,
+  PrioridadTarea,
+  CategoriaTicket,
+  UrgenciaTicket,
+  EstadoTicket,
+} from "@prisma/client";
 import { RegistroAsistenciaItem } from "@/app/admin/personal/types";
 import { cerrarJornadasIncompletasEmpleado } from "./personal";
 
@@ -21,6 +30,14 @@ async function getEmpleadoAutenticado() {
     include: { propiedad: { select: { id: true, nombre: true } } },
   });
 
+  // Si no se encuentra por usuarioId, buscar por email
+  if (!empleado && session.user.email) {
+    empleado = await prisma.empleado.findFirst({
+      where: { email: session.user.email },
+      include: { propiedad: { select: { id: true, nombre: true } } },
+    });
+  }
+
   // Modo auditoría/prueba: si un ADMIN ingresa al portal de empleados pero no tiene ficha vinculada
   if (!empleado && session.user.rol === Rol.ADMIN) {
     empleado = await prisma.empleado.findFirst({
@@ -30,6 +47,22 @@ async function getEmpleadoAutenticado() {
   }
 
   return empleado;
+}
+
+export interface TicketMantenimientoItemDashboard {
+  id: string;
+  codigo: string;
+  titulo: string;
+  descripcion: string;
+  categoria: CategoriaTicket;
+  categoriaPersonalizada: string | null;
+  urgencia: UrgenciaTicket;
+  estado: EstadoTicket;
+  propiedadNombre: string;
+  unidadCodigo: string | null;
+  unidadPiso: string | null;
+  fotosAveriaCount: number;
+  createdAt: string;
 }
 
 export interface PortalEmpleadoData {
@@ -69,11 +102,14 @@ export interface PortalEmpleadoData {
     requiereEvidencia: boolean;
     createdAt: string;
   }>;
+  ticketsMantenimiento: TicketMantenimientoItemDashboard[];
   metricas: {
     tareasPendientes: number;
     tareasEnProceso: number;
     tareasCompletadasMes: number;
     asistenciasMes: number;
+    ticketsActivos: number;
+    ticketsResueltosMes: number;
   };
 }
 
@@ -91,7 +127,14 @@ export async function getPortalEmpleadoData(): Promise<{ success: boolean; data?
     const inicioMes = new Date(ahora.getFullYear(), ahora.getMonth(), 1, 0, 0, 0);
 
     // Consulta paralela de solo lectura
-    const [asistenciaHoy, tareas, completadasMesCount, asistenciasMesCount] = await Promise.all([
+    const [
+      asistenciaHoy,
+      tareas,
+      completadasMesCount,
+      asistenciasMesCount,
+      ticketsMantenimiento,
+      ticketsResueltosMesCount,
+    ] = await Promise.all([
       prisma.registroAsistencia.findFirst({
         where: {
           empleadoId: empleado.id,
@@ -118,10 +161,29 @@ export async function getPortalEmpleadoData(): Promise<{ success: boolean; data?
           estado: { in: [EstadoAsistencia.PRESENTE, EstadoAsistencia.RETARDO] },
         },
       }),
+      prisma.ticketMantenimiento.findMany({
+        where: { empleadoId: empleado.id },
+        include: {
+          propiedad: { select: { nombre: true } },
+          unidad: { select: { codigo: true, tipo: true, piso: true } },
+        },
+        orderBy: [{ estado: "asc" }, { createdAt: "desc" }],
+        take: 20,
+      }),
+      prisma.ticketMantenimiento.count({
+        where: {
+          empleadoId: empleado.id,
+          estado: EstadoTicket.RESUELTO,
+          fechaFiniquito: { gte: inicioMes },
+        },
+      }),
     ]);
 
     const tareasPendientes = tareas.filter((t) => t.estado === EstadoTarea.PENDIENTE).length;
     const tareasEnProceso = tareas.filter((t) => t.estado === EstadoTarea.EN_PROCESO).length;
+    const ticketsActivos = ticketsMantenimiento.filter(
+      (t) => t.estado !== EstadoTicket.RESUELTO && t.estado !== EstadoTicket.CANCELADO
+    ).length;
 
     return {
       success: true,
@@ -164,11 +226,28 @@ export async function getPortalEmpleadoData(): Promise<{ success: boolean; data?
           requiereEvidencia: t.requiereEvidencia,
           createdAt: t.createdAt.toISOString(),
         })),
+        ticketsMantenimiento: ticketsMantenimiento.map((t) => ({
+          id: t.id,
+          codigo: t.codigo,
+          titulo: t.titulo,
+          descripcion: t.descripcion,
+          categoria: t.categoria,
+          categoriaPersonalizada: t.categoriaPersonalizada,
+          urgencia: t.urgencia,
+          estado: t.estado,
+          propiedadNombre: t.propiedad.nombre,
+          unidadCodigo: t.unidad?.codigo || null,
+          unidadPiso: t.unidad?.piso || null,
+          fotosAveriaCount: t.fotosAveria.length,
+          createdAt: t.createdAt.toISOString(),
+        })),
         metricas: {
           tareasPendientes,
           tareasEnProceso,
           tareasCompletadasMes: completadasMesCount,
           asistenciasMes: asistenciasMesCount,
+          ticketsActivos,
+          ticketsResueltosMes: ticketsResueltosMesCount,
         },
       },
     };

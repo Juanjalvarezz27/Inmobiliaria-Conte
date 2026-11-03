@@ -1,18 +1,22 @@
-import { ModulePlaceholder } from "@/components/layout/module-placeholder";
+import { getTicketsInquilino } from "@/lib/actions/mantenimiento";
+import { InquilinoMantenimientoClient } from "./InquilinoMantenimientoClient";
+
+export const dynamic = "force-dynamic";
+
+export const metadata = {
+  title: "Reportar Problema o Avería | Inmobiliaria Conté",
+  description: "Portal de gestión y reporte de fallas y averías técnicas para inquilinos.",
+};
 
 export default async function InquilinoMantenimientoPage() {
+  const data = await getTicketsInquilino();
+
   return (
-    <ModulePlaceholder
-      title="Reportar Problema o Avería"
-      role="INQUILINO"
-      iconType="wrench"
-      description="¿Tienes alguna falla eléctrica, filtración o daño en tu local? Repórtalo aquí para que nuestro equipo lo resuelva."
-      features={[
-        "Enviar un reporte rápido explicando qué problema técnico tienes en tu inmueble.",
-        "Adjuntar fotografías de la avería para que el técnico acuda con los repuestos correctos.",
-        "Monitorear en tiempo real si tu solicitud ya fue vista, asignada a un técnico o resuelta.",
-        "Consultar el historial de reparaciones solicitadas anteriormente.",
-      ]}
+    <InquilinoMantenimientoClient
+      ticketsIniciales={data.tickets}
+      locales={data.locales}
+      propiedades={data.propiedades}
+      inquilinoNombre={data.inquilinoNombre}
     />
   );
 }

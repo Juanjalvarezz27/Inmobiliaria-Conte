@@ -82,6 +82,7 @@ model Propiedad {
   tareasEmpleados          TareaEmpleado[]
   empleados                Empleado[]
   minutasGuardia           MinutaGuardia[]
+  ticketsMantenimiento     TicketMantenimiento[]
 
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
@@ -106,6 +107,7 @@ model Unidad {
 
   contratos                Contrato[]
   transaccionesFinancieras TransaccionFinanciera[]
+  ticketsMantenimiento     TicketMantenimiento[]
 
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
@@ -143,6 +145,7 @@ model Inquilino {
   usuario            Usuario?     @relation(fields: [usuarioId], references: [id], onDelete: SetNull)
 
   contratos          Contrato[]
+  ticketsMantenimiento TicketMantenimiento[]
 
   createdAt          DateTime     @default(now())
   updatedAt          DateTime     @updatedAt
@@ -374,6 +377,7 @@ model Empleado {
   asistencias    RegistroAsistencia[]
   tareas         TareaEmpleado[]
   minutasGuardia MinutaGuardia[]
+  ticketsMantenimiento TicketMantenimiento[]
 
   createdAt      DateTime             @default(now())
   updatedAt      DateTime             @updatedAt
@@ -502,5 +506,82 @@ model NovedadMinuta {
   @@index([categoria, hora])
   @@map("novedades_minuta")
 }
+
+enum EstadoTicket {
+  PENDIENTE       // Recién emitido, pendiente por asignación
+  EN_PROCESO      // Con técnico asignado y en curso de reparación
+  RESUELTO        // Trabajo finiquitado con fotos de evidencia
+  CANCELADO       // Desestimado o cancelado con motivo
+}
+
+enum UrgenciaTicket {
+  BAJA
+  MEDIA
+  ALTA
+  URGENTE
+}
+
+enum CategoriaTicket {
+  ELECTRICIDAD
+  PLOMERIA
+  FILTRACIONES
+  CERRAJERIA
+  CLIMATIZACION
+  AREAS_COMUNES
+  PINTURA_ALBANILERIA
+  OTRO
+}
+
+model TicketMantenimiento {
+  id                      String                 @id @default(cuid())
+  codigo                  String                 @unique // Ej: "TCK-2026-001"
+  titulo                  String
+  descripcion             String
+  categoria               CategoriaTicket        @default(OTRO)
+  categoriaPersonalizada  String?                // Especificación cuando categoria es OTRO
+  urgencia                UrgenciaTicket         @default(MEDIA)
+  estado                  EstadoTicket           @default(PENDIENTE)
+
+  // Fotos de evidencia inicial (reporte) y fotos de finiquito (cierre técnico)
+  fotosAveria             String[]               // Evidencia fotográfica inicial (UploadThing)
+  fotosFiniquito          String[]               // Evidencia fotográfica de reparación (UploadThing)
+
+  // Notas de seguimiento y cierre
+  notasAdmin              String?                // Observaciones o instrucciones del administrador
+  notasCierre             String?                // Informe técnico del empleado al finiquitar
+  motivoCancelacion       String?                // Si fue cancelado
+
+  // Fechas clave
+  fechaAsignacion         DateTime?
+  fechaInicio             DateTime?              // Cuando el técnico pasa a EN_PROCESO
+  fechaFiniquito          DateTime?              // Cuando se marca RESUELTO
+
+  // Relaciones
+  propiedadId             String
+  propiedad               Propiedad              @relation(fields: [propiedadId], references: [id], onDelete: Cascade)
+
+  unidadId                String?
+  unidad                  Unidad?                @relation(fields: [unidadId], references: [id], onDelete: SetNull)
+
+  inquilinoId             String?
+  inquilino               Inquilino?             @relation(fields: [inquilinoId], references: [id], onDelete: SetNull)
+
+  empleadoId              String?
+  empleado                Empleado?              @relation(fields: [empleadoId], references: [id], onDelete: SetNull)
+
+  createdAt               DateTime               @default(now())
+  updatedAt               DateTime               @updatedAt
+
+  @@index([propiedadId])
+  @@index([unidadId])
+  @@index([inquilinoId])
+  @@index([empleadoId])
+  @@index([estado])
+  @@index([urgencia])
+  @@index([categoria])
+  @@index([createdAt])
+  @@map("tickets_mantenimiento")
+}
+
 
 
