@@ -100,7 +100,7 @@ export async function enviarNotificacionNuevaTarea(params: NotificacionTareaPara
                   </td>
                   <td align="right">
                     <span style="display: inline-block; background-color: #175E38; color: #FFFFFF; font-size: 10px; font-weight: 800; padding: 3px 8px; border-radius: 12px; text-transform: uppercase; letter-spacing: 0.5px;">
-                      NUEVA ORDEN
+                      NUEVA TAREA
                     </span>
                   </td>
                 </tr>
@@ -115,7 +115,7 @@ export async function enviarNotificacionNuevaTarea(params: NotificacionTareaPara
                 Hola, ${empleadoNombre}:
               </p>
               <p style="margin: 0 0 18px 0; color: #475569; font-size: 13.5px; line-height: 1.5;">
-                Se te ha asignado una nueva orden de trabajo en el sistema con los siguientes detalles:
+                Se te ha asignado una nueva tarea en el sistema con los siguientes detalles:
               </p>
 
               <!-- Tarjeta de la Tarea (Totalmente fluida) -->

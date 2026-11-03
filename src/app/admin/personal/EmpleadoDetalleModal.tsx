@@ -19,11 +19,12 @@ import {
   Zap,
   Droplets,
   Shield,
+  Wallet,
 } from "lucide-react";
 import { Modal } from "@/components/ui/modal";
 import { StatCard } from "@/components/ui/stat-card";
 import { WhatsAppIcon } from "@/components/icons/whatsapp-icon";
-import { EstadoTarea, EstadoAsistencia, CargoEmpleado } from "@prisma/client";
+import { EstadoAsistencia, CargoEmpleado } from "@prisma/client";
 import { obtenerHistorialAsistenciaEmpleadoAction } from "@/lib/actions/personal";
 import {
   CARGO_CONFIG,
@@ -35,7 +36,6 @@ import {
 } from "./types";
 import { EmpleadoTareasSection } from "./detalle/EmpleadoTareasSection";
 import { EmpleadoAsistenciasSection } from "./detalle/EmpleadoAsistenciasSection";
-import { EmpleadoInasistenciasSection } from "./detalle/EmpleadoInasistenciasSection";
 
 interface EmpleadoDetalleModalProps {
   isOpen: boolean;
@@ -51,7 +51,7 @@ interface EmpleadoDetalleModalProps {
   scrollToSeccion?: "TAREAS" | "ASISTENCIAS" | null;
 }
 
-type VistaFicha = "TAREAS" | "ASISTENCIAS" | "INASISTENCIAS";
+type VistaFicha = "TAREAS" | "ASISTENCIAS";
 
 // Icono temático según el cargo operativo
 function getCargoIcon(cargo: CargoEmpleado) {
@@ -125,15 +125,15 @@ export function EmpleadoDetalleModal({
   onSeleccionarTarea,
   scrollToSeccion,
 }: EmpleadoDetalleModalProps) {
-  // Pestaña activa dentro de la ficha del colaborador
+  // Pestaña activa dentro de la ficha del colaborador (solo 2 pestañas naturales)
   const [vistaActiva, setVistaActiva] = useState<VistaFicha>("TAREAS");
 
-  // Historial dinámico de asistencias e inasistencias
+  // Historial dinámico de asistencias y faltas
   const [historialCompleto, setHistorialCompleto] = useState<RegistroAsistenciaItem[]>([]);
   const [cargandoHistorial, setCargandoHistorial] = useState(false);
   const seccionTabsRef = useRef<HTMLDivElement>(null);
 
-  // Cargar historial de asistencias e inasistencias al abrir la ficha del empleado
+  // Cargar historial de asistencias al abrir la ficha del empleado
   useEffect(() => {
     if (isOpen && emp?.id) {
       let isMounted = true;
@@ -155,29 +155,33 @@ export function EmpleadoDetalleModal({
     }
   }, [isOpen, emp?.id]);
 
-  // Clasificación de jornadas
-  const listaAsistencias = useMemo(() => {
-    return historialCompleto.filter(
-      (r) => r.estado === EstadoAsistencia.PRESENTE || r.estado === EstadoAsistencia.RETARDO
-    );
-  }, [historialCompleto]);
+  // Conteos de asistencia para las StatCards
+  const totalAsistenciasCount = useMemo(() => {
+    if (historialCompleto.length > 0) {
+      return historialCompleto.filter(
+        (r) => r.estado === EstadoAsistencia.PRESENTE || r.estado === EstadoAsistencia.RETARDO
+      ).length;
+    }
+    return emp?.asistenciasCount ?? emp?._count.asistencias ?? 0;
+  }, [historialCompleto, emp]);
 
-  const listaInasistencias = useMemo(() => {
-    return historialCompleto.filter(
-      (r) =>
-        r.estado === EstadoAsistencia.FALTA_INJUSTIFICADA ||
-        r.estado === EstadoAsistencia.FALTA_JUSTIFICADA ||
-        r.estado === EstadoAsistencia.PERMISO
-    );
-  }, [historialCompleto]);
+  const totalInasistenciasCount = useMemo(() => {
+    if (historialCompleto.length > 0) {
+      return historialCompleto.filter(
+        (r) =>
+          r.estado === EstadoAsistencia.FALTA_INJUSTIFICADA ||
+          r.estado === EstadoAsistencia.FALTA_JUSTIFICADA ||
+          r.estado === EstadoAsistencia.PERMISO
+      ).length;
+    }
+    return emp?.inasistenciasCount ?? 0;
+  }, [historialCompleto, emp]);
 
-  const totalAsistenciasCount = historialCompleto.length > 0
-    ? listaAsistencias.length
-    : (emp?.asistenciasCount ?? emp?._count.asistencias ?? 0);
-
-  const totalInasistenciasCount = historialCompleto.length > 0
-    ? listaInasistencias.length
-    : (emp?.inasistenciasCount ?? 0);
+  const totalTareasPendientes = useMemo(() => {
+    return tareasEmpleado.filter(
+      (t) => t.estado === "PENDIENTE" || t.estado === "EN_PROCESO"
+    ).length;
+  }, [tareasEmpleado]);
 
   // Limpieza al cerrar modal
   useEffect(() => {
@@ -186,10 +190,20 @@ export function EmpleadoDetalleModal({
     }
   }, [isOpen, emp?.id]);
 
-  // Auto-scroll suave a la sección solicitada
+  // Auto-scroll suave a la sección solicitada si viene por prop
   useEffect(() => {
     if (isOpen && scrollToSeccion === "TAREAS") {
       setVistaActiva("TAREAS");
+      const timer = setTimeout(() => {
+        seccionTabsRef.current?.scrollIntoView({
+          behavior: "smooth",
+          block: "start",
+        });
+      }, 150);
+      return () => clearTimeout(timer);
+    }
+    if (isOpen && scrollToSeccion === "ASISTENCIAS") {
+      setVistaActiva("ASISTENCIAS");
       const timer = setTimeout(() => {
         seccionTabsRef.current?.scrollIntoView({
           behavior: "smooth",
@@ -218,102 +232,64 @@ export function EmpleadoDetalleModal({
       headerVariant="green"
       maxWidth="4xl"
     >
-      <div className="space-y-6">
-        {/* Cabecera Principal de Identidad */}
-        <div className="p-4 sm:p-5 rounded-2xl bg-white border border-slate-200/90 shadow-2xs space-y-4">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3.5">
-            <div className="flex items-center gap-3.5 min-w-0">
-              <div
-                className={`w-12 h-12 sm:w-14 sm:h-14 rounded-2xl flex items-center justify-center font-heading font-black text-sm sm:text-base shrink-0 border shadow-2xs ${getCargoAvatarColors(
-                  emp.cargo
-                )}`}
-              >
-                {getInitials(emp.nombre, emp.apellido)}
-              </div>
-
-              <div className="min-w-0 flex-1 space-y-1">
-                <h2 className="text-lg sm:text-xl font-black font-heading text-slate-900 tracking-tight truncate">
-                  {nombreCompleto}
-                </h2>
-
-                <div className="flex items-center gap-1.5 flex-wrap">
-                  <span
-                    className={`inline-flex items-center gap-1 px-2.5 py-0.5 text-xs font-bold rounded-lg border shadow-2xs ${cargoConfig.badgeClass}`}
-                  >
-                    {getCargoIcon(emp.cargo)}
-                    <span>{cargoNombre}</span>
-                  </span>
-
-                  <span className="text-xs font-bold text-slate-600 bg-slate-50 border border-slate-200 px-2 py-0.5 rounded-md font-mono shadow-2xs">
-                    {emp.cedula}
-                  </span>
-
-                  {!emp.activo && (
-                    <span className="text-[11px] font-bold text-rose-700 bg-rose-50 border border-rose-200 px-2 py-0.5 rounded-md">
-                      Inactivo
-                    </span>
-                  )}
-
-                  {emp.asistenciaHoy ? (
-                    <span
-                      className={`inline-flex items-center gap-1.5 text-[11px] font-bold px-2 py-0.5 rounded-md border shadow-2xs ${
-                        ESTADO_ASISTENCIA_CONFIG[emp.asistenciaHoy.estado].badgeClass
-                      }`}
-                    >
-                      <span
-                        className={`w-1.5 h-1.5 rounded-full ${
-                          ESTADO_ASISTENCIA_CONFIG[emp.asistenciaHoy.estado].dotColor
-                        }`}
-                      />
-                      Hoy: {ESTADO_ASISTENCIA_CONFIG[emp.asistenciaHoy.estado].label}
-                    </span>
-                  ) : (
-                    <span className="inline-flex items-center gap-1.5 text-[11px] font-bold px-2 py-0.5 rounded-md bg-amber-50 text-amber-800 border border-amber-200 shadow-2xs">
-                      <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
-                      Hoy: Sin marcar
-                    </span>
-                  )}
-                </div>
-              </div>
+      <div className="space-y-4 sm:space-y-5">
+        {/* Cabecera Principal de Identidad Reorganizada */}
+        <div className="p-4 sm:p-5 rounded-2xl bg-white border border-slate-200/90 border-b-[3px] border-b-slate-300/90 shadow-2xs space-y-4">
+          {/* Identidad Principal: Iniciales compactas, Nombre y Cédula */}
+          <div className="flex items-center gap-3 min-w-0">
+            <div
+              className={`w-9 h-9 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center font-heading font-black text-xs sm:text-sm shrink-0 border shadow-2xs ${getCargoAvatarColors(
+                emp.cargo
+              )}`}
+            >
+              {getInitials(emp.nombre, emp.apellido)}
             </div>
 
-            {/* Acciones Rápidas en Desktop */}
-            <div className="hidden sm:flex sm:items-center sm:gap-2 shrink-0">
-              <button
-                type="button"
-                onClick={() => {
-                  onClose();
-                  onRegistrarAsistencia(emp);
-                }}
-                className="h-9.5 px-3.5 rounded-xl text-xs font-bold bg-white text-slate-700 border border-slate-200 hover:bg-slate-50 hover:border-slate-300 transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs active:translate-y-0.5"
-                title="Registrar o verificar asistencia del día"
-              >
-                <Clock className="w-3.5 h-3.5 text-slate-500 shrink-0" />
-                <span>Asistencia</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  onClose();
-                  onAsignarTarea(emp);
-                }}
-                className="h-9.5 px-4 rounded-xl text-xs font-bold bg-gradient-to-r from-[#175E38] to-[#124b2d] text-white hover:bg-[#124b2d] border-b-[3px] border-b-[#0e3a23] transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-[0_2px_6px_rgba(23,94,56,0.3)] active:translate-y-0.5"
-              >
-                <Plus className="w-3.5 h-3.5 stroke-[2.5] shrink-0" />
-                <span>Asignar Tarea</span>
-              </button>
+            <div className="min-w-0 flex-1 flex items-center gap-2 flex-wrap">
+              <h2 className="text-base sm:text-lg font-black font-heading text-slate-900 tracking-tight truncate">
+                {nombreCompleto}
+              </h2>
+
+              <span className="font-mono text-xs font-bold text-slate-600 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded-md shadow-2xs">
+                C.I. {emp.cedula}
+              </span>
+
+              {!emp.activo && (
+                <span className="text-[10px] font-bold text-rose-700 bg-rose-50 border border-rose-200 px-1.5 py-0.5 rounded-md">
+                  Inactivo
+                </span>
+              )}
             </div>
           </div>
 
-          {/* Datos del Colaborador */}
-          <div className="pt-3.5 border-t border-slate-100 grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3 text-xs">
-            {/* Teléfono & WhatsApp */}
-            <div className="flex items-center gap-2 min-w-0 text-slate-700">
-              <div className="w-7 h-7 rounded-lg bg-emerald-50 text-[#175E38] flex items-center justify-center shrink-0">
-                <Phone className="w-3.5 h-3.5" />
+          {/* 3 Cajas de Datos Contextuales: Asignación, Contacto y Condiciones */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-3.5 border-t border-slate-100">
+            {/* 1. Asignación Laboral */}
+            <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 space-y-1">
+              <div className="flex items-center gap-1.5 text-[11px] font-extrabold text-slate-700 uppercase tracking-wider">
+                <Building2 className="w-3.5 h-3.5 text-blue-700 shrink-0" />
+                <span>Inmueble Asignado</span>
+              </div>
+              <p
+                className="text-xs font-semibold text-slate-800 truncate"
+                title={emp.propiedad ? emp.propiedad.nombre : "Sede Central / Multipropiedad"}
+              >
+                {emp.propiedad ? emp.propiedad.nombre : "Sede Central / Multipropiedad"}
+              </p>
+              <p className="text-xs text-slate-600 truncate">
+                {emp.propiedad?.ciudad ? `Ciudad: ${emp.propiedad.ciudad}` : "Sin ciudad asignada"}
+                {emp.direccion ? ` • ${emp.direccion}` : ""}
+              </p>
+            </div>
+
+            {/* 2. Contacto Directo */}
+            <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 space-y-1">
+              <div className="flex items-center gap-1.5 text-[11px] font-extrabold text-slate-700 uppercase tracking-wider">
+                <Phone className="w-3.5 h-3.5 text-[#175E38] shrink-0" />
+                <span>Contacto</span>
               </div>
               <div className="flex items-center gap-1.5 min-w-0">
-                <span className="font-semibold text-slate-800 truncate select-all">
+                <span className="text-xs font-semibold text-slate-800 truncate select-all">
                   {emp.telefono}
                 </span>
                 {waUrl && (
@@ -321,111 +297,81 @@ export function EmpleadoDetalleModal({
                     href={waUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-[#25D366]/10 text-[#128C7E] hover:bg-[#25D366]/20 font-bold text-[11px] hover:scale-105 active:scale-95 transition-all shrink-0 border border-[#25D366]/20"
+                    className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-[#25D366]/15 text-[#0d7340] hover:bg-[#25D366]/25 font-bold text-[10px] transition-all shrink-0 border border-[#25D366]/30 hover:scale-105 active:scale-95"
                     title="Contactar vía WhatsApp"
                   >
-                    <WhatsAppIcon className="w-3 h-3 text-[#25D366]" />
+                    <WhatsAppIcon className="w-2.5 h-2.5 text-[#25D366]" />
                     <span>WhatsApp</span>
                   </a>
                 )}
               </div>
-            </div>
-
-            {/* Inmueble Asignado */}
-            <div className="flex items-center gap-2 min-w-0 text-slate-700">
-              <div className="w-7 h-7 rounded-lg bg-blue-50 text-blue-700 flex items-center justify-center shrink-0">
-                <Building2 className="w-3.5 h-3.5" />
-              </div>
-              <div className="min-w-0 truncate">
-                <span className="font-semibold text-slate-800">
-                  {emp.propiedad ? emp.propiedad.nombre : "Sede Central / Multipropiedad"}
-                </span>
-                {emp.propiedad?.ciudad && (
-                  <span className="text-slate-400 font-normal ml-1">
-                    • {emp.propiedad.ciudad}
-                  </span>
-                )}
-              </div>
-            </div>
-
-            {/* Correo Electrónico */}
-            <div className="flex items-center gap-2 min-w-0 text-slate-700">
-              <div className="w-7 h-7 rounded-lg bg-slate-100 text-slate-600 flex items-center justify-center shrink-0">
-                <Mail className="w-3.5 h-3.5" />
-              </div>
-              <span
-                className="font-semibold text-slate-800 truncate"
+              <p
+                className="text-xs text-slate-600 truncate"
                 title={emp.email || "Sin correo corporativo"}
               >
-                {emp.email || "Sin correo corporativo"}
-              </span>
+                {emp.email ? emp.email : "Sin correo adicional"}
+              </p>
             </div>
 
-            {/* Ingreso y Honorarios */}
-            <div className="flex items-center justify-between gap-2 min-w-0">
-              <div className="flex items-center gap-2 min-w-0 text-slate-700">
-                <div className="w-7 h-7 rounded-lg bg-indigo-50 text-indigo-700 flex items-center justify-center shrink-0">
-                  <Calendar className="w-3.5 h-3.5" />
-                </div>
-                <span className="text-slate-600">
-                  Ingreso:{" "}
-                  <strong className="text-slate-800 font-semibold">
-                    {new Date(emp.fechaIngreso).toLocaleDateString("es-VE", {
-                      day: "2-digit",
-                      month: "short",
-                      year: "numeric",
-                    })}
-                  </strong>
+            {/* 3. Condiciones Laborales */}
+            <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 space-y-1">
+              <div className="flex items-center gap-1.5 text-[11px] font-extrabold text-slate-700 uppercase tracking-wider">
+                <Wallet className="w-3.5 h-3.5 text-indigo-700 shrink-0" />
+                <span>Honorarios & Ingreso</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <span className="text-xs font-black text-[#175E38] font-mono">
+                  {emp.salarioMensual ? `$${emp.salarioMensual.toFixed(2)} USD` : "Sin honorarios"}
+                  <span className="text-xs font-medium text-slate-600 ml-0.5">/mes</span>
                 </span>
               </div>
-              {emp.salarioMensual ? (
-                <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-[#175E38]/10 text-[#175E38] font-black text-xs font-mono shrink-0">
-                  ${emp.salarioMensual.toFixed(2)} USD/mes
+              <p className="text-xs text-slate-600 truncate">
+                Ingreso:{" "}
+                <span className="text-slate-800 font-semibold">
+                  {new Date(emp.fechaIngreso).toLocaleDateString("es-VE", {
+                    day: "2-digit",
+                    month: "short",
+                    year: "numeric",
+                  })}
                 </span>
-              ) : (
-                <span className="text-[11px] text-slate-400 italic shrink-0">Sin honorarios</span>
-              )}
+              </p>
             </div>
-
-            {/* Dirección */}
-            {emp.direccion && (
-              <div className="sm:col-span-2 flex items-center gap-2 min-w-0 text-slate-600 pt-1.5 border-t border-slate-100">
-                <div className="w-7 h-7 rounded-lg bg-slate-100 text-slate-500 flex items-center justify-center shrink-0">
-                  <MapPin className="w-3.5 h-3.5" />
-                </div>
-                <span className="truncate">{emp.direccion}</span>
-              </div>
-            )}
           </div>
 
-          {/* Notas Internas */}
+          {/* Notas Internas (solo si existen) */}
           {emp.notas && (
-            <div className="p-3 rounded-xl bg-slate-50 border border-slate-200/70 text-xs text-slate-600 flex items-start gap-2">
+            <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200/70 text-xs text-slate-600 flex items-start gap-2">
               <FileText className="w-3.5 h-3.5 text-slate-400 shrink-0 mt-0.5" />
               <p className="leading-relaxed line-clamp-2">{emp.notas}</p>
             </div>
           )}
         </div>
 
-        {/* StatCards de Desempeño */}
+        {/* 4 StatCards Oficiales con Efecto Sol y Relieve 3D */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <StatCard
             title="Total Tareas"
             value={emp._count.tareas}
             icon={Briefcase}
             color="navy"
-            subtitle="Asignadas en total"
+            className={`transition-all ${
+              vistaActiva === "TAREAS"
+                ? "ring-2 ring-[#1C2539]/30 border-slate-400 shadow-md"
+                : ""
+            }`}
             onClick={() => setVistaActiva("TAREAS")}
           />
 
           <StatCard
-            title="Pendientes"
-            value={emp.tareasPendientesCount}
+            title="Activas"
+            value={totalTareasPendientes}
             icon={AlertTriangle}
             color="amber"
-            subtitle={
-              emp.tareasPendientesCount === 1 ? "1 orden activa" : `${emp.tareasPendientesCount} órdenes activas`
-            }
+            className={`transition-all ${
+              vistaActiva === "TAREAS" && totalTareasPendientes > 0
+                ? "ring-2 ring-amber-400/40 border-amber-300 shadow-md"
+                : ""
+            }`}
             onClick={() => setVistaActiva("TAREAS")}
           />
 
@@ -434,49 +380,45 @@ export function EmpleadoDetalleModal({
             value={totalAsistenciasCount}
             icon={CheckCircle2}
             color="emerald"
-            subtitle="Ver jornadas efectivas"
+            className={`transition-all ${
+              vistaActiva === "ASISTENCIAS"
+                ? "ring-2 ring-[#175E38]/40 border-emerald-400 shadow-md"
+                : ""
+            }`}
             onClick={() => setVistaActiva("ASISTENCIAS")}
           />
 
           <StatCard
-            title="Inasistencias"
+            title="Faltas"
             value={totalInasistenciasCount}
             icon={UserX}
             color="rose"
-            subtitle={
-              totalInasistenciasCount === 0
-                ? "Sin faltas registradas"
-                : `${totalInasistenciasCount} faltas (Ver detalle)`
-            }
-            onClick={() => setVistaActiva("INASISTENCIAS")}
+            className={`transition-all ${
+              vistaActiva === "ASISTENCIAS" && totalInasistenciasCount > 0
+                ? "ring-2 ring-rose-400/40 border-rose-300 shadow-md"
+                : ""
+            }`}
+            onClick={() => setVistaActiva("ASISTENCIAS")}
           />
         </div>
 
-        {/* Pestañas de Vista */}
+        {/* Pestañas de Vista Unificadas (Solo 2 pestañas naturales) */}
         <div
           ref={seccionTabsRef}
-          className="grid grid-cols-3 sm:flex sm:items-center gap-1 sm:gap-1.5 p-1 bg-slate-100/90 rounded-2xl border border-slate-200/80 w-full scroll-mt-3"
+          className="grid grid-cols-2 p-1 bg-slate-100/90 rounded-2xl border border-slate-200/80 w-full scroll-mt-3"
         >
           <button
             type="button"
             onClick={() => setVistaActiva("TAREAS")}
-            className={`h-13 sm:h-9.5 px-1 sm:px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex flex-col sm:flex-row items-center justify-center gap-0.5 sm:gap-1.5 cursor-pointer flex-1 ${
+            className={`h-10 sm:h-9.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
               vistaActiva === "TAREAS"
                 ? "bg-white text-slate-900 shadow-xs border border-slate-200/70"
                 : "text-slate-600 hover:text-slate-900"
             }`}
           >
-            <div className="flex items-center gap-1 shrink-0">
-              <Briefcase className="w-4 h-4 sm:w-3.5 sm:h-3.5 text-[#1C2539] shrink-0" />
-              <span className="sm:hidden text-[10px] font-extrabold px-1.5 py-0.2 rounded-full leading-none bg-slate-200/90 text-slate-700">
-                {tareasEmpleado.length}
-              </span>
-            </div>
-            <span className="text-[11px] sm:text-xs font-bold tracking-tight text-center truncate max-w-full">
-              <span className="sm:hidden">Tareas</span>
-              <span className="hidden sm:inline">Órdenes de Trabajo</span>
-            </span>
-            <span className="hidden sm:inline-flex px-1.5 py-0.5 rounded-full text-[10px] font-mono bg-slate-100 text-slate-700 shrink-0">
+            <Briefcase className="w-3.5 h-3.5 text-[#1C2539] shrink-0" />
+            <span>Tareas Asignadas</span>
+            <span className="px-1.5 py-0.5 rounded-full text-[10px] font-mono bg-slate-200/90 text-slate-700">
               {tareasEmpleado.length}
             </span>
           </button>
@@ -484,60 +426,18 @@ export function EmpleadoDetalleModal({
           <button
             type="button"
             onClick={() => setVistaActiva("ASISTENCIAS")}
-            className={`h-13 sm:h-9.5 px-1 sm:px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex flex-col sm:flex-row items-center justify-center gap-0.5 sm:gap-1.5 cursor-pointer flex-1 ${
+            className={`h-10 sm:h-9.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
               vistaActiva === "ASISTENCIAS"
                 ? "bg-white text-slate-900 shadow-xs border border-slate-200/70"
                 : "text-slate-600 hover:text-slate-900"
             }`}
           >
-            <div className="flex items-center gap-1 shrink-0">
-              <CheckCircle2 className="w-4 h-4 sm:w-3.5 sm:h-3.5 text-[#175E38] shrink-0" />
-              <span className="sm:hidden text-[10px] font-extrabold px-1.5 py-0.2 rounded-full leading-none bg-emerald-100 text-emerald-800">
-                {totalAsistenciasCount}
-              </span>
-            </div>
-            <span className="text-[11px] sm:text-xs font-bold tracking-tight text-center truncate max-w-full">
-              <span className="sm:hidden">Asistencia</span>
-              <span className="hidden sm:inline">Historial de Asistencias</span>
-            </span>
-            <span className="hidden sm:inline-flex px-1.5 py-0.5 rounded-full text-[10px] font-mono bg-emerald-100 text-emerald-800 shrink-0">
-              {totalAsistenciasCount}
-            </span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setVistaActiva("INASISTENCIAS")}
-            className={`h-13 sm:h-9.5 px-1 sm:px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex flex-col sm:flex-row items-center justify-center gap-0.5 sm:gap-1.5 cursor-pointer flex-1 ${
-              vistaActiva === "INASISTENCIAS"
-                ? "bg-white text-slate-900 shadow-xs border border-slate-200/70"
-                : "text-slate-600 hover:text-slate-900"
-            }`}
-          >
-            <div className="flex items-center gap-1 shrink-0">
-              <UserX className="w-4 h-4 sm:w-3.5 sm:h-3.5 text-rose-600 shrink-0" />
-              <span
-                className={`sm:hidden text-[10px] font-extrabold px-1.5 py-0.2 rounded-full leading-none ${
-                  totalInasistenciasCount > 0
-                    ? "bg-rose-100 text-rose-800"
-                    : "bg-slate-200/90 text-slate-600"
-                }`}
-              >
-                {totalInasistenciasCount}
-              </span>
-            </div>
-            <span className="text-[11px] sm:text-xs font-bold tracking-tight text-center truncate max-w-full">
-              <span className="sm:hidden">Faltas</span>
-              <span className="hidden sm:inline">Inasistencias y Faltas</span>
-            </span>
-            <span
-              className={`hidden sm:inline-flex px-1.5 py-0.5 rounded-full text-[10px] font-mono shrink-0 ${
-                totalInasistenciasCount > 0
-                  ? "bg-rose-100 text-rose-800 font-bold"
-                  : "bg-slate-100 text-slate-600"
-              }`}
-            >
-              {totalInasistenciasCount}
+            <Clock className="w-3.5 h-3.5 text-[#175E38] shrink-0" />
+            <span>Historial de Asistencia</span>
+            <span className="px-1.5 py-0.5 rounded-full text-[10px] font-mono bg-emerald-100 text-emerald-800">
+              {historialCompleto.length > 0
+                ? historialCompleto.length
+                : emp.asistenciasCount + emp.inasistenciasCount}
             </span>
           </button>
         </div>
@@ -553,30 +453,19 @@ export function EmpleadoDetalleModal({
           />
         )}
 
-        {/* Sección 2: Asistencias */}
+        {/* Sección 2: Historial Unificado de Asistencia y Faltas */}
         {vistaActiva === "ASISTENCIAS" && (
           <EmpleadoAsistenciasSection
             emp={emp}
-            listaAsistencias={listaAsistencias}
+            historialCompleto={historialCompleto}
             cargandoHistorial={cargandoHistorial}
             onRegistrarAsistencia={onRegistrarAsistencia}
             onEditarAsistencia={onEditarAsistencia}
           />
         )}
 
-        {/* Sección 3: Inasistencias */}
-        {vistaActiva === "INASISTENCIAS" && (
-          <EmpleadoInasistenciasSection
-            emp={emp}
-            listaInasistencias={listaInasistencias}
-            cargandoHistorial={cargandoHistorial}
-            onRegistrarAsistencia={onRegistrarAsistencia}
-            onEditarAsistencia={onEditarAsistencia}
-          />
-        )}
-
-        {/* Footer Institucional de la Ficha */}
-        <div className="pt-3 border-t border-slate-200/90 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5">
+        {/* Footer Institucional de la Ficha Contextual */}
+        <div className="pt-3 border-t border-slate-200/90 grid grid-cols-2 sm:flex sm:items-center sm:justify-between gap-2.5">
           <button
             type="button"
             onClick={onClose}
@@ -585,30 +474,32 @@ export function EmpleadoDetalleModal({
             Cerrar Ficha
           </button>
 
-          <div className="grid grid-cols-2 gap-2 w-full sm:w-auto sm:flex sm:items-center sm:gap-2">
-            <button
-              type="button"
-              onClick={() => {
-                onClose();
-                onRegistrarAsistencia(emp);
-              }}
-              className="h-10 px-3.5 rounded-xl text-xs font-bold bg-white text-slate-700 border border-slate-200 hover:bg-slate-50 hover:border-slate-300 transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs active:translate-y-0.5"
-              title="Registrar o verificar asistencia del día"
-            >
-              <Clock className="w-3.5 h-3.5 text-slate-500 shrink-0" />
-              <span>Asistencia</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                onClose();
-                onAsignarTarea(emp);
-              }}
-              className="h-10 px-4 rounded-xl text-xs font-bold bg-gradient-to-r from-[#175E38] to-[#124b2d] text-white hover:bg-[#124b2d] border-b-[3px] border-b-[#0e3a23] transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-[0_2px_6px_rgba(23,94,56,0.3)] active:translate-y-0.5"
-            >
-              <Plus className="w-3.5 h-3.5 stroke-[2.5] shrink-0" />
-              <span>Asignar Tarea</span>
-            </button>
+          <div className="w-full sm:w-auto flex items-center justify-end">
+            {vistaActiva === "TAREAS" ? (
+              <button
+                type="button"
+                onClick={() => {
+                  onClose();
+                  onAsignarTarea(emp);
+                }}
+                className="w-full sm:w-auto h-10 px-4 rounded-xl text-xs font-bold bg-gradient-to-r from-[#175E38] to-[#124b2d] text-white hover:bg-[#124b2d] border-b-[3px] border-b-[#0e3a23] transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-[0_2px_6px_rgba(23,94,56,0.3)] active:translate-y-0.5"
+              >
+                <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
+                <span>Asignar Tarea</span>
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => {
+                  onClose();
+                  onRegistrarAsistencia(emp);
+                }}
+                className="w-full sm:w-auto h-10 px-4 rounded-xl text-xs font-bold bg-gradient-to-r from-[#175E38] to-[#124b2d] text-white hover:bg-[#124b2d] border-b-[3px] border-b-[#0e3a23] transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-[0_2px_6px_rgba(23,94,56,0.3)] active:translate-y-0.5"
+              >
+                <Clock className="w-3.5 h-3.5 shrink-0" />
+                <span>Registrar Marcaje</span>
+              </button>
+            )}
           </div>
         </div>
       </div>

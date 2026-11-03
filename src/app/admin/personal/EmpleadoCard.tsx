@@ -18,10 +18,18 @@ import {
   AlertTriangle,
   Plus,
   Building2,
+  LogOut,
 } from "lucide-react";
 import { WhatsAppIcon } from "@/components/icons/whatsapp-icon";
 import { CargoEmpleado, EstadoAsistencia } from "@prisma/client";
-import { CARGO_CONFIG, ESTADO_ASISTENCIA_CONFIG, getCargoLabel, type EmpleadoItem } from "./types";
+import { formatearHora12 } from "@/lib/date-utils";
+import {
+  CARGO_CONFIG,
+  ESTADO_ASISTENCIA_CONFIG,
+  getCargoLabel,
+  type EmpleadoItem,
+  type RegistroAsistenciaItem,
+} from "./types";
 
 interface EmpleadoCardProps {
   empleado: EmpleadoItem;
@@ -30,6 +38,13 @@ interface EmpleadoCardProps {
   onVerDetalle: (emp: EmpleadoItem) => void;
   onAsignarTarea: (emp: EmpleadoItem) => void;
   onRegistrarAsistencia: (emp: EmpleadoItem) => void;
+  onAjustarMarcaje?: (emp: EmpleadoItem, reg?: RegistroAsistenciaItem | null) => void;
+  onMarcarSalida?: (params: {
+    id: string;
+    empleadoNombre: string;
+    empleadoCargo: CargoEmpleado;
+    horaEntrada: string;
+  }) => void;
   onVerTareas: (emp: EmpleadoItem) => void;
   isPending?: boolean;
 }
@@ -131,6 +146,8 @@ export function EmpleadoCard({
   onVerDetalle,
   onAsignarTarea,
   onRegistrarAsistencia,
+  onAjustarMarcaje,
+  onMarcarSalida,
   onVerTareas,
   isPending = false,
 }: EmpleadoCardProps) {
@@ -274,20 +291,30 @@ export function EmpleadoCard({
             )}
           </div>
 
-          {/* Indicadores Operativos: Asistencia de Hoy y Órdenes de Trabajo */}
+          {/* Indicadores Operativos: Asistencia de Hoy y Tareas Asignadas */}
           <div className="grid grid-cols-2 gap-2 pt-0.5">
-            {/* Asistencia Hoy */}
+            {/* Asistencia Hoy: Con Estado, Horas de Entrada/Salida y Marcaje Rápido */}
             <div
-              onClick={() => onRegistrarAsistencia(emp)}
+              onClick={() => {
+                if (emp.asistenciaHoy) {
+                  if (onAjustarMarcaje) {
+                    onAjustarMarcaje(emp, emp.asistenciaHoy);
+                  } else {
+                    onRegistrarAsistencia(emp);
+                  }
+                } else {
+                  onRegistrarAsistencia(emp);
+                }
+              }}
               className={`p-2.5 rounded-xl bg-white border cursor-pointer transition-all shadow-2xs group/asis flex flex-col justify-between ${
                 emp.asistenciaHoy
                   ? "border-slate-200/90 hover:border-slate-300 hover:bg-slate-50/60"
                   : "border-amber-200/80 hover:border-amber-300 hover:bg-amber-50/20"
               }`}
-              title="Clic para registrar o ajustar asistencia"
+              title={emp.asistenciaHoy ? "Clic para ajustar jornada de hoy" : "Clic para registrar asistencia"}
             >
               <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 flex items-center justify-between mb-1">
-                <span>Asistencia</span>
+                <span>Asistencia Hoy</span>
                 <Clock
                   className={`w-3 h-3 transition-colors ${
                     emp.asistenciaHoy
@@ -296,34 +323,72 @@ export function EmpleadoCard({
                   }`}
                 />
               </div>
-              <div>
+
+              <div className="space-y-1">
                 {emp.asistenciaHoy ? (
-                  <span
-                    className={`inline-flex items-center gap-1 text-[11px] font-bold px-1.5 py-0.5 rounded ${
-                      ESTADO_ASISTENCIA_CONFIG[emp.asistenciaHoy.estado].badgeClass
-                    }`}
-                  >
-                    <span
-                      className={`w-1.5 h-1.5 rounded-full ${
-                        ESTADO_ASISTENCIA_CONFIG[emp.asistenciaHoy.estado].dotColor
-                      }`}
-                    />
-                    {ESTADO_ASISTENCIA_CONFIG[emp.asistenciaHoy.estado]?.label || "Presente"}
-                  </span>
+                  <>
+                    <div className="flex items-center justify-between gap-1 flex-wrap">
+                      <span
+                        className={`inline-flex items-center gap-1 text-[11px] font-bold px-1.5 py-0.5 rounded ${
+                          ESTADO_ASISTENCIA_CONFIG[emp.asistenciaHoy.estado].badgeClass
+                        }`}
+                      >
+                        <span
+                          className={`w-1.5 h-1.5 rounded-full ${
+                            ESTADO_ASISTENCIA_CONFIG[emp.asistenciaHoy.estado].dotColor
+                          }`}
+                        />
+                        {ESTADO_ASISTENCIA_CONFIG[emp.asistenciaHoy.estado]?.label || "Presente"}
+                      </span>
+
+                      {/* Botón rápido para marcar salida si la jornada sigue abierta */}
+                      {!emp.asistenciaHoy.horaSalida && onMarcarSalida && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onMarcarSalida({
+                              id: emp.asistenciaHoy!.id,
+                              empleadoNombre: nombreCompleto,
+                              empleadoCargo: emp.cargo,
+                              horaEntrada: emp.asistenciaHoy!.horaEntrada,
+                            });
+                          }}
+                          className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-500 hover:bg-amber-600 text-white flex items-center gap-0.5 transition-colors cursor-pointer shadow-2xs active:scale-95"
+                          title="Registrar salida ahora"
+                        >
+                          <LogOut className="w-2.5 h-2.5" />
+                          <span>Salida</span>
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Horario de la jornada */}
+                    <div className="text-[10px] font-mono font-medium text-slate-600 truncate">
+                      {emp.asistenciaHoy.horaSalida
+                        ? `${formatearHora12(emp.asistenciaHoy.horaEntrada)} - ${formatearHora12(emp.asistenciaHoy.horaSalida)}`
+                        : `Entrada: ${formatearHora12(emp.asistenciaHoy.horaEntrada)}`}
+                    </div>
+                  </>
                 ) : (
-                  <span className="inline-flex items-center gap-1 text-[11px] font-bold px-1.5 py-0.5 rounded bg-amber-50 text-amber-800 border border-amber-200 shadow-2xs">
-                    <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
-                    Sin marcar
-                  </span>
+                  <>
+                    <span className="inline-flex items-center gap-1 text-[11px] font-bold px-1.5 py-0.5 rounded bg-amber-50 text-amber-800 border border-amber-200 shadow-2xs">
+                      <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+                      Sin marcar
+                    </span>
+                    <div className="text-[10px] text-amber-700 font-semibold hover:underline">
+                      + Registrar entrada
+                    </div>
+                  </>
                 )}
               </div>
             </div>
 
-            {/* Órdenes / Tareas (Botón interactivo) */}
+            {/* Tareas Asignadas (Botón interactivo) */}
             <div
               onClick={() => onVerTareas(emp)}
               className="p-2.5 rounded-xl bg-white border border-slate-200/90 hover:border-amber-300 hover:bg-amber-50/20 shadow-2xs hover:shadow-xs hover:scale-[1.02] active:scale-[0.98] transition-all cursor-pointer flex flex-col justify-between"
-              title="Clic para ver o gestionar órdenes de trabajo asignadas"
+              title="Clic para ver o gestionar tareas asignadas"
             >
               <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 flex items-center justify-between mb-1">
                 <span>Tareas</span>

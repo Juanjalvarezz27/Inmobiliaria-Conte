@@ -17,7 +17,7 @@ interface EmpleadoTareaCardProps {
   onVerFicha: (tarea: PortalEmpleadoData["tareas"][0]) => void;
 }
 
-// Tarjeta individual de orden de trabajo para el portal del empleado
+// Tarjeta individual de tarea para el portal del empleado
 export function EmpleadoTareaCard({
   tarea,
   onCompletar,

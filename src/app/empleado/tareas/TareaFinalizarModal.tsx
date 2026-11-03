@@ -31,7 +31,7 @@ interface TareaFinalizarModalProps {
   onVerImagen: (url: string) => void;
 }
 
-// Modal institucional para concluir y evidenciar una orden de trabajo
+// Modal institucional para concluir y evidenciar una tarea
 export function TareaFinalizarModal({
   tarea,
   empleadoNombre,
@@ -157,7 +157,7 @@ export function TareaFinalizarModal({
       isOpen={!!tarea}
       onClose={onClose}
       title="Ficha de Conclusión de Labor"
-      subtitle={`Orden #${tarea.id.slice(-6).toUpperCase()} • ${empleadoNombre}`}
+      subtitle={`Tarea #${tarea.id.slice(-6).toUpperCase()} • ${empleadoNombre}`}
       icon={FileCheck2}
       headerVariant="green"
       maxWidth="2xl"

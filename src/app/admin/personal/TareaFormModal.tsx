@@ -297,7 +297,7 @@ export function TareaFormModal({
                   </div>
                   <p className="text-[11px] text-slate-500 mt-0.5 line-clamp-2 sm:line-clamp-none">
                     {requiereEvidencia
-                      ? "El trabajador deberá adjuntar fotografías del trabajo realizado para poder marcar la orden como completada."
+                      ? "El trabajador deberá adjuntar fotografías del trabajo realizado para poder marcar la tarea como completada."
                       : "No se exigirán fotografías para finalizar la labor (ahorra espacio y agiliza el cierre)."}
                   </p>
                 </div>

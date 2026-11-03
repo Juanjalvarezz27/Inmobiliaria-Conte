@@ -74,7 +74,7 @@ export function EmpleadoTareasClient({ initialTareas, empleadoNombre }: Props) {
     <div className="space-y-6">
       {/* Cabecera Principal */}
       <PageHeader
-        title="Mis Órdenes de Trabajo"
+        title="Mis Tareas Asignadas"
         description={`Panel de asignaciones operativas y comprobantes fotográficos • ${empleadoNombre}`}
         badge={
           <span
@@ -112,7 +112,7 @@ export function EmpleadoTareasClient({ initialTareas, empleadoNombre }: Props) {
           value={tareas.length}
           icon={CheckSquare}
           color="navy"
-          subtitle="Órdenes de trabajo"
+          subtitle="Tareas asignadas"
           className="shadow-2xs"
         />
       </div>
@@ -160,7 +160,7 @@ export function EmpleadoTareasClient({ initialTareas, empleadoNombre }: Props) {
         </div>
       </div>
 
-      {/* Grid de Órdenes de Trabajo */}
+      {/* Grid de Tareas */}
       {tareasFiltradas.length === 0 ? (
         <div className="p-12 text-center rounded-2xl bg-white border border-slate-200/80 shadow-2xs">
           <div className="w-14 h-14 rounded-2xl bg-emerald-50 text-[#175E38] flex items-center justify-center mx-auto mb-3">
@@ -174,7 +174,7 @@ export function EmpleadoTareasClient({ initialTareas, empleadoNombre }: Props) {
           <p className="text-xs sm:text-sm text-slate-500 mt-1 max-w-sm mx-auto">
             {filtro === "PENDIENTES"
               ? "Todo tu trabajo asignado se encuentra al día. Las nuevas asignaciones aparecerán automáticamente aquí."
-              : "Aún no has finalizado órdenes de trabajo."}
+              : "Aún no has finalizado tareas."}
           </p>
         </div>
       ) : (

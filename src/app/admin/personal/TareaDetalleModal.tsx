@@ -11,6 +11,11 @@ import {
   Maximize2,
   ImagePlus,
   Camera,
+  User,
+  Building2,
+  Calendar,
+  Play,
+  XCircle,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Modal } from "@/components/ui/modal";
@@ -23,6 +28,7 @@ import { eliminarImagenUploadThingAction } from "@/lib/actions/unidades";
 import { comprimirImagenes, formatearBytes } from "@/lib/file-compressor";
 import {
   ESTADO_TAREA_CONFIG,
+  PRIORIDAD_TAREA_CONFIG,
   CARGO_CONFIG,
   type TareaEmpleadoItem,
 } from "./types";
@@ -50,6 +56,20 @@ const OPCIONES_ESTADO = Object.entries(ESTADO_TAREA_CONFIG)
     value: key,
     label: config.label,
   }));
+
+// Icono representativo del estado de la labor
+function getEstadoIcon(estado: EstadoTarea) {
+  switch (estado) {
+    case EstadoTarea.COMPLETADA:
+      return <CheckCircle2 className="w-3.5 h-3.5" />;
+    case EstadoTarea.EN_PROCESO:
+      return <Play className="w-3.5 h-3.5 fill-current" />;
+    case EstadoTarea.CANCELADA:
+      return <XCircle className="w-3.5 h-3.5" />;
+    default:
+      return <FileCheck2 className="w-3.5 h-3.5" />;
+  }
+}
 
 export function TareaDetalleModal({
   isOpen,
@@ -210,93 +230,118 @@ export function TareaDetalleModal({
       isOpen={isOpen}
       onClose={onClose}
       title="Ficha de Tarea Operativa"
-      subtitle={`Orden #${tarea.id.slice(-6).toUpperCase()} • ${tarea.empleadoNombre}`}
+      subtitle={`Tarea #${tarea.id.slice(-6).toUpperCase()} • ${tarea.empleadoNombre}`}
       icon={FileCheck2}
       headerVariant="green"
       maxWidth="3xl"
     >
       <div className="space-y-6">
-        {/* Cabecera de la tarea: Título y Descripción */}
-        <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/90 space-y-3">
-          <h3 className="font-heading font-black text-slate-900 text-base sm:text-lg">
-            {tarea.titulo}
-          </h3>
-
-          {tarea.descripcion && (
-            <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
-              {tarea.descripcion}
-            </p>
-          )}
-
-          {/* Cajas de Metadatos */}
-          <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 pt-2 border-t border-slate-200/70 text-xs">
-            {/* Responsable */}
-            <div>
-              <span className="text-[10px] uppercase font-bold text-slate-400 block">
-                Responsable
-              </span>
-              <span className="font-bold text-slate-800 line-clamp-1">
-                {tarea.empleadoNombre}
-              </span>
-              <span className="text-[10px] text-slate-500 block truncate">
-                {cargoConfig.label}
-              </span>
+        {/* Tarjeta de Resumen de la Labor */}
+        <div className="p-4 sm:p-5 rounded-2xl bg-white border border-slate-200/90 border-b-[3px] border-b-slate-300/90 shadow-2xs space-y-4">
+          {/* Título de la Labor y Badges de Estado */}
+          <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+            <div className="min-w-0 flex-1 space-y-1">
+              <h3 className="font-heading font-black text-slate-900 text-lg sm:text-xl tracking-tight">
+                {tarea.titulo}
+              </h3>
+              {tarea.descripcion && (
+                <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
+                  {tarea.descripcion}
+                </p>
+              )}
             </div>
 
-            {/* Inmueble */}
-            <div>
-              <span className="text-[10px] uppercase font-bold text-slate-400 block">
-                Ubicación
-              </span>
-              <span className="font-bold text-slate-800 line-clamp-1">
-                {tarea.propiedadNombre || "Sede General"}
-              </span>
-            </div>
-
-            {/* Fecha Límite */}
-            <div>
-              <span className="text-[10px] uppercase font-bold text-slate-400 block">
-                Límite
-              </span>
-              <span className="font-bold text-slate-800">
-                {tarea.fechaLimite
-                  ? new Date(tarea.fechaLimite).toLocaleDateString("es-VE", {
-                      day: "2-digit",
-                      month: "short",
-                    })
-                  : "Sin fecha"}
-              </span>
-            </div>
-
-            {/* Estado Actual */}
-            <div>
-              <span className="text-[10px] uppercase font-bold text-slate-400 block">
-                Estatus
-              </span>
+            {/* Badges de Estado, Prioridad y Evidencia */}
+            <div className="flex items-center gap-1.5 flex-wrap shrink-0">
               <span
-                className={`inline-flex items-center px-2 py-0.5 rounded text-[11px] font-bold mt-0.5 ${
+                className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold border shadow-2xs ${
                   ESTADO_TAREA_CONFIG[tarea.estado].badgeClass
                 }`}
               >
-                {ESTADO_TAREA_CONFIG[tarea.estado].label}
+                {getEstadoIcon(tarea.estado)}
+                <span>{ESTADO_TAREA_CONFIG[tarea.estado].label}</span>
               </span>
-            </div>
 
-            {/* Exigencia de Fotos */}
-            <div>
-              <span className="text-[10px] uppercase font-bold text-slate-400 block">
-                Fotos
-              </span>
               <span
-                className={`inline-flex items-center gap-1 text-[11px] font-bold mt-0.5 px-2 py-0.5 rounded border ${
-                  tarea.requiereEvidencia
-                    ? "bg-amber-50 text-amber-800 border-amber-200"
-                    : "bg-slate-100 text-slate-600 border-slate-200"
+                className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold border shadow-2xs ${
+                  PRIORIDAD_TAREA_CONFIG[tarea.prioridad]?.badgeClass || "bg-slate-100 text-slate-700 border-slate-200"
                 }`}
               >
-                <Camera className="w-3 h-3 shrink-0" />
-                <span>{tarea.requiereEvidencia ? "Requeridas" : "Opcional"}</span>
+                <span>Prioridad {PRIORIDAD_TAREA_CONFIG[tarea.prioridad]?.label || "Normal"}</span>
               </span>
+
+              {tarea.requiereEvidencia && (
+                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold bg-amber-50 text-amber-800 border border-amber-200 shadow-2xs">
+                  <Camera className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                  <span>Fotos Requeridas</span>
+                </span>
+              )}
+            </div>
+          </div>
+
+          {/* Cuadrícula de Metadatos Clave (3 Cajas Estructuradas con Iconos) */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-3.5 border-t border-slate-100">
+            {/* 1. Responsable */}
+            <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 space-y-1">
+              <div className="flex items-center gap-1.5 text-[11px] font-extrabold text-slate-700 uppercase tracking-wider">
+                <User className="w-3.5 h-3.5 text-[#175E38] shrink-0" />
+                <span>Responsable Asignado</span>
+              </div>
+              <p
+                className="text-xs font-semibold text-slate-800 truncate"
+                title={tarea.empleadoNombre}
+              >
+                {tarea.empleadoNombre}
+              </p>
+              <p className="text-xs text-slate-600 truncate">
+                {cargoConfig.label}
+              </p>
+            </div>
+
+            {/* 2. Inmueble / Ubicación */}
+            <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 space-y-1">
+              <div className="flex items-center gap-1.5 text-[11px] font-extrabold text-slate-700 uppercase tracking-wider">
+                <Building2 className="w-3.5 h-3.5 text-blue-700 shrink-0" />
+                <span>Ubicación / Inmueble</span>
+              </div>
+              <p
+                className="text-xs font-semibold text-slate-800 truncate"
+                title={tarea.propiedadNombre || "Sede General / Multipropiedad"}
+              >
+                {tarea.propiedadNombre || "Sede General / Multipropiedad"}
+              </p>
+              <p className="text-xs text-slate-600 truncate">
+                Instalaciones operativas
+              </p>
+            </div>
+
+            {/* 3. Plazo y Requisitos */}
+            <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 space-y-1">
+              <div className="flex items-center gap-1.5 text-[11px] font-extrabold text-slate-700 uppercase tracking-wider">
+                <Calendar className="w-3.5 h-3.5 text-indigo-700 shrink-0" />
+                <span>Plazo de Entrega</span>
+              </div>
+              <p className="text-xs font-semibold text-slate-800 truncate">
+                {tarea.fechaLimite ? (
+                  <>
+                    Vence:{" "}
+                    <span className="text-slate-800 font-semibold">
+                      {new Date(tarea.fechaLimite).toLocaleDateString("es-VE", {
+                        day: "2-digit",
+                        month: "short",
+                        year: "numeric",
+                      })}
+                    </span>
+                  </>
+                ) : (
+                  "Sin fecha límite estipulada"
+                )}
+              </p>
+              <p className="text-xs text-slate-600 truncate">
+                {tarea.requiereEvidencia
+                  ? "Exige fotos de respaldo"
+                  : "Evidencia fotográfica opcional"}
+              </p>
             </div>
           </div>
         </div>
@@ -333,7 +378,7 @@ export function TareaDetalleModal({
           </div>
         </div>
 
-        {/* Sección: Evidencias Fotográficas (Solo si la orden las requiere o si ya se cargaron fotos previamente) */}
+        {/* Sección: Evidencias Fotográficas (Solo si la tarea las requiere o si ya se cargaron fotos previamente) */}
         {(tarea.requiereEvidencia || evidencias.length > 0) && (
           <div className="space-y-3">
             <FormSectionHeader step={2} title="Evidencias Fotográficas del Trabajo" />
@@ -543,7 +588,7 @@ export function TareaDetalleModal({
             className="text-xs font-bold text-rose-600 hover:text-rose-700 hover:underline flex items-center justify-center sm:justify-start gap-1.5 cursor-pointer py-1"
           >
             <Trash2 className="w-3.5 h-3.5" />
-            <span>Eliminar esta orden</span>
+            <span>Eliminar esta tarea</span>
           </button>
 
           {/* Botones de Guardar */}
@@ -572,22 +617,22 @@ export function TareaDetalleModal({
         </div>
       </div>
 
-      {/* Modal de confirmación institucional para eliminar orden de trabajo */}
+      {/* Modal de confirmación institucional para eliminar tarea */}
       <ConfirmActionModal
         isOpen={confirmarEliminar}
         onClose={() => setConfirmarEliminar(false)}
         onConfirm={handleEliminar}
-        title="Eliminar Orden de Trabajo"
+        title="Eliminar Tarea"
         subtitle="Confirmación de borrado operativo"
         variant="danger"
         icon={Trash2}
-        description="¿Confirmas la eliminación permanente de esta orden de trabajo? La labor se retirará del historial y de los registros del inmueble."
+        description="¿Confirmas la eliminación permanente de esta tarea? La labor se retirará del historial y de los registros del inmueble."
         itemDetails={[
           { label: "Labor", value: tarea.titulo },
           { label: "Responsable", value: tarea.empleadoNombre },
           { label: "Ubicación", value: tarea.propiedadNombre || "Sede General" },
         ]}
-        confirmButtonText="Eliminar Orden"
+        confirmButtonText="Eliminar Tarea"
         cancelButtonText="Cancelar"
         isLoading={isSubmitting}
       />

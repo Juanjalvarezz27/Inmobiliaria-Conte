@@ -34,8 +34,8 @@ export function TareaFichaModal({
     <Modal
       isOpen={!!tarea}
       onClose={onClose}
-      title="Ficha de Orden de Trabajo"
-      subtitle={`Orden #${tarea.id.slice(-6).toUpperCase()} • ${empleadoNombre}`}
+      title="Ficha de Tarea"
+      subtitle={`Tarea #${tarea.id.slice(-6).toUpperCase()} • ${empleadoNombre}`}
       icon={FileCheck2}
       headerVariant="green"
       maxWidth="2xl"

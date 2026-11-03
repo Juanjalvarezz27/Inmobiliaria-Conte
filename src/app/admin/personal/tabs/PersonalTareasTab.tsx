@@ -43,7 +43,7 @@ export function PersonalTareasTab({
     return (
       <EmptyState
         title="No hay tareas asignadas"
-        description="No hay labores operativas con el filtro seleccionado. Puedes crear una nueva orden de trabajo con responsable y fecha límite."
+        description="No hay labores operativas con el filtro seleccionado. Puedes asignar una nueva tarea con responsable y fecha límite."
         icon="wrench"
         action={{
           label: "Asignar Nueva Tarea",
@@ -98,7 +98,7 @@ export function PersonalTareasTab({
                 }
               }}
               className="w-full relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-3.5 p-4 sm:p-5 cursor-pointer hover:bg-slate-50/40 transition-colors select-none text-left"
-              title={abierta ? "Clic para contraer órdenes de trabajo" : "Clic para desplegar órdenes de trabajo"}
+              title={abierta ? "Clic para contraer tareas" : "Clic para desplegar tareas"}
             >
               <div className="flex items-start sm:items-center gap-3 min-w-0">
                 <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-white/95 text-slate-800 flex items-center justify-center shrink-0 border border-slate-200/90 shadow-2xs backdrop-blur-xs mt-0.5 sm:mt-0">
@@ -125,7 +125,7 @@ export function PersonalTareasTab({
                   {/* Conteo de Tareas */}
                   <div className="flex items-center gap-1.5 mt-2 flex-wrap text-xs">
                     <span className="px-2.5 py-0.5 rounded-md bg-slate-100 text-slate-700 font-bold border border-slate-200/70 text-[11px]">
-                      {grupo.tareas.length} {grupo.tareas.length === 1 ? "orden" : "órdenes"}
+                      {grupo.tareas.length} {grupo.tareas.length === 1 ? "tarea" : "tareas"}
                     </span>
                     {pendientesCount > 0 && (
                       <span className="px-2 py-0.5 rounded-md bg-amber-50 text-amber-700 font-bold text-[11px] border border-amber-200/70">
@@ -151,7 +151,7 @@ export function PersonalTareasTab({
                     <ChevronDown className="w-4 h-4 stroke-[2.5]" />
                   </div>
                   <span className="text-xs font-bold text-slate-600 select-none">
-                    {abierta ? "Cerrar" : <><span className="hidden min-[380px]:inline">Ver </span>Órdenes</>}
+                    {abierta ? "Cerrar" : <><span className="hidden min-[380px]:inline">Ver </span>Tareas</>}
                   </span>
                 </div>
 
@@ -198,7 +198,7 @@ export function PersonalTareasTab({
                         {Math.min(fin, grupo.tareas.length)}
                       </strong>{" "}
                       de <strong className="text-slate-800 font-bold">{grupo.tareas.length}</strong>{" "}
-                      {grupo.tareas.length === 1 ? "orden" : "órdenes"}
+                      {grupo.tareas.length === 1 ? "tarea" : "tareas"}
                     </p>
 
                     <div className="flex items-center gap-1.5 flex-wrap justify-center">

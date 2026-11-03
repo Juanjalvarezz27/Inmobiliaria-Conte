@@ -126,7 +126,7 @@ export function EmpleadoTareasSection({
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <h3 className="text-sm font-black font-heading text-slate-900 uppercase tracking-wider">
-            Órdenes de Trabajo
+            Tareas Asignadas
           </h3>
           <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-[#175E38] text-white font-mono shadow-2xs">
             {tareasFiltradas.length}
@@ -141,7 +141,7 @@ export function EmpleadoTareasSection({
               type="text"
               value={busquedaTarea}
               onChange={(e) => setBusquedaTarea(e.target.value)}
-              placeholder="Buscar orden..."
+              placeholder="Buscar tarea..."
               className="w-full h-10 sm:h-9.5 pl-8 pr-3 text-xs rounded-xl bg-white border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#175E38]/20 focus:border-[#175E38] transition-all shadow-2xs"
             />
           </div>
@@ -223,7 +223,7 @@ export function EmpleadoTareasSection({
             <FileText className="w-5 h-5" />
           </div>
           <div>
-            <h4 className="text-xs font-bold text-slate-700">No se encontraron órdenes de trabajo</h4>
+            <h4 className="text-xs font-bold text-slate-700">No se encontraron tareas</h4>
             <p className="text-[11px] text-slate-400 mt-0.5">
               {busquedaTarea.trim()
                 ? "No hay tareas que coincidan con el término de búsqueda."
@@ -317,7 +317,7 @@ export function EmpleadoTareasSection({
                       onSeleccionarTarea(t);
                     }}
                     className="h-8.5 sm:h-9 px-3 sm:px-3.5 rounded-xl text-xs font-bold bg-[#1C2539] text-white hover:bg-[#2a3754] group-hover:bg-[#175E38] transition-all cursor-pointer shadow-2xs active:translate-y-0.5 flex items-center gap-1.5"
-                    title="Abrir gestión completa de la orden"
+                    title="Abrir gestión completa de la tarea"
                   >
                     <Eye className="w-3.5 h-3.5" />
                     <span className="hidden sm:inline">Ver Ficha</span>
@@ -336,7 +336,7 @@ export function EmpleadoTareasSection({
         totalItems={tareasFiltradas.length}
         indiceInicio={indiceInicioTareas}
         itemsPorPagina={ITEMS_POR_PAGINA}
-        itemLabel="órdenes"
+        itemLabel="tareas"
         onCambiarPagina={setPaginaTareas}
       />
     </div>

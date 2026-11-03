@@ -582,7 +582,7 @@ export function EmpleadoDashboardClient({ initialData }: Props) {
           </div>
         </div>
 
-        {/* COLUMNA 2: ÓRDENES DE TRABAJO ASIGNADAS (TAREAS OPERATIVAS) */}
+        {/* COLUMNA 2: TAREAS ASIGNADAS (LABORES OPERATIVAS) */}
         <div className="group relative overflow-hidden bg-gradient-to-b from-white via-white to-slate-50/70 rounded-2xl p-5 sm:p-6 border border-slate-200/90 border-b-[3px] border-b-slate-300/90 shadow-[0_4px_18px_-2px_rgba(28,37,57,0.07),0_2px_6px_-1px_rgba(28,37,57,0.04)] hover:shadow-[0_14px_30px_-4px_rgba(28,37,57,0.12),0_4px_10px_-2px_rgba(28,37,57,0.06)] transition-all duration-300 h-full flex flex-col justify-between">
           {/* Sol decorativo ambiental en esquina superior izquierda */}
           <div className="absolute -top-7 -left-7 w-24 h-24 sm:w-28 sm:h-28 pointer-events-none overflow-hidden rounded-full z-0">
@@ -599,7 +599,7 @@ export function EmpleadoDashboardClient({ initialData }: Props) {
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
                   <h3 className="font-heading font-black text-slate-900 text-sm sm:text-base tracking-tight leading-snug">
-                    Órdenes de Trabajo Asignadas
+                    Tareas Asignadas
                   </h3>
                   {tareasActivasCount > 0 ? (
                     <span className="text-[10.5px] sm:text-[11px] font-bold px-2 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200 shrink-0">

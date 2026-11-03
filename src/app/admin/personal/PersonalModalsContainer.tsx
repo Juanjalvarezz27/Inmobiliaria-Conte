@@ -257,7 +257,7 @@ export function PersonalModalsContainer({
         subtitle="Suspensión de cuenta y acceso operativo"
         variant="danger"
         icon={Power}
-        description="¿Confirmas la desactivación de este colaborador? Se suspenderá temporalmente su acceso al portal del empleado y no se le podrán asignar nuevas órdenes de trabajo."
+        description="¿Confirmas la desactivación de este colaborador? Se suspenderá temporalmente su acceso al portal del empleado y no se le podrán asignar nuevas tareas."
         itemDetails={
           empleadoParaDesactivar
             ? [

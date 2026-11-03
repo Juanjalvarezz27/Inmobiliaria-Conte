@@ -913,7 +913,7 @@ const createTareaSchema = z.object({
 
 export type CreateTareaInput = z.infer<typeof createTareaSchema>;
 
-// Crear nueva orden de tarea
+// Crear nueva tarea
 export async function crearTareaAction(rawInput: CreateTareaInput) {
   try {
     const validated = createTareaSchema.parse(rawInput);

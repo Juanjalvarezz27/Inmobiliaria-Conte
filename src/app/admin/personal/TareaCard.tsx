@@ -133,7 +133,7 @@ export function TareaCard({
 
       <div className="p-4 sm:p-5 space-y-3.5 relative z-10 flex-1 flex flex-col justify-between">
         <div className="space-y-3">
-          {/* Cabecera: Estado de la Orden y Badges de Evidencias */}
+          {/* Cabecera: Estado de la Tarea y Badges de Evidencias */}
           <div className="flex items-center justify-between gap-2 flex-wrap">
             {/* Badge de Estado */}
             <span

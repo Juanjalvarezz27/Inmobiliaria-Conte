@@ -2,9 +2,10 @@
 
 import React from "react";
 import { Building2, ChevronDown, Plus, Users, MapPin } from "lucide-react";
+import { CargoEmpleado, EstadoAsistencia } from "@prisma/client";
 import { EmptyState } from "@/components/ui/empty-state";
 import { EmpleadoCard } from "../EmpleadoCard";
-import type { EmpleadoItem } from "../types";
+import type { EmpleadoItem, RegistroAsistenciaItem } from "../types";
 import {
   type GrupoDirectorio,
   getCornerSunConfig,
@@ -21,6 +22,13 @@ interface PersonalDirectorioTabProps {
   onVerDetalleEmpleado: (emp: EmpleadoItem) => void;
   onAsignarTarea: (emp: EmpleadoItem) => void;
   onRegistrarAsistencia: (emp: EmpleadoItem) => void;
+  onAjustarMarcaje?: (emp: EmpleadoItem, reg?: RegistroAsistenciaItem | null) => void;
+  onMarcarSalida?: (params: {
+    id: string;
+    empleadoNombre: string;
+    empleadoCargo: CargoEmpleado;
+    horaEntrada: string;
+  }) => void;
   onVerTareasEmpleado: (emp: EmpleadoItem) => void;
   isPending: boolean;
 }
@@ -35,6 +43,8 @@ export function PersonalDirectorioTab({
   onVerDetalleEmpleado,
   onAsignarTarea,
   onRegistrarAsistencia,
+  onAjustarMarcaje,
+  onMarcarSalida,
   onVerTareasEmpleado,
   isPending,
 }: PersonalDirectorioTabProps) {
@@ -60,6 +70,14 @@ export function PersonalDirectorioTab({
         const abierta = estaDesplegada(grupo.id);
         const activosCount = grupo.empleados.filter((e) => e.activo).length;
         const inactivosCount = grupo.empleados.length - activosCount;
+        const presentesHoyCount = grupo.empleados.filter(
+          (e) =>
+            e.activo &&
+            e.asistenciaHoy &&
+            (e.asistenciaHoy.estado === EstadoAsistencia.PRESENTE ||
+              e.asistenciaHoy.estado === EstadoAsistencia.RETARDO)
+        ).length;
+        const sinMarcarCount = grupo.empleados.filter((e) => e.activo && !e.asistenciaHoy).length;
 
         return (
           <section
@@ -116,15 +134,26 @@ export function PersonalDirectorioTab({
                     <span className="font-extrabold text-[#175E38] bg-emerald-50 border border-emerald-200/80 px-2 py-0.5 rounded-md">
                       {activosCount} activo{activosCount !== 1 ? "s" : ""}
                     </span>
+
+                    {/* Indicadores de Asistencia de Hoy en el Inmueble */}
+                    {presentesHoyCount > 0 && (
+                      <span className="font-bold text-emerald-800 bg-emerald-50/80 border border-emerald-200/70 px-2 py-0.5 rounded-md flex items-center gap-1">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                        {presentesHoyCount} presente{presentesHoyCount !== 1 ? "s" : ""} hoy
+                      </span>
+                    )}
+                    {sinMarcarCount > 0 && (
+                      <span className="font-semibold text-amber-800 bg-amber-50 border border-amber-200/70 px-1.5 py-0.5 rounded-md flex items-center gap-1">
+                        <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+                        {sinMarcarCount} sin marcar
+                      </span>
+                    )}
+
                     {inactivosCount > 0 && (
                       <span className="font-medium text-slate-400">
                         {inactivosCount} inactivo{inactivosCount !== 1 ? "s" : ""}
                       </span>
                     )}
-                    <span className="text-slate-300">·</span>
-                    <span className="font-bold text-slate-700">
-                      Total: {grupo.empleados.length}
-                    </span>
                   </div>
                 </div>
               </div>
@@ -178,6 +207,8 @@ export function PersonalDirectorioTab({
                         onVerDetalle={onVerDetalleEmpleado}
                         onAsignarTarea={onAsignarTarea}
                         onRegistrarAsistencia={onRegistrarAsistencia}
+                        onAjustarMarcaje={onAjustarMarcaje}
+                        onMarcarSalida={onMarcarSalida}
                         onVerTareas={onVerTareasEmpleado}
                         isPending={isPending}
                       />

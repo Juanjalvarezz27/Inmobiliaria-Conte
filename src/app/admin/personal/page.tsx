@@ -5,7 +5,7 @@ import { PersonalClient } from "./PersonalClient";
 export const metadata: Metadata = {
   title: "Equipo de Trabajo y Asistencia | Inmobiliaria Conté",
   description:
-    "Gestión integral de trabajadores, control de asistencia diaria y seguimiento de órdenes de trabajo operativas.",
+    "Gestión integral de trabajadores, control de asistencia diaria y seguimiento de tareas operativas.",
 };
 
 export default async function PersonalPage() {
