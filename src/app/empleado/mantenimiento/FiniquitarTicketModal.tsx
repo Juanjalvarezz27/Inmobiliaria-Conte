@@ -148,17 +148,22 @@ export function FiniquitarTicketModal({
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title={`Finiquitar Avería — ${ticket.codigo}`}
+      title="Finiquitar Avería"
       icon={ShieldCheck}
       headerVariant="green"
       maxWidth="xl"
     >
       <form onSubmit={handleSubmit} className="space-y-4">
         {/* Resumen de la Avería */}
-        <div className="bg-slate-50 border border-slate-200/90 rounded-xl p-3.5 space-y-1">
-          <p className="text-xs font-bold text-slate-800 line-clamp-1">
-            {ticket.titulo}
-          </p>
+        <div className="bg-slate-50 border border-slate-200/90 rounded-xl p-3.5 space-y-1.5">
+          <div className="flex items-center gap-2">
+            <span className="text-[10.5px] font-mono font-bold text-slate-600 bg-white px-2 py-0.5 rounded-md border border-slate-200 shadow-2xs shrink-0">
+              {ticket.codigo}
+            </span>
+            <p className="text-xs font-bold text-slate-800 line-clamp-1 flex-1">
+              {ticket.titulo}
+            </p>
+          </div>
           <p className="text-[11px] text-slate-500">
             {ticket.propiedad.nombre} •{" "}
             {ticket.unidad ? `Local ${ticket.unidad.codigo}` : "Áreas Comunes"}
@@ -272,19 +277,18 @@ export function FiniquitarTicketModal({
           <textarea
             value={notasCierre}
             onChange={(e) => setNotasCierre(e.target.value)}
-            placeholder="Ej: Se reemplazó el empaque de la válvula de 1/2 pulgada y se verificó que no quedaran fugas de presión..."
             rows={3}
             maxLength={500}
             disabled={isBusy}
-            className="w-full mt-2.5 p-3 rounded-xl border border-slate-200 bg-white text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-[#175E38]/20 focus:border-[#175E38] resize-none placeholder:text-slate-400"
+            className="w-full mt-2.5 p-3 rounded-xl border border-slate-200 bg-white text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-[#175E38]/20 focus:border-[#175E38] resize-none"
           />
           <p className="text-[11px] text-slate-400 text-right mt-1">
             {notasCierre.length}/500 caracteres
           </p>
         </div>
 
-        {/* Botones de Acción */}
-        <div className="pt-2 border-t border-slate-100 flex flex-col-reverse sm:flex-row items-center justify-end gap-2.5">
+        {/* Botones de Acción (Regla de oro: Grid 50/50 en móvil) */}
+        <div className="pt-2 border-t border-slate-100 grid grid-cols-2 sm:flex sm:items-center sm:justify-end gap-2.5">
           <button
             type="button"
             onClick={onClose}
@@ -296,17 +300,17 @@ export function FiniquitarTicketModal({
           <button
             type="submit"
             disabled={isBusy || fotosFiniquito.length === 0}
-            className="w-full sm:w-auto min-w-[200px] h-11 px-5 rounded-xl text-xs font-bold bg-gradient-to-r from-[#175E38] to-[#124b2d] text-white border-b-[3px] border-b-[#0e3a23] hover:brightness-105 transition-all flex items-center justify-center gap-2 cursor-pointer shadow-[0_2px_8px_rgba(23,94,56,0.25)] active:translate-y-0.5 disabled:opacity-50 disabled:pointer-events-none"
+            className="w-full sm:w-auto min-w-[180px] h-11 px-4 sm:px-5 rounded-xl text-xs font-bold bg-gradient-to-r from-[#175E38] to-[#124b2d] text-white border-b-[3px] border-b-[#0e3a23] hover:brightness-105 transition-all flex items-center justify-center gap-1.5 sm:gap-2 cursor-pointer shadow-[0_2px_8px_rgba(23,94,56,0.25)] active:translate-y-0.5 disabled:opacity-50 disabled:pointer-events-none"
           >
             {isSubmitting ? (
               <>
                 <Loader2 className="w-4 h-4 animate-spin shrink-0" />
-                <span>Finiquitando...</span>
+                <span className="truncate">Finiquitando...</span>
               </>
             ) : (
               <>
                 <CheckCircle2 className="w-4 h-4 shrink-0" />
-                <span>Concluir y Finiquitar</span>
+                <span className="truncate">Concluir y Finiquitar</span>
               </>
             )}
           </button>

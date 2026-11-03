@@ -153,17 +153,22 @@ export function AsignarTecnicoModal({
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title={`${ticket.empleadoId || ticket.empleado ? "Reasignar" : "Asignar"} Técnico — ${ticket.codigo}`}
+      title={ticket.empleadoId || ticket.empleado ? "Reasignar Técnico" : "Asignar Técnico"}
       icon={UserCheck}
       headerVariant="green"
       maxWidth="xl"
     >
       <form onSubmit={handleSubmit} className="space-y-4">
         {/* Resumen del Ticket */}
-        <div className="bg-slate-50 border border-slate-200/80 rounded-xl p-3.5 space-y-1">
-          <p className="text-xs font-bold text-slate-800 line-clamp-1">
-            {ticket.titulo}
-          </p>
+        <div className="bg-slate-50 border border-slate-200/80 rounded-xl p-3.5 space-y-1.5">
+          <div className="flex items-center gap-2">
+            <span className="text-[10.5px] font-mono font-bold text-slate-600 bg-white px-2 py-0.5 rounded-md border border-slate-200 shadow-2xs shrink-0">
+              {ticket.codigo}
+            </span>
+            <p className="text-xs font-bold text-slate-800 line-clamp-1 flex-1">
+              {ticket.titulo}
+            </p>
+          </div>
           <p className="text-[11px] text-slate-500">
             {ticket.propiedad.nombre} •{" "}
             {ticket.unidad ? `Local ${ticket.unidad.codigo}` : "Áreas Comunes"}
@@ -238,19 +243,20 @@ export function AsignarTecnicoModal({
             ) : (
               tecnicosPaginados.map((tec) => {
                 const seleccionado = empleadoId === tec.id;
+
                 return (
                   <label
                     key={tec.id}
-                    className={`group flex items-center justify-between py-2 px-3 sm:py-2.5 sm:px-3.5 rounded-xl border transition-all cursor-pointer ${
+                    className={`group flex items-start gap-3 p-3 sm:p-3.5 rounded-xl border transition-all cursor-pointer ${
                       seleccionado
                         ? "bg-emerald-50/70 border-[#175E38] shadow-2xs ring-1 ring-[#175E38]/20"
                         : "bg-white border-slate-200 hover:bg-slate-50/80 hover:border-slate-300"
                     }`}
                   >
-                    <div className="flex items-center gap-2.5 min-w-0">
-                      {/* Indicador de Selección Tipo Radio Institucional */}
+                    {/* Indicador de Selección Tipo Radio Institucional alineado verticalmente */}
+                    <div className="pt-0.5 shrink-0">
                       <div
-                        className={`w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 transition-all ${
+                        className={`w-4 h-4 rounded-full border-2 flex items-center justify-center transition-all ${
                           seleccionado
                             ? "border-[#175E38] bg-[#175E38]"
                             : "border-slate-300 bg-white group-hover:border-slate-400"
@@ -268,9 +274,12 @@ export function AsignarTecnicoModal({
                           <div className="w-1.5 h-1.5 rounded-full bg-white" />
                         )}
                       </div>
+                    </div>
 
-                      {/* Datos del Técnico */}
-                      <div className="min-w-0">
+                    {/* Contenido Completo del Técnico (Estructura en 2 filas limpias) */}
+                    <div className="flex-1 min-w-0 space-y-1">
+                      {/* Fila 1: Nombre + Conteo de Activos */}
+                      <div className="flex items-center justify-between gap-2">
                         <p
                           className={`text-xs sm:text-sm font-bold truncate transition-colors ${
                             seleccionado
@@ -280,43 +289,38 @@ export function AsignarTecnicoModal({
                         >
                           {tec.nombre} {tec.apellido || ""}
                         </p>
-                        <div className="text-[11px] text-slate-500 flex items-center gap-1.5 truncate">
-                          <Briefcase className="w-3 h-3 text-slate-400 shrink-0" />
-                          <span className="font-semibold uppercase tracking-wider text-[10.5px] text-slate-600 truncate">
-                            {tec.cargo.replace(/_/g, " ")}
+
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <span
+                            className={`inline-flex items-center gap-1 text-[10px] sm:text-[11px] font-bold px-2 py-0.5 rounded-full border whitespace-nowrap ${
+                              tec.ticketsActivosCount > 0
+                                ? "bg-amber-50 text-amber-800 border-amber-200/80"
+                                : "bg-slate-100 text-slate-600 border-slate-200/80"
+                            }`}
+                          >
+                            <Clock className="w-3 h-3 shrink-0" />
+                            <span>
+                              {tec.ticketsActivosCount === 1
+                                ? "1 activo"
+                                : `${tec.ticketsActivosCount} activos`}
+                            </span>
                           </span>
-                          {tec.telefono && (
-                            <>
-                              <span>•</span>
-                              <Phone className="w-3 h-3 text-slate-400 shrink-0" />
-                              <span className="truncate">{tec.telefono}</span>
-                            </>
-                          )}
                         </div>
                       </div>
-                    </div>
 
-                    {/* Badges de Estado del Técnico */}
-                    <div className="flex items-center gap-1.5 shrink-0 pl-2">
-                      {(ticket.empleadoId === tec.id || ticket.empleado?.id === tec.id) && (
-                        <span className="inline-flex items-center gap-1 text-[10px] font-black px-2 py-0.5 rounded-md bg-emerald-100 text-[#175E38] border border-emerald-300">
-                          Asignado actual
+                      {/* Fila 2: Especialidad y Teléfono completos sin cortes ni puntos suspensivos */}
+                      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-500">
+                        <span className="font-semibold uppercase tracking-wider text-[10.5px] text-slate-600 flex items-center gap-1 shrink-0">
+                          <Briefcase className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                          <span>{tec.cargo.replace(/_/g, " ")}</span>
                         </span>
-                      )}
-                      <span
-                        className={`inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full border ${
-                          tec.ticketsActivosCount > 0
-                            ? "bg-amber-50 text-amber-800 border-amber-200/80"
-                            : "bg-slate-100 text-slate-600 border-slate-200/80"
-                        }`}
-                      >
-                        <Clock className="w-3 h-3 shrink-0" />
-                        <span>
-                          {tec.ticketsActivosCount === 1
-                            ? "1 activo"
-                            : `${tec.ticketsActivosCount} activos`}
-                        </span>
-                      </span>
+                        {tec.telefono && (
+                          <span className="flex items-center gap-1 text-[11px] text-slate-500 shrink-0">
+                            <Phone className="w-3 h-3 text-slate-400 shrink-0" />
+                            <span>{tec.telefono}</span>
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </label>
                 );
@@ -361,30 +365,30 @@ export function AsignarTecnicoModal({
           />
         </div>
 
-        {/* Botones de Acción */}
-        <div className="pt-2 border-t border-slate-100 flex flex-col-reverse sm:flex-row items-center justify-end gap-2.5">
+        {/* Botones de Acción (Regla de oro: Grid 50/50 en móvil) */}
+        <div className="pt-2 border-t border-slate-100 grid grid-cols-2 sm:flex sm:items-center sm:justify-end gap-2.5">
           <button
             type="button"
             onClick={onClose}
             disabled={isSubmitting}
-            className="w-full sm:w-auto min-w-[110px] h-10 px-4 rounded-xl text-xs font-bold bg-white text-slate-700 border border-slate-200 hover:bg-slate-50 transition-all cursor-pointer shadow-2xs active:translate-y-0.5"
+            className="w-full sm:w-auto min-w-[110px] h-11 px-4 rounded-xl text-xs font-bold bg-white text-slate-700 border border-slate-200 hover:bg-slate-50 transition-all cursor-pointer shadow-2xs active:translate-y-0.5"
           >
             Cancelar
           </button>
           <button
             type="submit"
             disabled={isSubmitting || !empleadoId}
-            className="w-full sm:w-auto min-w-[180px] h-10 px-4 rounded-xl text-xs font-bold bg-gradient-to-r from-[#175E38] to-[#124b2d] text-white border-b-[3px] border-b-[#0e3a23] hover:brightness-105 transition-all flex items-center justify-center gap-2 cursor-pointer shadow-[0_2px_8px_rgba(23,94,56,0.25)] active:translate-y-0.5 disabled:opacity-50 disabled:pointer-events-none"
+            className="w-full sm:w-auto min-w-[180px] h-11 px-4 sm:px-5 rounded-xl text-xs font-bold bg-gradient-to-r from-[#175E38] to-[#124b2d] text-white border-b-[3px] border-b-[#0e3a23] hover:brightness-105 transition-all flex items-center justify-center gap-1.5 sm:gap-2 cursor-pointer shadow-[0_2px_8px_rgba(23,94,56,0.25)] active:translate-y-0.5 disabled:opacity-50 disabled:pointer-events-none"
           >
             {isSubmitting ? (
               <>
                 <Loader2 className="w-4 h-4 animate-spin shrink-0" />
-                <span>Guardando...</span>
+                <span className="truncate">Guardando...</span>
               </>
             ) : (
               <>
                 <CheckCircle2 className="w-4 h-4 shrink-0" />
-                <span>
+                <span className="truncate">
                   {ticket.empleadoId || ticket.empleado
                     ? "Guardar Reasignación"
                     : "Confirmar Asignación"}

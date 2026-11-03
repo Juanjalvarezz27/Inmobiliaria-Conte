@@ -143,15 +143,15 @@ export function TicketDetalleModal({
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title={`Detalle de Ticket — ${ticket.codigo}`}
+      title="Detalle de Avería"
       icon={Wrench}
       headerVariant="green"
       maxWidth="3xl"
     >
       <div className="space-y-5">
         {/* Encabezado y Badges */}
-        <div className="flex flex-wrap items-center justify-between gap-2.5 pb-3 border-b border-slate-100">
-          <div>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pb-3 border-b border-slate-100">
+          <div className="min-w-0">
             <div className="flex items-center gap-2">
               <span className="text-xs font-mono font-bold text-slate-500 bg-slate-100 px-2.5 py-0.5 rounded-lg border border-slate-200">
                 {ticket.codigo}
@@ -162,12 +162,12 @@ export function TicketDetalleModal({
                 {estCfg.label}
               </span>
             </div>
-            <h3 className="text-base sm:text-lg font-black font-heading text-slate-900 mt-1.5">
+            <h3 className="text-base sm:text-lg font-black font-heading text-slate-900 mt-1.5 break-words">
               {ticket.titulo}
             </h3>
           </div>
 
-          <div className="text-right text-xs text-slate-500">
+          <div className="text-left sm:text-right text-xs text-slate-500 shrink-0">
             <p className="font-semibold text-slate-700">{ticket.propiedad.nombre}</p>
             <p className="text-[11px] text-slate-400">
               {ticket.unidad ? `Local ${ticket.unidad.codigo}` : "Áreas Comunes"} •{" "}
@@ -217,33 +217,33 @@ export function TicketDetalleModal({
           </div>
         </div>
 
-
-
         {/* Contacto del Inquilino (si existe) */}
         {ticket.inquilino && (
-          <div className="bg-slate-50 border border-slate-200/90 rounded-xl p-3 flex flex-wrap items-center justify-between gap-2 text-xs">
-            <div className="flex items-center gap-2">
-              <User className="w-4 h-4 text-slate-500" />
-              <span className="font-bold text-slate-800">
+          <div className="bg-slate-50 border border-slate-200/90 rounded-xl p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-xs">
+            <div className="flex items-center gap-2 min-w-0">
+              <User className="w-4 h-4 text-slate-500 shrink-0" />
+              <span className="font-bold text-slate-800 truncate">
                 Inquilino: {ticket.inquilino.nombre} {ticket.inquilino.apellido || ""}
               </span>
-              <span className="text-slate-400">({ticket.inquilino.documentoIdentidad})</span>
+              {ticket.inquilino.documentoIdentidad && (
+                <span className="text-slate-400 shrink-0 text-[11px]">({ticket.inquilino.documentoIdentidad})</span>
+              )}
             </div>
 
             {ticket.inquilino.telefono && (
-              <div className="flex items-center gap-1.5">
+              <div className="flex items-center gap-2 shrink-0">
                 <a
                   href={`https://wa.me/${ticket.inquilino.telefono.replace(/[^0-9]/g, "")}`}
                   target="_blank"
                   rel="noreferrer"
-                  className="px-2.5 py-1 rounded-lg text-xs font-bold bg-[#25D366] text-white hover:bg-[#20bd5a] transition-all flex items-center gap-1"
+                  className="px-3 py-1.5 rounded-lg text-xs font-bold bg-[#25D366] text-white hover:bg-[#20bd5a] transition-all flex items-center gap-1.5 shadow-2xs"
                 >
                   <MessageCircle className="w-3.5 h-3.5" />
                   <span>WhatsApp</span>
                 </a>
                 <a
                   href={`tel:${ticket.inquilino.telefono}`}
-                  className="px-2.5 py-1 rounded-lg text-xs font-bold bg-white text-slate-700 border border-slate-200 hover:bg-slate-50 transition-all flex items-center gap-1"
+                  className="px-3 py-1.5 rounded-lg text-xs font-bold bg-white text-slate-700 border border-slate-200 hover:bg-slate-50 transition-all flex items-center gap-1.5 shadow-2xs"
                 >
                   <Phone className="w-3.5 h-3.5 text-slate-500" />
                   <span>{ticket.inquilino.telefono}</span>
@@ -302,22 +302,22 @@ export function TicketDetalleModal({
         )}
 
         {/* Técnico Asignado */}
-        <div className="bg-slate-50 border border-slate-200/90 rounded-xl p-3.5 flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-[#1C2539] text-white flex items-center justify-center font-bold">
+        <div className="bg-slate-50 border border-slate-200/90 rounded-xl p-3 sm:p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-3 min-w-0 flex-1">
+            <div className="w-9 h-9 rounded-xl bg-[#1C2539] text-white flex items-center justify-center font-bold shrink-0">
               <UserCheck className="w-4 h-4" />
             </div>
-            <div>
+            <div className="min-w-0 flex-1">
               <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
                 Técnico Especialista
               </span>
-              <p className="text-xs sm:text-sm font-bold text-slate-900 mt-0.5">
+              <p className="text-xs sm:text-sm font-bold text-slate-900 mt-0.5 truncate">
                 {ticket.empleado
                   ? `${ticket.empleado.nombre} ${ticket.empleado.apellido || ""}`
                   : "Sin técnico asignado todavía"}
               </p>
               {ticket.empleado && (
-                <p className="text-[11px] text-slate-500">
+                <p className="text-[11px] text-slate-500 truncate">
                   {ticket.empleado.cargo.replace(/_/g, " ")} • {ticket.empleado.telefono}
                 </p>
               )}
@@ -328,7 +328,7 @@ export function TicketDetalleModal({
             <button
               type="button"
               onClick={() => onAbrirAsignar(ticket)}
-              className="px-3 py-1.5 rounded-xl text-xs font-bold bg-white text-[#175E38] border border-[#175E38]/30 hover:bg-emerald-50 transition-all cursor-pointer shadow-2xs active:translate-y-0.5"
+              className="w-full sm:w-auto px-3.5 py-2 rounded-xl text-xs font-bold bg-white text-[#175E38] border border-[#175E38]/30 hover:bg-emerald-50 transition-all cursor-pointer shadow-2xs active:translate-y-0.5 text-center flex items-center justify-center"
             >
               {ticket.empleado ? "Cambiar Técnico" : "Asignar Técnico"}
             </button>
@@ -406,68 +406,75 @@ export function TicketDetalleModal({
         )}
 
         {/* Notas Administrativas Internas */}
-        <div className="space-y-2 pt-2 border-t border-slate-100">
-          <div className="flex items-center justify-between">
-            <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">
-              Notas y Seguimiento Administrativo
-            </label>
-            <button
-              type="button"
-              onClick={handleGuardarNotas}
-              disabled={isSavingNotas}
-              className="px-3 py-1 rounded-lg text-xs font-bold bg-[#1C2539] text-white hover:bg-[#2a3754] transition-all flex items-center gap-1.5 cursor-pointer shadow-2xs active:translate-y-0.5"
-            >
-              {isSavingNotas ? (
-                <Loader2 className="w-3.5 h-3.5 animate-spin" />
-              ) : (
-                <Save className="w-3.5 h-3.5" />
-              )}
-              <span>Guardar Notas</span>
-            </button>
-          </div>
+        <div className="space-y-2.5 pt-3 border-t border-slate-100">
+          <label className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
+            <FileText className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+            <span>Notas y Seguimiento Administrativo</span>
+          </label>
           <textarea
             value={notasAdmin}
             onChange={(e) => setNotasAdmin(e.target.value)}
             placeholder="Anotaciones privadas visibles solo para administradores..."
-            rows={2}
+            rows={3}
             maxLength={400}
-            className="w-full p-2.5 rounded-xl border border-slate-200 bg-white text-slate-900 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-[#175E38]/20 focus:border-[#175E38] resize-none"
+            className="w-full p-3 rounded-xl border border-slate-200 bg-white text-slate-900 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-[#175E38]/20 focus:border-[#175E38] resize-none transition-all placeholder:text-slate-400"
           />
+          <div className="flex justify-end">
+            <button
+              type="button"
+              onClick={handleGuardarNotas}
+              disabled={isSavingNotas}
+              className="w-full sm:w-auto h-9 px-4 rounded-xl text-xs font-bold bg-[#1C2539] text-white hover:bg-[#2a3754] transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs active:translate-y-0.5"
+            >
+              {isSavingNotas ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin shrink-0" />
+              ) : (
+                <Save className="w-3.5 h-3.5 shrink-0" />
+              )}
+              <span>Guardar Notas Internas</span>
+            </button>
+          </div>
         </div>
 
-        {/* Sección de Cancelación (Solo tickets activos) */}
+        {/* Sección de Cancelación / Desestimar Ticket */}
         {esActivo && (
           <div className="pt-2 border-t border-slate-100">
             {!mostrarCancelar ? (
-              <div className="flex justify-between items-center">
-                <span className="text-xs text-slate-400">
-                  ¿Deseas desestimar o cancelar este reporte?
-                </span>
+              <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="flex items-center gap-2 text-xs text-slate-500 min-w-0">
+                  <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0" />
+                  <span>¿Deseas desestimar o anular esta avería del registro activo?</span>
+                </div>
                 <button
                   type="button"
                   onClick={() => setMostrarCancelar(true)}
-                  className="text-xs font-bold text-rose-600 hover:text-rose-800 transition-colors"
+                  className="w-full sm:w-auto h-9 px-4 rounded-xl text-xs font-bold text-rose-600 bg-white border border-rose-200 hover:bg-rose-50 hover:border-rose-300 transition-all flex items-center justify-center gap-1.5 cursor-pointer shrink-0 shadow-2xs"
                 >
-                  Cancelar este Ticket
+                  <XCircle className="w-3.5 h-3.5 shrink-0" />
+                  <span>Cancelar este Ticket</span>
                 </button>
               </div>
             ) : (
-              <div className="bg-rose-50/70 border border-rose-200 rounded-xl p-3.5 space-y-2">
-                <p className="text-xs font-bold text-rose-800">
-                  Confirmar Cancelación del Ticket
+              <div className="bg-rose-50/80 border border-rose-200 rounded-2xl p-3.5 sm:p-4 space-y-3">
+                <div className="flex items-center gap-2 text-rose-900 font-bold text-xs">
+                  <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
+                  <span>Confirmar Cancelación de la Incidencia</span>
+                </div>
+                <p className="text-[11px] text-rose-700 leading-relaxed">
+                  Indica el motivo por el cual se anula este ticket para mantener registro en el historial administrativo:
                 </p>
                 <input
                   type="text"
                   value={motivoCancelacion}
                   onChange={(e) => setMotivoCancelacion(e.target.value)}
-                  placeholder="Explica el motivo (ej: Reporte duplicado, resuelto por el inquilino...)"
-                  className="w-full h-9 px-3 rounded-lg border border-rose-300 bg-white text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-rose-500/20"
+                  placeholder="Ej: Reporte duplicado, resuelto por el inquilino o error de tipificación..."
+                  className="w-full h-10 px-3 rounded-xl border border-rose-300 bg-white text-xs sm:text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-rose-500/20"
                 />
-                <div className="flex justify-end gap-2 pt-1">
+                <div className="grid grid-cols-2 sm:flex sm:justify-end gap-2 pt-1">
                   <button
                     type="button"
                     onClick={() => setMostrarCancelar(false)}
-                    className="px-3 py-1 rounded-lg text-xs font-bold bg-white text-slate-700 border border-slate-200 hover:bg-slate-50"
+                    className="w-full sm:w-auto h-10 px-4 rounded-xl text-xs font-bold bg-white text-slate-700 border border-slate-200 hover:bg-slate-50 transition-all flex items-center justify-center cursor-pointer shadow-2xs"
                   >
                     Volver
                   </button>
@@ -475,14 +482,14 @@ export function TicketDetalleModal({
                     type="button"
                     onClick={handleConfirmarCancelacion}
                     disabled={isCanceling}
-                    className="px-3 py-1 rounded-lg text-xs font-bold bg-[#CC1A22] text-white hover:bg-[#a81219] flex items-center gap-1.5"
+                    className="w-full sm:w-auto h-10 px-4 rounded-xl text-xs font-bold bg-[#CC1A22] text-white hover:bg-[#a81219] transition-all flex items-center justify-center gap-1.5 shadow-2xs cursor-pointer active:translate-y-0.5"
                   >
                     {isCanceling ? (
-                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      <Loader2 className="w-3.5 h-3.5 animate-spin shrink-0" />
                     ) : (
-                      <XCircle className="w-3.5 h-3.5" />
+                      <XCircle className="w-3.5 h-3.5 shrink-0" />
                     )}
-                    <span>Confirmar Cancelación</span>
+                    <span className="truncate">Confirmar Cancelación</span>
                   </button>
                 </div>
               </div>
@@ -495,7 +502,7 @@ export function TicketDetalleModal({
           <button
             type="button"
             onClick={onClose}
-            className="w-full sm:w-auto min-w-[120px] h-10 px-4 rounded-xl text-xs font-bold bg-white text-slate-700 border border-slate-200 hover:bg-slate-50 transition-all cursor-pointer shadow-2xs active:translate-y-0.5"
+            className="w-full sm:w-auto min-w-[140px] h-11 px-5 rounded-xl text-xs font-bold bg-white text-slate-700 border border-slate-200 hover:bg-slate-50 transition-all cursor-pointer shadow-2xs active:translate-y-0.5 flex items-center justify-center"
           >
             Cerrar Detalle
           </button>

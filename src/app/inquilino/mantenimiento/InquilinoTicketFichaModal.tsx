@@ -79,52 +79,55 @@ export function InquilinoTicketFichaModal({
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title={`Ficha de Incidencia — ${ticket.codigo}`}
+      title="Ficha de Incidencia"
       icon={Wrench}
       headerVariant="green"
       maxWidth="2xl"
     >
       <div className="space-y-4 text-slate-800">
-        {/* Cabecera: Código, Estado y Fecha */}
-        <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-slate-100">
-          <div className="flex items-center gap-2">
-            <span className="font-mono text-xs font-bold text-slate-700 bg-slate-100 px-2.5 py-1 rounded-lg border border-slate-200">
-              {ticket.codigo}
-            </span>
-            <span
-              className={`inline-flex items-center gap-1.5 text-xs font-bold px-2.5 py-1 rounded-lg border ${estCfg.badgeBg} ${estCfg.badgeText} ${estCfg.badgeBorder}`}
-            >
-              {esResuelto ? (
-                <CheckCircle2 className="w-3.5 h-3.5 text-[#175E38] stroke-[2.5]" />
-              ) : ticket.estado === EstadoTicket.EN_PROCESO ? (
-                <Wrench className="w-3.5 h-3.5 text-blue-800" />
-              ) : esCancelado ? (
-                <XCircle className="w-3.5 h-3.5 text-slate-600" />
-              ) : (
-                <Clock className="w-3.5 h-3.5 text-amber-800" />
-              )}
-              <span>{estCfg.label}</span>
-            </span>
-          </div>
+        {/* Cabecera balanceada: Estado a la izquierda y Código a la derecha */}
+        <div className="flex items-center justify-between gap-2 pb-3 border-b border-slate-100">
+          <span
+            className={`inline-flex items-center gap-1.5 text-xs font-bold px-2.5 py-1 rounded-lg border shadow-2xs ${estCfg.badgeBg} ${estCfg.badgeText} ${estCfg.badgeBorder}`}
+          >
+            {esResuelto ? (
+              <CheckCircle2 className="w-3.5 h-3.5 text-[#175E38] stroke-[2.5]" />
+            ) : ticket.estado === EstadoTicket.EN_PROCESO ? (
+              <Wrench className="w-3.5 h-3.5 text-blue-800" />
+            ) : esCancelado ? (
+              <XCircle className="w-3.5 h-3.5 text-slate-600" />
+            ) : (
+              <Clock className="w-3.5 h-3.5 text-amber-800" />
+            )}
+            <span>{estCfg.label}</span>
+          </span>
 
-          <span className="text-xs text-slate-400 font-medium">
-            Reportado: {formatearFechaNumerica(ticket.createdAt)}
+          <span className="font-mono text-xs font-bold text-slate-600 bg-slate-100/90 px-2.5 py-1 rounded-lg border border-slate-200">
+            {ticket.codigo}
           </span>
         </div>
 
-        {/* Título y Especialidad */}
-        <div>
-          <div className="flex items-center gap-1.5 text-xs text-slate-500 mb-1">
-            {getCategoriaIcon(ticket.categoria)}
-            <span className="font-semibold">
-              {ticket.categoria === CategoriaTicket.OTRO && ticket.categoriaPersonalizada
-                ? ticket.categoriaPersonalizada
-                : catCfg.label}
-            </span>
-          </div>
+        {/* Título, Especialidad y Fecha de reporte */}
+        <div className="space-y-1.5">
           <h3 className="text-base sm:text-lg font-black font-heading text-slate-900 leading-snug">
             {ticket.titulo}
           </h3>
+
+          <div className="flex items-center gap-2 text-xs text-slate-500 flex-wrap">
+            <div className="flex items-center gap-1.5 font-semibold text-slate-700">
+              {getCategoriaIcon(ticket.categoria)}
+              <span>
+                {ticket.categoria === CategoriaTicket.OTRO && ticket.categoriaPersonalizada
+                  ? ticket.categoriaPersonalizada
+                  : catCfg.label}
+              </span>
+            </div>
+            <span className="text-slate-300">•</span>
+            <div className="inline-flex items-center gap-1 text-slate-500 font-medium">
+              <Calendar className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+              <span>Reportado el {formatearFechaNumerica(ticket.createdAt)}</span>
+            </div>
+          </div>
         </div>
 
         {/* Ubicación del Inmueble y Local */}
@@ -233,12 +236,12 @@ export function InquilinoTicketFichaModal({
 
         {/* Técnico Asignado por Administración */}
         {ticket.empleado && (
-          <div className="bg-emerald-50/70 border border-emerald-200/90 rounded-2xl p-3.5 flex flex-wrap items-center justify-between gap-3">
-            <div className="flex items-center gap-3">
+          <div className="bg-emerald-50/70 border border-emerald-200/90 rounded-2xl p-3 sm:p-3.5 space-y-3 sm:space-y-0 sm:flex sm:items-center sm:justify-between sm:gap-3">
+            <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
               <div className="w-10 h-10 rounded-xl bg-[#175E38] text-white flex items-center justify-center font-bold text-sm shrink-0 shadow-2xs">
                 <User className="w-5 h-5" />
               </div>
-              <div className="min-w-0">
+              <div className="min-w-0 flex-1">
                 <span className="text-[10px] font-bold text-emerald-800 uppercase tracking-wider block">
                   Técnico Asignado
                 </span>
@@ -252,21 +255,23 @@ export function InquilinoTicketFichaModal({
             </div>
 
             {ticket.empleado.telefono && (
-              <div className="flex items-center gap-2 shrink-0">
+              <div className="grid grid-cols-2 sm:flex sm:items-center gap-2 shrink-0 pt-2 sm:pt-0 border-t border-emerald-200/50 sm:border-0">
                 <a
                   href={`https://wa.me/${ticket.empleado.telefono.replace(/[^0-9]/g, "")}`}
                   target="_blank"
                   rel="noreferrer"
-                  className="px-3 py-1.5 rounded-xl text-xs font-bold bg-[#25D366] text-white hover:brightness-105 transition-all flex items-center gap-1.5 shadow-2xs cursor-pointer active:scale-95"
+                  className="h-9 px-3 sm:px-3.5 rounded-xl text-xs font-bold bg-[#25D366] hover:bg-[#20ba59] text-white flex items-center justify-center gap-1.5 shadow-2xs cursor-pointer active:scale-95 transition-all"
                 >
-                  <MessageCircle className="w-3.5 h-3.5" />
+                  <MessageCircle className="w-3.5 h-3.5 shrink-0" />
                   <span>WhatsApp</span>
                 </a>
                 <a
                   href={`tel:${ticket.empleado.telefono}`}
-                  className="px-2.5 py-1.5 rounded-xl text-xs font-bold bg-white text-slate-700 border border-slate-200 hover:bg-slate-100 transition-all flex items-center gap-1.5 shadow-2xs"
+                  className="h-9 px-3 sm:px-3 rounded-xl text-xs font-bold bg-white text-slate-700 border border-slate-200/90 hover:bg-slate-50 flex items-center justify-center gap-1.5 shadow-2xs cursor-pointer active:scale-95 transition-all"
+                  title="Llamar al técnico"
                 >
-                  <Phone className="w-3.5 h-3.5 text-slate-400" />
+                  <Phone className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+                  <span>Llamar</span>
                 </a>
               </div>
             )}

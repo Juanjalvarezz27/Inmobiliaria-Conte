@@ -388,7 +388,7 @@ export function AdminMantenimientoClient({
               setBusqueda(e.target.value);
               setPaginaActual(1);
             }}
-            placeholder="Buscar por código, inmueble, local, inquilino o asunto..."
+            placeholder="Buscar por código, local, asunto o inquilino..."
             className="w-full h-11 pl-10 pr-9 rounded-xl border border-slate-200 bg-slate-50/50 hover:bg-white focus:bg-white text-slate-900 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-[#1C2539]/20 focus:border-[#1C2539] transition-all"
           />
           {busqueda && (
@@ -632,7 +632,7 @@ export function AdminMantenimientoClient({
                     <button
                       type="button"
                       onClick={() => abrirDetalle(ticket)}
-                      className="w-full px-2.5 py-2 rounded-xl text-xs font-bold bg-[#1C2539] text-white hover:bg-[#2a3754] transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-xs active:translate-y-0.5"
+                      className="w-full h-11 px-2.5 rounded-xl text-xs font-bold bg-[#1C2539] text-white hover:bg-[#2a3754] transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-xs active:translate-y-0.5"
                     >
                       <Eye className="w-3.5 h-3.5 shrink-0" />
                       <span className="truncate">Ver Detalles</span>
@@ -642,7 +642,7 @@ export function AdminMantenimientoClient({
                       <button
                         type="button"
                         onClick={() => abrirAsignar(ticket)}
-                        className="w-full px-2.5 py-2 rounded-xl text-xs font-bold bg-[#175E38] text-white hover:bg-[#124b2d] transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-[0_2px_6px_rgba(23,94,56,0.3)] border-b-[3px] border-b-[#0e3a23] active:translate-y-0.5"
+                        className="w-full h-11 px-2.5 rounded-xl text-xs font-bold bg-[#175E38] text-white hover:bg-[#124b2d] transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-[0_2px_6px_rgba(23,94,56,0.3)] border-b-[3px] border-b-[#0e3a23] active:translate-y-0.5"
                       >
                         <UserCheck className="w-3.5 h-3.5 shrink-0" />
                         <span className="truncate">
@@ -653,7 +653,7 @@ export function AdminMantenimientoClient({
                       <button
                         type="button"
                         onClick={() => abrirDetalle(ticket)}
-                        className="w-full px-2.5 py-2 rounded-xl text-xs font-bold bg-white text-slate-700 border border-slate-200 hover:bg-slate-50 transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs active:translate-y-0.5"
+                        className="w-full h-11 px-2.5 rounded-xl text-xs font-bold bg-white text-slate-700 border border-slate-200 hover:bg-slate-50 transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs active:translate-y-0.5"
                       >
                         <CheckCircle2 className="w-3.5 h-3.5 text-[#175E38] shrink-0" />
                         <span className="truncate">Historial</span>

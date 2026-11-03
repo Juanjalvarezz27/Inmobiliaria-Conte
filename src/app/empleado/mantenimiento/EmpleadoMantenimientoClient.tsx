@@ -217,9 +217,9 @@ export function EmpleadoMantenimientoClient({
         <section className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-[#1C2539] via-[#243049] to-[#1C2539] text-white p-5 sm:p-7 border border-white/10 border-b-[4px] border-b-[#0f1624] shadow-xl">
           <div className="absolute -top-16 -left-16 w-60 h-60 bg-[#175E38]/25 rounded-full blur-3xl pointer-events-none" />
 
-          <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-5">
-            <div className="flex items-center gap-4">
-              <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-white p-1.5 shadow-md flex items-center justify-center shrink-0 border border-white/20">
+          <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-4 sm:gap-5">
+            <div className="flex items-center gap-3.5 sm:gap-4 min-w-0 flex-1">
+              <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-2xl bg-white p-1.5 shadow-md flex items-center justify-center shrink-0 border border-white/20">
                 <Image
                   src="/Logo.png"
                   alt="Inmobiliaria Conté"
@@ -229,17 +229,17 @@ export function EmpleadoMantenimientoClient({
                   className="w-full h-full object-contain"
                 />
               </div>
-              <div>
-                <div className="mb-1 flex items-center gap-2">
-                  <span className="text-xs sm:text-sm font-extrabold text-emerald-400 uppercase tracking-widest font-heading">
+              <div className="min-w-0 flex-1">
+                <div className="mb-0.5 sm:mb-1 flex items-center gap-2 truncate">
+                  <span className="text-[11px] sm:text-sm font-extrabold text-emerald-400 uppercase tracking-widest font-heading truncate">
                     {empleado.cargo ? empleado.cargo.replace(/_/g, " ") : "Técnico Especialista"}
                   </span>
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 hidden sm:inline-block" />
-                  <span className="text-xs text-slate-300 hidden sm:inline-block font-semibold">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 hidden sm:inline-block shrink-0" />
+                  <span className="text-xs text-slate-300 hidden sm:inline-block font-semibold shrink-0">
                     Personal Activo
                   </span>
                 </div>
-                <h2 className="text-xl sm:text-3xl font-black font-heading tracking-tight text-white">
+                <h2 className="text-lg sm:text-3xl font-black font-heading tracking-tight text-white truncate">
                   {empleado.nombre} {empleado.apellido || ""}
                 </h2>
               </div>
@@ -247,10 +247,10 @@ export function EmpleadoMantenimientoClient({
 
             {/* Sede Asignada */}
             {empleado.propiedadNombre && (
-              <div className="shrink-0">
-                <span className="inline-flex items-center gap-1.5 text-xs text-slate-300 bg-white/10 px-3.5 py-2 rounded-xl border border-white/10 backdrop-blur-xs shadow-2xs">
+              <div className="shrink-0 self-start sm:self-auto">
+                <span className="inline-flex items-center gap-1.5 text-xs text-slate-300 bg-white/10 px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-xl border border-white/10 backdrop-blur-xs shadow-2xs">
                   <Building2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                  <span className="truncate max-w-[240px] font-semibold">{empleado.propiedadNombre}</span>
+                  <span className="truncate max-w-[200px] sm:max-w-[240px] font-semibold">{empleado.propiedadNombre}</span>
                 </span>
               </div>
             )}

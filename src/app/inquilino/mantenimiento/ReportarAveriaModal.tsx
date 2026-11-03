@@ -479,30 +479,30 @@ export function ReportarAveriaModal({
           </div>
         </div>
 
-        {/* Botones de acción inferiores */}
-        <div className="pt-2 border-t border-slate-100 flex flex-col-reverse sm:flex-row items-center justify-end gap-2.5">
+        {/* Botones de acción inferiores (Regla de oro: Grid 50/50 en móvil) */}
+        <div className="pt-2 border-t border-slate-100 grid grid-cols-2 sm:flex sm:items-center sm:justify-end gap-2.5">
           <button
             type="button"
             onClick={onClose}
             disabled={isBusy}
-            className="w-full sm:w-auto min-w-[120px] h-11 px-4 rounded-xl text-xs font-bold bg-white text-slate-700 border border-slate-200 hover:bg-slate-50 transition-all cursor-pointer shadow-2xs active:translate-y-0.5"
+            className="w-full sm:w-auto min-w-[110px] h-11 px-4 rounded-xl text-xs font-bold bg-white text-slate-700 border border-slate-200 hover:bg-slate-50 transition-all cursor-pointer shadow-2xs active:translate-y-0.5"
           >
             Cancelar
           </button>
           <button
             type="submit"
             disabled={isBusy}
-            className="w-full sm:w-auto min-w-[190px] h-11 px-5 rounded-xl text-xs font-bold bg-gradient-to-r from-[#175E38] to-[#124b2d] text-white border-b-[3px] border-b-[#0e3a23] hover:brightness-105 transition-all flex items-center justify-center gap-2 cursor-pointer shadow-[0_2px_8px_rgba(23,94,56,0.25)] active:translate-y-0.5 disabled:opacity-50 disabled:pointer-events-none"
+            className="w-full sm:w-auto min-w-[180px] h-11 px-4 sm:px-5 rounded-xl text-xs font-bold bg-gradient-to-r from-[#175E38] to-[#124b2d] text-white border-b-[3px] border-b-[#0e3a23] hover:brightness-105 transition-all flex items-center justify-center gap-1.5 sm:gap-2 cursor-pointer shadow-[0_2px_8px_rgba(23,94,56,0.25)] active:translate-y-0.5 disabled:opacity-50 disabled:pointer-events-none"
           >
             {isSubmitting ? (
               <>
                 <Loader2 className="w-4 h-4 animate-spin shrink-0" />
-                <span>Enviando Reporte...</span>
+                <span className="truncate">Enviando...</span>
               </>
             ) : (
               <>
                 <CheckCircle2 className="w-4 h-4 shrink-0" />
-                <span>Enviar Reporte de Avería</span>
+                <span className="truncate">Enviar Reporte</span>
               </>
             )}
           </button>

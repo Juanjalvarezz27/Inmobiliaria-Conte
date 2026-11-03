@@ -17,6 +17,7 @@ import {
   Sparkles,
   ShieldCheck,
   Wrench,
+  Camera,
 } from "lucide-react";
 import { toast } from "sonner";
 import { StatCard } from "@/components/ui/stat-card";
@@ -434,28 +435,30 @@ export function EmpleadoDashboardClient({ initialData }: Props) {
           </div>
 
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5 sm:gap-3 mb-4 pb-3 border-b border-slate-100 relative z-10 shrink-0">
-            <div className="flex items-center gap-2.5 min-w-0">
-              <div className="w-8 h-8 rounded-xl bg-emerald-50 text-[#175E38] flex items-center justify-center border border-emerald-100 shrink-0 shadow-2xs">
+            <div className="flex items-start sm:items-center gap-2.5 min-w-0 flex-1">
+              <div className="w-8 h-8 rounded-xl bg-emerald-50 text-[#175E38] flex items-center justify-center border border-emerald-100 shrink-0 shadow-2xs mt-0.5 sm:mt-0">
                 <Wrench className="w-4 h-4 stroke-[2.5]" />
               </div>
-              <div className="flex items-center gap-2 truncate">
-                <h3 className="font-heading font-black text-slate-900 text-sm sm:text-base tracking-tight truncate">
-                  Órdenes de Mantenimiento
-                </h3>
-                {ticketsActivosCount > 0 ? (
-                  <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200 shrink-0">
-                    {ticketsActivosCount} {ticketsActivosCount === 1 ? "pendiente" : "pendientes"}
-                  </span>
-                ) : ticketsDestacados.length > 0 ? (
-                  <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-[#175E38] border border-emerald-200 shrink-0">
-                    Al día
-                  </span>
-                ) : null}
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+                  <h3 className="font-heading font-black text-slate-900 text-sm sm:text-base tracking-tight leading-snug">
+                    Órdenes de Mantenimiento
+                  </h3>
+                  {ticketsActivosCount > 0 ? (
+                    <span className="text-[10.5px] sm:text-[11px] font-bold px-2 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200 shrink-0">
+                      {ticketsActivosCount} {ticketsActivosCount === 1 ? "pendiente" : "pendientes"}
+                    </span>
+                  ) : ticketsDestacados.length > 0 ? (
+                    <span className="text-[10.5px] sm:text-[11px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-[#175E38] border border-emerald-200 shrink-0">
+                      Al día
+                    </span>
+                  ) : null}
+                </div>
               </div>
             </div>
             <Link
               href="/empleado/mantenimiento"
-              className="self-start sm:self-auto inline-flex items-center gap-1.5 text-xs font-bold text-[#175E38] hover:text-[#124b2d] transition-colors px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-lg sm:rounded-xl bg-emerald-50/70 sm:bg-transparent hover:bg-emerald-100 sm:hover:bg-emerald-50 whitespace-nowrap"
+              className="self-start sm:self-auto inline-flex items-center gap-1.5 text-xs font-bold text-[#175E38] hover:text-[#124b2d] transition-colors px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-lg sm:rounded-xl bg-emerald-50/70 sm:bg-transparent hover:bg-emerald-100 sm:hover:bg-emerald-50 whitespace-nowrap shrink-0"
             >
               <span>Ver todas</span>
               <ArrowRight className="w-3.5 h-3.5 shrink-0" />
@@ -481,12 +484,13 @@ export function EmpleadoDashboardClient({ initialData }: Props) {
                   return (
                     <div
                       key={ticket.id}
-                      className="p-3.5 sm:p-4 rounded-xl border border-slate-200/80 bg-slate-50/70 hover:bg-slate-100/70 transition-all flex flex-col justify-between gap-3 shadow-2xs"
+                      className="p-3.5 sm:p-4 rounded-xl border border-slate-200/90 bg-white hover:bg-slate-50/70 transition-all flex flex-col justify-between gap-3 shadow-2xs hover:shadow-xs"
                     >
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-2 mb-1.5 flex-wrap">
+                      <div className="space-y-2.5">
+                        {/* Cabecera balanceada: Estado a la izquierda, Código a la derecha */}
+                        <div className="flex items-center justify-between gap-2">
                           <span
-                            className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10.5px] font-extrabold uppercase tracking-wider border shadow-2xs ${
+                            className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10.5px] font-extrabold uppercase tracking-wider border shadow-2xs ${
                               esResuelto
                                 ? "bg-emerald-50 text-[#175E38] border-emerald-200"
                                 : esEnProceso
@@ -495,7 +499,7 @@ export function EmpleadoDashboardClient({ initialData }: Props) {
                             }`}
                           >
                             {esResuelto ? (
-                              <CheckCircle2 className="w-3 h-3 text-[#175E38]" />
+                              <CheckCircle2 className="w-3.5 h-3.5 text-[#175E38]" />
                             ) : (
                               <span
                                 className={`w-1.5 h-1.5 rounded-full ${
@@ -506,55 +510,65 @@ export function EmpleadoDashboardClient({ initialData }: Props) {
                             <span>{esResuelto ? "Resuelto" : esEnProceso ? "En Proceso" : "Pendiente"}</span>
                           </span>
 
-                          <span className="font-mono text-[10.5px] font-bold text-slate-700 bg-white px-2 py-0.5 rounded-md border border-slate-200 shadow-2xs">
+                          <span className="font-mono text-xs font-bold text-slate-600 bg-slate-100/90 px-2 py-0.5 rounded-md border border-slate-200/80">
                             {ticket.codigo}
-                          </span>
-
-                          <span className="inline-flex items-center gap-1 text-[10.5px] font-semibold text-slate-600 bg-white px-2 py-0.5 rounded-md border border-slate-200 truncate max-w-[180px]">
-                            <Building2 className="w-3 h-3 text-slate-400 shrink-0" />
-                            <span className="truncate">
-                              {ticket.propiedadNombre}
-                              {ticket.unidadCodigo ? ` • Local ${ticket.unidadCodigo}` : " • Áreas Comunes"}
-                            </span>
                           </span>
                         </div>
 
-                        <h4 className="text-xs sm:text-sm font-extrabold text-slate-900 tracking-tight line-clamp-2">
+                        {/* Título de la avería */}
+                        <h4 className="text-sm font-extrabold text-slate-900 tracking-tight leading-snug line-clamp-2">
                           {ticket.titulo}
                         </h4>
 
-                        <div className="flex items-center gap-2 text-[11px] text-slate-500 mt-1">
-                          <span className="font-semibold text-slate-600">
+                        {/* Ubicación en 2 niveles (Inmueble y Espacio específico) */}
+                        <div className="space-y-0.5 text-xs">
+                          <div className="flex items-center gap-1.5 font-semibold text-slate-800">
+                            <Building2 className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                            <span className="truncate">{ticket.propiedadNombre}</span>
+                          </div>
+                          <div className="text-[11.5px] text-slate-500 pl-5">
+                            <span className="truncate">
+                              {ticket.unidadCodigo ? `Local ${ticket.unidadCodigo}` : "Áreas Comunes"}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Categoría y Evidencias */}
+                        <div className="flex items-center gap-2 text-[11px] text-slate-500 pt-0.5">
+                          <span className="font-medium text-slate-600 bg-slate-100/90 px-2 py-0.5 rounded-md border border-slate-200/70">
                             {ticket.categoriaPersonalizada ||
                               CATEGORIAS_TICKET[ticket.categoria]?.label ||
                               ticket.categoria}
                           </span>
                           {ticket.fotosAveriaCount > 0 && (
-                            <>
-                              <span>•</span>
-                              <span className="text-slate-400">{ticket.fotosAveriaCount} fotos</span>
-                            </>
+                            <span className="inline-flex items-center gap-1 text-slate-500 font-medium">
+                              <Camera className="w-3 h-3 text-slate-400" />
+                              <span>
+                                {ticket.fotosAveriaCount} {ticket.fotosAveriaCount === 1 ? "foto" : "fotos"}
+                              </span>
+                            </span>
                           )}
                         </div>
                       </div>
 
-                      <div className="flex items-center justify-end pt-1 border-t border-slate-200/50">
+                      {/* Footer de acción de ancho ergonómico */}
+                      <div className="pt-2 border-t border-slate-100">
                         <Link
                           href="/empleado/mantenimiento"
-                          className={`h-8 px-3 rounded-lg text-xs font-bold border-b-[2px] active:translate-y-0.5 transition-all shadow-xs flex items-center gap-1.5 cursor-pointer whitespace-nowrap ${
+                          className={`w-full h-9 sm:h-9.5 px-3 rounded-xl text-xs font-bold border-b-[2px] active:translate-y-0.5 transition-all shadow-xs flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap ${
                             esResuelto
                               ? "bg-[#1C2539] text-white hover:bg-[#2a3754] border-b-slate-900"
-                              : "bg-[#175E38] text-white hover:bg-[#124b2d] border-b-[#0e3a23]"
+                              : "bg-gradient-to-r from-[#175E38] to-[#124b2d] text-white hover:brightness-105 border-b-[#0e3a23] shadow-[0_2px_6px_rgba(23,94,56,0.3)]"
                           }`}
                         >
                           {esResuelto ? (
                             <>
-                              <CheckCircle2 className="w-3 h-3 text-emerald-400" />
-                              <span>Ver Registro</span>
+                              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                              <span>Ver Registro de Reparación</span>
                             </>
                           ) : (
                             <>
-                              <Wrench className="w-3 h-3 stroke-[2.5]" />
+                              <Wrench className="w-3.5 h-3.5 stroke-[2.5]" />
                               <span>Atender Avería</span>
                             </>
                           )}
@@ -578,28 +592,30 @@ export function EmpleadoDashboardClient({ initialData }: Props) {
           </div>
 
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5 sm:gap-3 mb-4 pb-3 border-b border-slate-100 relative z-10 shrink-0">
-            <div className="flex items-center gap-2.5 min-w-0">
-              <div className="w-8 h-8 rounded-xl bg-emerald-50 text-[#175E38] flex items-center justify-center border border-emerald-100 shrink-0 shadow-2xs">
+            <div className="flex items-start sm:items-center gap-2.5 min-w-0 flex-1">
+              <div className="w-8 h-8 rounded-xl bg-emerald-50 text-[#175E38] flex items-center justify-center border border-emerald-100 shrink-0 shadow-2xs mt-0.5 sm:mt-0">
                 <CheckSquare className="w-4 h-4 stroke-[2.5]" />
               </div>
-              <div className="flex items-center gap-2 truncate">
-                <h3 className="font-heading font-black text-slate-900 text-sm sm:text-base tracking-tight truncate">
-                  Órdenes de Trabajo Asignadas
-                </h3>
-                {tareasActivasCount > 0 ? (
-                  <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200 shrink-0">
-                    {tareasActivasCount} {tareasActivasCount === 1 ? "pendiente" : "pendientes"}
-                  </span>
-                ) : tareasDestacadas.length > 0 ? (
-                  <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-[#175E38] border border-emerald-200 shrink-0">
-                    Al día
-                  </span>
-                ) : null}
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+                  <h3 className="font-heading font-black text-slate-900 text-sm sm:text-base tracking-tight leading-snug">
+                    Órdenes de Trabajo Asignadas
+                  </h3>
+                  {tareasActivasCount > 0 ? (
+                    <span className="text-[10.5px] sm:text-[11px] font-bold px-2 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200 shrink-0">
+                      {tareasActivasCount} {tareasActivasCount === 1 ? "pendiente" : "pendientes"}
+                    </span>
+                  ) : tareasDestacadas.length > 0 ? (
+                    <span className="text-[10.5px] sm:text-[11px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-[#175E38] border border-emerald-200 shrink-0">
+                      Al día
+                    </span>
+                  ) : null}
+                </div>
               </div>
             </div>
             <Link
               href="/empleado/tareas"
-              className="self-start sm:self-auto inline-flex items-center gap-1.5 text-xs font-bold text-[#175E38] hover:text-[#124b2d] transition-colors px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-lg sm:rounded-xl bg-emerald-50/70 sm:bg-transparent hover:bg-emerald-100 sm:hover:bg-emerald-50 whitespace-nowrap"
+              className="self-start sm:self-auto inline-flex items-center gap-1.5 text-xs font-bold text-[#175E38] hover:text-[#124b2d] transition-colors px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-lg sm:rounded-xl bg-emerald-50/70 sm:bg-transparent hover:bg-emerald-100 sm:hover:bg-emerald-50 whitespace-nowrap shrink-0"
             >
               <span>Ver todas</span>
               <ArrowRight className="w-3.5 h-3.5 shrink-0" />
@@ -625,12 +641,13 @@ export function EmpleadoDashboardClient({ initialData }: Props) {
                   return (
                     <div
                       key={tarea.id}
-                      className="p-4 rounded-xl border border-slate-200/80 bg-slate-50/70 hover:bg-slate-100/70 transition-all flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3.5 shadow-2xs"
+                      className="p-3.5 sm:p-4 rounded-xl border border-slate-200/90 bg-white hover:bg-slate-50/70 transition-all flex flex-col justify-between gap-3 shadow-2xs hover:shadow-xs"
                     >
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-2 mb-1.5 flex-wrap">
+                      <div className="space-y-2.5">
+                        {/* Cabecera balanceada: Estado a la izquierda, Prioridad a la derecha */}
+                        <div className="flex items-center justify-between gap-2">
                           <span
-                            className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-extrabold uppercase tracking-wider border shadow-2xs ${
+                            className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10.5px] font-extrabold uppercase tracking-wider border shadow-2xs ${
                               esCompletada
                                 ? "bg-emerald-50 text-[#175E38] border-emerald-200"
                                 : esEnProceso
@@ -652,37 +669,60 @@ export function EmpleadoDashboardClient({ initialData }: Props) {
                             </span>
                           </span>
 
-                          {tarea.propiedadNombre && (
-                            <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-slate-600 bg-slate-100/90 px-2 py-0.5 rounded-md border border-slate-200/70 truncate max-w-[200px]">
-                              <Building2 className="w-3 h-3 text-slate-400 shrink-0" />
-                              <span className="truncate">{tarea.propiedadNombre}</span>
+                          {/* Solo si la tarea es urgente o de alta prioridad y está pendiente */}
+                          {!esCompletada && (tarea.prioridad === "URGENTE" || tarea.prioridad === "ALTA") && (
+                            <span className="text-[10.5px] font-extrabold text-rose-700 bg-rose-50 px-2 py-0.5 rounded-md border border-rose-200 uppercase tracking-wider">
+                              {tarea.prioridad === "URGENTE" ? "Urgente" : "Alta"}
                             </span>
                           )}
                         </div>
 
-                        <h4 className="text-sm sm:text-base font-extrabold text-slate-900 tracking-tight truncate">
+                        {/* Título de la tarea */}
+                        <h4 className="text-sm font-extrabold text-slate-900 tracking-tight leading-snug line-clamp-2">
                           {tarea.titulo}
                         </h4>
+
+                        {/* Ubicación clara sin cajas pesadas */}
+                        {tarea.propiedadNombre && (
+                          <div className="flex items-center gap-1.5 text-xs text-slate-600">
+                            <Building2 className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                            <span className="font-semibold text-slate-800 truncate">
+                              {tarea.propiedadNombre}
+                            </span>
+                          </div>
+                        )}
+
+                        {/* Evidencias si existen */}
+                        {tarea.evidencias && tarea.evidencias.length > 0 && (
+                          <div className="flex items-center gap-2 text-[11px] text-slate-500 pt-0.5">
+                            <span className="inline-flex items-center gap-1 text-slate-500 font-medium">
+                              <Camera className="w-3 h-3 text-slate-400" />
+                              <span>
+                                {tarea.evidencias.length} {tarea.evidencias.length === 1 ? "evidencia" : "evidencias"}
+                              </span>
+                            </span>
+                          </div>
+                        )}
                       </div>
 
-                      <div className="flex items-center gap-2 shrink-0">
+                      <div className="pt-2 border-t border-slate-100">
                         <Link
                           href="/empleado/tareas"
-                          className={`h-8.5 px-3 rounded-xl text-xs font-bold border-b-[2px] active:translate-y-0.5 transition-all flex items-center gap-1.5 cursor-pointer ${
+                          className={`w-full h-9 sm:h-9.5 px-3 rounded-xl text-xs font-bold border-b-[2px] active:translate-y-0.5 transition-all flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap ${
                             esCompletada
                               ? "bg-[#1C2539] text-white hover:bg-[#2a3754] border-b-slate-900 shadow-xs"
-                              : "bg-[#175E38] text-white hover:bg-[#124b2d] border-b-[#0e3a23] shadow-[0_2px_6px_rgba(23,94,56,0.3)]"
+                              : "bg-gradient-to-r from-[#175E38] to-[#124b2d] text-white hover:brightness-105 border-b-[#0e3a23] shadow-[0_2px_6px_rgba(23,94,56,0.3)]"
                           }`}
                         >
                           {esCompletada ? (
                             <>
                               <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-                              <span>Ver Registro</span>
+                              <span>Ver Registro de Tarea</span>
                             </>
                           ) : (
                             <>
                               <CheckSquare className="w-3.5 h-3.5 stroke-[2.5]" />
-                              <span>Completar</span>
+                              <span>Completar Tarea</span>
                             </>
                           )}
                         </Link>

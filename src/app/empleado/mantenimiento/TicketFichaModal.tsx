@@ -81,62 +81,65 @@ export function TicketFichaModal({
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title={`Ficha de Reparación — ${ticket.codigo}`}
+      title="Ficha de Reparación"
       icon={Wrench}
       headerVariant="green"
       maxWidth="2xl"
     >
       <div className="space-y-4 text-slate-800">
-        {/* Cabecera del Ticket */}
-        <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-slate-100">
-          <div className="flex items-center gap-2">
-            <span className="font-mono text-xs font-bold text-slate-700 bg-slate-100 px-2.5 py-1 rounded-lg border border-slate-200">
-              {ticket.codigo}
-            </span>
-            <span
-              className={`inline-flex items-center gap-1.5 text-xs font-bold px-2.5 py-1 rounded-lg border ${estCfg.badgeBg} ${estCfg.badgeText} ${estCfg.badgeBorder}`}
-            >
-              {esResuelto ? (
-                <CheckCircle2 className="w-3.5 h-3.5 text-[#175E38] stroke-[2.5]" />
-              ) : esEnProceso ? (
-                <Wrench className="w-3.5 h-3.5 text-blue-800" />
-              ) : (
-                <Clock className="w-3.5 h-3.5 text-amber-800" />
-              )}
-              <span>{estCfg.label}</span>
-            </span>
-          </div>
+        {/* Cabecera balanceada: Estado a la izquierda y Código a la derecha */}
+        <div className="flex items-center justify-between gap-2 pb-3 border-b border-slate-100">
+          <span
+            className={`inline-flex items-center gap-1.5 text-xs font-bold px-2.5 py-1 rounded-lg border shadow-2xs ${estCfg.badgeBg} ${estCfg.badgeText} ${estCfg.badgeBorder}`}
+          >
+            {esResuelto ? (
+              <CheckCircle2 className="w-3.5 h-3.5 text-[#175E38] stroke-[2.5]" />
+            ) : esEnProceso ? (
+              <Wrench className="w-3.5 h-3.5 text-blue-800" />
+            ) : (
+              <Clock className="w-3.5 h-3.5 text-amber-800" />
+            )}
+            <span>{estCfg.label}</span>
+          </span>
 
-          <span className="text-xs text-slate-400 font-medium">
-            Reportado: {formatearFechaNumerica(ticket.createdAt)}
+          <span className="font-mono text-xs font-bold text-slate-600 bg-slate-100/90 px-2.5 py-1 rounded-lg border border-slate-200">
+            {ticket.codigo}
           </span>
         </div>
 
-        {/* Título y Especialidad */}
-        <div>
-          <div className="flex items-center gap-1.5 text-xs text-slate-500 mb-1">
-            {getCategoriaIcon(ticket.categoria)}
-            <span className="font-semibold">
-              {ticket.categoria === CategoriaTicket.OTRO && ticket.categoriaPersonalizada
-                ? ticket.categoriaPersonalizada
-                : catCfg.label}
-            </span>
-          </div>
+        {/* Título, Especialidad y Fecha de reporte */}
+        <div className="space-y-1.5">
           <h3 className="text-base sm:text-lg font-black font-heading text-slate-900 leading-snug">
             {ticket.titulo}
           </h3>
+
+          <div className="flex items-center gap-2 text-xs text-slate-500 flex-wrap">
+            <div className="flex items-center gap-1.5 font-semibold text-slate-700">
+              {getCategoriaIcon(ticket.categoria)}
+              <span>
+                {ticket.categoria === CategoriaTicket.OTRO && ticket.categoriaPersonalizada
+                  ? ticket.categoriaPersonalizada
+                  : catCfg.label}
+              </span>
+            </div>
+            <span className="text-slate-300">•</span>
+            <div className="inline-flex items-center gap-1 text-slate-500 font-medium">
+              <Calendar className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+              <span>Reportado el {formatearFechaNumerica(ticket.createdAt)}</span>
+            </div>
+          </div>
         </div>
 
         {/* Ubicación e Inmueble */}
         <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-200/80 space-y-1.5 text-xs">
-          <p className="font-bold text-slate-900 flex items-center gap-1.5">
+          <p className="font-bold text-slate-900 flex items-center gap-1.5 truncate">
             <Building2 className="w-4 h-4 text-[#175E38] shrink-0" />
-            <span>{ticket.propiedad.nombre}</span>
-            <span className="text-slate-400 font-normal">({ticket.propiedad.direccion})</span>
+            <span className="truncate">{ticket.propiedad.nombre}</span>
+            <span className="text-slate-400 font-normal truncate">({ticket.propiedad.direccion})</span>
           </p>
-          <p className="text-slate-600 flex items-center gap-1.5 text-xs">
+          <p className="text-slate-600 flex items-center gap-1.5 text-xs truncate">
             <Store className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-            <span className="font-semibold">
+            <span className="font-semibold truncate">
               {ticket.unidad
                 ? `Local ${ticket.unidad.codigo}${ticket.unidad.piso ? ` (Piso ${ticket.unidad.piso})` : ""}`
                 : "Áreas Comunes / Fachada"}
@@ -146,10 +149,12 @@ export function TicketFichaModal({
 
         {/* Contacto del Inquilino (Para coordinar acceso al local) */}
         {ticket.inquilino && (
-          <div className="flex items-center justify-between text-xs bg-slate-50 p-3 rounded-xl border border-slate-200/80">
-            <div className="flex items-center gap-2 truncate">
-              <User className="w-4 h-4 text-slate-500 shrink-0" />
-              <div>
+          <div className="bg-slate-50 border border-slate-200/90 rounded-2xl p-3 sm:p-3.5 space-y-3 sm:space-y-0 sm:flex sm:items-center sm:justify-between sm:gap-3 text-xs">
+            <div className="flex items-center gap-2.5 sm:gap-3 min-w-0 flex-1">
+              <div className="w-10 h-10 rounded-xl bg-slate-200 text-slate-700 flex items-center justify-center font-bold text-sm shrink-0 shadow-2xs">
+                <User className="w-5 h-5" />
+              </div>
+              <div className="min-w-0 flex-1">
                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
                   Inquilino / Contacto
                 </span>
@@ -160,21 +165,23 @@ export function TicketFichaModal({
             </div>
 
             {ticket.inquilino.telefono && (
-              <div className="flex items-center gap-2 shrink-0">
+              <div className="grid grid-cols-2 sm:flex sm:items-center gap-2 shrink-0 pt-2 sm:pt-0 border-t border-slate-200/60 sm:border-0">
                 <a
                   href={`https://wa.me/${ticket.inquilino.telefono.replace(/[^0-9]/g, "")}`}
                   target="_blank"
                   rel="noreferrer"
-                  className="px-2.5 py-1.5 rounded-xl text-xs font-bold bg-[#25D366] text-white hover:brightness-105 transition-all flex items-center gap-1.5 shadow-2xs cursor-pointer active:scale-95"
+                  className="h-9 px-3 sm:px-3.5 rounded-xl text-xs font-bold bg-[#25D366] hover:bg-[#20ba59] text-white flex items-center justify-center gap-1.5 shadow-2xs cursor-pointer active:scale-95 transition-all"
                 >
-                  <MessageCircle className="w-3.5 h-3.5" />
+                  <MessageCircle className="w-3.5 h-3.5 shrink-0" />
                   <span>WhatsApp</span>
                 </a>
                 <a
                   href={`tel:${ticket.inquilino.telefono}`}
-                  className="px-2.5 py-1.5 rounded-xl text-xs font-bold bg-white text-slate-700 border border-slate-200 hover:bg-slate-100 transition-all flex items-center gap-1.5 shadow-2xs"
+                  className="h-9 px-3 sm:px-3 rounded-xl text-xs font-bold bg-white text-slate-700 border border-slate-200/90 hover:bg-slate-50 flex items-center justify-center gap-1.5 shadow-2xs cursor-pointer active:scale-95 transition-all"
+                  title="Llamar al inquilino"
                 >
-                  <Phone className="w-3.5 h-3.5 text-slate-400" />
+                  <Phone className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+                  <span>Llamar</span>
                 </a>
               </div>
             )}
@@ -306,7 +313,7 @@ export function TicketFichaModal({
             )}
           </div>
         ) : esEnProceso ? (
-          <div className="p-3.5 rounded-xl bg-blue-50/80 border border-blue-200 flex items-center justify-between gap-3">
+          <div className="p-3 sm:p-3.5 rounded-xl bg-blue-50/80 border border-blue-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 sm:gap-3">
             <div className="flex items-center gap-2">
               <Wrench className="w-4 h-4 text-blue-700 shrink-0" />
               <span className="text-xs font-semibold text-blue-900">
@@ -320,7 +327,7 @@ export function TicketFichaModal({
                   onClose();
                   onFiniquitar(ticket);
                 }}
-                className="px-3 py-1.5 rounded-lg text-xs font-bold bg-[#175E38] text-white hover:bg-[#124b2d] transition-all shadow-xs shrink-0 cursor-pointer"
+                className="w-full sm:w-auto h-10 sm:h-auto px-3.5 py-2 rounded-xl text-xs font-bold bg-[#175E38] text-white hover:bg-[#124b2d] transition-all shadow-xs shrink-0 cursor-pointer text-center flex items-center justify-center active:translate-y-0.5"
               >
                 Finiquitar Ahora
               </button>
