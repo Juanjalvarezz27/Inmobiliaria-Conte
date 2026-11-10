@@ -303,7 +303,7 @@ export function PerfilView({ usuario }: PerfilViewProps) {
             </div>
             {mustChangePassword ? (
               <span className="text-[10px] font-extrabold px-2.5 py-1 rounded-full bg-amber-100 text-amber-800 border border-amber-300">
-                Clave Provisional (123456)
+                Clave Inicial
               </span>
             ) : (
               <span className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-slate-100 text-slate-600 border border-slate-200">
@@ -317,7 +317,7 @@ export function PerfilView({ usuario }: PerfilViewProps) {
             <div className="relative z-10 p-3.5 bg-amber-50 border border-amber-200/90 rounded-2xl flex items-start gap-3 text-xs text-amber-900 leading-relaxed">
               <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
               <div>
-                <strong>Contraseña por defecto activa:</strong> Tu cuenta utiliza la clave inicial estandarizada (<code>123456</code>). Puedes personalizarla a continuación sin necesidad de escribir la clave actual.
+                <strong>Contraseña inicial asignada:</strong> Tu cuenta utiliza la clave inicial asignada. Puedes personalizarla a continuación sin necesidad de escribir la clave actual.
               </div>
             </div>
           )}

@@ -30,8 +30,6 @@ interface InquilinoAccesoModalProps {
   inquilino: InquilinoConContratos | null;
 }
 
-const CLAVE_POR_DEFECTO = "123456";
-
 export function InquilinoAccesoModal({
   isOpen,
   onClose,
@@ -50,12 +48,12 @@ export function InquilinoAccesoModal({
 
   if (!inquilino) return null;
 
+  const claveInicial = inquilino.documentoIdentidad.trim();
   const tieneUsuario = !!inquilino.usuario;
   const usuarioActivo = inquilino.usuario?.activo ?? true;
-  const clavePorDefectoActiva = inquilino.usuario?.mustChangePassword ?? false;
 
   const handleCopiarCredenciales = () => {
-    const texto = `Hola ${inquilino.nombre},\n\nTe compartimos tus credenciales de acceso digital a Inmobiliaria Conte:\n- Usuario: ${email}\n- Contraseña: ${CLAVE_POR_DEFECTO}\n\nEnlace de ingreso: ${window.location.origin}/home/login\n(Podrás cambiar tu contraseña desde tu portal cuando lo desees).`;
+    const texto = `Estimado(a) ${inquilino.nombre},\n\nLe damos la bienvenida al Portal Digital de Inmobiliaria Conte C.A.\n\nEnlace de ingreso: ${window.location.origin}/home/login\nUsuario: ${email}\nContraseña: Su Cedula/RIF (${claveInicial})\n\nPuede ingresar directamente y, si lo desea en cualquier momento, cambiar su clave desde su perfil.`;
     navigator.clipboard.writeText(texto);
     setCopiado(true);
     notify.success("Credenciales copiadas", "Se copiaron los datos al portapapeles listos para enviar.");
@@ -63,7 +61,7 @@ export function InquilinoAccesoModal({
   };
 
   const getWhatsAppMessageUrl = () => {
-    const mensaje = `Hola ${inquilino.nombre}, te damos la bienvenida a tu portal de Inmobiliaria Conte C.A.\n\nTus credenciales de acceso son:\n- Usuario: ${email}\n- Contraseña: ${CLAVE_POR_DEFECTO}\n\nEnlace de ingreso: ${window.location.origin}/home/login\n\nPodrás cambiar tu contraseña desde tu portal si lo deseas.`;
+    const mensaje = `Estimado(a) ${inquilino.nombre}, le damos la bienvenida al Portal Digital de Inmobiliaria Conte C.A.\n\nEnlace de ingreso: ${window.location.origin}/home/login\nUsuario: ${email}\nContraseña: Su Cedula/RIF (${claveInicial})\n\nPuede ingresar directamente al portal con su cedula.`;
     return getWhatsAppUrl(inquilino.telefono, mensaje);
   };
 
@@ -79,11 +77,11 @@ export function InquilinoAccesoModal({
       const res = await crearAccesoInquilino({
         inquilinoId: inquilino.id,
         email: email.trim().toLowerCase(),
-        passwordTemporal: CLAVE_POR_DEFECTO,
+        passwordTemporal: claveInicial,
       });
 
       if (res.success) {
-        notify.success("Acceso digital creado", "Acceso habilitado con la clave por defecto 123456.");
+        notify.success("Acceso digital creado", `Acceso habilitado con Cédula/RIF (${claveInicial}).`);
         onClose();
       } else {
         notify.error("Error al habilitar acceso", res.message);
@@ -100,11 +98,11 @@ export function InquilinoAccesoModal({
     try {
       const res = await restablecerClaveInquilino({
         inquilinoId: inquilino.id,
-        passwordTemporal: CLAVE_POR_DEFECTO,
+        passwordTemporal: claveInicial,
       });
 
       if (res.success) {
-        notify.success("Contraseña restablecida", "La clave del inquilino volvió a ser 123456.");
+        notify.success("Contraseña restablecida", `La clave del inquilino fue restablecida a su Cédula/RIF (${claveInicial}).`);
       } else {
         notify.error("Error", res.message);
       }
@@ -137,6 +135,7 @@ export function InquilinoAccesoModal({
       isOpen={isOpen}
       onClose={onClose}
       title={tieneUsuario ? "Gestión de Acceso Digital" : "Habilitar Acceso Digital"}
+      icon={KeyRound}
       headerVariant="green"
       maxWidth="lg"
     >
@@ -208,16 +207,16 @@ export function InquilinoAccesoModal({
                 </p>
               </div>
 
-              {/* Contraseña por defecto */}
+              {/* Contraseña inicial (Cédula/RIF) */}
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1.5">
-                  Contraseña Inicial Estandarizada
+                  Contraseña Inicial (Cédula o RIF)
                 </label>
                 <div className="relative">
                   <KeyRound className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                   <input
                     type="text"
-                    value={CLAVE_POR_DEFECTO}
+                    value={claveInicial}
                     readOnly
                     className="w-full pl-10 pr-4 h-11 text-sm font-mono font-bold tracking-wider bg-slate-50 border border-slate-200 rounded-xl text-slate-900 select-all"
                   />
@@ -225,7 +224,7 @@ export function InquilinoAccesoModal({
                 <div className="mt-2 flex items-start gap-1.5 text-[11px] text-slate-600 bg-slate-100/90 p-2.5 rounded-xl border border-slate-200">
                   <AlertCircle className="w-3.5 h-3.5 text-[#175E38] shrink-0 mt-0.5" />
                   <span>
-                    El inquilino podrá entrar directamente con <strong>123456</strong> y verá un aviso en su portal para cambiarla opcionalmente.
+                    La contraseña inicial asignada es el documento de identidad (<strong>{claveInicial}</strong>). El inquilino podrá entrar directamente y personalizarla desde su perfil si lo desea.
                   </span>
                 </div>
               </div>
@@ -268,14 +267,23 @@ export function InquilinoAccesoModal({
               >
                 Cancelar
               </button>
-              <button
-                type="submit"
-                disabled={isPending}
-                className="h-11 px-4 rounded-xl text-xs font-bold bg-gradient-to-r from-[#175E38] to-[#124b2d] text-white hover:brightness-105 border-b-[3px] border-b-[#0e3a23] active:translate-y-0.5 shadow-md transition-all cursor-pointer flex items-center justify-center gap-2"
-              >
-                <ShieldCheck className="w-4 h-4" />
-                <span>Habilitar Acceso</span>
-              </button>
+              <div className="relative">
+                <button
+                  type="submit"
+                  disabled={isPending}
+                  className="relative w-full h-11 px-4 rounded-xl text-xs font-bold bg-gradient-to-r from-[#175E38] to-[#124b2d] text-white hover:brightness-105 border-b-[3px] border-b-[#0e3a23] active:translate-y-0.5 shadow-md transition-all cursor-pointer flex items-center justify-center gap-2"
+                >
+                  {/* Indicador flotante: Notifica credenciales por correo */}
+                  <span
+                    className="absolute -top-1.5 -right-1.5 z-10 flex items-center justify-center w-5 h-5 rounded-full bg-amber-500 text-white shadow-md border-2 border-white ring-1 ring-amber-600/30 pointer-events-none"
+                    title="Esta acción envía un correo formal con las credenciales al Inquilino"
+                  >
+                    <Mail className="w-2.5 h-2.5 stroke-[2.5]" />
+                  </span>
+                  <ShieldCheck className="w-4 h-4" />
+                  <span>Habilitar Acceso</span>
+                </button>
+              </div>
             </div>
           </form>
         )}
@@ -309,36 +317,27 @@ export function InquilinoAccesoModal({
                 <div className="p-3 sm:p-3.5 bg-slate-50 border border-slate-200/80 rounded-2xl flex items-center justify-between gap-3">
                   <div className="min-w-0">
                     <span className="text-[10px] uppercase font-bold text-slate-400 block mb-0.5 tracking-wider">
-                      Estado de la Contraseña
+                      Estado de la Cuenta
                     </span>
-                    {clavePorDefectoActiva ? (
-                      <span className="font-bold text-amber-700 text-xs sm:text-sm flex items-center gap-1.5">
-                        <KeyRound className="w-4 h-4 text-amber-600 shrink-0" />
-                        <span>Clave Temporal 123456 (Por Defecto)</span>
-                      </span>
-                    ) : (
-                      <span className="font-bold text-[#175E38] text-xs sm:text-sm flex items-center gap-1.5">
-                        <Check className="w-4 h-4 text-emerald-600 shrink-0 stroke-[2.5]" />
-                        <span>Clave Personalizada por el Inquilino</span>
-                      </span>
-                    )}
+                    <span className="font-bold text-[#175E38] text-xs sm:text-sm flex items-center gap-1.5">
+                      <Check className="w-4 h-4 text-emerald-600 shrink-0 stroke-[2.5]" />
+                      <span>Acceso Habilitado (Cédula o Clave Personal)</span>
+                    </span>
                   </div>
-                  {clavePorDefectoActiva && (
-                    <div className="shrink-0">
-                      <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-amber-100 text-amber-800 border border-amber-300">
-                        Provisional
-                      </span>
-                    </div>
-                  )}
+                  <div className="shrink-0">
+                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-100 text-[#175E38] border border-emerald-300">
+                      Activo
+                    </span>
+                  </div>
                 </div>
               </div>
 
-              {/* Restablecer a 123456 */}
+              {/* Restablecer a Cédula/RIF */}
               <div className="p-3.5 bg-slate-50 border border-slate-200/90 rounded-2xl space-y-3">
                 <div>
                   <h5 className="font-bold text-xs text-slate-800 font-heading">Restablecer Contraseña</h5>
                   <p className="text-[11px] text-slate-500">
-                    Devuelve la contraseña del inquilino a la clave estándar <strong>123456</strong>.
+                    Devuelve la contraseña del inquilino a su documento de identidad (<strong>{claveInicial}</strong>).
                   </p>
                 </div>
 
@@ -349,7 +348,7 @@ export function InquilinoAccesoModal({
                     className="h-9 px-3 rounded-xl text-xs font-bold bg-white text-slate-700 border border-slate-200 hover:bg-slate-50 transition-all flex items-center justify-center gap-1 cursor-pointer"
                   >
                     {copiado ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5 text-slate-500" />}
-                    <span>{copiado ? "Copiado" : "Copiar 123456"}</span>
+                    <span>{copiado ? "Copiado" : "Copiar Cédula"}</span>
                   </button>
 
                   <a
@@ -363,15 +362,24 @@ export function InquilinoAccesoModal({
                   </a>
                 </div>
 
-                <button
-                  type="button"
-                  onClick={handleRestablecerClave}
-                  disabled={isPending}
-                  className="w-full h-10 rounded-xl text-xs font-bold bg-[#1C2539] text-white hover:bg-[#2a3754] transition-all cursor-pointer flex items-center justify-center gap-1.5"
-                >
-                  <RotateCcw className="w-3.5 h-3.5" />
-                  <span>Restablecer Contraseña a 123456</span>
-                </button>
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={handleRestablecerClave}
+                    disabled={isPending}
+                    className="relative w-full h-10 rounded-xl text-xs font-bold bg-[#1C2539] text-white hover:bg-[#2a3754] transition-all cursor-pointer flex items-center justify-center gap-1.5"
+                  >
+                    {/* Indicador flotante: Notifica nueva clave por correo */}
+                    <span
+                      className="absolute -top-1.5 -right-1.5 z-10 flex items-center justify-center w-5 h-5 rounded-full bg-amber-500 text-white shadow-md border-2 border-white ring-1 ring-amber-600/30 pointer-events-none"
+                      title="Esta acción envía un correo formal al Inquilino con su clave restablecida"
+                    >
+                      <Mail className="w-2.5 h-2.5 stroke-[2.5]" />
+                    </span>
+                    <RotateCcw className="w-3.5 h-3.5" />
+                    <span>Restablecer Contraseña a Cédula ({claveInicial})</span>
+                  </button>
+                </div>
               </div>
 
               {/* Suspender o reactivar cuenta */}

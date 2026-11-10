@@ -3,20 +3,22 @@
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/auth";
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
 import bcrypt from "bcryptjs";
 import { z } from "zod";
+import { enviarNotificacionAccesoInquilino } from "@/lib/email-templates/notificacion-acceso-inquilino";
 
-// Esquema de validación para crear acceso digital (clave por defecto 123456)
+// Esquema de validación para crear acceso digital (clave inicial igual a la Cédula/RIF)
 const crearAccesoSchema = z.object({
   inquilinoId: z.string().min(1, "El ID de inquilino es obligatorio"),
   email: z.string().email("El correo electrónico no tiene un formato válido").trim().toLowerCase(),
-  passwordTemporal: z.string().default("123456"),
+  passwordTemporal: z.string().optional(),
 });
 
-// Esquema de validación para resetear clave (por defecto 123456)
+// Esquema de validación para resetear clave (por defecto Cédula/RIF)
 const restablecerClaveSchema = z.object({
   inquilinoId: z.string().min(1, "El ID de inquilino es obligatorio"),
-  passwordTemporal: z.string().default("123456"),
+  passwordTemporal: z.string().optional(),
 });
 
 // Esquema de cambio de contraseña en primer acceso
@@ -79,7 +81,9 @@ export async function crearAccesoInquilino(input: z.infer<typeof crearAccesoSche
       };
     }
 
-    const passwordFinal = passwordTemporal || "123456";
+    const passwordFinal = (passwordTemporal && passwordTemporal.trim().length > 0)
+      ? passwordTemporal.trim()
+      : inquilino.documentoIdentidad.trim();
     const passwordHash = await bcrypt.hash(passwordFinal, 10);
 
     // Creación atómica del usuario y vinculación al inquilino
@@ -95,7 +99,7 @@ export async function crearAccesoInquilino(input: z.infer<typeof crearAccesoSche
           direccion: inquilino.direccion,
           rol: "INQUILINO",
           activo: true,
-          mustChangePassword: true,
+          mustChangePassword: false,
         },
       });
 
@@ -106,6 +110,24 @@ export async function crearAccesoInquilino(input: z.infer<typeof crearAccesoSche
           email, // Sincronizar correo oficial en ficha de inquilino
         },
       });
+    });
+
+    // Despacho de correo asíncrono con credenciales (sin bloquear la respuesta)
+    const nombreCompleto = inquilino.apellido
+      ? `${inquilino.nombre} ${inquilino.apellido}`
+      : inquilino.nombre;
+
+    after(async () => {
+      try {
+        await enviarNotificacionAccesoInquilino({
+          inquilinoNombre: nombreCompleto,
+          inquilinoEmail: email,
+          cedula: inquilino.documentoIdentidad,
+          passwordInicial: passwordFinal,
+        });
+      } catch (err) {
+        console.error("Error al despachar correo de bienvenida:", err);
+      }
     });
 
     revalidatePath("/admin/inquilinos");
@@ -146,21 +168,44 @@ export async function restablecerClaveInquilino(input: z.infer<typeof restablece
       return { success: false, message: "El inquilino no tiene un usuario asignado para restablecer clave." };
     }
 
-    const passwordFinal = passwordTemporal || "123456";
+    const passwordFinal = (passwordTemporal && passwordTemporal.trim().length > 0)
+      ? passwordTemporal.trim()
+      : inquilino.documentoIdentidad.trim();
     const passwordHash = await bcrypt.hash(passwordFinal, 10);
 
     await prisma.usuario.update({
       where: { id: inquilino.usuarioId },
       data: {
         passwordHash,
-        mustChangePassword: true,
+        mustChangePassword: false,
       },
     });
+
+    // Despacho de correo al inquilino con su nueva clave restablecida
+    const nombreCompleto = inquilino.apellido
+      ? `${inquilino.nombre} ${inquilino.apellido}`
+      : inquilino.nombre;
+    const emailDestino = inquilino.usuario?.email || inquilino.email;
+
+    if (emailDestino) {
+      after(async () => {
+        try {
+          await enviarNotificacionAccesoInquilino({
+            inquilinoNombre: nombreCompleto,
+            inquilinoEmail: emailDestino,
+            cedula: inquilino.documentoIdentidad,
+            passwordInicial: passwordFinal,
+          });
+        } catch (err) {
+          console.error("Error al despachar correo de restablecimiento:", err);
+        }
+      });
+    }
 
     revalidatePath("/admin/inquilinos");
     return {
       success: true,
-      message: "Contraseña temporal restablecida exitosamente.",
+      message: `Contraseña restablecida exitosamente al número de Cédula/RIF (${passwordFinal}).`,
     };
   } catch (error) {
     console.error("Error al restablecer contraseña de inquilino:", error);

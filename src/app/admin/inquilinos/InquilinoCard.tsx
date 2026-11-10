@@ -108,9 +108,7 @@ export function InquilinoCard({
                   className={`w-8 h-8 rounded-xl border flex items-center justify-center transition-all cursor-pointer shadow-2xs hover:scale-105 active:scale-95 ${
                     inq.usuario
                       ? inq.usuario.activo
-                        ? inq.usuario.mustChangePassword
-                          ? "bg-amber-50 text-amber-700 border-amber-200/90 hover:bg-amber-100"
-                          : "bg-emerald-50 text-[#175E38] border-emerald-200/90 hover:bg-emerald-100"
+                        ? "bg-emerald-50 text-[#175E38] border-emerald-200/90 hover:bg-emerald-100"
                         : "bg-rose-50 text-rose-700 border-rose-200/90 hover:bg-rose-100"
                       : "bg-purple-50 text-purple-700 border-purple-200/90 hover:bg-purple-100"
                   }`}
@@ -204,27 +202,15 @@ export function InquilinoCard({
               {/* Badge de Acceso Digital */}
               {inq.usuario ? (
                 inq.usuario.activo ? (
-                  inq.usuario.mustChangePassword ? (
-                    <button
-                      type="button"
-                      onClick={() => onGestionarAcceso(inq)}
-                      className="inline-flex items-center gap-1 text-xs font-bold text-amber-800 bg-amber-50 hover:bg-amber-100 px-2 py-0.5 rounded-md border border-amber-200 transition-all cursor-pointer"
-                      title="Clave temporal asignada. Clic para gestionar"
-                    >
-                      <KeyRound className="w-3 h-3 text-amber-600" />
-                      <span>Clave 123456</span>
-                    </button>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => onGestionarAcceso(inq)}
-                      className="inline-flex items-center gap-1 text-xs font-bold text-[#175E38] bg-emerald-50 hover:bg-emerald-100 px-2 py-0.5 rounded-md border border-emerald-200 transition-all cursor-pointer"
-                      title="Portal digital activo con clave personalizada. Clic para gestionar"
-                    >
-                      <ShieldCheck className="w-3 h-3 text-[#175E38]" />
-                      <span>Portal Activo</span>
-                    </button>
-                  )
+                  <button
+                    type="button"
+                    onClick={() => onGestionarAcceso(inq)}
+                    className="inline-flex items-center gap-1 text-xs font-bold text-[#175E38] bg-emerald-50 hover:bg-emerald-100 px-2 py-0.5 rounded-md border border-emerald-200 transition-all cursor-pointer"
+                    title="Portal digital activo. Clic para gestionar"
+                  >
+                    <ShieldCheck className="w-3 h-3 text-[#175E38]" />
+                    <span>Portal Activo</span>
+                  </button>
                 ) : (
                   <button
                     type="button"

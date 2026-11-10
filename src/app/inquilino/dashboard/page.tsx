@@ -1,5 +1,4 @@
 import { auth } from "@/auth";
-import { prisma } from "@/lib/prisma";
 import { InquilinoDashboardClient } from "./InquilinoDashboardClient";
 import { getInquilinoDashboardData } from "@/lib/actions/inquilinoPortal";
 
@@ -7,16 +6,6 @@ export const dynamic = "force-dynamic";
 
 export default async function InquilinoDashboardPage() {
   const session = await auth();
-
-  // Consultar estado de clave provisional en la base de datos
-  let mustChangePassword = false;
-  if (session?.user?.id) {
-    const usuario = await prisma.usuario.findUnique({
-      where: { id: session.user.id },
-      select: { mustChangePassword: true },
-    });
-    mustChangePassword = usuario?.mustChangePassword ?? false;
-  }
 
   // Obtener resumen financiero consolidado y locales arrendados
   const { resumen, locales } = await getInquilinoDashboardData();
@@ -35,7 +24,6 @@ export default async function InquilinoDashboardPage() {
     <InquilinoDashboardClient
       nombre={resumen.inquilinoNombre || session?.user?.nombre || "Inquilino"}
       email={session?.user?.email || ""}
-      mustChangePasswordInitial={mustChangePassword}
       fechaFormateada={fechaFormateada}
       resumen={resumen}
       locales={locales}
