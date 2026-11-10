@@ -38,14 +38,21 @@ export function PerfilView({ usuario }: PerfilViewProps) {
   const [isPending, setIsPending] = useState(false);
   const [mustChangePassword, setMustChangePassword] = useState(usuario.mustChangePassword);
 
+  // Estados de error específico por campo para feedback inmediato
+  const [campoError, setCampoError] = useState<"passwordActual" | "passwordNueva" | "passwordConfirmacion" | null>(null);
+  const [mensajeErrorCampo, setMensajeErrorCampo] = useState<string | null>(null);
+
   // Iniciales para el avatar
   const iniciales = `${usuario.nombre.charAt(0)}${usuario.apellido?.charAt(0) || ""}`.toUpperCase();
 
   // Validación en tiempo real
-  const cumpleLongitud = passwordNueva.length >= 6;
-  const coinciden = passwordNueva.length > 0 && passwordNueva === passwordConfirmacion;
+  const cumpleLongitud = passwordNueva.trim().length >= 6;
+  const coinciden = passwordNueva.trim().length > 0 && passwordNueva.trim() === passwordConfirmacion.trim();
   const requiereActual = !mustChangePassword;
-  const formularioValido = cumpleLongitud && coinciden && (!requiereActual || passwordActual.trim().length > 0);
+  const formularioValido =
+    cumpleLongitud &&
+    coinciden &&
+    (!requiereActual || passwordActual.trim().length > 0);
 
   // Fecha de registro formateada
   const fechaRegistro = new Intl.DateTimeFormat("es-ES", {
@@ -81,7 +88,10 @@ export function PerfilView({ usuario }: PerfilViewProps) {
     e.preventDefault();
     if (!formularioValido || isPending) return;
 
+    setCampoError(null);
+    setMensajeErrorCampo(null);
     setIsPending(true);
+
     try {
       const res = await actualizarPasswordAction({
         passwordActual: requiereActual ? passwordActual.trim() : undefined,
@@ -95,11 +105,17 @@ export function PerfilView({ usuario }: PerfilViewProps) {
         setPasswordNueva("");
         setPasswordConfirmacion("");
         setMustChangePassword(false);
+        setCampoError(null);
+        setMensajeErrorCampo(null);
       } else {
-        notify.error("Error", res.message);
+        if (res.campoError) {
+          setCampoError(res.campoError);
+          setMensajeErrorCampo(res.message);
+        }
+        notify.error("Error al actualizar", res.message);
       }
     } catch {
-      notify.error("Error", "Ocurrió un error inesperado al actualizar la contraseña.");
+      notify.error("Error de comunicación", "Ocurrió un error inesperado al actualizar la contraseña.");
     } finally {
       setIsPending(false);
     }
@@ -331,14 +347,26 @@ export function PerfilView({ usuario }: PerfilViewProps) {
                   Contraseña Actual *
                 </label>
                 <div className="relative">
-                  <Lock className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  <Lock className={`w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none transition-colors ${
+                    campoError === "passwordActual" ? "text-rose-500" : "text-slate-400"
+                  }`} />
                   <input
                     type={showActual ? "text" : "password"}
                     value={passwordActual}
-                    onChange={(e) => setPasswordActual(e.target.value)}
+                    onChange={(e) => {
+                      setPasswordActual(e.target.value);
+                      if (campoError === "passwordActual") {
+                        setCampoError(null);
+                        setMensajeErrorCampo(null);
+                      }
+                    }}
                     placeholder="Tu clave actual"
                     required
-                    className="w-full h-11 pl-10 pr-10 rounded-xl border border-slate-200 text-xs sm:text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#175E38]/20 focus:border-[#175E38] transition-all bg-white"
+                    className={`w-full h-11 pl-10 pr-10 rounded-xl border text-xs sm:text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none transition-all bg-white ${
+                      campoError === "passwordActual"
+                        ? "border-rose-400 ring-2 ring-rose-500/20 focus:border-rose-500"
+                        : "border-slate-200 focus:ring-2 focus:ring-[#175E38]/20 focus:border-[#175E38]"
+                    }`}
                   />
                   <button
                     type="button"
@@ -349,6 +377,12 @@ export function PerfilView({ usuario }: PerfilViewProps) {
                     {showActual ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </button>
                 </div>
+                {campoError === "passwordActual" && mensajeErrorCampo && (
+                  <p className="mt-1 text-[11px] text-rose-600 font-semibold flex items-center gap-1 animate-fadeIn">
+                    <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                    <span>{mensajeErrorCampo}</span>
+                  </p>
+                )}
               </div>
             )}
 
@@ -358,14 +392,26 @@ export function PerfilView({ usuario }: PerfilViewProps) {
                 Nueva Contraseña *
               </label>
               <div className="relative">
-                <Lock className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                <Lock className={`w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none transition-colors ${
+                  campoError === "passwordNueva" ? "text-rose-500" : "text-slate-400"
+                }`} />
                 <input
                   type={showNueva ? "text" : "password"}
                   value={passwordNueva}
-                  onChange={(e) => setPasswordNueva(e.target.value)}
+                  onChange={(e) => {
+                    setPasswordNueva(e.target.value);
+                    if (campoError === "passwordNueva") {
+                      setCampoError(null);
+                      setMensajeErrorCampo(null);
+                    }
+                  }}
                   placeholder="Mínimo 6 caracteres"
                   required
-                  className="w-full h-11 pl-10 pr-10 rounded-xl border border-slate-200 text-xs sm:text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#175E38]/20 focus:border-[#175E38] transition-all bg-white"
+                  className={`w-full h-11 pl-10 pr-10 rounded-xl border text-xs sm:text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none transition-all bg-white ${
+                    campoError === "passwordNueva"
+                      ? "border-rose-400 ring-2 ring-rose-500/20 focus:border-rose-500"
+                      : "border-slate-200 focus:ring-2 focus:ring-[#175E38]/20 focus:border-[#175E38]"
+                  }`}
                 />
                 <button
                   type="button"
@@ -376,6 +422,12 @@ export function PerfilView({ usuario }: PerfilViewProps) {
                   {showNueva ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
               </div>
+              {campoError === "passwordNueva" && mensajeErrorCampo && (
+                <p className="mt-1 text-[11px] text-rose-600 font-semibold flex items-center gap-1 animate-fadeIn">
+                  <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                  <span>{mensajeErrorCampo}</span>
+                </p>
+              )}
             </div>
 
             {/* Confirmar Nueva Contraseña */}
@@ -384,14 +436,26 @@ export function PerfilView({ usuario }: PerfilViewProps) {
                 Confirmar Nueva Contraseña *
               </label>
               <div className="relative">
-                <Lock className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                <Lock className={`w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none transition-colors ${
+                  campoError === "passwordConfirmacion" ? "text-rose-500" : "text-slate-400"
+                }`} />
                 <input
                   type={showConfirm ? "text" : "password"}
                   value={passwordConfirmacion}
-                  onChange={(e) => setPasswordConfirmacion(e.target.value)}
+                  onChange={(e) => {
+                    setPasswordConfirmacion(e.target.value);
+                    if (campoError === "passwordConfirmacion") {
+                      setCampoError(null);
+                      setMensajeErrorCampo(null);
+                    }
+                  }}
                   placeholder="Repite la nueva clave"
                   required
-                  className="w-full h-11 pl-10 pr-10 rounded-xl border border-slate-200 text-xs sm:text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#175E38]/20 focus:border-[#175E38] transition-all bg-white"
+                  className={`w-full h-11 pl-10 pr-10 rounded-xl border text-xs sm:text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none transition-all bg-white ${
+                    campoError === "passwordConfirmacion"
+                      ? "border-rose-400 ring-2 ring-rose-500/20 focus:border-rose-500"
+                      : "border-slate-200 focus:ring-2 focus:ring-[#175E38]/20 focus:border-[#175E38]"
+                  }`}
                 />
                 <button
                   type="button"
@@ -402,6 +466,12 @@ export function PerfilView({ usuario }: PerfilViewProps) {
                   {showConfirm ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
               </div>
+              {campoError === "passwordConfirmacion" && mensajeErrorCampo && (
+                <p className="mt-1 text-[11px] text-rose-600 font-semibold flex items-center gap-1 animate-fadeIn">
+                  <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                  <span>{mensajeErrorCampo}</span>
+                </p>
+              )}
             </div>
 
             {/* Indicadores Dinámicos de Validación */}
