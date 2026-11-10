@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useMemo } from "react";
-import { Plus, Building2, User, Loader2, Camera } from "lucide-react";
+import { Plus, Building2, User, Loader2, Camera, Mail } from "lucide-react";
 import { toast } from "sonner";
 import { Modal } from "@/components/ui/modal";
 import { FormSectionHeader } from "@/components/ui/form-section-header";
@@ -333,8 +333,15 @@ export function TareaFormModal({
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full h-11 rounded-xl text-xs font-bold text-white bg-gradient-to-r from-[#175E38] to-[#124b2d] border-b-[3px] border-b-[#0e3a23] active:translate-y-0.5 transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-[0_2px_8px_rgba(23,94,56,0.25)]"
+              className="relative w-full h-11 rounded-xl text-xs font-bold text-white bg-gradient-to-r from-[#175E38] to-[#124b2d] border-b-[3px] border-b-[#0e3a23] active:translate-y-0.5 transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-[0_2px_8px_rgba(23,94,56,0.25)]"
             >
+              {/* Indicador flotante: Notifica por correo al empleado */}
+              <span
+                className="absolute -top-1.5 -right-1.5 z-10 flex items-center justify-center w-5 h-5 rounded-full bg-amber-500 text-white shadow-md border-2 border-white ring-1 ring-amber-600/30 pointer-events-none"
+                title="Esta acción envía un correo automático con la orden al Empleado"
+              >
+                <Mail className="w-2.5 h-2.5 stroke-[2.5]" />
+              </span>
               {isLoading ? (
                 <Loader2 className="w-4 h-4 animate-spin" />
               ) : (
@@ -355,8 +362,15 @@ export function TareaFormModal({
             <button
               type="submit"
               disabled={isLoading}
-              className="min-w-[180px] h-11 px-6 rounded-xl text-xs font-bold text-white bg-gradient-to-r from-[#175E38] to-[#124b2d] border-b-[3px] border-b-[#0e3a23] active:translate-y-0.5 transition-all flex items-center justify-center gap-2 cursor-pointer shadow-[0_2px_8px_rgba(23,94,56,0.25)]"
+              className="relative min-w-[180px] h-11 px-6 rounded-xl text-xs font-bold text-white bg-gradient-to-r from-[#175E38] to-[#124b2d] border-b-[3px] border-b-[#0e3a23] active:translate-y-0.5 transition-all flex items-center justify-center gap-2 cursor-pointer shadow-[0_2px_8px_rgba(23,94,56,0.25)]"
             >
+              {/* Indicador flotante: Notifica por correo al empleado */}
+              <span
+                className="absolute -top-1.5 -right-1.5 z-10 flex items-center justify-center w-5 h-5 rounded-full bg-amber-500 text-white shadow-md border-2 border-white ring-1 ring-amber-600/30 pointer-events-none"
+                title="Esta acción envía un correo automático con la orden al Empleado"
+              >
+                <Mail className="w-2.5 h-2.5 stroke-[2.5]" />
+              </span>
               {isLoading ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin" />

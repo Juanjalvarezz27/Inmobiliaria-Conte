@@ -267,7 +267,7 @@ export function LoginForm() {
     {isDevHelperOpen ? (
       <aside
         aria-label="Credenciales de prueba para desarrollo"
-        className="fixed bottom-6 right-6 z-50 bg-[#1C2539]/95 backdrop-blur-md border border-[#2D4166] rounded-2xl p-4 shadow-2xl w-72 text-white animate-fadeIn"
+        className="fixed bottom-6 right-6 z-50 bg-[#1C2539]/95 backdrop-blur-md border border-[#2D4166] rounded-2xl p-4 shadow-2xl w-80 text-white animate-fadeIn"
       >
         <div className="flex items-center justify-between pb-2 mb-2.5 border-b border-white/10">
           <div className="flex items-center gap-2">
@@ -291,30 +291,39 @@ export function LoginForm() {
         </p>
 
         <div className="space-y-1.5">
+          {/* 1. Administrador */}
           <button
             type="button"
-            onClick={() => fillCredentials("admin@conte.com", "admin123", "Administrador")}
+            onClick={() => fillCredentials("jjsa610@gmail.com", "admin123", "Administrador")}
             className="w-full flex items-center justify-between px-3 py-2 rounded-xl bg-white/5 hover:bg-[#253758] border border-white/10 hover:border-[#3C588A]/60 transition-all text-left cursor-pointer group"
           >
             <div>
-              <span className="block text-xs font-bold text-amber-300">Admin</span>
-              <span className="block text-[11px] text-slate-400 font-mono">admin@conte.com</span>
+              <div className="flex items-center gap-1.5">
+                <span className="block text-xs font-bold text-amber-300">Admin</span>
+                <span className="text-[10px] text-amber-200/80 font-medium">(Juan Álvarez)</span>
+              </div>
+              <span className="block text-[11px] text-slate-400 font-mono">jjsa610@gmail.com</span>
             </div>
             <span className="text-[10px] bg-amber-400/10 text-amber-300 px-2 py-0.5 rounded border border-amber-400/30 font-semibold">Auto</span>
           </button>
 
+          {/* 2. Inquilino */}
           <button
             type="button"
-            onClick={() => fillCredentials("jjsalvarezz@gmail.com", "empleado123", "Personal")}
+            onClick={() => fillCredentials("jjsa6109+inquilino@gmail.com", "inquilino123", "Inquilino (LEYMA C.A)")}
             className="w-full flex items-center justify-between px-3 py-2 rounded-xl bg-white/5 hover:bg-[#253758] border border-white/10 hover:border-[#3C588A]/60 transition-all text-left cursor-pointer group"
           >
             <div>
-              <span className="block text-xs font-bold text-sky-300">Personal Operativo</span>
-              <span className="block text-[11px] text-slate-400 font-mono">jjsalvarezz@gmail.com</span>
+              <div className="flex items-center gap-1.5">
+                <span className="block text-xs font-bold text-emerald-300">Inquilino</span>
+                <span className="text-[10px] text-emerald-200/80 font-medium">(LEYMA C.A)</span>
+              </div>
+              <span className="block text-[11px] text-slate-400 font-mono truncate max-w-[190px]">jjsa6109+inquilino@gmail.com</span>
             </div>
-            <span className="text-[10px] bg-sky-400/10 text-sky-300 px-2 py-0.5 rounded border border-sky-400/30 font-semibold">Auto</span>
+            <span className="text-[10px] bg-emerald-400/10 text-emerald-300 px-2 py-0.5 rounded border border-emerald-400/30 font-semibold shrink-0">Auto</span>
           </button>
 
+          {/* 3. Personal de Seguridad */}
           <button
             type="button"
             onClick={() => fillCredentials("seguridad@conte.com", "seguridad123", "Seguridad / Vigilante")}
@@ -323,23 +332,27 @@ export function LoginForm() {
             <div>
               <div className="flex items-center gap-1.5">
                 <span className="block text-xs font-bold text-teal-300">Seguridad</span>
-                <span className="text-[10px] text-teal-200/80 font-medium">(Bitácora)</span>
+                <span className="text-[10px] text-teal-200/80 font-medium">(Héctor Paredes)</span>
               </div>
               <span className="block text-[11px] text-slate-400 font-mono">seguridad@conte.com</span>
             </div>
             <span className="text-[10px] bg-teal-400/10 text-teal-300 px-2 py-0.5 rounded border border-teal-400/30 font-semibold">Auto</span>
           </button>
 
+          {/* 4. Personal en General */}
           <button
             type="button"
-            onClick={() => fillCredentials("inquilino@conte.com", "inquilino123", "Inquilino")}
+            onClick={() => fillCredentials("jjsa6109@gmail.com", "123456", "Personal General (Alonso Menifield)")}
             className="w-full flex items-center justify-between px-3 py-2 rounded-xl bg-white/5 hover:bg-[#253758] border border-white/10 hover:border-[#3C588A]/60 transition-all text-left cursor-pointer group"
           >
             <div>
-              <span className="block text-xs font-bold text-emerald-300">Inquilino</span>
-              <span className="block text-[11px] text-slate-400 font-mono">inquilino@conte.com</span>
+              <div className="flex items-center gap-1.5">
+                <span className="block text-xs font-bold text-sky-300">Personal General</span>
+                <span className="text-[10px] text-sky-200/80 font-medium">(Alonso Menifield)</span>
+              </div>
+              <span className="block text-[11px] text-slate-400 font-mono">jjsa6109@gmail.com</span>
             </div>
-            <span className="text-[10px] bg-emerald-400/10 text-emerald-300 px-2 py-0.5 rounded border border-emerald-400/30 font-semibold">Auto</span>
+            <span className="text-[10px] bg-sky-400/10 text-sky-300 px-2 py-0.5 rounded border border-sky-400/30 font-semibold">Auto</span>
           </button>
         </div>
       </aside>

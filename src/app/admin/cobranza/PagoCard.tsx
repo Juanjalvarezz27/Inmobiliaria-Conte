@@ -11,6 +11,7 @@ import {
   Receipt,
   Calendar,
   Phone,
+  Mail,
 } from "lucide-react";
 import { WhatsAppIcon } from "@/components/icons/whatsapp-icon";
 import { EstadoPago } from "@prisma/client";
@@ -356,7 +357,7 @@ export function PagoCard({
             }
           }}
           disabled={isLoadingDetalle}
-          className={`w-full h-10 px-3 rounded-xl text-xs font-bold text-white transition-all flex items-center justify-center gap-1.5 cursor-pointer active:translate-y-0.5 ${
+          className={`relative w-full h-10 px-3 rounded-xl text-xs font-bold text-white transition-all flex items-center justify-center gap-1.5 cursor-pointer active:translate-y-0.5 ${
             pago.estado === EstadoPago.PAGADO
               ? "bg-indigo-600 hover:bg-indigo-700 border-b-[3px] border-b-indigo-800 shadow-[0_2px_8px_rgba(79,70,229,0.35)]"
               : esPorConfirmar
@@ -364,6 +365,14 @@ export function PagoCard({
               : "bg-[#175E38] hover:bg-[#124b2d] border-b-[3px] border-b-[#0e3a23] shadow-[0_2px_6px_rgba(23,94,56,0.3)]"
           }`}
         >
+          {esPorConfirmar && (
+            <span
+              className="absolute -top-1.5 -right-1.5 z-10 flex items-center justify-center w-5 h-5 rounded-full bg-amber-500 text-white shadow-md border-2 border-white ring-1 ring-amber-600/30 pointer-events-none"
+              title="Esta acción verifica el comprobante y envía correo al Inquilino"
+            >
+              <Mail className="w-2.5 h-2.5 stroke-[2.5]" />
+            </span>
+          )}
           {pago.estado === EstadoPago.PAGADO ? (
             <>
               <Receipt className="w-3.5 h-3.5 shrink-0" />

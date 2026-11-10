@@ -14,6 +14,7 @@ import {
   Trash2,
   DollarSign,
   Image as ImageIcon,
+  Mail,
 } from "lucide-react";
 import { Modal } from "@/components/ui/modal";
 import { FormSectionHeader } from "@/components/ui/form-section-header";
@@ -577,8 +578,15 @@ function PagoFormContent({
             type="button"
             onClick={() => setModalRechazoAbierto(true)}
             disabled={isLoading || isSubmitting || isRechazando}
-            className="h-11 px-4 rounded-xl text-xs sm:text-sm font-bold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200/90 transition-all flex items-center justify-center gap-1.5 cursor-pointer active:translate-y-0.5 disabled:opacity-50 order-2 sm:order-1 shadow-2xs"
+            className="relative h-11 px-4 rounded-xl text-xs sm:text-sm font-bold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200/90 transition-all flex items-center justify-center gap-1.5 cursor-pointer active:translate-y-0.5 disabled:opacity-50 order-2 sm:order-1 shadow-2xs"
           >
+            {/* Indicador flotante: Notifica rechazo por correo */}
+            <span
+              className="absolute -top-1.5 -right-1.5 z-10 flex items-center justify-center w-5 h-5 rounded-full bg-rose-600 text-white shadow-md border-2 border-white ring-1 ring-rose-700/30 pointer-events-none"
+              title="Esta acción envía un correo al Inquilino con el motivo del rechazo"
+            >
+              <Mail className="w-2.5 h-2.5 stroke-[2.5]" />
+            </span>
             <Trash2 className="w-4 h-4 text-rose-600 shrink-0" />
             <span>Rechazar Comprobante</span>
           </button>
@@ -598,12 +606,19 @@ function PagoFormContent({
           <button
             type="submit"
             disabled={isLoading || isSubmitting || isUploading || isCompressing || isRechazando}
-            className={`w-full sm:w-auto px-6 h-11 rounded-xl text-xs sm:text-sm font-bold text-white active:translate-y-0.5 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 ${
+            className={`relative w-full sm:w-auto px-6 h-11 rounded-xl text-xs sm:text-sm font-bold text-white active:translate-y-0.5 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 ${
               esPorConfirmar
                 ? "bg-blue-600 hover:bg-blue-700 border-b-[3px] border-b-blue-800 shadow-[0_2px_8px_rgba(37,99,235,0.35)]"
                 : "bg-gradient-to-r from-[#175E38] to-[#124b2d] hover:brightness-105 border-b-[3px] border-b-[#0e3a23] shadow-[0_2px_8px_rgba(23,94,56,0.3)]"
             }`}
           >
+            {/* Indicador flotante: Notifica confirmación de pago por correo */}
+            <span
+              className="absolute -top-1.5 -right-1.5 z-10 flex items-center justify-center w-5 h-5 rounded-full bg-amber-500 text-white shadow-md border-2 border-white ring-1 ring-amber-600/30 pointer-events-none"
+              title="Esta acción envía un correo de confirmación oficial al Inquilino"
+            >
+              <Mail className="w-2.5 h-2.5 stroke-[2.5]" />
+            </span>
             {isLoading || isSubmitting ? (
               <>
                 <Loader2 className="w-4 h-4 animate-spin" />
@@ -665,8 +680,15 @@ function PagoFormContent({
             type="button"
             onClick={handleConfirmarRechazo}
             disabled={isRechazando || !motivoRechazoInput.trim()}
-            className="h-11 px-4 rounded-xl text-xs font-bold bg-[#CC1A22] hover:bg-[#a81219] text-white border-b-[3px] border-b-[#7a0d12] transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs active:translate-y-0.5 disabled:opacity-50"
+            className="relative h-11 px-4 rounded-xl text-xs font-bold bg-[#CC1A22] hover:bg-[#a81219] text-white border-b-[3px] border-b-[#7a0d12] transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs active:translate-y-0.5 disabled:opacity-50"
           >
+            {/* Indicador flotante: Notifica rechazo por correo */}
+            <span
+              className="absolute -top-1.5 -right-1.5 z-10 flex items-center justify-center w-5 h-5 rounded-full bg-rose-800 text-white shadow-md border-2 border-white pointer-events-none"
+              title="Envía correo al inquilino con el motivo del rechazo"
+            >
+              <Mail className="w-2.5 h-2.5 stroke-[2.5]" />
+            </span>
             {isRechazando ? (
               <>
                 <Loader2 className="w-3.5 h-3.5 animate-spin" />

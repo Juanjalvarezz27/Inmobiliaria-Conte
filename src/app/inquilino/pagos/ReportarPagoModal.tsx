@@ -26,6 +26,7 @@ import {
   ExternalLink,
   Building2,
   Clock,
+  Mail,
 } from "lucide-react";
 
 interface ReportarPagoModalProps {
@@ -511,8 +512,15 @@ export function ReportarPagoModal({
           <button
             type="submit"
             disabled={isSubmitting || isUploading || isCompressing || !comprobanteUrl}
-            className="w-full sm:w-auto px-6 h-11 rounded-xl text-xs sm:text-sm font-bold bg-gradient-to-r from-[#175E38] to-[#124b2d] hover:brightness-105 text-white border-b-[3px] border-b-[#0e3a23] active:translate-y-0.5 transition-all shadow-[0_2px_8px_rgba(23,94,56,0.3)] flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+            className="relative w-full sm:w-auto px-6 h-11 rounded-xl text-xs sm:text-sm font-bold bg-gradient-to-r from-[#175E38] to-[#124b2d] hover:brightness-105 text-white border-b-[3px] border-b-[#0e3a23] active:translate-y-0.5 transition-all shadow-[0_2px_8px_rgba(23,94,56,0.3)] flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
           >
+            {/* Indicador flotante: Notifica por correo */}
+            <span
+              className="absolute -top-1.5 -right-1.5 z-10 flex items-center justify-center w-5 h-5 rounded-full bg-amber-500 text-white shadow-md border-2 border-white ring-1 ring-amber-600/30 pointer-events-none"
+              title="Esta acción envía un correo automático al Administrador"
+            >
+              <Mail className="w-2.5 h-2.5 stroke-[2.5]" />
+            </span>
             {isSubmitting ? (
               <>
                 <Loader2 className="w-4 h-4 animate-spin" />
