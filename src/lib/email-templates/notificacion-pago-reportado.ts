@@ -14,6 +14,8 @@ export interface NotificacionPagoReportadoParams {
   periodoAno: number;
   montoCanon: number;
   montoReportado: number;
+  montoBs?: number | null;
+  tasaBcv?: number | null;
   metodoPago: MetodoPago;
   referencia: string;
   fechaPago: string;
@@ -37,6 +39,8 @@ export async function enviarNotificacionPagoReportadoAdmin(
       periodoAno,
       montoCanon,
       montoReportado,
+      montoBs,
+      tasaBcv,
       metodoPago,
       referencia,
       fechaPago,
@@ -148,6 +152,13 @@ export async function enviarNotificacionPagoReportadoAdmin(
                       <div style="font-size: 22px; font-weight: 900; color: #175E38; margin-top: 2px;">
                         $${montoReportado.toFixed(2)} USD
                       </div>
+                      ${
+                        montoBs && tasaBcv
+                          ? `<div style="font-size: 13px; font-weight: 800; color: #1E293B; margin-top: 3px;">
+                               Bs. ${montoBs.toLocaleString("es-VE", { minimumFractionDigits: 2 })} <span style="font-size: 11px; font-weight: 500; color: #64748B;">(Tasa BCV: ${tasaBcv.toFixed(2)} Bs/$)</span>
+                             </div>`
+                          : ""
+                      }
                     </td>
                     <td align="right">
                       <span style="font-size: 11px; font-weight: 700; color: #64748B; text-transform: uppercase; letter-spacing: 0.5px;">

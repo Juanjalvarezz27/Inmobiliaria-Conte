@@ -27,13 +27,18 @@ import {
   Building2,
   Clock,
   Mail,
+  Copy,
+  Check,
 } from "lucide-react";
+import { formatBS } from "@/lib/formatters";
+import type { TasaBcvResponse } from "@/lib/bcv";
 
 interface ReportarPagoModalProps {
   isOpen: boolean;
   onClose: () => void;
   pagosPendientes: PagoItem[];
   pagoPreseleccionado?: PagoItem | null;
+  tasaBcvActual?: TasaBcvResponse;
   onSuccess?: () => void;
 }
 
@@ -42,6 +47,7 @@ export function ReportarPagoModal({
   onClose,
   pagosPendientes,
   pagoPreseleccionado,
+  tasaBcvActual,
   onSuccess,
 }: ReportarPagoModalProps) {
   const [pagoId, setPagoId] = useState<string>(
@@ -56,14 +62,31 @@ export function ReportarPagoModal({
     ? Math.max(0, Number((cuotaSeleccionada.montoEsperado - cuotaSeleccionada.montoPagado).toFixed(2)))
     : 0;
 
+  // Detección de comprobante previamente descartado en la cuota seleccionada
+  const matchRechazoModal = cuotaSeleccionada?.notas?.match(
+    /Comprobante descartado por administración:\s*([^.\n]+)/i
+  );
+  const motivoRechazoModal = matchRechazoModal ? matchRechazoModal[1].trim() : null;
+
   const [montoReportado, setMontoReportado] = useState<number>(saldoMaximo);
   const [metodoPago, setMetodoPago] = useState<MetodoPago>(MetodoPago.PAGO_MOVIL);
+  const [montoBs, setMontoBs] = useState<string>("");
+  const [copiado, setCopiado] = useState<boolean>(false);
   const [referencia, setReferencia] = useState<string>("");
   const [fechaPago, setFechaPago] = useState<string>(() => {
     const d = new Date();
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
   });
   const [notas, setNotas] = useState<string>("");
+
+  // Detección de moneda nacional y cálculo en tiempo real
+  const esMetodoVES =
+    metodoPago === MetodoPago.PAGO_MOVIL || metodoPago === MetodoPago.TRANSFERENCIA;
+  const tasaBcvValor = tasaBcvActual?.tasa || 0;
+  const montoBsCalculado =
+    tasaBcvValor > 0 && montoReportado > 0
+      ? Number((montoReportado * tasaBcvValor).toFixed(2))
+      : 0;
 
   // Manejo de comprobante bancario (UploadThing + compresión WebP silenciosa)
   const [comprobanteUrl, setComprobanteUrl] = useState<string>("");
@@ -85,8 +108,30 @@ export function ReportarPagoModal({
       setReferencia("");
       setNotas("");
       setComprobanteUrl("");
+      setMontoBs("");
+      setCopiado(false);
     }
   }, [isOpen, pagoPreseleccionado, pagosPendientes]);
+
+  const handleCopiarMontoBs = () => {
+    const valorACopiar = montoBs ? montoBs : montoBsCalculado.toFixed(2);
+    if (!valorACopiar || Number(valorACopiar) <= 0) return;
+    navigator.clipboard.writeText(valorACopiar);
+    setCopiado(true);
+    toast.success(
+      `Monto copiado: Bs. ${Number(valorACopiar).toLocaleString("es-VE", {
+        minimumFractionDigits: 2,
+      })}`
+    );
+    setTimeout(() => setCopiado(false), 2500);
+  };
+
+  const handleLlenarMontoBs = () => {
+    if (montoBsCalculado > 0) {
+      setMontoBs(montoBsCalculado.toFixed(2));
+      toast.info(`Monto en Bs fijado a Bs. ${montoBsCalculado.toLocaleString("es-VE", { minimumFractionDigits: 2 })}`);
+    }
+  };
 
   const { startUpload, isUploading } = useOperacionesUploadThing("comprobantePago", {
     onClientUploadComplete: (res) => {
@@ -196,6 +241,11 @@ export function ReportarPagoModal({
       const payload: ReportarPagoInput = {
         pagoId,
         montoReportado: Number(montoReportado),
+        montoBs:
+          esMetodoVES && (montoBs || montoBsCalculado)
+            ? Number(montoBs || montoBsCalculado)
+            : undefined,
+        tasaBcv: esMetodoVES && tasaBcvValor > 0 ? tasaBcvValor : undefined,
         fechaPago,
         metodoPago,
         referencia: referencia.trim(),
@@ -229,6 +279,20 @@ export function ReportarPagoModal({
       maxWidth="lg"
     >
       <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-5">
+        {/* Alerta de comprobante previamente descartado */}
+        {motivoRechazoModal && (
+          <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-200/90 text-xs text-rose-800 space-y-1 animate-in fade-in-50">
+            <div className="flex items-center gap-1.5 font-bold text-rose-900">
+              <AlertCircle className="w-4 h-4 text-[#CC1A22] shrink-0" />
+              <span>Comprobante anterior descartado por administración</span>
+            </div>
+            <p className="text-[11px] text-rose-700 leading-relaxed pl-5.5">
+              <strong className="text-rose-900">Motivo:</strong> {motivoRechazoModal}.
+              Por favor, verifica los datos del pago y adjunta un comprobante nítido y legible.
+            </p>
+          </div>
+        )}
+
         {/* Paso 1: Selección de Cuota y Monto */}
         <div className="space-y-3 sm:space-y-3.5">
           <FormSectionHeader
@@ -345,6 +409,92 @@ export function ReportarPagoModal({
                 placeholder="Seleccionar método..."
               />
             </div>
+
+            {/* Panel Asistido de Conversión a Bolívares (Fase 23) */}
+            {esMetodoVES && (
+              <div className="p-3.5 bg-gradient-to-br from-emerald-50/90 via-emerald-50/50 to-slate-50 border border-emerald-200/90 rounded-2xl shadow-2xs space-y-3 animate-in fade-in-50">
+                <div className="flex items-center justify-between gap-2 flex-wrap">
+                  <div className="flex items-center gap-2">
+                    <div className="w-7 h-7 rounded-lg bg-[#175E38] text-white flex items-center justify-center shrink-0 shadow-2xs">
+                      <Building2 className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <span className="text-[11px] font-black uppercase tracking-wider text-emerald-950 block leading-tight">
+                        Cálculo en Bolívares (Tasa Oficial BCV)
+                      </span>
+                      <span className="text-[10px] text-emerald-700 font-medium">
+                        1 USD = Bs. {tasaBcvValor ? tasaBcvValor.toLocaleString("es-VE", { minimumFractionDigits: 2, maximumFractionDigits: 4 }) : "—"}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={handleCopiarMontoBs}
+                      className="px-2.5 py-1 rounded-lg bg-white border border-emerald-200 text-emerald-800 text-[10px] font-bold hover:bg-emerald-50 transition-all flex items-center gap-1 shadow-2xs cursor-pointer active:scale-95"
+                      title="Copiar monto sugerido en Bs para pegar en tu banco"
+                    >
+                      {copiado ? (
+                        <>
+                          <Check className="w-3 h-3 text-emerald-600" />
+                          <span>¡Copiado!</span>
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="w-3 h-3 text-emerald-700" />
+                          <span>Copiar Bs</span>
+                        </>
+                      )}
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={handleLlenarMontoBs}
+                      className="px-2.5 py-1 rounded-lg bg-[#175E38] text-white text-[10px] font-bold hover:bg-[#124b2d] transition-all flex items-center gap-1 shadow-2xs cursor-pointer active:scale-95"
+                      title="Llenar casilla con el monto calculado exacto"
+                    >
+                      <span>Llenar Bs</span>
+                    </button>
+                  </div>
+                </div>
+
+                <div className="p-2.5 bg-white/90 rounded-xl border border-emerald-100 flex items-center justify-between gap-3">
+                  <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wide">
+                    Monto sugerido a transferir:
+                  </span>
+                  <span className="text-base sm:text-lg font-black font-heading text-emerald-800">
+                    Bs. {montoBsCalculado.toLocaleString("es-VE", { minimumFractionDigits: 2 })}
+                  </span>
+                </div>
+
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wide">
+                      Monto debitado en Bolívares (Bs.) <span className="text-emerald-700">*</span>
+                    </label>
+                    <span className="text-[10px] text-slate-400">
+                      Según tu comprobante bancario
+                    </span>
+                  </div>
+                  <div className="relative">
+                    <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400 font-bold text-xs">
+                      Bs.
+                    </span>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0.01"
+                      value={montoBs}
+                      onChange={(e) => setMontoBs(e.target.value)}
+                      disabled={isSubmitting}
+                      placeholder={montoBsCalculado > 0 ? montoBsCalculado.toFixed(2) : "0.00"}
+                      className="w-full h-10 pl-10 pr-3 rounded-xl border border-slate-200 bg-white text-xs sm:text-sm font-bold text-slate-800 focus:outline-hidden focus:ring-2 focus:ring-[#175E38]/20 focus:border-[#175E38] shadow-2xs"
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
 
             <div>
               <label className="block text-xs font-bold text-slate-700 uppercase tracking-wide mb-1.5">

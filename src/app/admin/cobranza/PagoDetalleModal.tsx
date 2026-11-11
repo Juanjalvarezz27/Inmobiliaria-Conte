@@ -603,6 +603,11 @@ export function PagoDetalleModal({
                   {pago.referencia ? `Referencia: ${pago.referencia} • ` : ""}
                   Adjuntado para conciliación. Puedes revisar el comprobante y liquidar la cuota.
                 </p>
+                {pago.montoBs && pago.tasaBcv ? (
+                  <span className="block text-blue-900 font-black text-xs mt-1 bg-blue-100/70 border border-blue-200/80 px-2 py-0.5 rounded-md inline-block">
+                    Bs. {pago.montoBs.toLocaleString("es-VE", { minimumFractionDigits: 2 })} (Tasa oficial congelada: {pago.tasaBcv.toFixed(2)} Bs/$)
+                  </span>
+                ) : null}
               </div>
             </div>
 
@@ -719,6 +724,11 @@ export function PagoDetalleModal({
                           <span className="text-[11px] text-slate-500 font-medium block">
                             {fPago}
                           </span>
+                          {tx.montoBs && tx.tasaBcv ? (
+                            <span className="text-[10px] font-bold text-emerald-800 bg-emerald-50 border border-emerald-200/60 px-1.5 py-0.2 rounded-sm inline-block mt-0.5">
+                              Bs. {tx.montoBs.toLocaleString("es-VE", { minimumFractionDigits: 2 })} (Tasa: {tx.tasaBcv.toFixed(2)} Bs/$)
+                            </span>
+                          ) : null}
                         </div>
                       </div>
 

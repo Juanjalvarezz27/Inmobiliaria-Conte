@@ -1,6 +1,7 @@
 import type {
   EstadoPago,
   MetodoPago,
+  MonedaTransaccion,
   TipoPropiedad,
   TipoUnidad,
   EstadoContrato,
@@ -12,6 +13,10 @@ export interface TransaccionPagoItem {
   id: string;
   pagoId: string;
   monto: number;
+  monedaOriginal?: MonedaTransaccion | null;
+  montoOriginal?: number | null;
+  montoBs?: number | null;
+  tasaBcv?: number | null;
   fechaPago: string;
   metodoPago: MetodoPago;
   referencia: string | null;
@@ -28,6 +33,10 @@ export interface PagoItem {
   periodoAno: number;
   montoEsperado: number;
   montoPagado: number;
+  monedaOriginal?: MonedaTransaccion | null;
+  montoOriginal?: number | null;
+  montoBs?: number | null;
+  tasaBcv?: number | null;
   fechaVencimiento: string;
   fechaPago: string | null;
   metodoPago: MetodoPago | null;

@@ -230,16 +230,20 @@ model Pago {
   periodoMes       Int         // 1 - 12
   periodoAno       Int         // Ej: 2026
   montoEsperado    Float
-  montoPagado      Float       @default(0)
+  montoPagado      Float              @default(0)
+  monedaOriginal   MonedaTransaccion? @default(USD)
+  montoOriginal    Float?             // Monto real en Bs o USD reportado/pagado
+  montoBs          Float?             // Monto equivalente o pagado en Bolívares (congelado en fecha de pago)
+  tasaBcv          Float?             // Tasa oficial BCV congelada en la fecha del pago/reporte
   fechaVencimiento DateTime
   fechaPago        DateTime?
   metodoPago       MetodoPago?
   referencia       String?
   comprobanteUrl   String?
-  estado           EstadoPago  @default(PENDIENTE)
+  estado           EstadoPago         @default(PENDIENTE)
   notas            String?
-  createdAt        DateTime    @default(now())
-  updatedAt        DateTime    @updatedAt
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
 
   transacciones    TransaccionPago[]
 
@@ -252,17 +256,21 @@ model Pago {
 }
 
 model TransaccionPago {
-  id             String      @id @default(cuid())
+  id             String             @id @default(cuid())
   pagoId         String
-  pago           Pago        @relation(fields: [pagoId], references: [id], onDelete: Cascade)
-  monto          Float       // Monto de este abono específico en USD
-  fechaPago      DateTime    @default(now()) // Fecha en que se recibió el abono
-  metodoPago     MetodoPago  // Efectivo, Zelle, Transferencia, etc.
-  referencia     String?     // Número de referencia bancaria o recibo
-  comprobanteUrl String?     // URL de la captura o voucher de este abono
-  notas          String?     // Observaciones del abono
-  createdAt      DateTime    @default(now())
-  updatedAt      DateTime    @updatedAt
+  pago           Pago               @relation(fields: [pagoId], references: [id], onDelete: Cascade)
+  monto          Float              // Monto de este abono específico en USD
+  monedaOriginal MonedaTransaccion? @default(USD)
+  montoOriginal  Float?             // Monto real en Bs o USD ingresado
+  montoBs        Float?             // Monto en Bolívares congelado en la fecha del abono
+  tasaBcv        Float?             // Tasa oficial BCV congelada en la fecha del abono
+  fechaPago      DateTime           @default(now()) // Fecha en que se recibió el abono
+  metodoPago     MetodoPago         // Efectivo, Zelle, Transferencia, etc.
+  referencia     String?            // Número de referencia bancaria o recibo
+  comprobanteUrl String?            // URL de la captura o voucher de este abono
+  notas          String?            // Observaciones del abono
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
 
   @@map("transacciones_pago")
 }

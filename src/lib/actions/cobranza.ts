@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { after } from "next/server";
 import { z } from "zod";
-import { EstadoContrato, EstadoPago, MetodoPago, Prisma, TransaccionPago } from "@prisma/client";
+import { EstadoContrato, EstadoPago, MetodoPago, MonedaTransaccion, Prisma, TransaccionPago } from "@prisma/client";
 import { eliminarArchivosUploadThing } from "@/lib/uploadthing-server";
 import { getPropiedadesOpciones } from "./propiedades";
 import type { PagoItem, EstadisticasCobranza } from "@/app/admin/cobranza/types";
@@ -39,6 +39,10 @@ const registrarPagoSchema = z.object({
   montoPagado: z.coerce.number().positive("El monto pagado debe ser mayor a 0"),
   fechaPago: z.string().min(1, "La fecha de pago es requerida"),
   metodoPago: z.nativeEnum(MetodoPago),
+  monedaOriginal: z.nativeEnum(MonedaTransaccion).optional().nullable(),
+  montoOriginal: z.coerce.number().positive().optional().nullable(),
+  montoBs: z.coerce.number().positive().optional().nullable(),
+  tasaBcv: z.coerce.number().positive().optional().nullable(),
   referencia: z.string().optional().nullable(),
   comprobanteUrl: z.string().optional().nullable().or(z.literal("")),
   notas: z.string().optional().nullable(),
@@ -54,6 +58,10 @@ const PAGO_SELECT = {
   periodoAno: true,
   montoEsperado: true,
   montoPagado: true,
+  monedaOriginal: true,
+  montoOriginal: true,
+  montoBs: true,
+  tasaBcv: true,
   fechaVencimiento: true,
   fechaPago: true,
   metodoPago: true,
@@ -68,6 +76,10 @@ const PAGO_SELECT = {
       id: true,
       pagoId: true,
       monto: true,
+      monedaOriginal: true,
+      montoOriginal: true,
+      montoBs: true,
+      tasaBcv: true,
       fechaPago: true,
       metodoPago: true,
       referencia: true,
@@ -145,6 +157,10 @@ const PAGO_LIST_SELECT = {
   periodoAno: true,
   montoEsperado: true,
   montoPagado: true,
+  monedaOriginal: true,
+  montoOriginal: true,
+  montoBs: true,
+  tasaBcv: true,
   fechaVencimiento: true,
   fechaPago: true,
   metodoPago: true,
@@ -159,6 +175,10 @@ const PAGO_LIST_SELECT = {
       id: true,
       pagoId: true,
       monto: true,
+      monedaOriginal: true,
+      montoOriginal: true,
+      montoBs: true,
+      tasaBcv: true,
       fechaPago: true,
       metodoPago: true,
       referencia: true,
@@ -215,6 +235,10 @@ function serializePagoItem(p: any): PagoItem {
     periodoAno: p.periodoAno,
     montoEsperado: p.montoEsperado,
     montoPagado: p.montoPagado,
+    monedaOriginal: p.monedaOriginal,
+    montoOriginal: p.montoOriginal,
+    montoBs: p.montoBs,
+    tasaBcv: p.tasaBcv,
     fechaVencimiento: p.fechaVencimiento.toISOString(),
     fechaPago: p.fechaPago ? p.fechaPago.toISOString() : null,
     metodoPago: p.metodoPago,
@@ -225,10 +249,14 @@ function serializePagoItem(p: any): PagoItem {
     createdAt: p.createdAt.toISOString(),
     updatedAt: p.updatedAt.toISOString(),
     transacciones: p.transacciones
-      ? p.transacciones.map((t: TransaccionPago) => ({
+      ? p.transacciones.map((t: any) => ({
           id: t.id,
           pagoId: t.pagoId,
           monto: t.monto,
+          monedaOriginal: t.monedaOriginal,
+          montoOriginal: t.montoOriginal,
+          montoBs: t.montoBs,
+          tasaBcv: t.tasaBcv,
           fechaPago: t.fechaPago.toISOString(),
           metodoPago: t.metodoPago,
           referencia: t.referencia,
@@ -710,10 +738,25 @@ export async function registrarPago(input: RegistrarPagoInput) {
       };
     }
 
-    const { pagoId, montoPagado, fechaPago, metodoPago, referencia, comprobanteUrl, notas } =
-      validado.data;
+    const {
+      pagoId,
+      montoPagado,
+      fechaPago,
+      metodoPago,
+      referencia,
+      comprobanteUrl,
+      notas,
+      monedaOriginal,
+      montoOriginal,
+      montoBs,
+      tasaBcv,
+    } = validado.data;
 
     const fechaPagoDate = new Date(fechaPago);
+    const esMonedaNacional = metodoPago === MetodoPago.PAGO_MOVIL || metodoPago === MetodoPago.TRANSFERENCIA;
+    const monedaEfectiva = monedaOriginal || (esMonedaNacional ? MonedaTransaccion.VES : MonedaTransaccion.USD);
+    const montoBsEfectivo = montoBs || (esMonedaNacional && tasaBcv ? Number((montoPagado * tasaBcv).toFixed(2)) : null);
+    const montoOriginalEfectivo = montoOriginal || (esMonedaNacional && montoBsEfectivo ? montoBsEfectivo : montoPagado);
 
     const pagoActualizado = await prisma.$transaction(async (tx) => {
       const pagoActual = await tx.pago.findUnique({
@@ -729,6 +772,10 @@ export async function registrarPago(input: RegistrarPagoInput) {
         data: {
           pagoId,
           monto: montoPagado,
+          monedaOriginal: monedaEfectiva,
+          montoOriginal: montoOriginalEfectivo,
+          montoBs: montoBsEfectivo,
+          tasaBcv: tasaBcv || null,
           fechaPago: fechaPagoDate,
           metodoPago,
           referencia: referencia ? referencia.trim() : null,
@@ -761,6 +808,10 @@ export async function registrarPago(input: RegistrarPagoInput) {
         where: { id: pagoId },
         data: {
           montoPagado: totalAbonado,
+          monedaOriginal: monedaEfectiva,
+          montoOriginal: montoOriginalEfectivo,
+          montoBs: montoBsEfectivo,
+          tasaBcv: tasaBcv || null,
           fechaPago: fechaPagoDate,
           metodoPago,
           referencia: referencia ? referencia.trim() : null,

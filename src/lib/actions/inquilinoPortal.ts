@@ -5,8 +5,9 @@ import { auth } from "@/auth";
 import { revalidatePath } from "next/cache";
 import { after } from "next/server";
 import { z } from "zod";
-import { MetodoPago } from "@prisma/client";
+import { MetodoPago, MonedaTransaccion } from "@prisma/client";
 import type { PagoItem } from "@/app/admin/cobranza/types";
+import { getTasaBcvOficial, type TasaBcvResponse } from "@/lib/bcv";
 import { enviarNotificacionPagoReportadoAdmin } from "@/lib/email-templates/notificacion-pago-reportado";
 
 /**
@@ -523,9 +524,13 @@ export async function getInquilinoPagosDataAction(): Promise<{
   resumen: ResumenFinancieroInquilino;
   esAdminModoSupervision: boolean;
   inquilinoNombre: string;
+  tasaBcvActual: TasaBcvResponse;
 }> {
   const session = await auth();
   if (!session?.user?.id) throw new Error("No autenticado");
+
+  // Obtener la tasa oficial BCV del día en paralelo
+  const tasaBcvActual = await getTasaBcvOficial();
 
   // Buscar el perfil Inquilino vinculado al usuario
   let inquilino = await prisma.inquilino.findUnique({
@@ -593,6 +598,7 @@ export async function getInquilinoPagosDataAction(): Promise<{
       resumen,
       esAdminModoSupervision,
       inquilinoNombre: session.user.name || "Inquilino",
+      tasaBcvActual,
     };
   }
 
@@ -608,6 +614,10 @@ export async function getInquilinoPagosDataAction(): Promise<{
         periodoAno: p.periodoAno,
         montoEsperado: p.montoEsperado,
         montoPagado: p.montoPagado,
+        monedaOriginal: p.monedaOriginal,
+        montoOriginal: p.montoOriginal,
+        montoBs: p.montoBs,
+        tasaBcv: p.tasaBcv,
         fechaVencimiento: p.fechaVencimiento.toISOString(),
         fechaPago: p.fechaPago ? p.fechaPago.toISOString() : null,
         metodoPago: p.metodoPago,
@@ -621,6 +631,10 @@ export async function getInquilinoPagosDataAction(): Promise<{
           id: t.id,
           pagoId: t.pagoId,
           monto: t.monto,
+          monedaOriginal: t.monedaOriginal,
+          montoOriginal: t.montoOriginal,
+          montoBs: t.montoBs,
+          tasaBcv: t.tasaBcv,
           fechaPago: t.fechaPago.toISOString(),
           metodoPago: t.metodoPago,
           referencia: t.referencia,
@@ -686,12 +700,15 @@ export async function getInquilinoPagosDataAction(): Promise<{
     resumen,
     esAdminModoSupervision,
     inquilinoNombre: `${inquilino.nombre} ${inquilino.apellido || ""}`.trim(),
+    tasaBcvActual,
   };
 }
 
 const reportarPagoSchema = z.object({
   pagoId: z.string().min(1, "El identificador de la cuota es requerido"),
   montoReportado: z.coerce.number().positive("El monto debe ser mayor a 0"),
+  montoBs: z.coerce.number().positive().optional().nullable(),
+  tasaBcv: z.coerce.number().positive().optional().nullable(),
   fechaPago: z.string().min(1, "La fecha de pago es requerida"),
   metodoPago: z.nativeEnum(MetodoPago),
   referencia: z.string().trim().min(3, "La referencia o número de comprobante es requerida"),
@@ -719,8 +736,17 @@ export async function reportarPagoInquilinoAction(input: ReportarPagoInput): Pro
       };
     }
 
-    const { pagoId, montoReportado, fechaPago, metodoPago, referencia, comprobanteUrl, notas } =
-      validacion.data;
+    const {
+      pagoId,
+      montoReportado,
+      montoBs,
+      tasaBcv,
+      fechaPago,
+      metodoPago,
+      referencia,
+      comprobanteUrl,
+      notas,
+    } = validacion.data;
 
     const pago = await prisma.pago.findUnique({
       where: { id: pagoId },
@@ -764,11 +790,26 @@ export async function reportarPagoInquilinoAction(input: ReportarPagoInput): Pro
       };
     }
 
+    // Determinar si es método en Bolívares y calcular montos congelados
+    const esMonedaNacional =
+      metodoPago === MetodoPago.PAGO_MOVIL || metodoPago === MetodoPago.TRANSFERENCIA;
+    const monedaOriginal = esMonedaNacional ? MonedaTransaccion.VES : MonedaTransaccion.USD;
+    const montoBsCalculado =
+      montoBs || (esMonedaNacional && tasaBcv ? Number((montoReportado * tasaBcv).toFixed(2)) : null);
+    const montoOriginalCalculado = esMonedaNacional
+      ? montoBsCalculado || montoReportado
+      : montoReportado;
+
     // Actualizar la cuota con el soporte del inquilino para auditoría administrativa
     const fechaObj = new Date(fechaPago);
+    const detalleBsAudit =
+      esMonedaNacional && montoBsCalculado && tasaBcv
+        ? ` • Bs. ${montoBsCalculado.toLocaleString("es-VE", { minimumFractionDigits: 2 })} @ Tasa BCV: ${tasaBcv.toFixed(2)} Bs/$`
+        : "";
+
     const notasLimpias = [
       pago.notas,
-      `Reportado por inquilino: ${referencia} ($${montoReportado.toFixed(2)}) el ${fechaPago}.`,
+      `Reportado por inquilino: Ref ${referencia} ($${montoReportado.toFixed(2)} USD${detalleBsAudit}) el ${fechaPago}.`,
       notas?.trim() || "",
     ]
       .filter(Boolean)
@@ -781,6 +822,10 @@ export async function reportarPagoInquilinoAction(input: ReportarPagoInput): Pro
         referencia: referencia.trim(),
         comprobanteUrl: comprobanteUrl.trim(),
         fechaPago: isNaN(fechaObj.getTime()) ? new Date() : fechaObj,
+        monedaOriginal,
+        montoOriginal: montoOriginalCalculado,
+        montoBs: montoBsCalculado,
+        tasaBcv: tasaBcv || null,
         notas: notasLimpias,
       },
     });
@@ -798,6 +843,8 @@ export async function reportarPagoInquilinoAction(input: ReportarPagoInput): Pro
         periodoAno: pago.periodoAno,
         montoCanon: pago.montoEsperado,
         montoReportado,
+        montoBs: montoBsCalculado,
+        tasaBcv: tasaBcv || null,
         metodoPago,
         referencia: referencia.trim(),
         fechaPago,

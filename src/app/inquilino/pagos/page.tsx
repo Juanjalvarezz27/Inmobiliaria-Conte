@@ -17,7 +17,7 @@ export default async function InquilinoPagosPage() {
     redirect("/empleado/dashboard?unauthorized=inquilino");
   }
 
-  const { pagos, resumen, esAdminModoSupervision, inquilinoNombre } =
+  const { pagos, resumen, esAdminModoSupervision, inquilinoNombre, tasaBcvActual } =
     await getInquilinoPagosDataAction();
 
   return (
@@ -26,6 +26,7 @@ export default async function InquilinoPagosPage() {
       resumen={resumen}
       esAdminModoSupervision={esAdminModoSupervision}
       inquilinoNombre={inquilinoNombre}
+      tasaBcvActual={tasaBcvActual}
     />
   );
 }

@@ -190,6 +190,7 @@ function PagoFormContent({
       return;
     }
 
+    const esMetodoVES = metodoPago === MetodoPago.PAGO_MOVIL || metodoPago === MetodoPago.TRANSFERENCIA;
     const payload: RegistrarPagoInput = {
       pagoId: pago.id,
       montoPagado: montoNumero,
@@ -198,6 +199,10 @@ function PagoFormContent({
       referencia: referencia.trim() || undefined,
       comprobanteUrl: comprobanteUrl.trim() || undefined,
       notas: notas.trim() || undefined,
+      monedaOriginal: pago.monedaOriginal || (esMetodoVES ? "VES" : "USD"),
+      montoOriginal: pago.montoOriginal || (pago.montoBs ? pago.montoBs : montoNumero),
+      montoBs: pago.montoBs || null,
+      tasaBcv: pago.tasaBcv || null,
     };
 
     setIsSubmitting(true);
@@ -333,10 +338,19 @@ function PagoFormContent({
                 {pago.montoPagado > 0 ? "Monto de este Abono (USD)" : "Monto a Registrar (USD)"}{" "}
                 <span className="text-rose-500">*</span>
               </label>
-              {esPorConfirmar && montoReportadoParsed && (
-                <span className="text-[10px] font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded-md border border-blue-200/80">
-                  Reportado: ${montoReportadoParsed.toFixed(2)} USD
-                </span>
+              {esPorConfirmar && (
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  {montoReportadoParsed && (
+                    <span className="text-[10px] font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded-md border border-blue-200/80">
+                      Reportado: ${montoReportadoParsed.toFixed(2)} USD
+                    </span>
+                  )}
+                  {pago.montoBs && pago.tasaBcv && (
+                    <span className="text-[10px] font-bold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200/80">
+                      Bs. {pago.montoBs.toLocaleString("es-VE", { minimumFractionDigits: 2 })} ({pago.tasaBcv.toFixed(2)} Bs/$)
+                    </span>
+                  )}
+                </div>
               )}
             </div>
             <div className="relative">

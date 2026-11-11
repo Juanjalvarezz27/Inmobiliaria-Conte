@@ -478,6 +478,10 @@ export async function getCierreMesData(mes: number, ano: number) {
       select: {
         id: true,
         montoPagado: true,
+        monedaOriginal: true,
+        montoOriginal: true,
+        montoBs: true,
+        tasaBcv: true,
         fechaPago: true,
         fechaVencimiento: true,
         createdAt: true,
@@ -606,16 +610,17 @@ export async function getCierreMesData(mes: number, ano: number) {
         ? `Cobro Alquiler (${unidCodigo})${inqNombre ? ` - ${inqNombre}` : ""}`
         : `Cobro de Alquiler${inqNombre ? ` - ${inqNombre}` : ""}`;
 
+      const esVes = p.monedaOriginal === MonedaTransaccion.VES;
       propiedadesMap[propId].movimientos.push({
         id: `pago-${p.id}`,
         fecha: fechaObj.toISOString().split("T")[0],
         tipo: "INGRESO",
         concepto,
         propiedad: propNombre,
-        monedaOriginal: "USD",
-        montoOriginal: p.montoPagado,
-        montoBs: null,
-        tasaBcv: null,
+        monedaOriginal: esVes ? "VES" : "USD",
+        montoOriginal: p.montoOriginal || (p.montoBs ? p.montoBs : p.montoPagado),
+        montoBs: p.montoBs || null,
+        tasaBcv: p.tasaBcv || null,
         montoUsd: Number(p.montoPagado.toFixed(2)),
       });
     }
@@ -755,6 +760,10 @@ export async function getMovimientosDetalladosPeriodo(params: {
     select: {
       id: true,
       montoPagado: true,
+      monedaOriginal: true,
+      montoOriginal: true,
+      montoBs: true,
+      tasaBcv: true,
       fechaPago: true,
       fechaVencimiento: true,
       createdAt: true,
@@ -829,9 +838,9 @@ export async function getMovimientosDetalladosPeriodo(params: {
       concepto: "Cobranza de Alquiler",
       contratoCodigo: p.contrato?.codigo || null,
       monto: Number(p.montoPagado.toFixed(2)),
-      monedaOriginal: MonedaTransaccion.USD,
-      montoOriginal: null,
-      tasaBcv: null,
+      monedaOriginal: p.monedaOriginal || MonedaTransaccion.USD,
+      montoOriginal: p.montoOriginal || (p.montoBs ? p.montoBs : null),
+      tasaBcv: p.tasaBcv || null,
       fecha: fechaIso,
       dia,
       inquilinoNombre: inqNombre,

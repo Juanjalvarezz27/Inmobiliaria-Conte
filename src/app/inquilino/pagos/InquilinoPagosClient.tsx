@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import {
   DollarSign,
   Calendar,
@@ -21,13 +21,16 @@ import {
   Layers,
   AlertTriangle,
   Receipt,
+  Store,
+  ChevronDown,
 } from "lucide-react";
 import { PageHeader, StatCard, Badge, ImageViewerModal } from "@/components/ui";
 import { FilterDropdown, type FilterDropdownOption } from "@/components/ui/filter-dropdown";
-import { formatUSD } from "@/lib/formatters";
+import { formatUSD, formatBS } from "@/lib/formatters";
 import { MESES } from "@/lib/date-utils";
 import type { PagoItem } from "@/app/admin/cobranza/types";
 import type { ResumenFinancieroInquilino } from "@/lib/actions/inquilinoPortal";
+import type { TasaBcvResponse } from "@/lib/bcv";
 import { ReportarPagoModal } from "./ReportarPagoModal";
 import { construirReciboPdf } from "@/app/admin/cobranza/generarReciboPdf";
 import { toast } from "sonner";
@@ -38,6 +41,7 @@ interface InquilinoPagosClientProps {
   resumen: ResumenFinancieroInquilino;
   esAdminModoSupervision: boolean;
   inquilinoNombre: string;
+  tasaBcvActual?: TasaBcvResponse;
 }
 
 export function InquilinoPagosClient({
@@ -45,6 +49,7 @@ export function InquilinoPagosClient({
   resumen,
   esAdminModoSupervision,
   inquilinoNombre,
+  tasaBcvActual,
 }: InquilinoPagosClientProps) {
   const router = useRouter();
   const pagos = initialPagos;
@@ -63,6 +68,24 @@ export function InquilinoPagosClient({
 
   // Estado de descarga de PDF
   const [descargandoId, setDescargandoId] = useState<string | null>(null);
+
+  // Popover flotante para motivo de descarte de comprobante
+  const [motivoActivoId, setMotivoActivoId] = useState<string | null>(null);
+
+  // Cierre automático del popover flotante al hacer clic afuera o pulsar Escape
+  useEffect(() => {
+    if (!motivoActivoId) return;
+    const handleDocumentClick = () => setMotivoActivoId(null);
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setMotivoActivoId(null);
+    };
+    window.addEventListener("click", handleDocumentClick);
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.removeEventListener("click", handleDocumentClick);
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [motivoActivoId]);
 
   // Años disponibles en el historial
   const anosDisponibles = useMemo(() => {
@@ -193,6 +216,81 @@ export function InquilinoPagosClient({
     });
   }, [pagos, filtroEstado, filtroAno, busqueda]);
 
+  // Agrupación jerárquica de cuotas por Local / Contrato arrendado
+  const gruposPorLocal = useMemo(() => {
+    interface GrupoLocal {
+      contratoId: string;
+      codigoContrato: string;
+      unidadCodigo: string;
+      unidadTipo?: string;
+      propiedadNombre: string;
+      propiedadCiudad?: string;
+      canon: number;
+      pagos: PagoItem[];
+      totalPendienteUSD: number;
+      tieneMora: boolean;
+      tieneVerificacion: boolean;
+    }
+
+    const mapa = new Map<string, GrupoLocal>();
+
+    pagosFiltrados.forEach((pago) => {
+      const cId = pago.contratoId || "general";
+      if (!mapa.has(cId)) {
+        const unidad = pago.contrato?.unidad;
+        mapa.set(cId, {
+          contratoId: cId,
+          codigoContrato: pago.contrato?.codigo || "Contrato",
+          unidadCodigo: unidad?.codigo || "Espacio Arrendado",
+          unidadTipo: unidad?.tipo,
+          propiedadNombre: unidad?.propiedad?.nombre || "Inmueble",
+          propiedadCiudad: unidad?.propiedad?.ciudad,
+          canon: pago.montoEsperado || pago.contrato?.montoAlquiler || 0,
+          pagos: [],
+          totalPendienteUSD: 0,
+          tieneMora: false,
+          tieneVerificacion: false,
+        });
+      }
+      const grupo = mapa.get(cId)!;
+      grupo.pagos.push(pago);
+      const pendiente = Math.max(0, pago.montoEsperado - pago.montoPagado);
+      grupo.totalPendienteUSD += pendiente;
+      if (pago.estado === "VENCIDO") grupo.tieneMora = true;
+      if (pago.estado !== "PAGADO" && Boolean(pago.comprobanteUrl)) grupo.tieneVerificacion = true;
+    });
+
+    const lista = Array.from(mapa.values());
+    // Prioridad: locales con saldo pendiente de cobro primero, luego orden por código de unidad
+    return lista.sort((a, b) => {
+      if (a.totalPendienteUSD > 0 && b.totalPendienteUSD <= 0) return -1;
+      if (a.totalPendienteUSD <= 0 && b.totalPendienteUSD > 0) return 1;
+      return a.unidadCodigo.localeCompare(b.unidadCodigo);
+    });
+  }, [pagosFiltrados]);
+
+  // Estado de apertura de acordeones por local (todos cerrados por defecto)
+  const [localesAbiertos, setLocalesAbiertos] = useState<Record<string, boolean>>({});
+
+  const isLocalAbierto = (contratoId: string) => {
+    return Boolean(localesAbiertos[contratoId]);
+  };
+
+  const handleToggleLocal = (contratoId: string) => {
+    setLocalesAbiertos((prev) => ({
+      ...prev,
+      [contratoId]: !prev[contratoId],
+    }));
+  };
+
+  const toggleTodosLocales = (abrir: boolean) => {
+    const nuevo: Record<string, boolean> = {};
+    gruposPorLocal.forEach((g) => {
+      nuevo[g.contratoId] = abrir;
+    });
+    setLocalesAbiertos(nuevo);
+  };
+
   // Función para descargar la Nota de Entrega / Recibo PDF oficial
   const handleDescargarRecibo = async (pago: PagoItem) => {
     setDescargandoId(pago.id);
@@ -271,12 +369,50 @@ export function InquilinoPagosClient({
         }
       />
 
+      {/* Banner Oficial de Tasa BCV del Día */}
+      {tasaBcvActual && tasaBcvActual.tasa > 0 && (
+        <div className="bg-gradient-to-r from-[#1C2539] via-[#243049] to-[#124b2d] text-white rounded-2xl p-4 sm:p-5 border border-white/10 border-b-[3px] border-b-[#0e3a23] shadow-md flex flex-col sm:flex-row sm:items-center justify-between gap-4 relative overflow-hidden group">
+          <div className="absolute -top-10 -right-10 w-36 h-36 bg-emerald-500/15 rounded-full blur-3xl pointer-events-none group-hover:scale-125 transition-transform duration-700" />
+          <div className="flex items-center gap-3.5 relative z-10">
+            <div className="w-11 h-11 rounded-xl bg-white/10 border border-white/15 flex items-center justify-center shrink-0 text-emerald-400 shadow-2xs backdrop-blur-xs">
+              <Building2 className="w-6 h-6 stroke-[1.8]" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-xs font-black uppercase tracking-wider text-emerald-400">
+                  Tasa Oficial BCV del Día
+                </span>
+                <span className="text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 px-2 py-0.5 rounded-md">
+                  {tasaBcvActual.esFallback ? "Tasa de Referencia" : "Banco Central de Venezuela"}
+                </span>
+              </div>
+              <p className="text-xs text-slate-300 font-medium mt-0.5">
+                Cálculo oficial y referencial para reportes de pago vía Pago Móvil o Transferencia Bancaria en Bolívares.
+              </p>
+            </div>
+          </div>
+
+          <div className="relative z-10 bg-white/10 border border-white/15 rounded-xl px-4 py-2.5 sm:text-right shrink-0 backdrop-blur-xs">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-300 block">
+              1 USD =
+            </span>
+            <span className="text-lg sm:text-xl font-black font-heading text-white">
+              Bs. {tasaBcvActual.tasa.toLocaleString("es-VE", { minimumFractionDigits: 2, maximumFractionDigits: 4 })}
+            </span>
+          </div>
+        </div>
+      )}
+
       {/* Tarjetas de Métricas Ejecutivas (StatCards) */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
           title="Compromiso Mensual"
           value={formatUSD(resumen.montoMensualidadTotal || resumen.montoCanonTotal)}
-          subtitle="Mensualidad regular pactada"
+          subtitle={
+            tasaBcvActual?.tasa && (resumen.montoMensualidadTotal || resumen.montoCanonTotal)
+              ? `Equivalente: ${formatBS((resumen.montoMensualidadTotal || resumen.montoCanonTotal) * tasaBcvActual.tasa)}`
+              : "Mensualidad regular pactada"
+          }
           icon={DollarSign}
           color="emerald"
         />
@@ -384,7 +520,7 @@ export function InquilinoPagosClient({
         </div>
       </div>
 
-      {/* Cuadrícula de Cuotas y Mensualidades */}
+      {/* Listado de Locales y Mensualidades Agrupadas */}
       {pagosFiltrados.length === 0 ? (
         <div className="p-12 text-center bg-white rounded-2xl border border-slate-200/80 shadow-2xs space-y-2">
           <FileText className="w-10 h-10 text-slate-300 mx-auto stroke-[1.5]" />
@@ -396,217 +532,450 @@ export function InquilinoPagosClient({
           </p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {pagosFiltrados.map((pago) => {
-            const mesNombre = MESES[pago.periodoMes - 1] || `Mes ${pago.periodoMes}`;
-            const localStr = pago.contrato?.unidad?.codigo || "Espacio Arrendado";
-            const propStr = pago.contrato?.unidad?.propiedad?.nombre || "Inmueble";
-            const saldoPendiente = Math.max(0, pago.montoEsperado - pago.montoPagado);
+        <div className="space-y-4">
+          {/* Barra de control y conteo */}
+          <div className="flex items-center justify-between px-1 text-xs text-slate-500 font-medium">
+            <span>
+              Mostrando <strong>{gruposPorLocal.length}</strong> {gruposPorLocal.length === 1 ? "local arrendado" : "locales arrendados"} · <strong>{pagosFiltrados.length}</strong> mensualidades
+            </span>
+            {gruposPorLocal.length > 1 && (
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => toggleTodosLocales(true)}
+                  className="text-[11px] font-bold text-[#175E38] hover:underline cursor-pointer"
+                >
+                  Expandir todos
+                </button>
+                <span className="text-slate-300">·</span>
+                <button
+                  type="button"
+                  onClick={() => toggleTodosLocales(false)}
+                  className="text-[11px] font-bold text-slate-500 hover:text-slate-800 cursor-pointer"
+                >
+                  Colapsar todos
+                </button>
+              </div>
+            )}
+          </div>
 
-            // Estado Derivado
-            const esEnVerificacion = pago.estado !== "PAGADO" && Boolean(pago.comprobanteUrl);
-            const esPagado = pago.estado === "PAGADO";
-            const esParcial =
-              (pago.estado === "PARCIAL" ||
-                (pago.montoPagado > 0 && pago.montoPagado < pago.montoEsperado)) &&
-              !esEnVerificacion;
-            const esVencido = pago.estado === "VENCIDO" && !esEnVerificacion;
-            const esPendiente = pago.estado === "PENDIENTE" && !esEnVerificacion && !esParcial;
-
-            // Detección de comprobante previamente descartado por la administración
-            const matchRechazo = pago.notas?.match(/Comprobante descartado por administración:\s*([^.\n]+)/i);
-            const motivoRechazo = matchRechazo ? matchRechazo[1].trim() : null;
+          {/* Acordeones Desplegables por Local / Contrato */}
+          {gruposPorLocal.map((grupo) => {
+            const estaAbierto = isLocalAbierto(grupo.contratoId);
 
             return (
               <div
-                key={pago.id}
-                className="bg-white rounded-2xl border border-slate-200/90 border-b-[3px] border-b-slate-300/90 p-4 sm:p-5 shadow-2xs hover:shadow-md transition-all flex flex-col justify-between gap-4 relative overflow-hidden group"
+                key={grupo.contratoId}
+                className="bg-white rounded-2xl border border-slate-200/90 border-b-[3px] border-b-slate-300/90 shadow-2xs overflow-hidden transition-all duration-200"
               >
-                {/* Resplandor ambiental de esquina */}
+                {/* Cabecera del Acordeón con Efecto Sol y Acciones */}
                 <div
-                  className={`absolute -top-10 -right-10 w-28 h-28 rounded-full blur-2xl pointer-events-none transition-transform duration-500 group-hover:scale-125 ${
-                    esPagado
-                      ? "bg-emerald-500/10"
-                      : esVencido
-                      ? "bg-rose-500/10"
-                      : esEnVerificacion || esParcial
-                      ? "bg-blue-500/10"
-                      : "bg-amber-500/10"
-                  }`}
-                />
+                  onClick={() => handleToggleLocal(grupo.contratoId)}
+                  className="relative p-4 sm:p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 cursor-pointer hover:bg-slate-50/60 transition-colors group select-none"
+                >
+                  {/* Efecto Sol ambiental en esquina superior izquierda */}
+                  <div className="absolute top-0 left-0 w-36 h-36 bg-gradient-to-br from-emerald-500/15 via-emerald-500/5 to-transparent rounded-full blur-xl pointer-events-none -translate-x-12 -translate-y-12 transition-transform duration-500 group-hover:scale-125" />
 
-                <div className="space-y-3 relative z-10">
-                  {/* Fila superior: Período y Badge */}
-                  <div className="flex items-start justify-between gap-2">
-                    <div>
-                      <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
-                        {pago.contrato?.codigo || "Contrato"}
-                      </span>
-                      <h3 className="text-base sm:text-lg font-black font-heading text-slate-900 tracking-tight leading-tight">
-                        {mesNombre} {pago.periodoAno}
-                      </h3>
-                      <p className="text-xs text-slate-500 font-medium line-clamp-1">
-                        {localStr} · {propStr}
-                      </p>
+                  {/* Lado Izquierdo: Icono + Título + Badges */}
+                  <div className="flex items-center gap-3.5 relative z-10 min-w-0">
+                    <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-2xl bg-white/95 border border-slate-200/90 shadow-2xs flex items-center justify-center text-[#175E38] shrink-0 group-hover:scale-105 transition-transform">
+                      <Store className="w-5 h-5 sm:w-6 sm:h-6 stroke-[2]" />
                     </div>
 
-                    <div className="shrink-0">
-                      {esPagado ? (
-                        <span className="px-2.5 py-1 rounded-full text-[11px] font-black bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1">
-                          <CheckCircle2 className="w-3 h-3" />
-                          <span>Solvente</span>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <h3 className="font-black text-slate-900 font-heading tracking-tight text-base sm:text-lg truncate">
+                          {grupo.unidadCodigo}
+                        </h3>
+                        <span className="text-xs font-bold text-slate-400">·</span>
+                        <span className="text-xs font-bold text-slate-600 truncate">
+                          {grupo.propiedadNombre}
                         </span>
-                      ) : esEnVerificacion ? (
-                        <span className="px-2.5 py-1 rounded-full text-[11px] font-black bg-blue-50 text-blue-700 border border-blue-200 flex items-center gap-1">
-                          <Clock className="w-3 h-3" />
-                          <span>En Verificación</span>
-                        </span>
-                      ) : esParcial ? (
-                        <span className="px-2.5 py-1 rounded-full text-[11px] font-black bg-blue-50 text-blue-700 border border-blue-200 flex items-center gap-1">
-                          <Receipt className="w-3 h-3" />
-                          <span>Abonado Parcial</span>
-                        </span>
-                      ) : esVencido ? (
-                        <span className="px-2.5 py-1 rounded-full text-[11px] font-black bg-rose-50 text-rose-700 border border-rose-200 flex items-center gap-1">
-                          <AlertCircle className="w-3 h-3" />
-                          <span>En Mora</span>
-                        </span>
-                      ) : (
-                        <span className="px-2.5 py-1 rounded-full text-[11px] font-black bg-amber-50 text-amber-700 border border-amber-200 flex items-center gap-1">
-                          <Clock className="w-3 h-3" />
-                          <span>Por Pagar</span>
-                        </span>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Cajas de Datos Financieros */}
-                  <div className="grid grid-cols-2 gap-2 pt-1">
-                    <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-200/70">
-                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide block">
-                        Mensualidad Acordada
-                      </span>
-                      <span className="text-sm font-extrabold text-slate-900">
-                        {formatUSD(pago.montoEsperado)}
-                      </span>
-                    </div>
-
-                    <div
-                      className={`p-2.5 rounded-xl border ${
-                        esPagado
-                          ? "bg-emerald-50/60 border-emerald-200/80 text-emerald-900"
-                          : esVencido
-                          ? "bg-rose-50/60 border-rose-200/80 text-rose-900"
-                          : esParcial
-                          ? "bg-blue-50/60 border-blue-200/80 text-blue-900"
-                          : "bg-amber-50/60 border-amber-200/80 text-amber-900"
-                      }`}
-                    >
-                      <span className="text-[10px] font-bold uppercase tracking-wide block opacity-75">
-                        {esPagado ? "Monto Liquidado" : esParcial ? `Resta ($${pago.montoPagado.toFixed(2)} abonado)` : "Saldo Pendiente"}
-                      </span>
-                      <span className="text-sm font-extrabold">
-                        {esPagado ? formatUSD(pago.montoPagado) : formatUSD(saldoPendiente)}
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Información adicional del pago reportado o fecha de corte */}
-                  <div className="text-[11px] text-slate-500 space-y-1 pt-1 border-t border-slate-100">
-                    <div className="flex items-center justify-between">
-                      <span>Vencimiento:</span>
-                      <strong className="text-slate-700">
-                        {new Date(pago.fechaVencimiento).toLocaleDateString("es-VE", {
-                          day: "numeric",
-                          month: "short",
-                          year: "numeric",
-                        })}
-                      </strong>
-                    </div>
-
-                    {pago.referencia && (
-                      <div className="flex items-center justify-between">
-                        <span>Referencia:</span>
-                        <strong className="text-slate-700 truncate max-w-[150px]">
-                          {pago.referencia}
-                        </strong>
                       </div>
-                    )}
+
+                      {/* Metadatos y Badges del Local */}
+                      <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+                        {/* Canon mensual */}
+                        <span className="text-xs font-semibold text-slate-500 flex items-center gap-1">
+                          <span>Canon:</span>
+                          <strong className="text-slate-800 font-bold">{formatUSD(grupo.canon)}</strong>
+                          {tasaBcvActual?.tasa && (
+                            <span className="text-[11px] text-slate-400 font-normal">
+                              ({formatBS(grupo.canon * tasaBcvActual.tasa)})
+                            </span>
+                          )}
+                        </span>
+
+                        <span className="text-slate-300">|</span>
+
+                        {/* Estado de solvencia del Local */}
+                        {grupo.totalPendienteUSD > 0 ? (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-black bg-amber-50 text-amber-800 border border-amber-200 shadow-2xs">
+                            <Clock className="w-3 h-3 text-amber-600 shrink-0" />
+                            <span>Por Pagar: {formatUSD(grupo.totalPendienteUSD)}</span>
+                            {tasaBcvActual?.tasa && (
+                              <span className="text-[10px] opacity-85">
+                                ({formatBS(grupo.totalPendienteUSD * tasaBcvActual.tasa)})
+                              </span>
+                            )}
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-black bg-emerald-50 text-emerald-700 border border-emerald-200 shadow-2xs">
+                            <CheckCircle2 className="w-3 h-3 text-emerald-600 shrink-0" />
+                            <span>Al Día / Solvente</span>
+                          </span>
+                        )}
+                      </div>
+                    </div>
                   </div>
 
-                  {/* Aviso de Comprobante Descartado / Rechazado */}
-                  {!esPagado && !esEnVerificacion && motivoRechazo && (
-                    <div className="p-2.5 rounded-xl bg-rose-50 border border-rose-200/90 text-xs text-rose-800 space-y-0.5 animate-in fade-in-50">
-                      <div className="flex items-center gap-1.5 font-bold text-rose-900">
-                        <AlertCircle className="w-3.5 h-3.5 text-[#CC1A22] shrink-0" />
-                        <span>Comprobante anterior descartado</span>
-                      </div>
-                      <p className="text-[11px] text-rose-700 leading-snug pl-5">
-                        Motivo: {motivoRechazo}
-                      </p>
-                    </div>
-                  )}
-                </div>
-
-                {/* Footer de Acciones (Grid 2 columnas simétricas o botón ancho completo) */}
-                <div className="pt-3 border-t border-slate-100">
-                  {esPagado ? (
-                    <button
-                      type="button"
-                      onClick={() => handleDescargarRecibo(pago)}
-                      disabled={descargandoId === pago.id}
-                      className="w-full h-10 px-3 rounded-xl text-xs font-bold bg-[#1C2539] hover:bg-[#2a3754] text-white transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs active:translate-y-0.5 disabled:opacity-50"
-                    >
-                      {descargandoId === pago.id ? (
-                        <>
-                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                          <span>Generando PDF...</span>
-                        </>
-                      ) : (
-                        <>
-                          <Download className="w-3.5 h-3.5" />
-                          <span>Descargar Recibo PDF</span>
-                        </>
-                      )}
-                    </button>
-                  ) : esEnVerificacion ? (
-                    <div className="grid grid-cols-2 gap-2">
-                      {pago.comprobanteUrl && (
-                        <button
-                          type="button"
-                          onClick={() =>
-                            abrirVisorCapture(
-                              pago.comprobanteUrl!,
-                              `Comprobante: ${mesNombre} ${pago.periodoAno} (${localStr})`
-                            )
-                          }
-                          className="w-full h-10 px-2 rounded-xl text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 transition-all flex items-center justify-center gap-1.5 cursor-pointer active:translate-y-0.5"
-                        >
-                          <Eye className="w-3.5 h-3.5" />
-                          <span className="truncate">Ver Capture</span>
-                        </button>
-                      )}
+                  {/* Lado Derecho: Botón Acción Rápida + Desplegable Chevron */}
+                  <div className="flex items-center gap-2 self-end md:self-center relative z-10 shrink-0">
+                    {grupo.totalPendienteUSD > 0 && (
                       <button
                         type="button"
-                        onClick={() => abrirReporteParaCuota(pago)}
-                        className={`h-10 px-2 rounded-xl text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-xs active:translate-y-0.5 ${
-                          !pago.comprobanteUrl ? "col-span-2" : ""
-                        }`}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          const cuotaPendiente =
+                            grupo.pagos.find((p) => p.estado !== "PAGADO" && !p.comprobanteUrl) ||
+                            grupo.pagos.find((p) => p.estado !== "PAGADO");
+                          if (cuotaPendiente) abrirReporteParaCuota(cuotaPendiente);
+                        }}
+                        className="h-9 px-3.5 rounded-xl text-xs font-bold bg-[#175E38] hover:bg-[#124b2d] text-white border-b-[3px] border-b-[#0e3a23] active:translate-y-0.5 shadow-xs transition-all flex items-center gap-1.5 cursor-pointer"
                       >
-                        <ArrowUpRight className="w-3.5 h-3.5" />
-                        <span className="truncate">Actualizar</span>
+                        <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
+                        <span>Reportar Pago</span>
                       </button>
+                    )}
+
+                    {/* Botón Desplegable con Chevron giratorio */}
+                    <div className="h-9 px-3 rounded-xl bg-slate-100 hover:bg-slate-200/80 text-slate-700 font-bold text-xs flex items-center gap-1.5 transition-all">
+                      <span className="hidden sm:inline">{estaAbierto ? "Ocultar" : "Ver mensualidades"}</span>
+                      <ChevronDown
+                        className={`w-4 h-4 text-slate-500 transition-transform duration-300 ${
+                          estaAbierto ? "rotate-180 text-[#175E38]" : ""
+                        }`}
+                      />
                     </div>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => abrirReporteParaCuota(pago)}
-                      className="w-full h-10 px-3 rounded-xl text-xs font-bold bg-[#175E38] hover:bg-[#124b2d] text-white border-b-[3px] border-b-[#0e3a23] active:translate-y-0.5 shadow-[0_2px_8px_rgba(23,94,56,0.2)] transition-all flex items-center justify-center gap-1.5 cursor-pointer"
-                    >
-                      <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
-                      <span>{esParcial ? "Abonar Resto" : "Reportar Pago"}</span>
-                    </button>
-                  )}
+                  </div>
+                </div>
+
+                {/* Contenido Interior con Transición CSS Grid 60 FPS */}
+                <div
+                  className={`grid transition-all duration-300 ease-in-out ${
+                    estaAbierto ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0 pointer-events-none"
+                  }`}
+                >
+                  <div className="overflow-hidden">
+                    <div className="p-4 sm:p-5 pt-2 border-t border-slate-100 bg-slate-50/40">
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {grupo.pagos.map((pago) => {
+                          const mesNombre = MESES[pago.periodoMes - 1] || `Mes ${pago.periodoMes}`;
+                          const localStr = grupo.unidadCodigo;
+                          const propStr = grupo.propiedadNombre;
+                          const saldoPendiente = Math.max(0, pago.montoEsperado - pago.montoPagado);
+
+                          // Estado Derivado
+                          const esEnVerificacion = pago.estado !== "PAGADO" && Boolean(pago.comprobanteUrl);
+                          const esPagado = pago.estado === "PAGADO";
+                          const esParcial =
+                            (pago.estado === "PARCIAL" ||
+                              (pago.montoPagado > 0 && pago.montoPagado < pago.montoEsperado)) &&
+                            !esEnVerificacion;
+                          const esVencido = pago.estado === "VENCIDO" && !esEnVerificacion;
+                          const esPendiente = pago.estado === "PENDIENTE" && !esEnVerificacion && !esParcial;
+
+                          // Detección de comprobante previamente descartado por la administración
+                          const matchRechazo = pago.notas?.match(/Comprobante descartado por administración:\s*([^.\n]+)/i);
+                          const motivoRechazo = matchRechazo ? matchRechazo[1].trim() : null;
+
+                          return (
+                            <div
+                              key={pago.id}
+                              className={`bg-white rounded-2xl border border-slate-200/90 border-b-[3px] border-b-slate-300/90 p-4 sm:p-5 shadow-2xs hover:shadow-md transition-all flex flex-col justify-between gap-4 relative group ${
+                                motivoActivoId === pago.id ? "z-30" : "z-0"
+                              }`}
+                            >
+                              {/* Resplandor ambiental de esquina contenido */}
+                              <div className="absolute inset-0 rounded-2xl overflow-hidden pointer-events-none">
+                                <div
+                                  className={`absolute -top-10 -right-10 w-28 h-28 rounded-full blur-2xl pointer-events-none transition-transform duration-500 group-hover:scale-125 ${
+                                    esPagado
+                                      ? "bg-emerald-500/10"
+                                      : esVencido
+                                      ? "bg-rose-500/10"
+                                      : esEnVerificacion || esParcial
+                                      ? "bg-blue-500/10"
+                                      : "bg-amber-500/10"
+                                  }`}
+                                />
+                              </div>
+
+                              <div className="space-y-3 relative z-10">
+                                {/* Fila superior: Mes y Badge de Estado */}
+                                <div className="flex items-center justify-between gap-2">
+                                  <h3 className="text-base sm:text-lg font-black font-heading text-slate-900 tracking-tight leading-tight">
+                                    {mesNombre} {pago.periodoAno}
+                                  </h3>
+
+                                  <div className="shrink-0 flex items-center gap-1.5 flex-wrap justify-end">
+                                    {/* Badge flotante interactivo de Comprobante Descartado */}
+                                    {!esPagado && !esEnVerificacion && motivoRechazo && (
+                                      <div className="relative">
+                                        <button
+                                          type="button"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            setMotivoActivoId(motivoActivoId === pago.id ? null : pago.id);
+                                          }}
+                                          className="h-6 px-2 rounded-full text-[10px] font-black bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200/90 flex items-center gap-1 transition-all cursor-pointer shadow-2xs active:scale-95"
+                                          title="Comprobante observado. Haz clic para ver detalles."
+                                        >
+                                          <AlertCircle className="w-3 h-3 text-[#CC1A22] shrink-0" />
+                                          <span>Observado</span>
+                                        </button>
+
+                                        {/* Popover flotante con motivo de descarte */}
+                                        {motivoActivoId === pago.id && (
+                                          <div
+                                            onClick={(e) => e.stopPropagation()}
+                                            className="absolute right-0 top-full mt-2 w-72 sm:w-80 bg-white rounded-2xl border border-rose-200 shadow-2xl p-3.5 z-50 text-left animate-in fade-in-0 zoom-in-95"
+                                          >
+                                            <div className="flex items-center justify-between pb-2 border-b border-rose-100 mb-2">
+                                              <span className="text-xs font-black text-rose-950 flex items-center gap-1.5">
+                                                <AlertCircle className="w-3.5 h-3.5 text-[#CC1A22]" /> Comprobante Observado
+                                              </span>
+                                              <button
+                                                type="button"
+                                                onClick={() => setMotivoActivoId(null)}
+                                                className="w-5 h-5 rounded-md hover:bg-slate-100 flex items-center justify-center text-slate-400 hover:text-slate-600 text-xs cursor-pointer"
+                                              >
+                                                ✕
+                                              </button>
+                                            </div>
+                                            <p className="text-[11px] text-slate-700 leading-snug">
+                                              <span className="font-bold text-rose-900 block mb-0.5">Motivo del descarte:</span>
+                                              {motivoRechazo}
+                                            </p>
+                                            <div className="mt-2.5 pt-2 border-t border-slate-100 flex items-center justify-between gap-2">
+                                              <span className="text-[10px] text-slate-400">Puedes reportar uno nuevo</span>
+                                              <button
+                                                type="button"
+                                                onClick={() => {
+                                                  setMotivoActivoId(null);
+                                                  abrirReporteParaCuota(pago);
+                                                }}
+                                                className="text-[10px] font-bold text-[#175E38] hover:underline cursor-pointer shrink-0"
+                                              >
+                                                Corregir ahora →
+                                              </button>
+                                            </div>
+                                          </div>
+                                        )}
+                                      </div>
+                                    )}
+
+                                    {esPagado ? (
+                                      <span className="px-2.5 py-1 rounded-full text-[11px] font-black bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1">
+                                        <CheckCircle2 className="w-3 h-3" />
+                                        <span>Solvente</span>
+                                      </span>
+                                    ) : esEnVerificacion ? (
+                                      <span className="px-2.5 py-1 rounded-full text-[11px] font-black bg-blue-50 text-blue-700 border border-blue-200 flex items-center gap-1">
+                                        <Clock className="w-3 h-3" />
+                                        <span>En Verificación</span>
+                                      </span>
+                                    ) : esParcial ? (
+                                      <span className="px-2.5 py-1 rounded-full text-[11px] font-black bg-blue-50 text-blue-700 border border-blue-200 flex items-center gap-1">
+                                        <Receipt className="w-3 h-3" />
+                                        <span>Abonado Parcial</span>
+                                      </span>
+                                    ) : esVencido ? (
+                                      <span className="px-2.5 py-1 rounded-full text-[11px] font-black bg-rose-50 text-rose-700 border border-rose-200 flex items-center gap-1">
+                                        <AlertCircle className="w-3 h-3" />
+                                        <span>En Mora</span>
+                                      </span>
+                                    ) : (
+                                      <span className="px-2.5 py-1 rounded-full text-[11px] font-black bg-amber-50 text-amber-700 border border-amber-200 flex items-center gap-1">
+                                        <Clock className="w-3 h-3" />
+                                        <span>Por Pagar</span>
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+
+                                {/* Cajas de Datos Financieros con soporte multimoneda */}
+                                <div className="grid grid-cols-2 gap-2 pt-1">
+                                  {esPagado ? (
+                                    <>
+                                      <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-200/70">
+                                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide block">
+                                          Fecha de Pago
+                                        </span>
+                                        <span className="text-sm font-extrabold text-slate-900 block truncate">
+                                          {pago.fechaPago
+                                            ? new Date(pago.fechaPago).toLocaleDateString("es-VE", {
+                                                day: "numeric",
+                                                month: "short",
+                                                year: "numeric",
+                                              })
+                                            : "Liquidado"}
+                                        </span>
+                                        <span className="text-[10px] font-semibold text-emerald-700 block mt-0.5">
+                                          Totalmente solvente
+                                        </span>
+                                      </div>
+
+                                      <div className="p-2.5 bg-emerald-50/60 border border-emerald-200/80 text-emerald-900 rounded-xl">
+                                        <span className="text-[10px] font-bold uppercase tracking-wide block opacity-75">
+                                          Monto Liquidado
+                                        </span>
+                                        <span className="text-sm font-extrabold block">
+                                          {formatUSD(pago.montoPagado)}
+                                        </span>
+                                        {pago.montoBs && pago.tasaBcv ? (
+                                          <span className="text-[10px] font-bold text-emerald-800 bg-emerald-100/80 border border-emerald-200/70 px-1.5 py-0.5 rounded-md inline-block mt-0.5">
+                                            {formatBS(pago.montoBs)} · Tasa {pago.tasaBcv.toFixed(2)}
+                                          </span>
+                                        ) : (
+                                          <span className="text-[10px] font-semibold text-emerald-700/80 block mt-0.5">
+                                            Liquidado en divisas
+                                          </span>
+                                        )}
+                                      </div>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-200/70">
+                                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide block">
+                                          Mensualidad Acordada
+                                        </span>
+                                        <span className="text-sm font-extrabold text-slate-900 block">
+                                          {formatUSD(pago.montoEsperado)}
+                                        </span>
+                                        {tasaBcvActual?.tasa && (
+                                          <span className="text-[10px] font-bold text-slate-500 block mt-0.5">
+                                            {formatBS(pago.montoEsperado * tasaBcvActual.tasa)}
+                                          </span>
+                                        )}
+                                      </div>
+
+                                      <div
+                                        className={`p-2.5 rounded-xl border ${
+                                          esVencido
+                                            ? "bg-rose-50/60 border-rose-200/80 text-rose-900"
+                                            : esParcial
+                                            ? "bg-blue-50/60 border-blue-200/80 text-blue-900"
+                                            : "bg-amber-50/60 border-amber-200/80 text-amber-900"
+                                        }`}
+                                      >
+                                        <span className="text-[10px] font-bold uppercase tracking-wide block opacity-75">
+                                          {esParcial ? `Resta ($${pago.montoPagado.toFixed(2)} abonado)` : "Saldo Pendiente"}
+                                        </span>
+                                        <span className="text-sm font-extrabold block">
+                                          {formatUSD(saldoPendiente)}
+                                        </span>
+                                        {tasaBcvActual?.tasa && saldoPendiente > 0 && (
+                                          <span className="text-[10px] font-black text-amber-900 bg-amber-100/90 border border-amber-200 px-1.5 py-0.5 rounded-md inline-flex items-center gap-1 mt-0.5">
+                                            <span>{formatBS(saldoPendiente * tasaBcvActual.tasa)}</span>
+                                            <span className="text-[9px] font-medium text-amber-700">(BCV hoy)</span>
+                                          </span>
+                                        )}
+                                      </div>
+                                    </>
+                                  )}
+                                </div>
+
+                                {/* Información adicional / Metadatos simétricos */}
+                                <div className="text-[11px] text-slate-500 space-y-1 pt-1 border-t border-slate-100">
+                                  {esPagado ? (
+                                    <div className="flex items-center justify-between">
+                                      <span>Referencia:</span>
+                                      <strong className="text-slate-700 truncate max-w-[170px]">
+                                        {pago.referencia || "Conciliado por administración"}
+                                      </strong>
+                                    </div>
+                                  ) : (
+                                    <div className="flex items-center justify-between">
+                                      <span>{esVencido ? "Venció:" : "Vencimiento:"}</span>
+                                      <strong className={esVencido ? "text-rose-700 font-bold" : "text-slate-700"}>
+                                        {new Date(pago.fechaVencimiento).toLocaleDateString("es-VE", {
+                                          day: "numeric",
+                                          month: "short",
+                                          year: "numeric",
+                                        })}
+                                      </strong>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+
+                              {/* Footer de Acciones (Grid 2 columnas simétricas o botón ancho completo) */}
+                              <div className="pt-3 border-t border-slate-100">
+                                {esPagado ? (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleDescargarRecibo(pago)}
+                                    disabled={descargandoId === pago.id}
+                                    className="w-full h-10 px-3 rounded-xl text-xs font-bold bg-[#1C2539] hover:bg-[#2a3754] text-white transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs active:translate-y-0.5 disabled:opacity-50"
+                                  >
+                                    {descargandoId === pago.id ? (
+                                      <>
+                                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                        <span>Generando PDF...</span>
+                                      </>
+                                    ) : (
+                                      <>
+                                        <Download className="w-3.5 h-3.5" />
+                                        <span>Descargar Recibo PDF</span>
+                                      </>
+                                    )}
+                                  </button>
+                                ) : esEnVerificacion ? (
+                                  <div className="grid grid-cols-2 gap-2">
+                                    {pago.comprobanteUrl && (
+                                      <button
+                                        type="button"
+                                        onClick={() =>
+                                          abrirVisorCapture(
+                                            pago.comprobanteUrl!,
+                                            `Comprobante: ${mesNombre} ${pago.periodoAno} (${localStr})`
+                                          )
+                                        }
+                                        className="w-full h-10 px-2 rounded-xl text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 transition-all flex items-center justify-center gap-1.5 cursor-pointer active:translate-y-0.5"
+                                      >
+                                        <Eye className="w-3.5 h-3.5" />
+                                        <span className="truncate">Ver Capture</span>
+                                      </button>
+                                    )}
+                                    <button
+                                      type="button"
+                                      onClick={() => abrirReporteParaCuota(pago)}
+                                      className={`h-10 px-2 rounded-xl text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-xs active:translate-y-0.5 ${
+                                        !pago.comprobanteUrl ? "col-span-2" : ""
+                                      }`}
+                                    >
+                                      <ArrowUpRight className="w-3.5 h-3.5" />
+                                      <span className="truncate">Actualizar</span>
+                                    </button>
+                                  </div>
+                                ) : (
+                                  <button
+                                    type="button"
+                                    onClick={() => abrirReporteParaCuota(pago)}
+                                    className="w-full h-10 px-3 rounded-xl text-xs font-bold bg-[#175E38] hover:bg-[#124b2d] text-white border-b-[3px] border-b-[#0e3a23] active:translate-y-0.5 shadow-[0_2px_8px_rgba(23,94,56,0.2)] transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                                  >
+                                    <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
+                                    <span>{esParcial ? "Abonar Resto" : "Reportar Pago"}</span>
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
             );
@@ -623,6 +992,7 @@ export function InquilinoPagosClient({
         }}
         pagosPendientes={cuotasParaReportar}
         pagoPreseleccionado={pagoParaReportar}
+        tasaBcvActual={tasaBcvActual}
         onSuccess={() => {
           router.refresh();
         }}
