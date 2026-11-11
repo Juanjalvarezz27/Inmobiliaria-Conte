@@ -122,7 +122,7 @@ export function TransaccionCard({
 
         {/* Monto principal en tipografía destacada */}
         <div>
-          <div className="flex items-baseline gap-1">
+          <div className="flex items-baseline gap-2 flex-wrap">
             <span
               className={`text-2xl sm:text-3xl font-black font-heading tracking-tight ${
                 esEgreso ? "text-slate-900" : "text-[#175E38]"
@@ -130,6 +130,28 @@ export function TransaccionCard({
             >
               {esEgreso ? "-" : "+"} {formatearMontoUSD(transaccion.monto)}
             </span>
+
+            {/* Badge de Bolívares y Tasa BCV si la transacción fue en VES */}
+            {transaccion.monedaOriginal === "VES" && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-emerald-50 text-[#175E38] border border-emerald-200/90 text-[11px] font-bold font-mono">
+                <span>
+                  Bs.{" "}
+                  {(transaccion.montoOriginal || (transaccion.monto * (transaccion.tasaBcv || 1))).toLocaleString("es-VE", {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  })}
+                </span>
+                {transaccion.tasaBcv && (
+                  <span className="text-emerald-700/70 font-normal">
+                    · Tasa:{" "}
+                    {transaccion.tasaBcv.toLocaleString("es-VE", {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    })}
+                  </span>
+                )}
+              </span>
+            )}
           </div>
           <h3 className="text-sm font-bold text-slate-800 line-clamp-2 mt-1 leading-snug">
             {transaccion.concepto}

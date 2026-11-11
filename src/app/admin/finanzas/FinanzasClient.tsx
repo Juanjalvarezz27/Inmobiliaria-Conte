@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useTransition, useMemo } from "react";
+import React, { useState, useTransition, useMemo, useEffect } from "react";
 import {
   TrendingUp,
   TrendingDown,
@@ -12,6 +12,10 @@ import {
   RotateCw,
   Calendar,
   Sparkles,
+  Coins,
+  ChevronDown,
+  LineChart,
+  DollarSign,
 } from "lucide-react";
 import { PageHeader } from "@/components/ui/page-header";
 import { StatCard } from "@/components/ui/stat-card";
@@ -91,6 +95,30 @@ export function FinanzasClient({
   // Loading / Transitions
   const [isPending, startTransition] = useTransition();
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Tasa BCV del día para visualización ejecutiva
+  const [tasaBcvHoy, setTasaBcvHoy] = useState<number | null>(null);
+
+  // Visibilidad colapsable de gráficas para mayor ligereza visual
+  const [mostrarGraficos, setMostrarGraficos] = useState(true);
+
+  // Filtro de Moneda (TODAS, VES, USD) sincronizado con el Libro Diario
+  const [filtroMoneda, setFiltroMoneda] = useState<"TODAS" | "VES" | "USD">("TODAS");
+
+  useEffect(() => {
+    async function cargarTasa() {
+      try {
+        const res = await fetch("/api/bcv");
+        const json = await res.json();
+        if (json.success && json.data?.tasa) {
+          setTasaBcvHoy(json.data.tasa);
+        }
+      } catch (e) {
+        console.warn("No se pudo cargar la tasa BCV:", e);
+      }
+    }
+    cargarTasa();
+  }, []);
 
   // Cargar datos al cambiar mes, año o propiedad
   const cargarDatos = (
@@ -229,6 +257,31 @@ export function FinanzasClient({
     }));
   }, []);
 
+  // Opciones para FilterDropdown de Moneda (Todas, Bolívares Bs, Dólares $)
+  const opcionesMonedaFiltro = useMemo((): FilterDropdownOption[] => {
+    return [
+      {
+        value: "TODAS",
+        label: "Todas las monedas",
+        icon: Scale,
+        iconClassName: "text-slate-500",
+        isGlobal: true,
+      },
+      {
+        value: "VES",
+        label: "Bolívares (Bs)",
+        icon: Coins,
+        iconClassName: "text-emerald-600",
+      },
+      {
+        value: "USD",
+        label: "Dólares ($)",
+        icon: DollarSign,
+        iconClassName: "text-blue-600",
+      },
+    ];
+  }, []);
+
   return (
     <div className="space-y-6 sm:space-y-8 animate-fadeIn">
       {/* Header Institucional */}
@@ -258,16 +311,16 @@ export function FinanzasClient({
         }
       />
 
-      {/* 1. Barra de Control de Periodo (Desplegables Globales de Mes y Año + Métricas Ejecutivas) */}
+      {/* 1. Barra de Control Unificada: Mes + Año + Inmueble + Tasa BCV Oficial */}
       <div className="bg-white rounded-2xl border border-slate-200/90 p-3 sm:p-4 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-3">
-        {/* Desplegables Globales de Mes y Año (Patrón FilterDropdown) */}
-        <div className="flex items-center gap-2.5 w-full md:w-auto">
+        {/* Controles de Filtros Unificados */}
+        <div className="flex items-center gap-2.5 flex-wrap flex-1 min-w-0">
           <FilterDropdown
             value={mes.toString()}
             onChange={handleCambioMes}
             options={opcionesMesFiltro}
-            className="w-full sm:w-44 md:w-48"
-            menuWidth="w-48"
+            className="w-full sm:w-40 md:w-44"
+            menuWidth="w-44"
             align="left"
             disabled={isPending}
             ariaLabel="Seleccionar mes"
@@ -277,11 +330,33 @@ export function FinanzasClient({
             value={ano.toString()}
             onChange={handleCambioAno}
             options={opcionesAnoFiltro}
-            className="w-full sm:w-36 md:w-40"
-            menuWidth="w-40"
+            className="w-full sm:w-32 md:w-36"
+            menuWidth="w-36"
             align="left"
             disabled={isPending}
             ariaLabel="Seleccionar año"
+          />
+
+          <FilterDropdown
+            value={propiedadId}
+            onChange={handleCambioPropiedad}
+            options={opcionesPropiedadFiltro}
+            className="w-full sm:w-60 md:w-64"
+            menuWidth="w-68"
+            align="left"
+            disabled={isPending}
+            ariaLabel="Filtrar por inmueble"
+          />
+
+          <FilterDropdown
+            value={filtroMoneda}
+            onChange={(val) => setFiltroMoneda(val as "TODAS" | "VES" | "USD")}
+            options={opcionesMonedaFiltro}
+            className="w-full sm:w-52 md:w-56"
+            menuWidth="w-56 sm:w-60"
+            align="left"
+            disabled={isPending}
+            ariaLabel="Filtrar por moneda"
           />
 
           {isPending && (
@@ -291,196 +366,185 @@ export function FinanzasClient({
           )}
         </div>
 
-        {/* Resumen ejecutivo de cifras del periodo */}
-        <div className="grid grid-cols-3 gap-2 w-full md:w-auto md:flex md:items-center md:gap-2.5 pt-2.5 md:pt-0 border-t border-slate-100 md:border-t-0">
-          {/* 1. Alquileres */}
-          <div className="bg-emerald-50/70 border border-emerald-200/90 rounded-xl p-2 sm:px-3 sm:py-2 flex flex-col md:flex-row items-center justify-center md:justify-start gap-1 md:gap-2.5 shadow-2xs text-center md:text-left min-w-0">
-            {/* Versión móvil: Icono y label en fila superior centrada */}
-            <div className="flex items-center gap-1 md:hidden">
-              <Building2 className="w-3 h-3 text-[#175E38] shrink-0" />
-              <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-800 leading-none">
-                Alquiler
-              </span>
-            </div>
-            {/* Versión desktop: Icono en caja lateral */}
-            <div className="hidden md:flex w-6 h-6 rounded-lg bg-emerald-100/90 text-[#175E38] items-center justify-center shrink-0">
-              <Building2 className="w-3.5 h-3.5" />
-            </div>
-            <div className="min-w-0 w-full md:w-auto">
-              <span className="hidden md:block text-[9px] font-bold uppercase tracking-wider text-emerald-800 leading-none">
-                Alquiler
-              </span>
-              <span className="text-xs sm:text-sm font-black font-heading text-[#175E38] leading-tight block mt-0.5 truncate">
-                {formatearMontoUSD(estadisticas.totalIngresosAlquiler)}
-              </span>
-            </div>
-          </div>
-
-          {/* 2. Extra */}
-          <div className="bg-teal-50/70 border border-teal-200/90 rounded-xl p-2 sm:px-3 sm:py-2 flex flex-col md:flex-row items-center justify-center md:justify-start gap-1 md:gap-2.5 shadow-2xs text-center md:text-left min-w-0">
-            {/* Versión móvil */}
-            <div className="flex items-center gap-1 md:hidden">
-              <Sparkles className="w-3 h-3 text-teal-700 shrink-0" />
-              <span className="text-[10px] font-bold uppercase tracking-wider text-teal-800 leading-none">
-                Extra
-              </span>
-            </div>
-            {/* Versión desktop */}
-            <div className="hidden md:flex w-6 h-6 rounded-lg bg-teal-100/90 text-teal-700 items-center justify-center shrink-0">
-              <Sparkles className="w-3.5 h-3.5" />
-            </div>
-            <div className="min-w-0 w-full md:w-auto">
-              <span className="hidden md:block text-[9px] font-bold uppercase tracking-wider text-teal-800 leading-none">
-                Extra
-              </span>
-              <span className="text-xs sm:text-sm font-black font-heading text-teal-900 leading-tight block mt-0.5 truncate">
-                {formatearMontoUSD(estadisticas.totalIngresosExtra)}
-              </span>
-            </div>
-          </div>
-
-          {/* 3. Gastos */}
-          <div className="bg-rose-50/70 border border-rose-200/90 rounded-xl p-2 sm:px-3 sm:py-2 flex flex-col md:flex-row items-center justify-center md:justify-start gap-1 md:gap-2.5 shadow-2xs text-center md:text-left min-w-0">
-            {/* Versión móvil */}
-            <div className="flex items-center gap-1 md:hidden">
-              <TrendingDown className="w-3 h-3 text-rose-600 shrink-0" />
-              <span className="text-[10px] font-bold uppercase tracking-wider text-rose-800 leading-none">
-                Gastos
-              </span>
-            </div>
-            {/* Versión desktop */}
-            <div className="hidden md:flex w-6 h-6 rounded-lg bg-rose-100/90 text-rose-600 items-center justify-center shrink-0">
-              <TrendingDown className="w-3.5 h-3.5" />
-            </div>
-            <div className="min-w-0 w-full md:w-auto">
-              <span className="hidden md:block text-[9px] font-bold uppercase tracking-wider text-rose-800 leading-none">
-                Gastos
-              </span>
-              <span className="text-xs sm:text-sm font-black font-heading text-rose-600 leading-tight block mt-0.5 truncate">
-                {formatearMontoUSD(estadisticas.totalEgresos)}
-              </span>
-            </div>
+        {/* Insignia Oficial de Tasa BCV del Día */}
+        <div className="flex items-center justify-between sm:justify-end gap-2 shrink-0 pt-2 md:pt-0 border-t border-slate-100 md:border-t-0">
+          <div className="flex items-center gap-2 px-3 py-1.5 bg-emerald-50/90 border border-emerald-200/90 rounded-xl text-xs font-semibold text-emerald-950 shadow-2xs">
+            <Coins className="w-3.5 h-3.5 text-[#175E38] shrink-0" />
+            <span className="text-slate-500 font-medium text-[11px]">BCV Oficial:</span>
+            <span className="font-mono font-bold text-[#175E38]">
+              {tasaBcvHoy
+                ? `${tasaBcvHoy.toLocaleString("es-VE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Bs/$`
+                : "Consultando..."}
+            </span>
           </div>
         </div>
       </div>
 
-      {/* 2. 4 StatCards Ejecutivas de Alto Impacto (2x2 en Móvil, 4 en Desktop) */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4">
-        {/* StatCard 1: Ingresos Totales */}
-        <StatCard
-          title="Ingresos Totales"
-          value={formatearMontoUSD(estadisticas.totalIngresos)}
-          subtitle={`${estadisticas.conteoCobranzas} cobros alquiler • ${estadisticas.conteoIngresosExtra} extra`}
-          icon={TrendingUp}
-          color="emerald"
-        />
+      {/* 2. 4 StatCards Ejecutivas de Alto Impacto (2x2 en Móvil, 4 en Desktop) adaptadas al filtro */}
+      {(() => {
+        const esSoloBs = filtroMoneda === "VES";
+        const esSoloUsd = filtroMoneda === "USD";
 
-        {/* StatCard 2: Egresos Operativos */}
-        <StatCard
-          title="Gastos Operativos"
-          value={formatearMontoUSD(estadisticas.totalEgresos)}
-          subtitle={`${estadisticas.conteoEgresos} egresos registrados en el mes`}
-          icon={TrendingDown}
-          color="rose"
-        />
+        const valorIngresosStat = esSoloBs
+          ? `Bs. ${estadisticas.totalIngresosVes.toLocaleString("es-VE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+          : esSoloUsd
+          ? formatearMontoUSD(estadisticas.totalIngresosUsd)
+          : formatearMontoUSD(estadisticas.totalIngresos);
 
-        {/* StatCard 3: Balance Neto */}
-        <StatCard
-          title="Balance Neto (Utilidad)"
-          value={formatearMontoUSD(estadisticas.balanceNeto)}
-          subtitle={
-            estadisticas.balanceNeto >= 0
-              ? "Balance operativo del periodo"
-              : "Déficit financiero en el periodo"
-          }
-          icon={Scale}
-          color={estadisticas.balanceNeto >= 0 ? "navy" : "rose"}
-        />
+        const subIngresosStat = esSoloBs
+          ? `Equiv: $${(estadisticas.totalIngresosVesEquivUsd || (tasaBcvHoy ? estadisticas.totalIngresosVes / tasaBcvHoy : 0)).toFixed(2)} USD al BCV`
+          : esSoloUsd
+          ? `${estadisticas.conteoCobranzas} cobros de alquiler en divisas`
+          : (estadisticas.totalIngresosVes > 0
+              ? `$ ${estadisticas.totalIngresosUsd} divisas • Bs. ${estadisticas.totalIngresosVes.toLocaleString("es-VE", { maximumFractionDigits: 0 })} en Bs`
+              : `${estadisticas.conteoCobranzas} cobros alquiler • ${estadisticas.conteoIngresosExtra} extra`);
 
-        {/* StatCard 4: Margen Operativo */}
-        <StatCard
-          title="Margen Operativo"
-          value={`${estadisticas.margenOperativo}%`}
-          subtitle={`Rentabilidad neta sobre ingresos del mes`}
-          icon={PieChart}
-          color="indigo"
-          progressPercent={Math.max(0, Math.min(100, estadisticas.margenOperativo))}
-        />
-      </div>
+        const valorEgresosStat = esSoloBs
+          ? `Bs. ${estadisticas.totalEgresosVes.toLocaleString("es-VE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+          : esSoloUsd
+          ? formatearMontoUSD(estadisticas.totalEgresosUsd)
+          : formatearMontoUSD(estadisticas.totalEgresos);
 
-      {/* 3. Gráficas Dinámicas de Flujo Diario del Mes (Ingresos y Egresos) */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-        <GraficaIngresosMes
-          totalIngresos={estadisticas.totalIngresos}
-          totalAlquiler={estadisticas.totalIngresosAlquiler}
-          totalExtra={estadisticas.totalIngresosExtra}
-          conteoCobranzas={estadisticas.conteoCobranzas}
-          conteoExtra={estadisticas.conteoIngresosExtra}
-          mes={mes}
-          ano={ano}
-          diasDelMes={estadisticas.diasDelMes || []}
-          diasEnMes={estadisticas.diasEnMes || 31}
-        />
+        const subEgresosStat = esSoloBs
+          ? `Equiv: $${(estadisticas.totalEgresosVesEquivUsd || (tasaBcvHoy ? estadisticas.totalEgresosVes / tasaBcvHoy : 0)).toFixed(2)} USD al BCV`
+          : esSoloUsd
+          ? `Gastos directos en divisas`
+          : (estadisticas.totalEgresosVes > 0
+              ? `$ ${estadisticas.totalEgresosUsd} divisas • Bs. ${estadisticas.totalEgresosVes.toLocaleString("es-VE", { maximumFractionDigits: 0 })} en Bs`
+              : `${estadisticas.conteoEgresos} egresos registrados en el mes`);
 
-        <GraficaEgresosMes
-          totalEgresos={estadisticas.totalEgresos}
-          conteoEgresos={estadisticas.conteoEgresos}
-          desgloseCategorias={estadisticas.desgloseEgresosPorCategoria || []}
-          mes={mes}
-          ano={ano}
-          diasDelMes={estadisticas.diasDelMes || []}
-          diasEnMes={estadisticas.diasEnMes || 31}
-        />
-      </div>
+        const balanceNetoCalculado = esSoloBs
+          ? estadisticas.totalIngresosVes - estadisticas.totalEgresosVes
+          : esSoloUsd
+          ? estadisticas.totalIngresosUsd - estadisticas.totalEgresosUsd
+          : estadisticas.balanceNeto;
 
-      {/* 4. Filtro de Inmueble y Libro Diario Desplegable (Lazy Loaded) */}
-      <div className="space-y-4">
-        {/* Barra superior de filtro de inmueble */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white rounded-2xl border border-slate-200/90 p-3 sm:p-4 shadow-sm">
-          <div className="flex items-center gap-2 flex-wrap w-full sm:w-auto">
-            <span className="text-xs font-bold text-slate-700 flex items-center gap-1.5 font-heading">
-              <Building2 className="w-4 h-4 text-slate-500 shrink-0" />
-              Filtrar por Inmueble:
-            </span>
-            <FilterDropdown
-              value={propiedadId}
-              onChange={handleCambioPropiedad}
-              options={opcionesPropiedadFiltro}
-              className="w-full sm:w-60 md:w-64"
-              menuWidth="w-68"
-              ariaLabel="Filtrar por inmueble"
+        const valorBalanceStat = esSoloBs
+          ? `Bs. ${balanceNetoCalculado.toLocaleString("es-VE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+          : esSoloUsd
+          ? formatearMontoUSD(balanceNetoCalculado)
+          : formatearMontoUSD(balanceNetoCalculado);
+
+        const subBalanceStat = esSoloBs
+          ? "Balance neto operativo en Bolívares"
+          : esSoloUsd
+          ? "Balance neto operativo en Dólares"
+          : (estadisticas.balanceNeto >= 0 ? "Balance operativo del periodo" : "Déficit financiero en el periodo");
+
+        return (
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4">
+            {/* StatCard 1: Ingresos Totales */}
+            <StatCard
+              title="Ingresos Totales"
+              value={valorIngresosStat}
+              subtitle={subIngresosStat}
+              icon={TrendingUp}
+              color="emerald"
+            />
+
+            {/* StatCard 2: Egresos Operativos */}
+            <StatCard
+              title="Gastos Operativos"
+              value={valorEgresosStat}
+              subtitle={subEgresosStat}
+              icon={TrendingDown}
+              color="rose"
+            />
+
+            {/* StatCard 3: Balance Neto */}
+            <StatCard
+              title="Balance Neto (Utilidad)"
+              value={valorBalanceStat}
+              subtitle={subBalanceStat}
+              icon={Scale}
+              color={balanceNetoCalculado >= 0 ? "navy" : "rose"}
+            />
+
+            {/* StatCard 4: Margen Operativo */}
+            <StatCard
+              title="Margen Operativo"
+              value={`${estadisticas.margenOperativo}%`}
+              subtitle="Rentabilidad neta sobre ingresos"
+              icon={PieChart}
+              color="indigo"
+              progressPercent={Math.max(0, Math.min(100, estadisticas.margenOperativo))}
             />
           </div>
-          <span className="text-xs text-slate-400 font-medium">
-            Período contable: {mesActualNombre} {ano}
-          </span>
+        );
+      })()}
+
+      {/* 3. Sección de Gráficas de Flujo Diario (Colapsable) */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between px-1">
+          <div className="flex items-center gap-2">
+            <LineChart className="w-4 h-4 text-slate-500 shrink-0" />
+            <h3 className="text-xs sm:text-sm font-bold text-slate-800 font-heading">
+              Evolución Diaria de Flujo ({mesActualNombre} {ano})
+            </h3>
+          </div>
+          <button
+            type="button"
+            onClick={() => setMostrarGraficos(!mostrarGraficos)}
+            className="text-xs font-semibold text-slate-500 hover:text-slate-800 flex items-center gap-1.5 px-2.5 py-1 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer"
+          >
+            <span>{mostrarGraficos ? "Ocultar gráficas" : "Mostrar gráficas"}</span>
+            <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${mostrarGraficos ? "rotate-180" : ""}`} />
+          </button>
         </div>
 
-        {/* Acordeón Desplegable con Carga Perezosa (Lazy Loading) y Toggle Ingresos/Egresos */}
-        <MovimientosDesplegable
-          mes={mes}
-          ano={ano}
-          propiedadId={propiedadId}
-          refreshKey={refreshKey}
-          totalIngresosResumen={estadisticas.totalIngresos}
-          totalEgresosResumen={estadisticas.totalEgresos}
-          conteoCobranzasResumen={estadisticas.conteoCobranzas}
-          conteoEgresosResumen={estadisticas.conteoEgresos}
-          onRegistrarMovimiento={() => {
-            setTransaccionAEditar(null);
-            setIsFormModalOpen(true);
-          }}
-          onEditarTransaccion={(t) => {
-            setTransaccionAEditar(t);
-            setIsFormModalOpen(true);
-          }}
-          onEliminarTransaccion={(t) => setTransaccionAEliminar(t)}
-          onVerComprobante={(url, titulo) => {
-            setViewerUrl(url);
-            setViewerTitle(titulo);
-          }}
-        />
+        {mostrarGraficos && (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-5 animate-fadeIn">
+            <GraficaIngresosMes
+              totalIngresos={estadisticas.totalIngresos}
+              totalAlquiler={estadisticas.totalIngresosAlquiler}
+              totalExtra={estadisticas.totalIngresosExtra}
+              conteoCobranzas={estadisticas.conteoCobranzas}
+              conteoExtra={estadisticas.conteoIngresosExtra}
+              mes={mes}
+              ano={ano}
+              diasDelMes={estadisticas.diasDelMes || []}
+              diasEnMes={estadisticas.diasEnMes || 31}
+            />
+
+            <GraficaEgresosMes
+              totalEgresos={estadisticas.totalEgresos}
+              conteoEgresos={estadisticas.conteoEgresos}
+              desgloseCategorias={estadisticas.desgloseEgresosPorCategoria || []}
+              mes={mes}
+              ano={ano}
+              diasDelMes={estadisticas.diasDelMes || []}
+              diasEnMes={estadisticas.diasEnMes || 31}
+            />
+          </div>
+        )}
       </div>
+
+      {/* 4. Libro Diario Desplegable de Movimientos */}
+      <MovimientosDesplegable
+        mes={mes}
+        ano={ano}
+        propiedadId={propiedadId}
+        refreshKey={refreshKey}
+        filtroMoneda={filtroMoneda}
+        onCambioFiltroMoneda={setFiltroMoneda}
+        totalIngresosResumen={estadisticas.totalIngresos}
+        totalEgresosResumen={estadisticas.totalEgresos}
+        conteoCobranzasResumen={estadisticas.conteoCobranzas}
+        conteoEgresosResumen={estadisticas.conteoEgresos}
+        onRegistrarMovimiento={() => {
+          setTransaccionAEditar(null);
+          setIsFormModalOpen(true);
+        }}
+        onEditarTransaccion={(t) => {
+          setTransaccionAEditar(t);
+          setIsFormModalOpen(true);
+        }}
+        onEliminarTransaccion={(t) => setTransaccionAEliminar(t)}
+        onVerComprobante={(url, titulo) => {
+          setViewerUrl(url);
+          setViewerTitle(titulo);
+        }}
+      />
 
       {/* Modales */}
       {/* 1. Modal de Formulario (Crear / Editar) */}

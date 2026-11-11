@@ -1,10 +1,14 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Building2,
   Loader2,
-  AlertTriangle,
+  Pencil,
+  RefreshCw,
+  Coins,
+  DollarSign,
+  AlertCircle,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Modal } from "@/components/ui/modal";
@@ -14,6 +18,7 @@ import {
   TipoTransaccionFinanciera,
   CategoriaTransaccion,
   MetodoPago,
+  MonedaTransaccion,
 } from "@prisma/client";
 import type { TransaccionFinancieraItem, PropiedadFinanzasOpcion } from "./types";
 import type { TransaccionInput } from "@/lib/actions/finanzas";
@@ -45,14 +50,34 @@ export function TransaccionFormModal({
     transaccionAEditar?.categoria || CategoriaTransaccion.OTRO
   );
   const [concepto, setConcepto] = useState<string>(transaccionAEditar?.concepto || "");
-  const [monto, setMonto] = useState<string>(
+
+  // Moneda y montos
+  const [monedaOriginal, setMonedaOriginal] = useState<MonedaTransaccion>(
+    transaccionAEditar ? (transaccionAEditar.monedaOriginal || MonedaTransaccion.USD) : MonedaTransaccion.VES
+  );
+  const [montoUsd, setMontoUsd] = useState<string>(
     transaccionAEditar ? transaccionAEditar.monto.toString() : ""
   );
+  const [montoBs, setMontoBs] = useState<string>(
+    transaccionAEditar?.montoOriginal && transaccionAEditar.monedaOriginal === MonedaTransaccion.VES
+      ? transaccionAEditar.montoOriginal.toString()
+      : ""
+  );
+
+  // Tasa BCV
+  const [tasaBcv, setTasaBcv] = useState<string>(
+    transaccionAEditar?.tasaBcv ? transaccionAEditar.tasaBcv.toString() : "899.27"
+  );
+  const [tasaBcvOficial, setTasaBcvOficial] = useState<number | null>(null);
+  const [cargandoTasa, setCargandoTasa] = useState(false);
+  const [editandoTasaManual, setEditandoTasaManual] = useState(false);
+  const [esTasaFallback, setEsTasaFallback] = useState(false);
+
   const [fecha, setFecha] = useState<string>(
     transaccionAEditar ? transaccionAEditar.fecha.split("T")[0] : hoyStr
   );
   const [metodoPago, setMetodoPago] = useState<MetodoPago>(
-    transaccionAEditar?.metodoPago || MetodoPago.EFECTIVO_USD
+    transaccionAEditar?.metodoPago || MetodoPago.TRANSFERENCIA
   );
   const [referencia, setReferencia] = useState<string>(
     transaccionAEditar?.referencia || ""
@@ -68,6 +93,34 @@ export function TransaccionFormModal({
   );
   const [notas, setNotas] = useState<string>(transaccionAEditar?.notas || "");
 
+  // Consultar la tasa BCV oficial (del día o histórica según fecha)
+  const consultarTasaBcv = async (fechaParam?: string) => {
+    setCargandoTasa(true);
+    try {
+      const fechaAUsar = fechaParam ?? fecha;
+      const url = fechaAUsar ? `/api/bcv?fecha=${fechaAUsar}` : "/api/bcv";
+      const res = await fetch(url);
+      const json = await res.json();
+      if (json.success && json.data?.tasa) {
+        setTasaBcvOficial(json.data.tasa);
+        setEsTasaFallback(!!json.data.esFallback);
+        if (!transaccionAEditar?.tasaBcv || fechaParam) {
+          setTasaBcv(json.data.tasa.toString());
+        }
+      }
+    } catch (e) {
+      console.warn("No se pudo cargar la tasa BCV:", e);
+    } finally {
+      setCargandoTasa(false);
+    }
+  };
+
+  useEffect(() => {
+    if (isOpen) {
+      consultarTasaBcv(fecha);
+    }
+  }, [isOpen]);
+
   // Sincronizar formulario durante render al abrir modal o cambiar transacción
   const [prevTarget, setPrevTarget] = useState<{ id?: string; isOpen: boolean }>({
     id: transaccionAEditar?.id,
@@ -80,7 +133,16 @@ export function TransaccionFormModal({
       setTipo(transaccionAEditar.tipo);
       setCategoria(transaccionAEditar.categoria);
       setConcepto(transaccionAEditar.concepto);
-      setMonto(transaccionAEditar.monto.toString());
+      setMonedaOriginal(transaccionAEditar.monedaOriginal || MonedaTransaccion.USD);
+      setMontoUsd(transaccionAEditar.monto.toString());
+      setMontoBs(
+        transaccionAEditar.montoOriginal && transaccionAEditar.monedaOriginal === MonedaTransaccion.VES
+          ? transaccionAEditar.montoOriginal.toString()
+          : ""
+      );
+      if (transaccionAEditar.tasaBcv) {
+        setTasaBcv(transaccionAEditar.tasaBcv.toString());
+      }
       setFecha(transaccionAEditar.fecha.split("T")[0]);
       setMetodoPago(transaccionAEditar.metodoPago);
       setReferencia(transaccionAEditar.referencia || "");
@@ -88,33 +150,81 @@ export function TransaccionFormModal({
       setPropiedadId(transaccionAEditar.propiedadId || "GENERAL");
       setComprobanteUrl(transaccionAEditar.comprobanteUrl || "");
       setNotas(transaccionAEditar.notas || "");
+      setEditandoTasaManual(false);
     } else {
       setTipo(TipoTransaccionFinanciera.EGRESO);
       setCategoria(CategoriaTransaccion.OTRO);
       setConcepto("");
-      setMonto("");
+      setMonedaOriginal(MonedaTransaccion.VES);
+      setMontoUsd("");
+      setMontoBs("");
       setFecha(hoyStr);
-      setMetodoPago(MetodoPago.EFECTIVO_USD);
+      setMetodoPago(MetodoPago.TRANSFERENCIA);
       setReferencia("");
       setBeneficiario("");
       setPropiedadId("GENERAL");
       setComprobanteUrl("");
       setNotas("");
+      setEditandoTasaManual(false);
     }
   }
+
+  // Cálculo en vivo del contravalor en USD cuando se usa moneda VES
+  const tasaNum = parseFloat(tasaBcv) || 1;
+  const montoBsNum = parseFloat(montoBs) || 0;
+  const equivalenteUsdEnBs = montoBsNum > 0 && tasaNum > 0 ? (montoBsNum / tasaNum).toFixed(2) : "0.00";
+
+  // Manejo de cambio de moneda (actualiza métodos de pago sugeridos)
+  const handleCambioMoneda = (nuevaMoneda: MonedaTransaccion) => {
+    setMonedaOriginal(nuevaMoneda);
+    if (nuevaMoneda === MonedaTransaccion.VES) {
+      if (metodoPago === MetodoPago.EFECTIVO_USD || metodoPago === MetodoPago.ZELLE) {
+        setMetodoPago(MetodoPago.TRANSFERENCIA);
+      }
+    } else {
+      if (metodoPago === MetodoPago.PAGO_MOVIL) {
+        setMetodoPago(MetodoPago.EFECTIVO_USD);
+      }
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    const montoNum = parseFloat(monto);
     if (!concepto.trim()) {
       toast.error("Indica el concepto o descripción del movimiento.");
       return;
     }
-    if (isNaN(montoNum) || montoNum <= 0) {
-      toast.error("El monto debe ser un número mayor a 0.");
-      return;
+
+    let montoFinal = 0;
+    let montoOriginalFinal: number | null = null;
+    let tasaBcvFinal: number | null = null;
+
+    if (monedaOriginal === MonedaTransaccion.VES) {
+      const bsNum = parseFloat(montoBs);
+      const tasa = parseFloat(tasaBcv);
+      if (isNaN(bsNum) || bsNum <= 0) {
+        toast.error("El monto en Bolívares debe ser mayor a 0.");
+        return;
+      }
+      if (isNaN(tasa) || tasa <= 0) {
+        toast.error("La tasa BCV debe ser un número válido mayor a 0.");
+        return;
+      }
+      montoFinal = Number((bsNum / tasa).toFixed(2));
+      montoOriginalFinal = Number(bsNum.toFixed(2));
+      tasaBcvFinal = Number(tasa.toFixed(4));
+    } else {
+      const usdNum = parseFloat(montoUsd);
+      if (isNaN(usdNum) || usdNum <= 0) {
+        toast.error("El monto en Dólares debe ser mayor a 0.");
+        return;
+      }
+      montoFinal = Number(usdNum.toFixed(2));
+      montoOriginalFinal = montoFinal;
+      tasaBcvFinal = tasaBcvOficial || (parseFloat(tasaBcv) > 0 ? parseFloat(tasaBcv) : null);
     }
+
     if (!fecha) {
       toast.error("Selecciona la fecha del movimiento.");
       return;
@@ -124,7 +234,10 @@ export function TransaccionFormModal({
       tipo,
       categoria,
       concepto: concepto.trim(),
-      monto: montoNum,
+      monto: montoFinal,
+      monedaOriginal,
+      montoOriginal: montoOriginalFinal,
+      tasaBcv: tasaBcvFinal,
       fecha,
       metodoPago,
       referencia: referencia.trim() || null,
@@ -141,15 +254,19 @@ export function TransaccionFormModal({
     }
   };
 
-  // Opciones de métodos de pago
-  const opcionesMetodoPago = Object.entries(METODO_PAGO_CONFIG).map(
-    ([key, config]) => ({
+  // Opciones de métodos de pago filtradas por moneda
+  const opcionesMetodoPago = Object.entries(METODO_PAGO_CONFIG)
+    .filter(([key]) => {
+      if (monedaOriginal === MonedaTransaccion.VES) {
+        return key === MetodoPago.TRANSFERENCIA || key === MetodoPago.PAGO_MOVIL || key === MetodoPago.OTRO;
+      }
+      return key === MetodoPago.EFECTIVO_USD || key === MetodoPago.ZELLE || key === MetodoPago.TRANSFERENCIA || key === MetodoPago.OTRO;
+    })
+    .map(([key, config]) => ({
       value: key,
       label: config.label,
-    })
-  );
+    }));
 
-  // Opciones de propiedades con formato limpio para el selector
   const opcionesPropiedades = [
     {
       value: "GENERAL",
@@ -211,12 +328,45 @@ export function TransaccionFormModal({
           </div>
         </div>
 
-        {/* Sección 1: Datos Principales */}
+        {/* Sección 1: Datos Principales y Multimoneda */}
         <div className="space-y-4">
           <FormSectionHeader
             step={1}
-            title="Datos Principales del Movimiento"
+            title="Importe y Moneda de Operación"
           />
+
+          {/* Selector 50/50 de Moneda (Bolívares por defecto) */}
+          <div>
+            <label className="block text-xs font-bold text-slate-700 mb-1.5">
+              Moneda de la Transacción <span className="text-rose-500">*</span>
+            </label>
+            <div className="grid grid-cols-2 gap-2 p-1 bg-slate-100 rounded-xl border border-slate-200">
+              <button
+                type="button"
+                onClick={() => handleCambioMoneda(MonedaTransaccion.VES)}
+                className={`h-10 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                  monedaOriginal === MonedaTransaccion.VES
+                    ? "bg-[#175E38] text-white shadow-xs"
+                    : "text-slate-600 hover:text-slate-900"
+                }`}
+              >
+                <Coins className="w-3.5 h-3.5" />
+                <span>Bolívares (Bs. VES)</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => handleCambioMoneda(MonedaTransaccion.USD)}
+                className={`h-10 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                  monedaOriginal === MonedaTransaccion.USD
+                    ? "bg-[#1C2539] text-white shadow-xs"
+                    : "text-slate-600 hover:text-slate-900"
+                }`}
+              >
+                <DollarSign className="w-3.5 h-3.5" />
+                <span>Dólares ($ USD)</span>
+              </button>
+            </div>
+          </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
             {/* Concepto / Descripción */}
@@ -240,30 +390,130 @@ export function TransaccionFormModal({
               </div>
             </div>
 
-            {/* Monto en USD */}
-            <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1.5">
-                Monto ($ USD) <span className="text-rose-500">*</span>
-              </label>
-              <div className="relative">
-                <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-sm">
-                  $
-                </span>
-                <input
-                  type="number"
-                  step="0.01"
-                  min="0.01"
-                  value={monto}
-                  onChange={(e) => setMonto(e.target.value)}
-                  placeholder="0.00"
-                  required
-                  className="w-full h-11 pl-8 pr-3.5 rounded-xl border border-slate-300 text-sm font-bold text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#175E38]/20 focus:border-[#175E38] transition-all bg-white"
-                />
+            {/* Caso 1: Moneda en USD */}
+            {monedaOriginal === MonedaTransaccion.USD ? (
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                  Monto ($ USD) <span className="text-rose-500">*</span>
+                </label>
+                <div className="relative">
+                  <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-sm">
+                    $
+                  </span>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0.01"
+                    value={montoUsd}
+                    onChange={(e) => setMontoUsd(e.target.value)}
+                    placeholder="0.00"
+                    required
+                    className="w-full h-11 pl-8 pr-3.5 rounded-xl border border-slate-300 text-sm font-bold text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#175E38]/20 focus:border-[#175E38] transition-all bg-white"
+                  />
+                </div>
               </div>
-            </div>
+            ) : (
+              /* Caso 2: Moneda en VES (Bolívares) */
+              <>
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                    Monto en Bolívares (Bs.) <span className="text-rose-500">*</span>
+                  </label>
+                  <div className="relative">
+                    <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-xs font-mono">
+                      Bs.
+                    </span>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0.01"
+                      value={montoBs}
+                      onChange={(e) => setMontoBs(e.target.value)}
+                      placeholder="0.00"
+                      required
+                      className="w-full h-11 pl-10 pr-3.5 rounded-xl border border-slate-300 text-sm font-bold text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#175E38]/20 focus:border-[#175E38] transition-all bg-white"
+                    />
+                  </div>
+                </div>
+
+                {/* Tasa BCV aplicada con opción de edición */}
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="block text-xs font-bold text-slate-700">
+                      Tasa Oficial BCV <span className="text-rose-500">*</span>
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => setEditandoTasaManual(!editandoTasaManual)}
+                      className="text-[11px] font-bold text-[#175E38] hover:underline flex items-center gap-1 cursor-pointer"
+                    >
+                      <Pencil className="w-3 h-3" />
+                      <span>{editandoTasaManual ? "Automática" : "Ajustar Tasa"}</span>
+                    </button>
+                  </div>
+
+                  {editandoTasaManual ? (
+                    <div className="relative">
+                      <input
+                        type="number"
+                        step="0.0001"
+                        min="0.0001"
+                        value={tasaBcv}
+                        onChange={(e) => setTasaBcv(e.target.value)}
+                        placeholder="Tasa en Bs/USD"
+                        required
+                        className="w-full h-11 px-3.5 rounded-xl border border-amber-300 bg-amber-50/50 text-sm font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all font-mono"
+                      />
+                    </div>
+                  ) : (
+                    <div className="h-11 px-3.5 bg-emerald-50 border border-emerald-200/90 rounded-xl flex items-center justify-between text-xs">
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        {cargandoTasa ? (
+                          <Loader2 className="w-3.5 h-3.5 animate-spin text-[#175E38]" />
+                        ) : (
+                          <Coins className="w-3.5 h-3.5 text-[#175E38] shrink-0" />
+                        )}
+                        <span className="font-mono font-bold text-slate-900 truncate">
+                          {parseFloat(tasaBcv).toLocaleString("es-VE", {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 4,
+                          })}{" "}
+                          Bs/USD
+                        </span>
+                        {esTasaFallback && (
+                          <span className="text-[10px] px-1.5 py-0.2 rounded bg-amber-100 text-amber-800 font-semibold shrink-0">
+                            Caché
+                          </span>
+                        )}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => consultarTasaBcv(fecha)}
+                        disabled={cargandoTasa}
+                        title="Consultar tasa BCV de esta fecha"
+                        className="text-slate-400 hover:text-[#175E38] transition-colors p-1 cursor-pointer"
+                      >
+                        <RefreshCw className={`w-3.5 h-3.5 ${cargandoTasa ? "animate-spin" : ""}`} />
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                {/* Banner de Contravalor en USD en vivo */}
+                <div className="sm:col-span-2 p-3 bg-slate-50 border border-slate-200/80 rounded-xl flex items-center justify-between text-xs">
+                  <span className="text-slate-500 font-semibold flex items-center gap-1.5">
+                    <AlertCircle className="w-3.5 h-3.5 text-slate-400" />
+                    <span>Equivalente Registrado en Balance:</span>
+                  </span>
+                  <span className="font-heading font-black text-slate-900 text-sm sm:text-base">
+                    $ {equivalenteUsdEnBs} USD
+                  </span>
+                </div>
+              </>
+            )}
 
             {/* Fecha del Movimiento */}
-            <div>
+            <div className={monedaOriginal === MonedaTransaccion.VES ? "sm:col-span-1" : ""}>
               <label className="block text-xs font-bold text-slate-700 mb-1.5">
                 Fecha del Movimiento <span className="text-rose-500">*</span>
               </label>
@@ -271,7 +521,13 @@ export function TransaccionFormModal({
                 <input
                   type="date"
                   value={fecha}
-                  onChange={(e) => setFecha(e.target.value)}
+                  onChange={(e) => {
+                    const nuevaFecha = e.target.value;
+                    setFecha(nuevaFecha);
+                    if (nuevaFecha && !editandoTasaManual) {
+                      consultarTasaBcv(nuevaFecha);
+                    }
+                  }}
                   required
                   className="w-full h-11 px-3.5 rounded-xl border border-slate-300 text-sm font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#175E38]/20 focus:border-[#175E38] transition-all bg-white cursor-pointer"
                 />
@@ -279,7 +535,7 @@ export function TransaccionFormModal({
             </div>
 
             {/* Método de Pago */}
-            <div className="sm:col-span-2">
+            <div className={monedaOriginal === MonedaTransaccion.VES ? "sm:col-span-1" : "sm:col-span-2"}>
               <label className="block text-xs font-bold text-slate-700 mb-1.5">
                 Método de Pago <span className="text-rose-500">*</span>
               </label>
@@ -358,8 +614,6 @@ export function TransaccionFormModal({
                 />
               </div>
             </div>
-
-
 
             {/* Observaciones o Notas */}
             <div className="sm:col-span-2">

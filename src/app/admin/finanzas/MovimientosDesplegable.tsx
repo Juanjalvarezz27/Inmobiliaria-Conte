@@ -18,6 +18,8 @@ import {
   Tag,
   ShieldCheck,
   X,
+  Coins,
+  DollarSign,
 } from "lucide-react";
 import type {
   MovimientoIngresoDetalle,
@@ -40,11 +42,13 @@ interface MovimientosDesplegableProps {
   ano: number;
   propiedadId?: string;
   refreshKey?: number;
+  filtroMoneda?: "TODAS" | "VES" | "USD";
+  onCambioFiltroMoneda?: (m: "TODAS" | "VES" | "USD") => void;
   totalIngresosResumen: number;
   totalEgresosResumen: number;
   conteoCobranzasResumen: number;
   conteoEgresosResumen: number;
-  onRegistrarMovimiento: () => void;
+  onRegistrarMovimiento?: () => void;
   onEditarTransaccion: (item: TransaccionFinancieraItem) => void;
   onEliminarTransaccion: (item: TransaccionFinancieraItem) => void;
   onVerComprobante: (url: string, titulo: string) => void;
@@ -99,6 +103,8 @@ export function MovimientosDesplegable({
   ano,
   propiedadId = "TODAS",
   refreshKey = 0,
+  filtroMoneda: propFiltroMoneda,
+  onCambioFiltroMoneda,
   totalIngresosResumen,
   totalEgresosResumen,
   conteoCobranzasResumen,
@@ -117,6 +123,11 @@ export function MovimientosDesplegable({
 
   // Toggle entre Ingresos y Egresos
   const [tabActivo, setTabActivo] = useState<"INGRESOS" | "EGRESOS">("INGRESOS");
+
+  // Filtro de Moneda (TODAS, VES, USD)
+  const [filtroMonedaInterno, setFiltroMonedaInterno] = useState<"TODAS" | "VES" | "USD">("TODAS");
+  const filtroMoneda = propFiltroMoneda ?? filtroMonedaInterno;
+  const setFiltroMoneda = onCambioFiltroMoneda ?? setFiltroMonedaInterno;
 
   // Filtro de búsqueda local
   const [busqueda, setBusqueda] = useState("");
@@ -177,13 +188,24 @@ export function MovimientosDesplegable({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mes, ano, propiedadId, refreshKey]);
 
-  // Filtrar ingresos reactivamente
+  // Listas base para conteo y filtrado
   const rawIngresos = datosCargados?.ingresos;
+  const rawEgresos = datosCargados?.egresos;
+  const listaActivaRaw = tabActivo === "INGRESOS" ? rawIngresos : rawEgresos;
+
+
+  // Filtrar ingresos reactivamente (por moneda y término de búsqueda)
   const ingresosFiltrados = useMemo(() => {
     if (!rawIngresos) return [];
-    if (!busqueda.trim()) return rawIngresos;
+    let list = rawIngresos;
+    if (filtroMoneda === "VES") {
+      list = list.filter((i) => i.monedaOriginal === "VES");
+    } else if (filtroMoneda === "USD") {
+      list = list.filter((i) => !i.monedaOriginal || i.monedaOriginal === "USD");
+    }
+    if (!busqueda.trim()) return list;
     const q = busqueda.toLowerCase().trim();
-    return rawIngresos.filter(
+    return list.filter(
       (item) =>
         item.concepto.toLowerCase().includes(q) ||
         (item.inquilinoNombre && item.inquilinoNombre.toLowerCase().includes(q)) ||
@@ -191,15 +213,20 @@ export function MovimientosDesplegable({
         (item.unidadCodigo && item.unidadCodigo.toLowerCase().includes(q)) ||
         (item.referencia && item.referencia.toLowerCase().includes(q))
     );
-  }, [rawIngresos, busqueda]);
+  }, [rawIngresos, filtroMoneda, busqueda]);
 
-  // Filtrar egresos reactivamente
-  const rawEgresos = datosCargados?.egresos;
+  // Filtrar egresos reactivamente (por moneda y término de búsqueda)
   const egresosFiltrados = useMemo(() => {
     if (!rawEgresos) return [];
-    if (!busqueda.trim()) return rawEgresos;
+    let list = rawEgresos;
+    if (filtroMoneda === "VES") {
+      list = list.filter((i) => i.monedaOriginal === "VES");
+    } else if (filtroMoneda === "USD") {
+      list = list.filter((i) => !i.monedaOriginal || i.monedaOriginal === "USD");
+    }
+    if (!busqueda.trim()) return list;
     const q = busqueda.toLowerCase().trim();
-    return rawEgresos.filter(
+    return list.filter(
       (item) =>
         item.concepto.toLowerCase().includes(q) ||
         (item.beneficiario && item.beneficiario.toLowerCase().includes(q)) ||
@@ -207,7 +234,7 @@ export function MovimientosDesplegable({
         (item.propiedadNombre && item.propiedadNombre.toLowerCase().includes(q)) ||
         (item.referencia && item.referencia.toLowerCase().includes(q))
     );
-  }, [rawEgresos, busqueda]);
+  }, [rawEgresos, filtroMoneda, busqueda]);
 
   // Cálculo de paginación de 20 en 20 registros
   const listaActiva = tabActivo === "INGRESOS" ? ingresosFiltrados : egresosFiltrados;
@@ -253,92 +280,54 @@ export function MovimientosDesplegable({
             handleToggleAcordeon();
           }
         }}
-        className="w-full relative z-10 flex flex-col gap-3 sm:gap-3.5 p-4 sm:p-5 cursor-pointer hover:bg-slate-50/40 transition-colors select-none text-left"
-        title={estaAbierto ? "Clic para cerrar movimientos" : "Clic para ver movimientos detallados"}
+        className="w-full relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 sm:p-5 cursor-pointer hover:bg-slate-50/50 transition-colors select-none text-left"
+        title={estaAbierto ? "Clic para ocultar movimientos" : "Clic para ver movimientos detallados"}
       >
-        {/* Fila 1: Icono Principal + Título y Subtítulo Descriptivo */}
-        <div className="flex items-center gap-3 sm:gap-3.5 min-w-0 w-full">
+        {/* Izquierda: Icono Principal + Título y Subtítulo Descriptivo */}
+        <div className="flex items-center gap-3 sm:gap-3.5 min-w-0">
           <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-white/95 text-slate-800 flex items-center justify-center shrink-0 border border-slate-200/90 shadow-2xs backdrop-blur-xs">
             <Receipt className="w-5 h-5 text-black" />
           </div>
 
           <div className="min-w-0 flex-1">
-            <h3 className="text-base sm:text-lg font-black text-black font-heading tracking-tight leading-snug">
-              Libro Diario de Movimientos
-            </h3>
-            <p className="text-xs text-slate-500 font-medium flex items-center gap-1.5 mt-0.5">
-              <span>{nombreMes} {ano}</span>
-              <span className="text-slate-300">•</span>
-              <span>
+            <div className="flex items-center gap-2 flex-wrap">
+              <h3 className="text-base sm:text-lg font-black text-black font-heading tracking-tight leading-snug">
+                Libro Diario de Movimientos
+              </h3>
+              <span className="text-[11px] font-bold text-slate-600 bg-slate-100 px-2 py-0.5 rounded-full border border-slate-200">
                 {conteoCobranzasResumen + conteoEgresosResumen}{" "}
                 {conteoCobranzasResumen + conteoEgresosResumen === 1 ? "movimiento" : "movimientos"}
               </span>
+            </div>
+            <p className="text-xs text-slate-400 font-medium mt-0.5">
+              <span>{nombreMes} {ano}</span>
+              <span className="text-slate-300 mx-1.5">•</span>
+              <span>Auditoría de cobranzas devengadas y egresos operativos</span>
             </p>
           </div>
         </div>
 
-        {/* Fila 2: Tarjetas de Ingresos y Egresos a Ancho Completo */}
-        <div className="grid grid-cols-2 gap-2.5 sm:gap-3 w-full">
-          {/* Card Ingresos */}
-          <div className="bg-emerald-50/90 border border-emerald-200/80 rounded-xl p-2.5 sm:px-3.5 sm:py-2.5 flex items-center gap-2.5 shadow-2xs">
-            <div className="w-8 h-8 rounded-lg bg-emerald-100 text-[#175E38] flex items-center justify-center shrink-0">
-              <TrendingUp className="w-4 h-4" />
-            </div>
-            <div className="min-w-0 flex-1">
-              <span className="text-[10px] text-emerald-700 font-bold uppercase tracking-wider block leading-none truncate">
-                Ingresos ({conteoCobranzasResumen})
-              </span>
-              <span className="text-xs sm:text-sm font-black font-heading text-[#175E38] leading-tight block mt-1 truncate">
-                +{formatearMontoUSD(totalIngresosResumen)}
-              </span>
-            </div>
-          </div>
+        {/* Derecha: Píldoras compactas de totales + Botón Chevron */}
+        <div className="flex items-center justify-between sm:justify-end gap-2.5 shrink-0 pt-2 sm:pt-0 border-t border-slate-100 sm:border-t-0">
+          <div className="flex items-center gap-2">
+            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-50 text-[#175E38] border border-emerald-200/90 text-xs font-bold font-mono">
+              <TrendingUp className="w-3 h-3 text-[#175E38]" />
+              <span>+{formatearMontoUSD(totalIngresosResumen)}</span>
+            </span>
 
-          {/* Card Egresos */}
-          <div className="bg-rose-50/90 border border-rose-200/80 rounded-xl p-2.5 sm:px-3.5 sm:py-2.5 flex items-center gap-2.5 shadow-2xs">
-            <div className="w-8 h-8 rounded-lg bg-rose-100 text-[#CC1A22] flex items-center justify-center shrink-0">
-              <TrendingDown className="w-4 h-4" />
-            </div>
-            <div className="min-w-0 flex-1">
-              <span className="text-[10px] text-rose-700 font-bold uppercase tracking-wider block leading-none truncate">
-                Egresos ({conteoEgresosResumen})
-              </span>
-              <span className="text-xs sm:text-sm font-black font-heading text-[#CC1A22] leading-tight block mt-1 truncate">
-                -{formatearMontoUSD(totalEgresosResumen)}
-              </span>
-            </div>
-          </div>
-        </div>
-
-        {/* Fila 3: Acciones (Desplegable a la izquierda y Registrar a la derecha) */}
-        <div className="w-full flex items-center justify-between gap-3 pt-2.5 sm:pt-3 border-t border-slate-100 shrink-0">
-          {/* Botón Desplegable */}
-          <div className="flex items-center gap-2 cursor-pointer text-slate-700 hover:text-black transition-colors">
-            <div
-              className={`w-8 h-8 rounded-xl flex items-center justify-center border border-slate-200/90 bg-white/95 text-slate-700 hover:text-black hover:bg-slate-100 transition-all duration-300 shadow-2xs ${
-                estaAbierto ? "rotate-180 bg-slate-100 text-black border-slate-300" : ""
-              }`}
-            >
-              <ChevronDown className="w-4 h-4 stroke-[2.5]" />
-            </div>
-            <span className="text-xs font-bold text-slate-600 select-none whitespace-nowrap">
-              {estaAbierto ? "Cerrar" : "Ver detalle"}
+            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-rose-50 text-rose-700 border border-rose-200/90 text-xs font-bold font-mono">
+              <TrendingDown className="w-3 h-3 text-rose-600" />
+              <span>-{formatearMontoUSD(totalEgresosResumen)}</span>
             </span>
           </div>
 
-          {/* Botón Registrar Movimiento */}
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              onRegistrarMovimiento();
-            }}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-xl bg-[#175E38] text-white text-xs font-bold hover:bg-[#124b2d] transition-all shadow-xs cursor-pointer active:translate-y-0.5 whitespace-nowrap"
+          <div
+            className={`w-8 h-8 rounded-xl flex items-center justify-center border border-slate-200/90 bg-white/95 text-slate-700 hover:text-black hover:bg-slate-100 transition-all duration-300 shadow-2xs shrink-0 ${
+              estaAbierto ? "rotate-180 bg-slate-100 text-black border-slate-300" : ""
+            }`}
           >
-            <Plus className="w-3.5 h-3.5 stroke-[2.5] shrink-0" />
-            <span>Registrar</span>
-            <span className="hidden sm:inline">Movimiento</span>
-          </button>
+            <ChevronDown className="w-4 h-4 stroke-[2.5]" />
+          </div>
         </div>
       </div>
 
@@ -352,13 +341,14 @@ export function MovimientosDesplegable({
       >
         <div className="overflow-hidden">
           <div className="p-3.5 sm:p-5 space-y-4 bg-slate-50/50">
-            {/* Barra de Controles: Toggle Segmentado y Buscador */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-2.5 sm:p-3 rounded-2xl border border-slate-200/90 shadow-2xs">
-              <div className="grid grid-cols-2 gap-1.5 p-1 bg-slate-100 rounded-xl w-full sm:w-auto">
+            {/* Barra de Controles: Toggle Tipo, Filtro Moneda (Bs / $) y Buscador */}
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 bg-white p-2.5 sm:p-3 rounded-2xl border border-slate-200/90 shadow-2xs">
+              {/* Izquierda: Toggle Segmentado de Ingresos / Egresos */}
+              <div className="grid grid-cols-2 gap-1.5 p-1 bg-slate-100 rounded-xl w-full lg:w-auto">
                 <button
                   type="button"
                   onClick={() => handleCambiarTab("INGRESOS")}
-                  className={`h-9 px-4 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer ${
+                  className={`h-9 px-3.5 sm:px-4 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer ${
                     tabActivo === "INGRESOS"
                       ? "bg-[#175E38] text-white shadow-xs"
                       : "text-slate-600 hover:text-slate-900"
@@ -371,7 +361,7 @@ export function MovimientosDesplegable({
                 <button
                   type="button"
                   onClick={() => handleCambiarTab("EGRESOS")}
-                  className={`h-9 px-4 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer ${
+                  className={`h-9 px-3.5 sm:px-4 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer ${
                     tabActivo === "EGRESOS"
                       ? "bg-[#CC1A22] text-white shadow-xs"
                       : "text-slate-600 hover:text-slate-900"
@@ -382,8 +372,8 @@ export function MovimientosDesplegable({
                 </button>
               </div>
 
-              {/* Buscador Rápido */}
-              <div className="relative flex-1 sm:max-w-xs">
+              {/* Derecha: Buscador Rápido */}
+              <div className="relative flex-1 sm:max-w-xs md:max-w-sm w-full">
                 <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
                 <input
                   type="text"
@@ -505,6 +495,11 @@ export function MovimientosDesplegable({
                                       <span className="text-sm font-black font-heading text-[#175E38] block leading-tight">
                                         +{formatearMontoUSD(item.monto)}
                                       </span>
+                                      {item.monedaOriginal === "VES" && (
+                                        <span className="text-[10px] text-emerald-700 font-bold block font-mono">
+                                          Bs. {(item.montoOriginal || (item.monto * (item.tasaBcv || 1))).toLocaleString("es-VE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                        </span>
+                                      )}
                                     </div>
                                   </div>
 
@@ -558,6 +553,12 @@ export function MovimientosDesplegable({
                                   <span className="text-base sm:text-lg font-black font-heading text-[#175E38] block leading-tight">
                                     +{formatearMontoUSD(item.monto)}
                                   </span>
+                                  {item.monedaOriginal === "VES" && (
+                                    <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-800 bg-emerald-50 border border-emerald-200/80 px-1.5 py-0.2 rounded font-mono mt-0.5">
+                                      <span>Bs. {(item.montoOriginal || (item.monto * (item.tasaBcv || 1))).toLocaleString("es-VE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                                      {item.tasaBcv && <span className="text-emerald-600 font-normal">· BCV: {item.tasaBcv.toLocaleString("es-VE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>}
+                                    </span>
+                                  )}
                                 </div>
 
                                 {/* Botón de Comprobante / Acciones */}
@@ -671,20 +672,27 @@ export function MovimientosDesplegable({
                               <div className="flex items-start sm:items-center gap-3 sm:gap-3.5 min-w-0 flex-1">
                                 {/* Icono con tooltip de categoría */}
                                 <div
-                                  className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-rose-50 text-rose-600 border border-rose-200/80 flex items-center justify-center shrink-0 shadow-2xs mt-0.5 sm:mt-0"
+                                  className={`w-9 h-9 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center shrink-0 shadow-2xs mt-0.5 sm:mt-0 border ${
+                                    configCat?.colorBadge || "bg-rose-50 text-rose-600 border-rose-200/80"
+                                  }`}
                                   title={item.categoriaLabel}
                                 >
-                                  <IconoCat className="w-4 h-4 sm:w-5 sm:h-5" />
+                                  <IconoCat className="w-4 h-4 sm:w-4.5 sm:h-4.5" />
                                 </div>
 
                                 {/* Información del Concepto */}
                                 <div className="min-w-0 flex-1 space-y-0.5">
-                                  {/* Línea 1: Concepto + Monto en Móvil */}
+                                  {/* Línea 1: Concepto + Categoría + Monto en Móvil */}
                                   <div className="flex items-start justify-between gap-2">
-                                    <div className="min-w-0 flex-1">
+                                    <div className="min-w-0 flex-1 flex items-center gap-1.5 flex-wrap">
                                       <h5 className="text-sm font-bold text-slate-900 tracking-tight truncate">
                                         {item.concepto}
                                       </h5>
+                                      {configCat?.label && (
+                                        <span className={`text-[10px] font-semibold px-1.5 py-0.2 rounded border ${configCat.colorBadge}`}>
+                                          {configCat.label}
+                                        </span>
+                                      )}
                                     </div>
 
                                     {/* Monto en Móvil (Visible arriba a la derecha de la Línea 1) */}
@@ -692,6 +700,11 @@ export function MovimientosDesplegable({
                                       <span className="text-sm font-black font-heading text-rose-600 block leading-tight">
                                         -{formatearMontoUSD(item.monto)}
                                       </span>
+                                      {item.monedaOriginal === "VES" && (
+                                        <span className="text-[10px] text-emerald-700 font-bold block font-mono">
+                                          Bs. {(item.montoOriginal || (item.monto * (item.tasaBcv || 1))).toLocaleString("es-VE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                        </span>
+                                      )}
                                     </div>
                                   </div>
 
@@ -759,6 +772,12 @@ export function MovimientosDesplegable({
                                   <span className="text-base sm:text-lg font-black font-heading text-rose-600 block leading-tight">
                                     -{formatearMontoUSD(item.monto)}
                                   </span>
+                                  {item.monedaOriginal === "VES" && (
+                                    <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-800 bg-emerald-50 border border-emerald-200/80 px-1.5 py-0.2 rounded font-mono mt-0.5">
+                                      <span>Bs. {(item.montoOriginal || (item.monto * (item.tasaBcv || 1))).toLocaleString("es-VE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                                      {item.tasaBcv && <span className="text-emerald-600 font-normal">· BCV: {item.tasaBcv.toLocaleString("es-VE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>}
+                                    </span>
+                                  )}
                                 </div>
 
                                 {/* Acciones (Factura, Editar, Eliminar) */}

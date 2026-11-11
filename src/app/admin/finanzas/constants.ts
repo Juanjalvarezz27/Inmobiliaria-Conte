@@ -11,7 +11,7 @@ import {
   Home,
   Car,
   Calendar,
-  HelpCircle,
+  FileText,
 } from "lucide-react";
 
 export const CATEGORIA_CONFIG: Record<
@@ -93,7 +93,7 @@ export const CATEGORIA_CONFIG: Record<
     label: "Otros Conceptos",
     descripcion: "Gastos o ingresos imprevistos y varios",
     colorBadge: "bg-slate-50 text-slate-700 border-slate-200",
-    icon: HelpCircle,
+    icon: FileText,
   },
 };
 

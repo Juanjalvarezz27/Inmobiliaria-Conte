@@ -4,6 +4,7 @@ import {
   MetodoPago,
   TipoPropiedad,
   TipoUnidad,
+  MonedaTransaccion,
 } from "@prisma/client";
 
 export interface TransaccionFinancieraItem {
@@ -12,6 +13,9 @@ export interface TransaccionFinancieraItem {
   categoria: CategoriaTransaccion;
   concepto: string;
   monto: number;
+  monedaOriginal: MonedaTransaccion;
+  montoOriginal: number | null;
+  tasaBcv: number | null;
   fecha: string;
   periodoMes: number;
   periodoAno: number;
@@ -57,6 +61,12 @@ export interface EstadisticasFinanzas {
   totalIngresosAlquiler: number;
   totalIngresosExtra: number;
   totalEgresos: number;
+  totalEgresosUsd: number;
+  totalEgresosVes: number;
+  totalEgresosVesEquivUsd: number;
+  totalIngresosUsd: number;
+  totalIngresosVes: number;
+  totalIngresosVesEquivUsd: number;
   balanceNeto: number;
   margenOperativo: number;
   conteoCobranzas: number;
@@ -100,6 +110,9 @@ export interface MovimientoIngresoDetalle {
   tipo: "ALQUILER" | "EXTRA";
   concepto: string;
   monto: number;
+  monedaOriginal?: MonedaTransaccion;
+  montoOriginal?: number | null;
+  tasaBcv?: number | null;
   fecha: string;
   dia: number;
   inquilinoNombre?: string | null;
@@ -121,6 +134,9 @@ export interface MovimientoEgresoDetalle {
   categoriaLabel: string;
   categoriaBadge: string;
   monto: number;
+  monedaOriginal?: MonedaTransaccion;
+  montoOriginal?: number | null;
+  tasaBcv?: number | null;
   fecha: string;
   dia: number;
   beneficiario?: string | null;
@@ -140,5 +156,47 @@ export interface MovimientosPeriodoResponse {
   totalEgresos: number;
   conteoIngresos: number;
   conteoEgresos: number;
+}
+
+export interface DesglosePropiedadCierre {
+  propiedadId?: string;
+  nombre: string;
+  ciudad: string;
+  ingresos: number;
+  ingresosUsd: number;
+  ingresosVes: number;
+  egresos: number;
+  egresosUsd: number;
+  egresosVes: number;
+  balance: number;
+  movimientos: MovimientoCierreItem[];
+}
+
+export interface MovimientoCierreItem {
+  id: string;
+  fecha: string;
+  tipo: TipoTransaccionFinanciera | "INGRESO" | "EGRESO";
+  concepto: string;
+  propiedad: string;
+  monedaOriginal: MonedaTransaccion | string;
+  montoOriginal?: number | null;
+  montoBs?: number | null;
+  tasaBcv?: number | null;
+  montoUsd: number;
+}
+
+export interface CierreMesData {
+  mes: number;
+  ano: number;
+  totalIngresos: number;
+  totalIngresosUsd: number;
+  totalIngresosVes: number;
+  totalEgresos: number;
+  totalEgresosUsd: number;
+  totalEgresosVes: number;
+  balanceNeto: number;
+  tasaBcvReferencial?: number;
+  desglosePropiedades: DesglosePropiedadCierre[];
+  movimientos?: MovimientoCierreItem[];
 }
 

@@ -144,7 +144,7 @@ export function FilterDropdown({
         <div
           className={`hidden md:block absolute ${
             align === "left" ? "left-0" : "right-0"
-          } top-full mt-1.5 ${menuWidth} max-w-[calc(100vw-2rem)] bg-white border border-slate-200/90 rounded-xl shadow-xl py-1.5 z-50 animate-in fade-in-0 zoom-in-95 duration-100 max-h-72 overflow-y-auto`}
+          } top-full mt-1.5 ${menuWidth} min-w-full max-w-[calc(100vw-2rem)] bg-white border border-slate-200/90 rounded-xl shadow-xl py-1.5 z-50 animate-in fade-in-0 zoom-in-95 duration-100 max-h-72 overflow-y-auto`}
         >
           {options.map((opt, idx) => {
             const isSelected = opt.value === value;
@@ -199,7 +199,7 @@ export function FilterDropdown({
                   </div>
                 </button>
                 {showDividerAfter && idx < options.length - 1 && (
-                  <div className="my-1 border-t border-slate-100" />
+                  <div className="my-1.5 border-t border-slate-200/80" />
                 )}
               </React.Fragment>
             );

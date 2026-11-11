@@ -287,12 +287,20 @@ enum CategoriaTransaccion {
   OTRO                   // Gastos o ingresos imprevistos
 }
 
+enum MonedaTransaccion {
+  USD
+  VES
+}
+
 model TransaccionFinanciera {
   id             String                    @id @default(cuid())
   tipo           TipoTransaccionFinanciera @default(EGRESO)
   categoria      CategoriaTransaccion      @default(OTRO)
   concepto       String                    // Ej: "Pago Corpoelec Octubre - CC Las Américas"
-  monto          Float                     // En USD
+  monto          Float                     // En USD (monto canónico para balances y reportes)
+  monedaOriginal MonedaTransaccion         @default(USD)
+  montoOriginal  Float?                    // Monto real en Bs o USD ingresado por el usuario
+  tasaBcv        Float?                    // Tasa oficial BCV aplicada en la transacción
   fecha          DateTime                  @default(now())
   periodoMes     Int                       // 1 - 12
   periodoAno     Int                       // Ej: 2026
@@ -318,6 +326,22 @@ model TransaccionFinanciera {
   @@index([propiedadId])
   @@index([propiedadId, fecha])
   @@map("transacciones_financieras")
+}
+
+// Historial diario de la Tasa Oficial BCV para auditoría y cierres
+model HistorialTasaBcv {
+  id                 String   @id @default(cuid())
+  fechaStr           String   @unique // Formato YYYY-MM-DD para búsqueda O(1)
+  fecha              DateTime @default(now()) // Timestamp exacto de registro
+  tasa               Float    // Tasa oficial en Bs/USD (ej: 899.2705)
+  fuente             String   @default("Banco Central de Venezuela")
+  esOficial          Boolean  @default(true)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@index([fechaStr])
+  @@index([fecha])
+  @@map("historial_tasas_bcv")
 }
 
 enum CargoEmpleado {
