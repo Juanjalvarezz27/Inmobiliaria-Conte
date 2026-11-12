@@ -54,11 +54,11 @@ export function EntregaGuardiaModal({
       onClose={onClose}
       title="Entrega de Guardia (Relevo 24h)"
       headerVariant="green"
-      maxWidth="md"
+      maxWidth="lg"
     >
-      <form onSubmit={handleSubmit} className="p-4 sm:p-6 space-y-4">
+      <form onSubmit={handleSubmit} className="space-y-4">
         {/* Banner de resumen de la guardia */}
-        <div className="p-3.5 rounded-2xl bg-gradient-to-r from-blue-50/90 via-white to-emerald-50/50 border border-blue-200/80 flex items-center justify-between gap-3 shadow-2xs">
+        <div className="p-3 sm:p-4 rounded-2xl bg-gradient-to-r from-blue-50/90 via-white to-emerald-50/50 border border-blue-200/80 flex items-center justify-between gap-3 shadow-2xs">
           <div className="flex items-center gap-2.5">
             <div className="w-9 h-9 rounded-xl bg-blue-100 text-blue-800 flex items-center justify-center shrink-0 border border-blue-200">
               <ShieldCheck className="w-5 h-5" />
@@ -155,3 +155,4 @@ export function EntregaGuardiaModal({
     </Modal>
   );
 }
+
