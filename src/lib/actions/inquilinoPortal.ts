@@ -56,6 +56,9 @@ export interface ResumenFinancieroInquilino {
   esAdminModoSupervision: boolean;
   inquilinoNombre: string;
   documentoIdentidad: string;
+  serviciosLuzPendientesCount: number;
+  serviciosAguaPendientesCount: number;
+  totalServiciosPendientes: number;
 }
 
 export interface LocalArrendadoResumen {
@@ -211,6 +214,9 @@ export async function getInquilinoDashboardData(): Promise<{
         esAdminModoSupervision,
         inquilinoNombre: inquilino?.nombre || session.user.nombre || "Inquilino",
         documentoIdentidad: inquilino?.documentoIdentidad || "Sin documento",
+        serviciosLuzPendientesCount: 0,
+        serviciosAguaPendientesCount: 0,
+        totalServiciosPendientes: 0,
       },
       locales: [],
     };
@@ -229,6 +235,9 @@ export async function getInquilinoDashboardData(): Promise<{
   let periodoProximoVencimiento: string | null = null;
   let proximoDiaCorte: number | null = null;
   let tieneCuotaMesActualImpaga = false;
+
+  let serviciosLuzPendientesCount = 0;
+  let serviciosAguaPendientesCount = 0;
 
   let ultimoPeriodoAnoMes = 0;
   let ultimoPeriodoPagado: string | null = null;
@@ -262,6 +271,16 @@ export async function getInquilinoDashboardData(): Promise<{
 
     // Evaluar pagos asociados al contrato
     for (const pago of contrato.pagos) {
+      // Computar solvencia de servicios públicos para meses corrientes o pasados
+      const esMesCorrienteOPasado =
+        pago.periodoAno < anoActual ||
+        (pago.periodoAno === anoActual && pago.periodoMes <= mesActual);
+
+      if (esMesCorrienteOPasado) {
+        if (!pago.luzSolvente) serviciosLuzPendientesCount += 1;
+        if (!pago.aguaSolvente) serviciosAguaPendientesCount += 1;
+      }
+
       const saldoPendiente = Math.max(0, pago.montoEsperado - pago.montoPagado);
       
       if (saldoPendiente <= 0) {
@@ -368,6 +387,9 @@ export async function getInquilinoDashboardData(): Promise<{
       esAdminModoSupervision,
       inquilinoNombre: `${inquilino.nombre} ${inquilino.apellido || ""}`.trim(),
       documentoIdentidad: inquilino.documentoIdentidad,
+      serviciosLuzPendientesCount,
+      serviciosAguaPendientesCount,
+      totalServiciosPendientes: serviciosLuzPendientesCount + serviciosAguaPendientesCount,
     },
     locales,
   };

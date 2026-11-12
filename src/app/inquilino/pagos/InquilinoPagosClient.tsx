@@ -463,7 +463,9 @@ export function InquilinoPagosClient({
           }
           subtitle={
             resumen.semaforoEstado === "AL_DIA"
-              ? "Sin compromisos vencidos"
+              ? ((resumen.totalServiciosPendientes ?? 0) > 0
+                  ? "Al día en canon · Servicios pendientes"
+                  : "Sin compromisos vencidos")
               : resumen.semaforoEstado === "EN_MORA"
               ? `${resumen.cuotasVencidasCount} mensualidad(es) adeudada(s)`
               : resumen.diasParaVencer !== null
@@ -508,6 +510,45 @@ export function InquilinoPagosClient({
           color="navy"
         />
       </div>
+
+      {/* Banner de Servicios Públicos Pendientes */}
+      {(resumen.totalServiciosPendientes ?? 0) > 0 && (
+        <section className="relative overflow-hidden rounded-2xl border border-amber-200/90 border-b-[3px] border-b-amber-500 bg-gradient-to-r from-amber-50/90 via-white to-sky-50/40 p-4 sm:p-5 shadow-sm transition-all">
+          <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-100 to-sky-100 text-amber-800 border border-amber-200 flex items-center justify-center shrink-0">
+                <div className="flex items-center -space-x-1">
+                  <Zap className="w-4 h-4 text-amber-600 fill-amber-500" />
+                  <Droplets className="w-4 h-4 text-blue-600 fill-blue-500" />
+                </div>
+              </div>
+              <div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="px-2.5 py-0.5 rounded-full text-xs font-black bg-amber-100 text-amber-900 border border-amber-300 flex items-center gap-1">
+                    <Clock className="w-3 h-3 text-amber-700" />
+                    SERVICIOS PÚBLICOS POR ADJUNTAR
+                  </span>
+                  <span className="text-xs font-bold text-slate-700">
+                    {resumen.serviciosLuzPendientesCount > 0 && (
+                      <span className="text-amber-800 font-semibold mr-2">
+                        ⚡ {resumen.serviciosLuzPendientesCount} mes(es) Luz
+                      </span>
+                    )}
+                    {resumen.serviciosAguaPendientesCount > 0 && (
+                      <span className="text-blue-800 font-semibold">
+                        💧 {resumen.serviciosAguaPendientesCount} mes(es) Agua
+                      </span>
+                    )}
+                  </span>
+                </div>
+                <p className="text-xs text-slate-600 font-medium mt-1">
+                  Ubica el botón de servicios (<span className="font-semibold text-slate-800">⚡ Luz / 💧 Agua</span>) en cada tarjeta mensual para anexar tus comprobantes y mantener tu solvencia al día.
+                </p>
+              </div>
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* Barra de Filtros y Búsqueda */}
       <div className="bg-white rounded-2xl border border-slate-200/80 p-4 shadow-2xs space-y-3">
