@@ -42,6 +42,8 @@ export default async function EmpleadoAsistenciaPage() {
       initialHistorial={historialRes.data || []}
       empleadoNombre={portalRes.data.empleado.nombre}
       propiedadNombre={portalRes.data.empleado.propiedadNombre}
+      compañerosSeguridad={portalRes.data.compañerosSeguridad || []}
+      cargo={portalRes.data.empleado.cargo}
     />
   );
 }

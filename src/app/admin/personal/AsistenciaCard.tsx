@@ -189,12 +189,19 @@ export function AsistenciaCard({
 
             {/* Badge de estado diario */}
             {asist && estadoConfig ? (
-              <span
-                className={`inline-flex items-center gap-1 font-bold text-[11px] px-2 py-0.5 rounded-lg border shadow-2xs ${estadoConfig.badgeClass}`}
-              >
-                <span className={`w-1.5 h-1.5 rounded-full ${estadoConfig.dotColor}`} />
-                <span>{estadoConfig.label}</span>
-              </span>
+              <div className="flex items-center gap-1.5 flex-wrap justify-end">
+                {emp.cargo === CargoEmpleado.SEGURIDAD && (
+                  <span className="inline-flex items-center gap-1 font-black text-[10px] px-2 py-0.5 rounded-lg bg-blue-50 text-blue-800 border border-blue-200 shadow-2xs">
+                    <span>🛡️ Guardia 24h</span>
+                  </span>
+                )}
+                <span
+                  className={`inline-flex items-center gap-1 font-bold text-[11px] px-2 py-0.5 rounded-lg border shadow-2xs ${estadoConfig.badgeClass}`}
+                >
+                  <span className={`w-1.5 h-1.5 rounded-full ${estadoConfig.dotColor}`} />
+                  <span>{estadoConfig.label}</span>
+                </span>
+              </div>
             ) : (
               <span className="inline-flex items-center gap-1 font-bold text-[11px] px-2 py-0.5 rounded-lg bg-amber-50 text-amber-800 border border-amber-200/90 shadow-2xs">
                 <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />

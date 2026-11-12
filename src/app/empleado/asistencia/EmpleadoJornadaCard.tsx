@@ -25,7 +25,24 @@ function esCierrePorOlvido(reg: RegistroAsistenciaItem): boolean {
   );
 }
 
-// Cálculo de tiempo laborado con soporte para cierres forzados
+// Detectar si corresponde a una guardia de seguridad o turno continuo de 24h
+function esTurnoGuardia24h(reg: RegistroAsistenciaItem): boolean {
+  if (
+    reg.observaciones?.includes("Guardia") ||
+    reg.observaciones?.includes("24 Horas") ||
+    reg.observaciones?.includes("Relevo")
+  ) {
+    return true;
+  }
+  if (reg.horaEntrada && reg.horaSalida) {
+    const diffMs = new Date(reg.horaSalida).getTime() - new Date(reg.horaEntrada).getTime();
+    const horas = diffMs / (1000 * 60 * 60);
+    return horas >= 12;
+  }
+  return false;
+}
+
+// Cálculo de tiempo laborado con soporte para cierres forzados y guardias 24h
 function calcularHoras(
   entradaStr: string | null,
   salidaStr: string | null,
@@ -52,6 +69,7 @@ export function EmpleadoJornadaCard({
   propiedadNombre,
 }: EmpleadoJornadaCardProps) {
   const esOlvido = esCierrePorOlvido(registro);
+  const esGuardia = esTurnoGuardia24h(registro);
   const horas = calcularHoras(registro.horaEntrada, registro.horaSalida, esOlvido);
   const isInasistencia =
     registro.estado === EstadoAsistencia.FALTA_JUSTIFICADA ||
@@ -121,10 +139,15 @@ export function EmpleadoJornadaCard({
                 >
                   {isInasistencia ? registro.estado : "PRESENTE"}
                 </span>
+                {esGuardia && (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-black bg-blue-50 text-blue-800 border border-blue-300 shadow-2xs">
+                    <span>🛡️ Guardia 24h</span>
+                  </span>
+                )}
                 {esOlvido && (
                   <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-extrabold bg-amber-50 text-amber-800 border border-amber-300 shadow-2xs">
                     <AlertTriangle className="w-3 h-3 text-amber-600 shrink-0" />
-                    <span>Olvido</span>
+                    <span>Auto</span>
                   </span>
                 )}
               </div>

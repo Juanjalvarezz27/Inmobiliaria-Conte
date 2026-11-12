@@ -87,7 +87,15 @@ export interface PortalEmpleadoData {
     estado: EstadoAsistencia;
     ubicacionEntrada: string | null;
     ubicacionSalida: string | null;
+    observaciones: string | null;
+    esGuardia24h?: boolean;
+    horasEnCurso?: number;
   } | null;
+  compañerosSeguridad?: Array<{
+    id: string;
+    nombre: string;
+    cedula: string;
+  }>;
   tareas: Array<{
     id: string;
     titulo: string;
@@ -125,22 +133,53 @@ export async function getPortalEmpleadoData(): Promise<{ success: boolean; data?
     const inicioHoy = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate(), 0, 0, 0);
     const finHoy = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate(), 23, 59, 59, 999);
     const inicioMes = new Date(ahora.getFullYear(), ahora.getMonth(), 1, 0, 0, 0);
+    const esSeguridad = empleado.cargo === CargoEmpleado.SEGURIDAD;
+    const limite30Horas = new Date(ahora.getTime() - 30 * 60 * 60 * 1000);
 
     // Consulta paralela de solo lectura
     const [
-      asistenciaHoy,
+      asistenciaHoyRaw,
+      asistenciaGuardiaAbierta,
+      compañerosSeguridadRaw,
       tareas,
       completadasMesCount,
       asistenciasMesCount,
       ticketsMantenimiento,
       ticketsResueltosMesCount,
     ] = await Promise.all([
+      // Asistencia del día civil actual
       prisma.registroAsistencia.findFirst({
         where: {
           empleadoId: empleado.id,
           fecha: { gte: inicioHoy, lte: finHoy },
         },
+        orderBy: { horaEntrada: "desc" },
       }),
+      // Para seguridad: buscar si tiene una guardia abierta de hasta 30h atrás
+      esSeguridad
+        ? prisma.registroAsistencia.findFirst({
+            where: {
+              empleadoId: empleado.id,
+              horaSalida: null,
+              horaEntrada: { gte: limite30Horas },
+              estado: { in: [EstadoAsistencia.PRESENTE, EstadoAsistencia.RETARDO] },
+            },
+            orderBy: { horaEntrada: "desc" },
+          })
+        : Promise.resolve(null),
+      // Compañeros de seguridad en el mismo inmueble para relevo de turno
+      esSeguridad && empleado.propiedadId
+        ? prisma.empleado.findMany({
+            where: {
+              id: { not: empleado.id },
+              cargo: CargoEmpleado.SEGURIDAD,
+              activo: true,
+              propiedadId: empleado.propiedadId,
+            },
+            select: { id: true, nombre: true, apellido: true, cedula: true },
+            orderBy: { nombre: "asc" },
+          })
+        : Promise.resolve([]),
       prisma.tareaEmpleado.findMany({
         where: { empleadoId: empleado.id },
         include: { propiedad: { select: { nombre: true } } },
@@ -179,6 +218,28 @@ export async function getPortalEmpleadoData(): Promise<{ success: boolean; data?
       }),
     ]);
 
+    // Determinar la asistencia activa: si hay guardia de 24h abierta del día anterior, esa es la vigente
+    const registroAsistenciaActivo = asistenciaGuardiaAbierta || asistenciaHoyRaw;
+
+    let esGuardia24hActiva = false;
+    let horasEnCurso = 0;
+    if (registroAsistenciaActivo) {
+      const entradaMs = new Date(registroAsistenciaActivo.horaEntrada).getTime();
+      const salidaMs = registroAsistenciaActivo.horaSalida
+        ? new Date(registroAsistenciaActivo.horaSalida).getTime()
+        : ahora.getTime();
+      horasEnCurso = Math.max(0, Math.floor((salidaMs - entradaMs) / (1000 * 60 * 60)));
+      if (esSeguridad || horasEnCurso >= 12) {
+        esGuardia24hActiva = true;
+      }
+    }
+
+    const compañerosSeguridad = (compañerosSeguridadRaw || []).map((c) => ({
+      id: c.id,
+      nombre: `${c.nombre} ${c.apellido || ""}`.trim(),
+      cedula: c.cedula,
+    }));
+
     const tareasPendientes = tareas.filter((t) => t.estado === EstadoTarea.PENDIENTE).length;
     const tareasEnProceso = tareas.filter((t) => t.estado === EstadoTarea.EN_PROCESO).length;
     const ticketsActivos = ticketsMantenimiento.filter(
@@ -201,17 +262,21 @@ export async function getPortalEmpleadoData(): Promise<{ success: boolean; data?
           propiedadNombre: empleado.propiedad?.nombre || null,
           fechaIngreso: empleado.fechaIngreso.toISOString(),
         },
-        asistenciaHoy: asistenciaHoy
+        asistenciaHoy: registroAsistenciaActivo
           ? {
-              id: asistenciaHoy.id,
-              fecha: asistenciaHoy.fecha.toISOString(),
-              horaEntrada: asistenciaHoy.horaEntrada.toISOString(),
-              horaSalida: asistenciaHoy.horaSalida ? asistenciaHoy.horaSalida.toISOString() : null,
-              estado: asistenciaHoy.estado,
-              ubicacionEntrada: asistenciaHoy.ubicacionEntrada,
-              ubicacionSalida: asistenciaHoy.ubicacionSalida,
+              id: registroAsistenciaActivo.id,
+              fecha: registroAsistenciaActivo.fecha.toISOString(),
+              horaEntrada: registroAsistenciaActivo.horaEntrada.toISOString(),
+              horaSalida: registroAsistenciaActivo.horaSalida ? registroAsistenciaActivo.horaSalida.toISOString() : null,
+              estado: registroAsistenciaActivo.estado,
+              ubicacionEntrada: registroAsistenciaActivo.ubicacionEntrada,
+              ubicacionSalida: registroAsistenciaActivo.ubicacionSalida,
+              observaciones: registroAsistenciaActivo.observaciones,
+              esGuardia24h: esGuardia24hActiva,
+              horasEnCurso,
             }
           : null,
+        compañerosSeguridad,
         tareas: tareas.map((t) => ({
           id: t.id,
           titulo: t.titulo,
@@ -258,11 +323,19 @@ export async function getPortalEmpleadoData(): Promise<{ success: boolean; data?
   }
 }
 
-// Marcaje de jornada de 1 toque (Entrada o Salida) ejecutado con hora de servidor atómica
-export async function marcarEntradaSalidaEmpleadoAction(ubicacion?: string): Promise<{
+export interface EntregaGuardiaInput {
+  ubicacion?: string;
+  guardiaRelevoNombre?: string;
+  observacionesEntrega?: string;
+}
+
+// Marcaje de jornada de 1 toque o entrega de guardia 24h
+export async function marcarEntradaSalidaEmpleadoAction(input?: string | EntregaGuardiaInput): Promise<{
   success: boolean;
   tipo?: "ENTRADA" | "SALIDA" | "YA_COMPLETADA";
   message: string;
+  esGuardia24h?: boolean;
+  horasLaboradas?: number;
   error?: string;
 }> {
   try {
@@ -271,24 +344,50 @@ export async function marcarEntradaSalidaEmpleadoAction(ubicacion?: string): Pro
       return { success: false, error: "No autorizado o sin ficha de empleado asignada.", message: "" };
     }
 
+    const payload: EntregaGuardiaInput = typeof input === "string" ? { ubicacion: input } : input || {};
     const ahora = new Date();
+    const esSeguridad = empleado.cargo === CargoEmpleado.SEGURIDAD;
+    const limite30Horas = new Date(ahora.getTime() - 30 * 60 * 60 * 1000);
     const inicioHoy = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate(), 0, 0, 0);
     const finHoy = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate(), 23, 59, 59, 999);
 
     // Cierre perezoso (Just-In-Time) de turnos olvidados anteriores de este trabajador
     await cerrarJornadasIncompletasEmpleado(empleado.id);
 
-    const asistenciaHoy = await prisma.registroAsistencia.findFirst({
+    // 1. Buscar si tiene una guardia/turno abierto pendiente de salida
+    // Si es seguridad, busca hasta 30 horas hacia atrás (permite cerrar guardia de ayer)
+    let asistenciaPendienteSalida = await prisma.registroAsistencia.findFirst({
       where: {
         empleadoId: empleado.id,
-        fecha: { gte: inicioHoy, lte: finHoy },
+        horaSalida: null,
+        horaEntrada: esSeguridad ? { gte: limite30Horas } : { gte: inicioHoy, lte: finHoy },
+        estado: { in: [EstadoAsistencia.PRESENTE, EstadoAsistencia.RETARDO] },
       },
+      orderBy: { horaEntrada: "desc" },
     });
 
-    const nombreLugar = ubicacion || empleado.propiedad?.nombre || "Marcaje Móvil";
+    const nombreLugar = payload.ubicacion || empleado.propiedad?.nombre || "Marcaje Móvil";
 
-    // Si aún no ha marcado entrada hoy: Registrar ENTRADA
-    if (!asistenciaHoy) {
+    // 2. Si no tiene turno abierto: REGISTRAR ENTRADA
+    if (!asistenciaPendienteSalida) {
+      // Verificar si ya completó un turno hoy (para empleados regulares no seguridad)
+      if (!esSeguridad) {
+        const yaCompletadaHoy = await prisma.registroAsistencia.findFirst({
+          where: {
+            empleadoId: empleado.id,
+            fecha: { gte: inicioHoy, lte: finHoy },
+            horaSalida: { not: null },
+          },
+        });
+        if (yaCompletadaHoy) {
+          return {
+            success: true,
+            tipo: "YA_COMPLETADA",
+            message: "Ya completaste tu jornada de trabajo del día de hoy.",
+          };
+        }
+      }
+
       await prisma.registroAsistencia.create({
         data: {
           empleadoId: empleado.id,
@@ -296,6 +395,7 @@ export async function marcarEntradaSalidaEmpleadoAction(ubicacion?: string): Pro
           horaEntrada: ahora,
           estado: EstadoAsistencia.PRESENTE,
           ubicacionEntrada: nombreLugar,
+          observaciones: esSeguridad ? "Inicio de Guardia de Seguridad (24 Horas)" : null,
         },
       });
 
@@ -306,35 +406,55 @@ export async function marcarEntradaSalidaEmpleadoAction(ubicacion?: string): Pro
       return {
         success: true,
         tipo: "ENTRADA",
-        message: `Entrada registrada con éxito a las ${ahora.toLocaleTimeString("es-VE", { hour: "2-digit", minute: "2-digit" })}.`,
+        message: esSeguridad
+          ? `Guardia iniciada con éxito a las ${ahora.toLocaleTimeString("es-VE", { hour: "2-digit", minute: "2-digit" })}.`
+          : `Entrada registrada con éxito a las ${ahora.toLocaleTimeString("es-VE", { hour: "2-digit", minute: "2-digit" })}.`,
       };
     }
 
-    // Si ya marcó entrada pero no ha marcado salida: Registrar SALIDA
-    if (!asistenciaHoy.horaSalida) {
-      await prisma.registroAsistencia.update({
-        where: { id: asistenciaHoy.id },
-        data: {
-          horaSalida: ahora,
-          ubicacionSalida: nombreLugar,
-        },
-      });
+    // 3. Si tiene turno abierto: REGISTRAR SALIDA / ENTREGA DE GUARDIA
+    const entradaMs = new Date(asistenciaPendienteSalida.horaEntrada).getTime();
+    const salidaMs = ahora.getTime();
+    const diffHoras = Math.max(0, Math.round((salidaMs - entradaMs) / (1000 * 60 * 60) * 10) / 10);
+    const esGuardia24h = esSeguridad || diffHoras >= 12;
 
-      revalidatePath("/empleado/dashboard");
-      revalidatePath("/empleado/asistencia");
-      revalidatePath("/admin/personal");
-
-      return {
-        success: true,
-        tipo: "SALIDA",
-        message: `Salida registrada con éxito a las ${ahora.toLocaleTimeString("es-VE", { hour: "2-digit", minute: "2-digit" })}. ¡Buen descanso!`,
-      };
+    let notaFinal = asistenciaPendienteSalida.observaciones || "";
+    if (payload.guardiaRelevoNombre) {
+      notaFinal = notaFinal
+        ? `${notaFinal} | Relevo: Entregado a ${payload.guardiaRelevoNombre}`
+        : `Relevo: Entregado a ${payload.guardiaRelevoNombre}`;
     }
+    if (payload.observacionesEntrega) {
+      notaFinal = notaFinal
+        ? `${notaFinal} | Nota: ${payload.observacionesEntrega}`
+        : payload.observacionesEntrega;
+    }
+
+    await prisma.registroAsistencia.update({
+      where: { id: asistenciaPendienteSalida.id },
+      data: {
+        horaSalida: ahora,
+        ubicacionSalida: nombreLugar,
+        observaciones: notaFinal || (esGuardia24h ? `Guardia finalizada (${diffHoras}h de servicio)` : null),
+      },
+    });
+
+    revalidatePath("/empleado/dashboard");
+    revalidatePath("/empleado/asistencia");
+    revalidatePath("/admin/personal");
+
+    const mensajeSalida = esGuardia24h
+      ? (payload.guardiaRelevoNombre
+          ? `Guardia de 24h entregada con éxito a ${payload.guardiaRelevoNombre} a las ${ahora.toLocaleTimeString("es-VE", { hour: "2-digit", minute: "2-digit" })}. ¡Excelente labor!`
+          : `Guardia de 24h concluida con éxito a las ${ahora.toLocaleTimeString("es-VE", { hour: "2-digit", minute: "2-digit" })} (${diffHoras}h). ¡Buen descanso!`)
+      : `Salida registrada con éxito a las ${ahora.toLocaleTimeString("es-VE", { hour: "2-digit", minute: "2-digit" })}. ¡Buen descanso!`;
 
     return {
       success: true,
-      tipo: "YA_COMPLETADA",
-      message: "Ya completaste tu jornada de trabajo del día de hoy.",
+      tipo: "SALIDA",
+      esGuardia24h,
+      horasLaboradas: diffHoras,
+      message: mensajeSalida,
     };
   } catch (error: unknown) {
     console.error("Error en marcarEntradaSalidaEmpleadoAction:", error);

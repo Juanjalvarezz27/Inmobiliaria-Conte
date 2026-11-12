@@ -48,22 +48,44 @@ export type CreateEmpleadoInput = z.infer<typeof createEmpleadoSchema>;
 export type UpdateEmpleadoInput = z.infer<typeof updateEmpleadoSchema>;
 
 // Cierre perezoso (Just-In-Time) de jornadas anteriores olvidadas para un empleado específico
+// Con soporte especial para SEGURIDAD: las guardias continuas de 24h no se cierran a medianoche
 export async function cerrarJornadasIncompletasEmpleado(empleadoId: string): Promise<number> {
   try {
     const ahora = new Date();
     const inicioHoy = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate(), 0, 0, 0, 0);
 
+    // Obtener cargo del empleado para aplicar la regla de 24h
+    const emp = await prisma.empleado.findUnique({
+      where: { id: empleadoId },
+      select: { cargo: true },
+    });
+
+    const esSeguridad = emp?.cargo === CargoEmpleado.SEGURIDAD;
+    // Para seguridad, la tolerancia es de 30 horas continuas desde el inicio del turno
+    const limiteSeguridad = new Date(ahora.getTime() - 30 * 60 * 60 * 1000);
+
+    const whereClause = esSeguridad
+      ? {
+          empleadoId,
+          horaSalida: null,
+          horaEntrada: { lt: limiteSeguridad },
+          estado: { in: [EstadoAsistencia.PRESENTE, EstadoAsistencia.RETARDO] },
+        }
+      : {
+          empleadoId,
+          horaSalida: null,
+          fecha: { lt: inicioHoy },
+          estado: { in: [EstadoAsistencia.PRESENTE, EstadoAsistencia.RETARDO] },
+        };
+
     const res = await prisma.registroAsistencia.updateMany({
-      where: {
-        empleadoId,
-        horaSalida: null,
-        fecha: { lt: inicioHoy },
-        estado: { in: [EstadoAsistencia.PRESENTE, EstadoAsistencia.RETARDO] },
-      },
+      where: whereClause,
       data: {
-        horaSalida: new Date(inicioHoy.getTime() - 1000),
+        horaSalida: esSeguridad ? new Date(limiteSeguridad.getTime() + 24 * 60 * 60 * 1000) : new Date(inicioHoy.getTime() - 1000),
         ubicacionSalida: "Cierre Automático",
-        observaciones: "Salida no registrada por el trabajador. Cierre automático por inicio de nuevo turno.",
+        observaciones: esSeguridad
+          ? "Salida no registrada por el vigilante tras 30 horas. Cierre automático de guardia."
+          : "Salida no registrada por el trabajador. Cierre automático por inicio de nuevo turno.",
       },
     });
 
@@ -74,26 +96,49 @@ export async function cerrarJornadasIncompletasEmpleado(empleadoId: string): Pro
   }
 }
 
-// Cierre masivo en 1 sola consulta atómica (sin bucle N+1)
+// Cierre masivo atómico para jornadas pasadas olvidadas
+// Excluye guardias activas de seguridad que tengan menos de 30 horas de servicio continuo
 export async function cerrarJornadasIncompletasPasadas(): Promise<{ cerradas: number }> {
   try {
     const ahora = new Date();
     const inicioHoy = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate(), 0, 0, 0, 0);
+    const limiteSeguridad = new Date(ahora.getTime() - 30 * 60 * 60 * 1000);
 
-    const res = await prisma.registroAsistencia.updateMany({
+    // 1. Cerrar turnos regulares de personal NO seguridad (conserjes, técnicos, etc.) antes de medianoche
+    const resRegulares = await prisma.registroAsistencia.updateMany({
       where: {
         horaSalida: null,
         fecha: { lt: inicioHoy },
         estado: { in: [EstadoAsistencia.PRESENTE, EstadoAsistencia.RETARDO] },
+        empleado: {
+          cargo: { not: CargoEmpleado.SEGURIDAD },
+        },
       },
       data: {
         horaSalida: new Date(inicioHoy.getTime() - 1000),
         ubicacionSalida: "Cierre Automático",
-        observaciones: "Salida no registrada por el trabajador. Cierre automático de jornada.",
+        observaciones: "Salida no registrada por el trabajador. Cierre automático de jornada regular.",
       },
     });
 
-    return { cerradas: res.count };
+    // 2. Cerrar guardias de SEGURIDAD que excedan el límite de 30 horas de servicio sin marcaje de relevo
+    const resSeguridad = await prisma.registroAsistencia.updateMany({
+      where: {
+        horaSalida: null,
+        horaEntrada: { lt: limiteSeguridad },
+        estado: { in: [EstadoAsistencia.PRESENTE, EstadoAsistencia.RETARDO] },
+        empleado: {
+          cargo: CargoEmpleado.SEGURIDAD,
+        },
+      },
+      data: {
+        horaSalida: new Date(limiteSeguridad.getTime() + 24 * 60 * 60 * 1000),
+        ubicacionSalida: "Cierre Automático",
+        observaciones: "Guardia no entregada tras 30 horas. Cierre automático por exceso de turno.",
+      },
+    });
+
+    return { cerradas: resRegulares.count + resSeguridad.count };
   } catch (error) {
     console.error("Error en cerrarJornadasIncompletasPasadas:", error);
     return { cerradas: 0 };

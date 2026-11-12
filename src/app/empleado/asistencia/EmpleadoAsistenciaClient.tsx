@@ -11,18 +11,22 @@ import {
   Loader2,
   CalendarDays,
   ChevronDown,
+  ShieldCheck,
+  UserCheck,
 } from "lucide-react";
 import { toast } from "sonner";
 import { StatCard } from "@/components/ui/stat-card";
 import { PageHeader } from "@/components/ui/page-header";
 import { PaginacionLocal } from "@/components/ui/paginacion-local";
 import { EmpleadoJornadaCard } from "./EmpleadoJornadaCard";
+import { EntregaGuardiaModal } from "./EntregaGuardiaModal";
 import {
   marcarEntradaSalidaEmpleadoAction,
   type PortalEmpleadoData,
+  type EntregaGuardiaInput,
 } from "@/lib/actions/personal-portal";
 import type { RegistroAsistenciaItem } from "@/app/admin/personal/types";
-import { EstadoAsistencia } from "@prisma/client";
+import { EstadoAsistencia, CargoEmpleado } from "@prisma/client";
 import { formatearHora12 } from "@/lib/date-utils";
 
 interface Props {
@@ -30,29 +34,40 @@ interface Props {
   initialHistorial: RegistroAsistenciaItem[];
   empleadoNombre: string;
   propiedadNombre: string | null;
+  compañerosSeguridad?: Array<{
+    id: string;
+    nombre: string;
+    cedula: string;
+  }>;
+  cargo?: CargoEmpleado;
 }
 
 export function EmpleadoAsistenciaClient({
   initialAsistenciaHoy,
   initialHistorial,
   propiedadNombre,
+  compañerosSeguridad = [],
+  cargo,
 }: Props) {
   const [asistenciaHoy, setAsistenciaHoy] = useState(initialAsistenciaHoy);
   const [historial, setHistorial] = useState(initialHistorial);
   const [isPunching, setIsPunching] = useState(false);
+  const [modalRelevoAbierto, setModalRelevoAbierto] = useState(false);
   const [isHistorialAbierto, setIsHistorialAbierto] = useState(false);
   const [paginaActual, setPaginaActual] = useState(1);
   const ITEMS_POR_PAGINA = 6;
+
+  const esSeguridad = cargo === CargoEmpleado.SEGURIDAD || asistenciaHoy?.esGuardia24h;
 
   const totalPaginas = Math.ceil(historial.length / ITEMS_POR_PAGINA) || 1;
   const indiceInicio = (paginaActual - 1) * ITEMS_POR_PAGINA;
   const registrosPaginados = historial.slice(indiceInicio, indiceInicio + ITEMS_POR_PAGINA);
 
-  // Marcaje de jornada
-  const handleMarcaje = async () => {
+  // Marcaje de jornada regular o inicio de turno
+  const handleMarcaje = async (input?: EntregaGuardiaInput) => {
     try {
       setIsPunching(true);
-      const res = await marcarEntradaSalidaEmpleadoAction();
+      const res = await marcarEntradaSalidaEmpleadoAction(input);
 
       if (res.success) {
         toast.success(res.message);
@@ -68,7 +83,7 @@ export function EmpleadoAsistenciaClient({
             estado: EstadoAsistencia.PRESENTE,
             ubicacionEntrada: propiedadNombre || "Marcaje Móvil",
             ubicacionSalida: null,
-            observaciones: null,
+            observaciones: esSeguridad ? "Inicio de Guardia de Seguridad (24 Horas)" : null,
             createdAt: ahora,
           };
 
@@ -80,16 +95,24 @@ export function EmpleadoAsistenciaClient({
             estado: EstadoAsistencia.PRESENTE,
             ubicacionEntrada: nuevoRegistro.ubicacionEntrada,
             ubicacionSalida: null,
+            observaciones: nuevoRegistro.observaciones,
+            esGuardia24h: Boolean(esSeguridad),
+            horasEnCurso: 0,
           });
 
           setHistorial((prev) => [nuevoRegistro, ...prev]);
         } else if (res.tipo === "SALIDA" && asistenciaHoy) {
+          const obsSalida = input?.guardiaRelevoNombre
+            ? `Relevo: Entregado a ${input.guardiaRelevoNombre}${input.observacionesEntrega ? ` | ${input.observacionesEntrega}` : ""}`
+            : (asistenciaHoy.observaciones || null);
+
           setAsistenciaHoy((prev) =>
             prev
               ? {
                   ...prev,
                   horaSalida: ahora,
                   ubicacionSalida: propiedadNombre || "Marcaje Móvil",
+                  observaciones: obsSalida,
                 }
               : null
           );
@@ -101,6 +124,7 @@ export function EmpleadoAsistenciaClient({
                     ...r,
                     horaSalida: ahora,
                     ubicacionSalida: propiedadNombre || "Marcaje Móvil",
+                    observaciones: obsSalida,
                   }
                 : r
             )
@@ -113,6 +137,14 @@ export function EmpleadoAsistenciaClient({
       toast.error("Error al registrar marcación.");
     } finally {
       setIsPunching(false);
+    }
+  };
+
+  const handleBotonSalidaClick = () => {
+    if (esSeguridad) {
+      setModalRelevoAbierto(true);
+    } else {
+      handleMarcaje();
     }
   };
 
@@ -180,7 +212,7 @@ export function EmpleadoAsistenciaClient({
             {!asistenciaHoy ? (
               <button
                 type="button"
-                onClick={handleMarcaje}
+                onClick={() => handleMarcaje()}
                 disabled={isPunching}
                 className="w-full md:min-w-[240px] h-14 px-6 rounded-2xl font-heading font-black text-sm text-white bg-gradient-to-r from-[#175E38] to-[#124b2d] hover:from-[#124b2d] hover:to-[#0e3a23] border-b-[3px] border-b-[#0e3a23] active:translate-y-0.5 transition-all shadow-[0_4px_16px_rgba(23,94,56,0.35)] flex items-center justify-center gap-2.5 cursor-pointer disabled:opacity-50"
               >
@@ -192,14 +224,14 @@ export function EmpleadoAsistenciaClient({
                 ) : (
                   <>
                     <LogIn className="w-5 h-5 stroke-[2.5]" />
-                    <span>Registrar Entrada Ahora</span>
+                    <span>{esSeguridad ? "Iniciar Guardia (24h)" : "Registrar Entrada Ahora"}</span>
                   </>
                 )}
               </button>
             ) : !asistenciaHoy.horaSalida ? (
               <button
                 type="button"
-                onClick={handleMarcaje}
+                onClick={handleBotonSalidaClick}
                 disabled={isPunching}
                 className="w-full md:min-w-[240px] h-14 px-6 rounded-2xl font-heading font-black text-sm text-white bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-700 hover:to-amber-800 border-b-[3px] border-b-amber-900 active:translate-y-0.5 transition-all shadow-[0_4px_16px_rgba(217,119,6,0.3)] flex items-center justify-center gap-2.5 cursor-pointer disabled:opacity-50"
               >
@@ -207,6 +239,11 @@ export function EmpleadoAsistenciaClient({
                   <>
                     <Loader2 className="w-5 h-5 animate-spin" />
                     <span>Registrando...</span>
+                  </>
+                ) : esSeguridad ? (
+                  <>
+                    <ShieldCheck className="w-5 h-5 stroke-[2.5]" />
+                    <span>Entregar Guardia (Relevo)</span>
                   </>
                 ) : (
                   <>
@@ -224,6 +261,15 @@ export function EmpleadoAsistenciaClient({
           </div>
         </div>
       </div>
+
+      {/* Modal de Relevo y Entrega de Guardia */}
+      <EntregaGuardiaModal
+        isOpen={modalRelevoAbierto}
+        onClose={() => setModalRelevoAbierto(false)}
+        onConfirm={handleMarcaje}
+        compañerosSeguridad={compañerosSeguridad}
+        horasEnCurso={asistenciaHoy?.horasEnCurso || 24}
+      />
 
       {/* MÉTRICAS DE ASISTENCIA */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5 sm:gap-4">

@@ -21,12 +21,14 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { StatCard } from "@/components/ui/stat-card";
+import { EntregaGuardiaModal } from "@/app/empleado/asistencia/EntregaGuardiaModal";
 import {
   marcarEntradaSalidaEmpleadoAction,
   type PortalEmpleadoData,
+  type EntregaGuardiaInput,
 } from "@/lib/actions/personal-portal";
 import { CARGO_CONFIG } from "@/app/admin/personal/types";
-import { EstadoTarea, EstadoTicket } from "@prisma/client";
+import { EstadoTarea, EstadoTicket, CargoEmpleado } from "@prisma/client";
 import { CATEGORIAS_TICKET } from "@/lib/constants/mantenimiento";
 import { formatearHora12 } from "@/lib/date-utils";
 
@@ -37,19 +39,22 @@ interface Props {
 export function EmpleadoDashboardClient({ initialData }: Props) {
   const [data, setData] = useState<PortalEmpleadoData>(initialData);
   const [isPunching, setIsPunching] = useState(false);
+  const [modalRelevoAbierto, setModalRelevoAbierto] = useState(false);
 
-  const { empleado, asistenciaHoy, tareas, metricas } = data;
+  const { empleado, asistenciaHoy, tareas, metricas, compañerosSeguridad } = data;
+  const esSeguridad = empleado.cargo === CargoEmpleado.SEGURIDAD || asistenciaHoy?.esGuardia24h;
+
   const cargoInfo = CARGO_CONFIG[empleado.cargo] || {
     label: empleado.cargoPersonalizado || empleado.cargo,
     badgeClass: "bg-slate-100 text-slate-800 border-slate-200",
     iconColor: "text-slate-600",
   };
 
-  // Marcaje rápido (Entrada / Salida)
-  const handleMarcaje = async () => {
+  // Marcaje rápido (Entrada / Salida / Relevo)
+  const handleMarcaje = async (input?: EntregaGuardiaInput) => {
     try {
       setIsPunching(true);
-      const res = await marcarEntradaSalidaEmpleadoAction();
+      const res = await marcarEntradaSalidaEmpleadoAction(input);
 
       if (res.success) {
         toast.success(res.message);
@@ -65,13 +70,20 @@ export function EmpleadoDashboardClient({ initialData }: Props) {
               estado: "PRESENTE",
               ubicacionEntrada: empleado.propiedadNombre || "Marcaje Móvil",
               ubicacionSalida: null,
+              observaciones: esSeguridad ? "Inicio de Guardia de Seguridad (24 Horas)" : null,
+              esGuardia24h: Boolean(esSeguridad),
+              horasEnCurso: 0,
             },
             metricas: {
               ...prev.metricas,
               asistenciasMes: prev.metricas.asistenciasMes + 1,
             },
           }));
-        } else if (res.tipo === "SALIDA" && prevAsistenciaHoy(data)) {
+        } else if (res.tipo === "SALIDA") {
+          const obsSalida = input?.guardiaRelevoNombre
+            ? `Relevo: Entregado a ${input.guardiaRelevoNombre}${input.observacionesEntrega ? ` | ${input.observacionesEntrega}` : ""}`
+            : (asistenciaHoy?.observaciones || null);
+
           setData((prev) => ({
             ...prev,
             asistenciaHoy: prev.asistenciaHoy
@@ -79,6 +91,7 @@ export function EmpleadoDashboardClient({ initialData }: Props) {
                   ...prev.asistenciaHoy,
                   horaSalida: ahora,
                   ubicacionSalida: empleado.propiedadNombre || "Marcaje Móvil",
+                  observaciones: obsSalida,
                 }
               : null,
           }));
@@ -90,6 +103,14 @@ export function EmpleadoDashboardClient({ initialData }: Props) {
       toast.error("Error de conexión al marcar asistencia.");
     } finally {
       setIsPunching(false);
+    }
+  };
+
+  const handleBotonSalidaClick = () => {
+    if (esSeguridad) {
+      setModalRelevoAbierto(true);
+    } else {
+      handleMarcaje();
     }
   };
 
@@ -295,7 +316,7 @@ export function EmpleadoDashboardClient({ initialData }: Props) {
 
               <button
                 type="button"
-                onClick={handleMarcaje}
+                onClick={() => handleMarcaje()}
                 disabled={isPunching}
                 className="h-11 px-6 rounded-xl font-heading font-black text-xs text-white bg-gradient-to-r from-[#175E38] to-[#124b2d] hover:from-[#124b2d] hover:to-[#0e3a23] border-b-[3px] border-b-[#0e3a23] active:translate-y-0.5 transition-all shadow-[0_2px_8px_rgba(23,94,56,0.25)] flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 shrink-0"
               >
@@ -307,7 +328,7 @@ export function EmpleadoDashboardClient({ initialData }: Props) {
                 ) : (
                   <>
                     <LogIn className="w-4 h-4 stroke-[2.5]" />
-                    <span>Registrar Entrada</span>
+                    <span>{esSeguridad ? "Iniciar Guardia (24h)" : "Registrar Entrada"}</span>
                   </>
                 )}
               </button>
@@ -322,11 +343,11 @@ export function EmpleadoDashboardClient({ initialData }: Props) {
                       <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500" />
                     </span>
                     <span className="text-xs font-black uppercase tracking-wider text-emerald-800">
-                      Jornada en curso
+                      {esSeguridad ? "Guardia 24h en Curso" : "Jornada en curso"}
                     </span>
                   </div>
                   <span className="text-[11px] font-bold text-emerald-700 bg-emerald-100/80 px-2 py-0.5 rounded-md border border-emerald-200">
-                    Activo
+                    {esSeguridad ? "En Custodia" : "Activo"}
                   </span>
                 </div>
 
@@ -352,7 +373,7 @@ export function EmpleadoDashboardClient({ initialData }: Props) {
                       Estado
                     </span>
                     <span className="text-xs font-bold text-emerald-700 block mt-0.5">
-                      Laborando
+                      {esSeguridad ? `En Servicio (${asistenciaHoy.horasEnCurso || 0}h)` : "Laborando"}
                     </span>
                   </div>
                 </div>
@@ -360,7 +381,7 @@ export function EmpleadoDashboardClient({ initialData }: Props) {
 
               <button
                 type="button"
-                onClick={handleMarcaje}
+                onClick={handleBotonSalidaClick}
                 disabled={isPunching}
                 className="h-11 px-6 rounded-xl font-heading font-black text-xs text-white bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-700 hover:to-amber-800 border-b-[3px] border-b-amber-900 active:translate-y-0.5 transition-all shadow-[0_2px_8px_rgba(217,119,6,0.25)] flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 shrink-0"
               >
@@ -368,6 +389,11 @@ export function EmpleadoDashboardClient({ initialData }: Props) {
                   <>
                     <Loader2 className="w-4 h-4 animate-spin" />
                     <span>Registrando...</span>
+                  </>
+                ) : esSeguridad ? (
+                  <>
+                    <ShieldCheck className="w-4 h-4 stroke-[2.5]" />
+                    <span>Entregar Guardia</span>
                   </>
                 ) : (
                   <>
@@ -422,6 +448,15 @@ export function EmpleadoDashboardClient({ initialData }: Props) {
           )}
         </div>
       </section>
+
+      {/* Modal de Relevo y Entrega de Guardia */}
+      <EntregaGuardiaModal
+        isOpen={modalRelevoAbierto}
+        onClose={() => setModalRelevoAbierto(false)}
+        onConfirm={handleMarcaje}
+        compañerosSeguridad={compañerosSeguridad || []}
+        horasEnCurso={asistenciaHoy?.horasEnCurso || 24}
+      />
 
       {/* 4. ASIGNACIONES DE TRABAJO (2 COLUMNAS PARALELAS 50/50 CON ALTURAS IDÉNTICAS) */}
       <section className="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-8 items-stretch">
