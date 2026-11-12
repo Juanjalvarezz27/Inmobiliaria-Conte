@@ -28,6 +28,8 @@ import {
   Receipt,
   History,
   Lock,
+  Zap,
+  Droplets,
 } from "lucide-react";
 import { Modal, ImageViewerModal } from "@/components/ui";
 import { Badge } from "@/components/ui/badge";
@@ -51,6 +53,7 @@ interface PagoDetalleModalProps {
   onEliminarTransaccion?: (transaccionId: string) => Promise<boolean>;
   onRegistrarNuevo?: (pago: PagoItem) => void;
   onVerRecibo?: (pago: PagoItem) => void;
+  onGestionarServicios?: (pago: PagoItem) => void;
   onRechazado?: () => void;
   isLoading?: boolean;
 }
@@ -67,6 +70,7 @@ export function PagoDetalleModal({
   onEliminarTransaccion,
   onRegistrarNuevo,
   onVerRecibo,
+  onGestionarServicios,
   onRechazado,
   isLoading = false,
 }: PagoDetalleModalProps) {
@@ -654,7 +658,115 @@ export function PagoDetalleModal({
           </div>
         )}
 
-        {/* 4. Libro Mayor de Transacciones (Abonos) */}
+        {/* 4. Auditoría de Servicios Públicos (Fase 27: Corpoelec y Agua) */}
+        <div className="p-3.5 sm:p-4 rounded-2xl bg-white border border-slate-200/90 shadow-2xs space-y-3">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pb-2.5 border-b border-slate-100">
+            <div className="flex items-center gap-2 min-w-0">
+              <div className="w-8 h-8 rounded-xl bg-amber-50 text-amber-700 flex items-center justify-center border border-amber-200/80 shadow-2xs shrink-0">
+                <Zap className="w-4 h-4" />
+              </div>
+              <div className="min-w-0">
+                <h4 className="text-xs font-black text-slate-800 uppercase tracking-wider font-heading truncate">
+                  Auditoría de Servicios Públicos
+                </h4>
+                <p className="text-[11px] text-slate-500 font-medium truncate">
+                  Control de solvencia de electricidad (Corpoelec) y agua potable
+                </p>
+              </div>
+            </div>
+
+            {onGestionarServicios && (
+              <button
+                type="button"
+                onClick={() => {
+                  onClose();
+                  onGestionarServicios(pago);
+                }}
+                className="w-full sm:w-auto h-9 sm:h-8 inline-flex items-center justify-center gap-1.5 px-3 rounded-xl text-xs font-bold bg-[#1C2539] text-white hover:bg-[#2a3754] shadow-xs transition-all active:scale-95 cursor-pointer"
+              >
+                <Zap className="w-3.5 h-3.5 shrink-0 text-amber-400" />
+                <span>Auditar / Modificar Solvencia</span>
+              </button>
+            )}
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {/* Luz Corpoelec */}
+            <div className="p-3 rounded-xl bg-slate-50 border border-slate-200/80 flex flex-col justify-between gap-2">
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-1.5">
+                  <Zap className="w-4 h-4 text-amber-500 shrink-0" />
+                  <span className="text-xs font-bold text-slate-800">Electricidad (Corpoelec)</span>
+                </div>
+                <span
+                  className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-black ${
+                    pago.luzSolvente
+                      ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                      : "bg-rose-50 text-rose-700 border border-rose-200"
+                  }`}
+                >
+                  {pago.luzSolvente ? "Solvente" : "Pendiente"}
+                </span>
+              </div>
+              <div className="text-[11px] text-slate-600 flex items-center justify-between">
+                <span>Cuenta / Recibo:</span>
+                <span className="font-semibold text-slate-800">{pago.luzNumeroFactura || "No especificado"}</span>
+              </div>
+              {pago.luzComprobanteUrl && (
+                <a
+                  href={pago.luzComprobanteUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-[11px] text-emerald-700 hover:text-emerald-800 font-bold underline inline-flex items-center gap-1 mt-0.5"
+                >
+                  <Eye className="w-3 h-3" /> Ver Comprobante Corpoelec
+                </a>
+              )}
+            </div>
+
+            {/* Agua Potable */}
+            <div className="p-3 rounded-xl bg-slate-50 border border-slate-200/80 flex flex-col justify-between gap-2">
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-1.5">
+                  <Droplets className="w-4 h-4 text-sky-500 shrink-0" />
+                  <span className="text-xs font-bold text-slate-800">Agua Potable</span>
+                </div>
+                <span
+                  className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-black ${
+                    pago.aguaSolvente
+                      ? "bg-sky-50 text-sky-700 border border-sky-200"
+                      : "bg-rose-50 text-rose-700 border border-rose-200"
+                  }`}
+                >
+                  {pago.aguaSolvente ? "Solvente" : "Pendiente"}
+                </span>
+              </div>
+              <div className="text-[11px] text-slate-600 flex items-center justify-between">
+                <span>Factura / Ref:</span>
+                <span className="font-semibold text-slate-800">{pago.aguaNumeroFactura || "No especificado"}</span>
+              </div>
+              {pago.aguaComprobanteUrl && (
+                <a
+                  href={pago.aguaComprobanteUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-[11px] text-sky-700 hover:text-sky-800 font-bold underline inline-flex items-center gap-1 mt-0.5"
+                >
+                  <Eye className="w-3 h-3" /> Ver Comprobante Agua
+                </a>
+              )}
+            </div>
+          </div>
+
+          {pago.serviciosObservaciones && (
+            <div className="p-2.5 rounded-xl bg-amber-50/60 border border-amber-200/60 text-xs text-amber-900">
+              <span className="font-bold">Observaciones: </span>
+              {pago.serviciosObservaciones}
+            </div>
+          )}
+        </div>
+
+        {/* 5. Libro Mayor de Transacciones (Abonos) */}
         <div className="p-3.5 sm:p-4 rounded-2xl bg-white border border-slate-200/90 shadow-2xs space-y-3.5">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pb-2.5 border-b border-slate-100">
             <div className="flex items-center gap-2 min-w-0">

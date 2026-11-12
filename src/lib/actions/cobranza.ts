@@ -69,6 +69,15 @@ const PAGO_SELECT = {
   comprobanteUrl: true,
   estado: true,
   notas: true,
+  // Control de Servicios Públicos (Fase 27)
+  luzSolvente: true,
+  luzNumeroFactura: true,
+  luzComprobanteUrl: true,
+  aguaSolvente: true,
+  aguaNumeroFactura: true,
+  aguaComprobanteUrl: true,
+  serviciosObservaciones: true,
+  fechaRevisionServicios: true,
   createdAt: true,
   updatedAt: true,
   transacciones: {
@@ -168,6 +177,15 @@ const PAGO_LIST_SELECT = {
   comprobanteUrl: true,
   estado: true,
   notas: true,
+  // Control de Servicios Públicos (Fase 27)
+  luzSolvente: true,
+  luzNumeroFactura: true,
+  luzComprobanteUrl: true,
+  aguaSolvente: true,
+  aguaNumeroFactura: true,
+  aguaComprobanteUrl: true,
+  serviciosObservaciones: true,
+  fechaRevisionServicios: true,
   createdAt: true,
   updatedAt: true,
   transacciones: {
@@ -246,6 +264,15 @@ function serializePagoItem(p: any): PagoItem {
     comprobanteUrl: p.comprobanteUrl,
     estado: p.estado,
     notas: p.notas,
+    // Control de Servicios Públicos (Fase 27)
+    luzSolvente: Boolean(p.luzSolvente),
+    luzNumeroFactura: p.luzNumeroFactura || null,
+    luzComprobanteUrl: p.luzComprobanteUrl || null,
+    aguaSolvente: Boolean(p.aguaSolvente),
+    aguaNumeroFactura: p.aguaNumeroFactura || null,
+    aguaComprobanteUrl: p.aguaComprobanteUrl || null,
+    serviciosObservaciones: p.serviciosObservaciones || null,
+    fechaRevisionServicios: p.fechaRevisionServicios ? p.fechaRevisionServicios.toISOString() : null,
     anteriorImpago: p.anteriorImpago || null,
     createdAt: p.createdAt.toISOString(),
     updatedAt: p.updatedAt.toISOString(),
@@ -1463,5 +1490,84 @@ export async function getMorososHistoricosAction() {
       error: "No se pudieron cargar los deudores históricos",
       pagos: [],
     };
+  }
+}
+
+const actualizarSolvenciaSchema = z.object({
+  pagoId: z.string().min(1, "El ID de la cuota es obligatorio"),
+  luzSolvente: z.boolean(),
+  luzNumeroFactura: z.string().optional().nullable(),
+  luzComprobanteUrl: z.string().optional().nullable(),
+  aguaSolvente: z.boolean(),
+  aguaNumeroFactura: z.string().optional().nullable(),
+  aguaComprobanteUrl: z.string().optional().nullable(),
+  serviciosObservaciones: z.string().optional().nullable(),
+});
+
+export type ActualizarSolvenciaInput = z.infer<typeof actualizarSolvenciaSchema>;
+
+/**
+ * Registra o audita la solvencia mensual de servicios públicos (Corpoelec y Agua) de un local (Fase 27)
+ */
+export async function actualizarSolvenciaServiciosAction(input: ActualizarSolvenciaInput) {
+  try {
+    const validacion = actualizarSolvenciaSchema.safeParse(input);
+    if (!validacion.success) {
+      return { success: false, error: validacion.error.issues?.[0]?.message || "Datos inválidos" };
+    }
+
+    const {
+      pagoId,
+      luzSolvente,
+      luzNumeroFactura,
+      luzComprobanteUrl,
+      aguaSolvente,
+      aguaNumeroFactura,
+      aguaComprobanteUrl,
+      serviciosObservaciones,
+    } = validacion.data;
+
+    const pago = await prisma.pago.findUnique({
+      where: { id: pagoId },
+      include: {
+        contrato: {
+          include: {
+            unidad: true,
+            inquilino: true,
+          },
+        },
+      },
+    });
+
+    if (!pago) {
+      return { success: false, error: "Registro de cuota no encontrado" };
+    }
+
+    const pagoActualizado = await prisma.pago.update({
+      where: { id: pagoId },
+      data: {
+        luzSolvente,
+        luzNumeroFactura: luzNumeroFactura?.trim() || null,
+        luzComprobanteUrl: luzComprobanteUrl?.trim() || null,
+        aguaSolvente,
+        aguaNumeroFactura: aguaNumeroFactura?.trim() || null,
+        aguaComprobanteUrl: aguaComprobanteUrl?.trim() || null,
+        serviciosObservaciones: serviciosObservaciones?.trim() || null,
+        fechaRevisionServicios: new Date(),
+      },
+      select: PAGO_SELECT,
+    });
+
+    revalidatePath("/admin/cobranza");
+    revalidatePath("/inquilino/pagos");
+
+    return {
+      success: true,
+      data: serializePagoItem(pagoActualizado),
+      message: `Solvencia de servicios actualizada para ${pago.contrato.unidad.codigo}.`,
+    };
+  } catch (error) {
+    console.error("Error al actualizar solvencia de servicios:", error);
+    return { success: false, error: "No se pudo actualizar el registro de solvencia de servicios." };
   }
 }

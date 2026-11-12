@@ -44,6 +44,15 @@ export interface PagoItem {
   comprobanteUrl: string | null;
   estado: EstadoPago;
   notas: string | null;
+  // Control de Servicios Públicos (Fase 27)
+  luzSolvente?: boolean;
+  luzNumeroFactura?: string | null;
+  luzComprobanteUrl?: string | null;
+  aguaSolvente?: boolean;
+  aguaNumeroFactura?: string | null;
+  aguaComprobanteUrl?: string | null;
+  serviciosObservaciones?: string | null;
+  fechaRevisionServicios?: string | null;
   anteriorImpago?: {
     mes: number;
     ano: number;

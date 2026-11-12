@@ -641,6 +641,15 @@ export async function getInquilinoPagosDataAction(): Promise<{
         comprobanteUrl: p.comprobanteUrl,
         estado: p.estado,
         notas: p.notas,
+        // Control de Servicios Públicos (Fase 27)
+        luzSolvente: Boolean(p.luzSolvente),
+        luzNumeroFactura: p.luzNumeroFactura || null,
+        luzComprobanteUrl: p.luzComprobanteUrl || null,
+        aguaSolvente: Boolean(p.aguaSolvente),
+        aguaNumeroFactura: p.aguaNumeroFactura || null,
+        aguaComprobanteUrl: p.aguaComprobanteUrl || null,
+        serviciosObservaciones: p.serviciosObservaciones || null,
+        fechaRevisionServicios: p.fechaRevisionServicios ? p.fechaRevisionServicios.toISOString() : null,
         createdAt: p.createdAt.toISOString(),
         updatedAt: p.updatedAt.toISOString(),
         transacciones: p.transacciones.map((t) => ({

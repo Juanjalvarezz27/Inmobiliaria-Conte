@@ -40,6 +40,7 @@ import { PagoFormModal } from "./PagoFormModal";
 import { PagoDetalleModal } from "./PagoDetalleModal";
 import { ReciboModal } from "./ReciboModal";
 import { MorososHistoricosModal } from "./MorososHistoricosModal";
+import { ServiciosSolvenciaModal } from "./ServiciosSolvenciaModal";
 import { toast } from "sonner";
 
 interface CobranzaClientProps {
@@ -86,6 +87,7 @@ export function CobranzaClient({
   const [pagoAEditar, setPagoAEditar] = useState<PagoItem | null>(null);
   const [pagoADetalle, setPagoADetalle] = useState<PagoItem | null>(null);
   const [pagoARecibo, setPagoARecibo] = useState<PagoItem | null>(null);
+  const [pagoAServicios, setPagoAServicios] = useState<PagoItem | null>(null);
   const [isLoadingDetalle, setIsLoadingDetalle] = useState(false);
 
   // Modal de Morosos Históricos (Fase 25)
@@ -660,6 +662,7 @@ export function CobranzaClient({
                 abrirDetalle(id, true);
               }}
               onVerRecibo={(p) => setPagoARecibo(p)}
+              onGestionarServicios={(p) => setPagoAServicios(p)}
             />
           ))}
         </div>
@@ -785,6 +788,7 @@ export function CobranzaClient({
           setPagoAEditar(p);
         }}
         onVerRecibo={(p) => setPagoARecibo(p)}
+        onGestionarServicios={(p) => setPagoAServicios(p)}
         onRechazado={() => {
           if (estadoFiltro === "POR_CONFIRMAR") {
             setEstadoFiltro("TODOS");
@@ -802,6 +806,21 @@ export function CobranzaClient({
         isOpen={Boolean(pagoARecibo)}
         onClose={() => setPagoARecibo(null)}
         pago={pagoARecibo}
+      />
+
+      {/* Modal de Control de Servicios Públicos (Fase 27) */}
+      <ServiciosSolvenciaModal
+        isOpen={Boolean(pagoAServicios)}
+        onClose={() => setPagoAServicios(null)}
+        pago={pagoAServicios}
+        onActualizado={(pagoActualizado) => {
+          setPagos((prev) =>
+            prev.map((p) => (p.id === pagoActualizado.id ? { ...p, ...pagoActualizado } : p))
+          );
+          if (pagoADetalle && pagoADetalle.id === pagoActualizado.id) {
+            setPagoADetalle((prev) => (prev ? { ...prev, ...pagoActualizado } : null));
+          }
+        }}
       />
 
       {/* Modal de Morosos Históricos (Fase 25) */}

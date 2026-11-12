@@ -24,6 +24,8 @@ import {
   Store,
   ChevronDown,
   Lock,
+  Zap,
+  Droplets,
 } from "lucide-react";
 import { PageHeader, StatCard, Badge, ImageViewerModal } from "@/components/ui";
 import { FilterDropdown, type FilterDropdownOption } from "@/components/ui/filter-dropdown";
@@ -33,6 +35,7 @@ import type { PagoItem } from "@/app/admin/cobranza/types";
 import type { ResumenFinancieroInquilino } from "@/lib/actions/inquilinoPortal";
 import type { TasaBcvResponse } from "@/lib/bcv";
 import { ReportarPagoModal } from "./ReportarPagoModal";
+import { ServiciosSolvenciaModal } from "@/app/admin/cobranza/ServiciosSolvenciaModal";
 import { construirReciboPdf } from "@/app/admin/cobranza/generarReciboPdf";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
@@ -61,6 +64,7 @@ export function InquilinoPagosClient({
   // Control de Modal Reportar Pago
   const [modalReportarAbierto, setModalReportarAbierto] = useState<boolean>(false);
   const [pagoParaReportar, setPagoParaReportar] = useState<PagoItem | null>(null);
+  const [pagoParaServicios, setPagoParaServicios] = useState<PagoItem | null>(null);
 
   // Visor de Comprobante Bancario
   const [visorCaptureAbierto, setVisorCaptureAbierto] = useState<boolean>(false);
@@ -845,6 +849,42 @@ export function InquilinoPagosClient({
                                       </span>
                                     )}
                                   </div>
+
+                                  {/* Servicios Públicos (Fase 27: Corpoelec y Agua) */}
+                                  <div className="pt-2 border-t border-slate-100 flex items-center justify-between gap-1.5">
+                                    <div className="flex items-center gap-1.5 flex-wrap">
+                                      <span
+                                        title={pago.luzSolvente ? "Luz Corpoelec: Solvente" : "Luz Corpoelec: Pendiente"}
+                                        className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black tracking-tight ${
+                                          pago.luzSolvente
+                                            ? "bg-amber-50 text-amber-800 border border-amber-200"
+                                            : "bg-slate-100 text-slate-600 border border-slate-200"
+                                        }`}
+                                      >
+                                        <Zap className="w-2.5 h-2.5 text-amber-500 fill-amber-400" />
+                                        <span>Luz: {pago.luzSolvente ? "Al día" : "Pendiente"}</span>
+                                      </span>
+                                      <span
+                                        title={pago.aguaSolvente ? "Agua Potable: Solvente" : "Agua Potable: Pendiente"}
+                                        className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black tracking-tight ${
+                                          pago.aguaSolvente
+                                            ? "bg-sky-50 text-sky-800 border border-sky-200"
+                                            : "bg-slate-100 text-slate-600 border border-slate-200"
+                                        }`}
+                                      >
+                                        <Droplets className="w-2.5 h-2.5 text-sky-500 fill-sky-400" />
+                                        <span>Agua: {pago.aguaSolvente ? "Al día" : "Pendiente"}</span>
+                                      </span>
+                                    </div>
+
+                                    <button
+                                      type="button"
+                                      onClick={() => setPagoParaServicios(pago)}
+                                      className="text-[10px] font-bold text-[#175E38] hover:text-[#124b2d] hover:underline cursor-pointer inline-flex items-center gap-0.5 shrink-0"
+                                    >
+                                      Reportar / Ver
+                                    </button>
+                                  </div>
                                 </div>
 
                                 {/* Cajas de Datos Financieros con soporte multimoneda */}
@@ -1054,6 +1094,17 @@ export function InquilinoPagosClient({
         pagoPreseleccionado={pagoParaReportar}
         tasaBcvActual={tasaBcvActual}
         onSuccess={() => {
+          router.refresh();
+        }}
+      />
+
+      {/* Modal de Control de Servicios Públicos (Fase 27) */}
+      <ServiciosSolvenciaModal
+        isOpen={Boolean(pagoParaServicios)}
+        onClose={() => setPagoParaServicios(null)}
+        pago={pagoParaServicios}
+        onActualizado={() => {
+          setPagoParaServicios(null);
           router.refresh();
         }}
       />

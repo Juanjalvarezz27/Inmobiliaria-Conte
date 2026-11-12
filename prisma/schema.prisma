@@ -242,6 +242,17 @@ model Pago {
   comprobanteUrl   String?
   estado           EstadoPago         @default(PENDIENTE)
   notas            String?
+
+  // Control Mensual de Servicios Públicos (Fase 27)
+  luzSolvente             Boolean            @default(false)
+  luzNumeroFactura        String?
+  luzComprobanteUrl       String?
+  aguaSolvente            Boolean            @default(false)
+  aguaNumeroFactura       String?
+  aguaComprobanteUrl      String?
+  serviciosObservaciones  String?
+  fechaRevisionServicios  DateTime?
+
   createdAt        DateTime           @default(now())
   updatedAt        DateTime           @updatedAt
 
