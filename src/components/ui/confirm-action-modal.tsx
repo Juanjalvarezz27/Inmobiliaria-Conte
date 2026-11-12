@@ -17,7 +17,7 @@ export interface ConfirmActionModalProps {
   subtitle?: string;
   description: React.ReactNode;
   icon?: LucideIcon;
-  variant?: "danger" | "warning" | "navy";
+  variant?: "danger" | "warning" | "navy" | "green";
   confirmButtonText?: string;
   cancelButtonText?: string;
   isLoading?: boolean;
@@ -69,7 +69,7 @@ export function ConfirmActionModal({
     }
   };
 
-  const headerVariant = variant === "danger" ? "red" : "default";
+  const headerVariant = variant === "danger" ? "red" : variant === "green" ? "green" : "default";
 
   // Estilos según la variante
   const variantStyles = {
@@ -90,6 +90,12 @@ export function ConfirmActionModal({
       badgeKeyword: "bg-slate-100 text-slate-900 border-slate-200",
       accentBg: "bg-slate-50 border-slate-200/80 text-slate-800",
       iconColor: "text-slate-600",
+    },
+    green: {
+      btn: "bg-[#175E38] hover:bg-[#124b2d] text-white border-b-[3px] border-b-[#0e3a23] shadow-[0_2px_8px_rgba(23,94,56,0.25)]",
+      badgeKeyword: "bg-emerald-100 text-emerald-800 border-emerald-200",
+      accentBg: "bg-emerald-50 border-emerald-200/80 text-emerald-900",
+      iconColor: "text-[#175E38]",
     },
   }[variant];
 

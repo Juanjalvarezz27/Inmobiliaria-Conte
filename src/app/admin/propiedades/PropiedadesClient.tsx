@@ -35,6 +35,9 @@ import {
   createUnidad,
   updateUnidad,
   deleteUnidad,
+  getUnidades,
+  expandirInquilinoALocalCompletoAction,
+  reunificarYReactivarMatrizAction,
   type CreateUnidadInput,
   type UpdateUnidadInput,
 } from "@/lib/actions/unidades";
@@ -539,24 +542,94 @@ export function PropiedadesClient({
     });
   };
 
-  const handleCambiarEstadoUnidad = (unidad: UnidadConPropiedad, nuevoEstado: EstadoUnidad) => {
-    startTransition(async () => {
-      try {
-        const res = await updateUnidad(unidad.id, { estado: nuevoEstado });
-        if (res.success) {
-          const updatedUnidades = unidades.map((u) =>
-            u.id === unidad.id ? { ...u, estado: nuevoEstado } : u
-          );
-          setUnidades(updatedUnidades);
-          recalcStats(updatedUnidades, propiedades);
-          toast.success(`Estado de "${unidad.codigo}" actualizado a ${nuevoEstado.toLowerCase()}.`);
-        } else {
-          toast.error("No se pudo actualizar el estado.");
-        }
-      } catch {
-        toast.error("No se pudo actualizar el estado.");
+  const handleCambiarEstadoUnidad = async (
+    unidad: UnidadConPropiedad,
+    nuevoEstado: EstadoUnidad
+  ): Promise<boolean> => {
+    try {
+      const res = await updateUnidad(unidad.id, { estado: nuevoEstado });
+      if (res.success) {
+        const updatedUnidades = unidades.map((u) =>
+          u.id === unidad.id ? { ...u, estado: nuevoEstado } : u
+        );
+        setUnidades(updatedUnidades);
+        recalcStats(updatedUnidades, propiedades);
+        toast.success(`Estado de "${unidad.codigo}" actualizado a ${nuevoEstado.toLowerCase()}.`);
+        return true;
+      } else {
+        toast.error(res.error || "No se pudo actualizar el estado.");
+        return false;
       }
-    });
+    } catch {
+      toast.error("No se pudo actualizar el estado.");
+      return false;
+    }
+  };
+
+  const handleExpandirInquilino = async (
+    matrizId: string,
+    contratoId: string,
+    nuevoCanon: number
+  ): Promise<boolean> => {
+    try {
+      const res = await expandirInquilinoALocalCompletoAction({
+        unidadMatrizId: matrizId,
+        contratoId,
+        nuevoCanon,
+      });
+
+      if (res.success && res.data) {
+        const matrizActualizada = res.data as UnidadConPropiedad;
+        const subIds = new Set(res.subunidadesAfectadas || []);
+
+        const updatedUnidades = unidades.map((u) => {
+          if (u.id === matrizId) return matrizActualizada;
+          if (subIds.has(u.id)) return { ...u, estado: EstadoUnidad.INACTIVO, contratos: [] };
+          return u;
+        });
+
+        setUnidades(updatedUnidades);
+        recalcStats(updatedUnidades, propiedades);
+        setUnidadSeleccionada(matrizActualizada);
+        toast.success(res.message || "Expansión formalizada con éxito.");
+        return true;
+      } else {
+        toast.error(res.error || "No se pudo realizar la expansión.");
+        return false;
+      }
+    } catch {
+      toast.error("Error al procesar la expansión.");
+      return false;
+    }
+  };
+
+  const handleReunificarMatriz = async (matrizId: string): Promise<boolean> => {
+    try {
+      const res = await reunificarYReactivarMatrizAction(matrizId);
+
+      if (res.success && res.data) {
+        const matrizActualizada = res.data as UnidadConPropiedad;
+        const subIds = new Set(res.subunidadesAfectadas || []);
+
+        const updatedUnidades = unidades.map((u) => {
+          if (u.id === matrizId) return matrizActualizada;
+          if (subIds.has(u.id)) return { ...u, estado: EstadoUnidad.INACTIVO };
+          return u;
+        });
+
+        setUnidades(updatedUnidades);
+        recalcStats(updatedUnidades, propiedades);
+        setUnidadSeleccionada(matrizActualizada);
+        toast.success(res.message || "Espacio matriz reactivado con éxito.");
+        return true;
+      } else {
+        toast.error(res.error || "No se pudo reactivar el espacio.");
+        return false;
+      }
+    } catch {
+      toast.error("Error al reunificar el espacio.");
+      return false;
+    }
   };
 
   return (
@@ -810,6 +883,15 @@ export function PropiedadesClient({
         onEditar={() => {
           setUnidadModal("editar");
         }}
+        onCambiarEstado={async (unidad, nuevoEstado) => {
+          const ok = await handleCambiarEstadoUnidad(unidad, nuevoEstado);
+          if (ok) {
+            setUnidadSeleccionada((prev) => (prev ? { ...prev, estado: nuevoEstado } : null));
+          }
+          return ok;
+        }}
+        onExpandirInquilino={handleExpandirInquilino}
+        onReunificarMatriz={handleReunificarMatriz}
       />
     </div>
   );

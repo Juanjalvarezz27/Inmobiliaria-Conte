@@ -95,7 +95,7 @@ export interface FiltrosUnidades extends PaginationParams {
 // Consulta paginada real en servidor para unidades (sin tope de take: 300)
 export async function getUnidadesPaginadasAction(
   filtros: FiltrosUnidades = {}
-): Promise<PaginatedResult<any>> {
+): Promise<PaginatedResult<unknown>> {
   const { page, pageSize, skip, take } = resolvePagination(filtros, 15);
   const where: Prisma.UnidadWhereInput = {};
 
@@ -229,6 +229,50 @@ export async function updateUnidad(id: string, data: UpdateUnidadInput) {
       }
     }
 
+    // Si se intenta pasar a DISPONIBLE, validar que no sea una matriz con subunidades ocupadas
+    if (data.estado === EstadoUnidad.DISPONIBLE) {
+      const actual = await prisma.unidad.findUnique({
+        where: { id },
+        select: { codigo: true, propiedadId: true },
+      });
+      if (actual) {
+        const subunidadesOcupadas = await prisma.unidad.findMany({
+          where: {
+            propiedadId: actual.propiedadId,
+            id: { not: id },
+            AND: [
+              {
+                OR: [
+                  { codigo: { startsWith: `${actual.codigo}-` } },
+                  { codigo: { startsWith: `${actual.codigo} -` } },
+                  { codigo: { startsWith: `${actual.codigo} ` } },
+                ],
+              },
+              {
+                OR: [
+                  { estado: EstadoUnidad.OCUPADO },
+                  {
+                    contratos: {
+                      some: { estado: { in: [EstadoContrato.ACTIVO, EstadoContrato.POR_VENCER] } },
+                    },
+                  },
+                ],
+              },
+            ],
+          },
+          select: { codigo: true },
+        });
+
+        if (subunidadesOcupadas.length > 0) {
+          const codigos = subunidadesOcupadas.map((s) => s.codigo).join(", ");
+          return {
+            success: false,
+            error: `No es posible reactivar "${actual.codigo}" a DISPONIBLE porque sus subunidades (${codigos}) están ocupadas. Para que el arrendatario ocupe el local completo, utiliza la opción "Expandir Arrendatario".`,
+          };
+        }
+      }
+    }
+
     const actualizada = await prisma.unidad.update({
       where: { id },
       data: {
@@ -340,3 +384,443 @@ export async function eliminarImagenUploadThingAction(url: string) {
     return { success: false };
   }
 }
+
+export interface InquilinoExpansionInfo {
+  inquilinoId: string;
+  inquilinoNombre: string;
+  documentoIdentidad: string;
+  telefono: string;
+  contratoId: string;
+  contratoCodigo: string;
+  subunidadId: string;
+  subunidadCodigo: string;
+  canonActual: number;
+  canonSugeridoMatriz: number;
+  areaTotalMatriz: number | null;
+  matrizId: string;
+  matrizCodigo: string;
+}
+
+export interface DiagnosticoSubdivision {
+  esMatriz: boolean;
+  esSubunidad: boolean;
+  matriz?: {
+    id: string;
+    codigo: string;
+    estado: EstadoUnidad;
+    areaMt2: number | null;
+    precioAlquiler: number | null;
+  } | null;
+  subunidades: Array<{
+    id: string;
+    codigo: string;
+    estado: EstadoUnidad;
+    areaMt2: number | null;
+    precioAlquiler: number | null;
+    inquilinoNombre?: string | null;
+    contratoCodigo?: string | null;
+  }>;
+  puedeExpandir: boolean;
+  inquilinoParaExpandir: InquilinoExpansionInfo | null;
+  todasSubunidadesLibres: boolean;
+  subunidadesOcupadasCount: number;
+}
+
+/**
+ * Consulta el historial cronológico completo de contratos e inquilinos de una unidad (Fase 26)
+ * Si la unidad es matriz (ej. Local 50), incluye también los contratos de sus subunidades (ej. Local 50-A, 50-B).
+ * Incluye diagnóstico de subdivisión y elegibilidad para expansión comercial o reunificación.
+ */
+export async function getHistorialInquilinosUnidadAction(unidadId: string) {
+  try {
+    const unidad = await prisma.unidad.findUnique({
+      where: { id: unidadId },
+      select: {
+        id: true,
+        codigo: true,
+        propiedadId: true,
+        estado: true,
+        areaMt2: true,
+        precioAlquiler: true,
+      },
+    });
+
+    if (!unidad) {
+      return {
+        success: false,
+        error: "No se encontró el espacio especificado.",
+        contratos: [],
+        diagnostico: null,
+      };
+    }
+
+    // 1. Detectar si la unidad consultada es una subunidad (ej: "Local 50-A" -> matriz "Local 50")
+    const matchSub = unidad.codigo.match(/^(.+?)[-\s]+([A-Za-z0-9]+)$/);
+    const candidatePadreCodigo = matchSub ? matchSub[1].trim() : null;
+
+    let matriz: {
+      id: string;
+      codigo: string;
+      estado: EstadoUnidad;
+      areaMt2: number | null;
+      precioAlquiler: number | null;
+    } | null = null;
+
+    if (candidatePadreCodigo) {
+      const matrizEncontrada = await prisma.unidad.findFirst({
+        where: {
+          propiedadId: unidad.propiedadId,
+          codigo: candidatePadreCodigo,
+        },
+        select: {
+          id: true,
+          codigo: true,
+          estado: true,
+          areaMt2: true,
+          precioAlquiler: true,
+        },
+      });
+      if (matrizEncontrada) {
+        matriz = matrizEncontrada;
+      }
+    }
+
+    const esSubunidad = !!matriz;
+    const codigoBase = matriz ? matriz.codigo : unidad.codigo;
+
+    // 2. Buscar todas las subunidades asociadas al código base
+    const subunidadesDB = await prisma.unidad.findMany({
+      where: {
+        propiedadId: unidad.propiedadId,
+        OR: [
+          { codigo: { startsWith: `${codigoBase}-` } },
+          { codigo: { startsWith: `${codigoBase} -` } },
+          { codigo: { startsWith: `${codigoBase} ` } },
+        ],
+        NOT: { codigo: codigoBase },
+      },
+      include: {
+        contratos: {
+          where: { estado: { in: [EstadoContrato.ACTIVO, EstadoContrato.POR_VENCER] } },
+          include: { inquilino: true },
+          orderBy: { createdAt: "desc" },
+          take: 1,
+        },
+      },
+    });
+
+    const esMatriz = !esSubunidad && subunidadesDB.length > 0;
+
+    // Subunidades con contrato activo o marcadas como ocupadas
+    const subunidadesOcupadas = subunidadesDB.filter(
+      (s) => s.contratos.length > 0 || s.estado === EstadoUnidad.OCUPADO
+    );
+    const subunidadesOcupadasCount = subunidadesOcupadas.length;
+    const todasSubunidadesLibres = subunidadesDB.length > 0 && subunidadesOcupadasCount === 0;
+
+    // Determinar si aplica la opción de expansión
+    let puedeExpandir = false;
+    let inquilinoParaExpandir: InquilinoExpansionInfo | null = null;
+
+    if (subunidadesDB.length > 1 && subunidadesOcupadasCount === 1) {
+      const subOcupada = subunidadesOcupadas[0];
+      const contratoActivo = subOcupada.contratos[0];
+      const targetMatriz = esMatriz ? unidad : matriz;
+
+      if (contratoActivo && targetMatriz) {
+        puedeExpandir = true;
+        inquilinoParaExpandir = {
+          inquilinoId: contratoActivo.inquilino.id,
+          inquilinoNombre: contratoActivo.inquilino.apellido
+            ? `${contratoActivo.inquilino.nombre} ${contratoActivo.inquilino.apellido}`
+            : contratoActivo.inquilino.nombre,
+          documentoIdentidad: contratoActivo.inquilino.documentoIdentidad,
+          telefono: contratoActivo.inquilino.telefono,
+          contratoId: contratoActivo.id,
+          contratoCodigo: contratoActivo.codigo,
+          subunidadId: subOcupada.id,
+          subunidadCodigo: subOcupada.codigo,
+          canonActual: contratoActivo.montoAlquiler,
+          canonSugeridoMatriz: targetMatriz.precioAlquiler || contratoActivo.montoAlquiler * 2,
+          areaTotalMatriz: targetMatriz.areaMt2,
+          matrizId: targetMatriz.id,
+          matrizCodigo: targetMatriz.codigo,
+        };
+      }
+    }
+
+    const diagnostico: DiagnosticoSubdivision = {
+      esMatriz,
+      esSubunidad,
+      matriz,
+      subunidades: subunidadesDB.map((s) => ({
+        id: s.id,
+        codigo: s.codigo,
+        estado: s.estado,
+        areaMt2: s.areaMt2,
+        precioAlquiler: s.precioAlquiler,
+        inquilinoNombre: s.contratos[0]
+          ? s.contratos[0].inquilino.apellido
+            ? `${s.contratos[0].inquilino.nombre} ${s.contratos[0].inquilino.apellido}`
+            : s.contratos[0].inquilino.nombre
+          : null,
+        contratoCodigo: s.contratos[0]?.codigo || null,
+      })),
+      puedeExpandir,
+      inquilinoParaExpandir,
+      todasSubunidadesLibres,
+      subunidadesOcupadasCount,
+    };
+
+    // 3. Buscar historial de contratos relacionados (de la unidad, matriz y subunidades)
+    const unidadIds = Array.from(
+      new Set([
+        unidad.id,
+        ...(matriz ? [matriz.id] : []),
+        ...subunidadesDB.map((s) => s.id),
+      ])
+    );
+
+    const contratos = await prisma.contrato.findMany({
+      where: { unidadId: { in: unidadIds } },
+      orderBy: { fechaInicio: "desc" },
+      select: {
+        id: true,
+        codigo: true,
+        estado: true,
+        fechaInicio: true,
+        fechaFin: true,
+        montoAlquiler: true,
+        moneda: true,
+        documentoUrl: true,
+        notas: true,
+        unidad: {
+          select: {
+            id: true,
+            codigo: true,
+          },
+        },
+        inquilino: {
+          select: {
+            id: true,
+            nombre: true,
+            apellido: true,
+            tipoPersona: true,
+            documentoIdentidad: true,
+            telefono: true,
+            email: true,
+          },
+        },
+      },
+    });
+
+    return {
+      success: true,
+      contratos: contratos.map((c) => ({
+        ...c,
+        fechaInicio: c.fechaInicio.toISOString(),
+        fechaFin: c.fechaFin.toISOString(),
+      })),
+      diagnostico,
+    };
+  } catch (error) {
+    console.error("Error al obtener historial y diagnóstico de unidad:", error);
+    return {
+      success: false,
+      error: "No se pudo cargar el historial de ocupación.",
+      contratos: [],
+      diagnostico: null,
+    };
+  }
+}
+
+export interface ExpandirInquilinoInput {
+  unidadMatrizId: string;
+  contratoId: string;
+  nuevoCanon?: number;
+}
+
+/**
+ * Expande el contrato de un arrendatario desde una subunidad al espacio matriz completo (Fase 26)
+ * - Mueve el contrato activo a la unidad matriz con el nuevo canon
+ * - Actualiza la unidad matriz a estado OCUPADO
+ * - Inactiva todas las subunidades para no ofertarlas por duplicado
+ */
+export async function expandirInquilinoALocalCompletoAction(input: ExpandirInquilinoInput) {
+  try {
+    return await prisma.$transaction(async (tx) => {
+      const matriz = await tx.unidad.findUnique({
+        where: { id: input.unidadMatrizId },
+      });
+      if (!matriz) return { success: false, error: "Espacio matriz no encontrado." };
+
+      const contrato = await tx.contrato.findUnique({
+        where: { id: input.contratoId },
+        include: {
+          inquilino: true,
+          unidad: true,
+        },
+      });
+      if (!contrato) return { success: false, error: "Contrato vigente no encontrado." };
+
+      // Buscar subunidades asociadas a la matriz
+      const subunidades = await tx.unidad.findMany({
+        where: {
+          propiedadId: matriz.propiedadId,
+          OR: [
+            { codigo: { startsWith: `${matriz.codigo}-` } },
+            { codigo: { startsWith: `${matriz.codigo} -` } },
+            { codigo: { startsWith: `${matriz.codigo} ` } },
+          ],
+          id: { not: matriz.id },
+        },
+        include: {
+          contratos: {
+            where: {
+              id: { not: contrato.id },
+              estado: { in: [EstadoContrato.ACTIVO, EstadoContrato.POR_VENCER] },
+            },
+          },
+        },
+      });
+
+      // Verificar que ninguna otra subunidad tenga otro contrato activo
+      const subConOtros = subunidades.filter((s) => s.contratos.length > 0);
+      if (subConOtros.length > 0) {
+        return {
+          success: false,
+          error: `No se puede expandir: la subunidad "${subConOtros[0].codigo}" está arrendada a otro inquilino.`,
+        };
+      }
+
+      const canonFinal =
+        input.nuevoCanon && input.nuevoCanon > 0
+          ? input.nuevoCanon
+          : matriz.precioAlquiler || contrato.montoAlquiler;
+
+      const hoyStr = new Date().toLocaleDateString("es-VE");
+      const inqNombre = contrato.inquilino.apellido
+        ? `${contrato.inquilino.nombre} ${contrato.inquilino.apellido}`
+        : contrato.inquilino.nombre;
+
+      const notaAuditoria = `[${hoyStr}] EXPANSION: Arrendatario "${inqNombre}" expandió su contrato al local matriz completo ${matriz.codigo} (${matriz.areaMt2 ? matriz.areaMt2 + " m²" : "matriz"}). Unidad anterior: ${contrato.unidad.codigo}. Canon actualizado: $${canonFinal} USD.`;
+
+      // 1. Actualizar el contrato vigente para apuntar a la matriz y con el nuevo canon
+      await tx.contrato.update({
+        where: { id: contrato.id },
+        data: {
+          unidadId: matriz.id,
+          montoAlquiler: canonFinal,
+          notas: contrato.notas ? `${contrato.notas}\n\n${notaAuditoria}` : notaAuditoria,
+        },
+      });
+
+      // 2. Activar la matriz en estado OCUPADO
+      const matrizActualizada = await tx.unidad.update({
+        where: { id: matriz.id },
+        data: {
+          estado: EstadoUnidad.OCUPADO,
+          precioAlquiler: canonFinal,
+        },
+        select: UNIDAD_SELECT,
+      });
+
+      // 3. Inactivar todas las subunidades
+      for (const sub of subunidades) {
+        await tx.unidad.update({
+          where: { id: sub.id },
+          data: { estado: EstadoUnidad.INACTIVO },
+        });
+      }
+
+      revalidatePath("/admin/propiedades");
+      revalidatePath("/admin/contratos");
+
+      return {
+        success: true,
+        data: matrizActualizada,
+        subunidadesAfectadas: subunidades.map((s) => s.id),
+        message: `¡Expansión exitosa! "${inqNombre}" ahora arrienda el espacio completo "${matriz.codigo}" por $${canonFinal} USD/mes.`,
+      };
+    });
+  } catch (error) {
+    console.error("Error al expandir inquilino al local completo:", error);
+    return { success: false, error: "Ocurrió un error al procesar la expansión del local." };
+  }
+}
+
+/**
+ * Reunifica y reactiva una unidad matriz cuando todas sus subunidades están libres (Fase 26)
+ * - Pone la matriz en DISPONIBLE
+ * - Inactiva las subunidades para que no se arrienden duplicadas
+ */
+export async function reunificarYReactivarMatrizAction(unidadMatrizId: string) {
+  try {
+    return await prisma.$transaction(async (tx) => {
+      const matriz = await tx.unidad.findUnique({
+        where: { id: unidadMatrizId },
+      });
+      if (!matriz) return { success: false, error: "Espacio matriz no encontrado." };
+
+      const subunidades = await tx.unidad.findMany({
+        where: {
+          propiedadId: matriz.propiedadId,
+          OR: [
+            { codigo: { startsWith: `${matriz.codigo}-` } },
+            { codigo: { startsWith: `${matriz.codigo} -` } },
+            { codigo: { startsWith: `${matriz.codigo} ` } },
+          ],
+          id: { not: matriz.id },
+        },
+        include: {
+          contratos: {
+            where: { estado: { in: [EstadoContrato.ACTIVO, EstadoContrato.POR_VENCER] } },
+          },
+        },
+      });
+
+      const subOcupada = subunidades.find(
+        (s) => s.contratos.length > 0 || s.estado === EstadoUnidad.OCUPADO
+      );
+      if (subOcupada) {
+        return {
+          success: false,
+          error: `No se puede reactivar: la subunidad "${subOcupada.codigo}" se encuentra ocupada con contrato vigente.`,
+        };
+      }
+
+      // Inactivar todas las subunidades
+      for (const sub of subunidades) {
+        await tx.unidad.update({
+          where: { id: sub.id },
+          data: { estado: EstadoUnidad.INACTIVO },
+        });
+      }
+
+      // Activar matriz en DISPONIBLE
+      const matrizActualizada = await tx.unidad.update({
+        where: { id: matriz.id },
+        data: { estado: EstadoUnidad.DISPONIBLE },
+        select: UNIDAD_SELECT,
+      });
+
+      revalidatePath("/admin/propiedades");
+      revalidatePath("/admin/contratos");
+
+      return {
+        success: true,
+        data: matrizActualizada,
+        subunidadesAfectadas: subunidades.map((s) => s.id),
+        message: `Espacio "${matriz.codigo}" reunificado y reactivado como DISPONIBLE. Sus subunidades han sido inactivadas.`,
+      };
+    });
+  } catch (error) {
+    console.error("Error al reunificar y reactivar matriz:", error);
+    return { success: false, error: "Error al reunificar y reactivar el espacio." };
+  }
+}
+
+
+
+
+
