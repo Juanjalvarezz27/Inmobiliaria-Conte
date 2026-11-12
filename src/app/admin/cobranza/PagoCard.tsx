@@ -62,6 +62,7 @@ interface PagoCardProps {
   nombreMesActual: string;
   ano: number;
   isLoadingDetalle?: boolean;
+  compact?: boolean;
   onVerFicha: (pagoId: string) => void;
   onRegistrarPago: (pagoId: string) => void;
   onVerRecibo: (pago: PagoItem) => void;
@@ -72,6 +73,7 @@ export function PagoCard({
   nombreMesActual,
   ano,
   isLoadingDetalle = false,
+  compact = false,
   onVerFicha,
   onRegistrarPago,
   onVerRecibo,
@@ -122,18 +124,18 @@ export function PagoCard({
       </div>
 
       {/* Contenido Interior de la Tarjeta */}
-      <div className="p-5 sm:p-6 relative z-10 space-y-4 flex-1 flex flex-col justify-between">
+      <div className={`${compact ? "p-3.5 sm:p-4 space-y-2.5" : "p-5 sm:p-6 space-y-4"} relative z-10 flex-1 flex flex-col justify-between`}>
         {/* Fila 1: Estado a la izquierda y Espacio/Local a la derecha */}
-        <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center justify-between gap-1.5 flex-wrap">
           {/* Badge de Estado */}
           {esPorConfirmar ? (
-            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-black bg-blue-50 text-blue-700 border border-blue-200/90 shadow-2xs shrink-0">
-              <span className="w-2 h-2 rounded-full bg-blue-600 animate-pulse" />
+            <span className={`inline-flex items-center gap-1.5 ${compact ? "px-2 py-0.5 text-[11px]" : "px-3 py-1 text-xs"} font-black bg-blue-50 text-blue-700 border border-blue-200/90 shadow-2xs shrink-0 rounded-lg`}>
+              <span className="w-1.5 h-1.5 rounded-full bg-blue-600 animate-pulse" />
               <span>Por Confirmar</span>
             </span>
           ) : (
             <span
-              className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold border shrink-0 ${
+              className={`inline-flex items-center gap-1.5 ${compact ? "px-2 py-0.5 text-[11px]" : "px-3 py-1 text-xs"} rounded-lg font-bold border shrink-0 ${
                 pago.estado === EstadoPago.PAGADO
                   ? "bg-emerald-50 text-[#175E38] border-emerald-200/90"
                   : pago.estado === EstadoPago.VENCIDO
@@ -166,39 +168,46 @@ export function PagoCard({
             </span>
           )}
 
-          {/* Identificador de Espacio / Local */}
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-100/90 text-slate-700 font-bold text-xs border border-slate-200/80 shrink-0 max-w-[130px]">
-            <Store className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-            <span className="truncate">{unidad.codigo}</span>
-          </span>
+          {/* Identificador de Espacio / Local y Periodo */}
+          <div className="flex items-center gap-1 shrink-0">
+            {(pago.periodoMes !== undefined && pago.periodoAno !== undefined) && (
+              <span className="inline-flex items-center px-1.5 py-0.5 rounded-md bg-slate-100 text-slate-700 font-bold text-[10px] border border-slate-200/80">
+                {MESES[pago.periodoMes - 1]} {pago.periodoAno}
+              </span>
+            )}
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-slate-100/90 text-slate-700 font-bold text-[11px] border border-slate-200/80 shrink-0 max-w-[110px]">
+              <Store className="w-3 h-3 text-slate-400 shrink-0" />
+              <span className="truncate">{unidad.codigo}</span>
+            </span>
+          </div>
         </div>
 
         {/* Fila 2: Identidad del Inquilino y Propiedad */}
         <div className="pt-0.5">
-          <h3 className="text-base sm:text-lg font-heading font-black text-slate-900 truncate tracking-tight">
+          <h3 className={`${compact ? "text-sm sm:text-base" : "text-base sm:text-lg"} font-heading font-black text-slate-900 truncate tracking-tight`}>
             {inquilino.nombre} {inquilino.apellido || ""}
           </h3>
-          <p className="text-xs text-slate-500 flex items-center gap-1.5 mt-1 truncate">
-            <Building2 className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+          <p className="text-[11px] text-slate-500 flex items-center gap-1.5 mt-0.5 truncate">
+            <Building2 className="w-3 h-3 text-slate-400 shrink-0" />
             <span className="truncate font-medium">{unidad.propiedad.nombre}</span>
             <span className="text-slate-300">·</span>
-            <span className="text-slate-400 font-mono text-[11px] shrink-0">
+            <span className="text-slate-400 font-mono text-[10px] shrink-0">
               {inquilino.documentoIdentidad}
             </span>
           </p>
         </div>
 
         {/* Fila 3: Bloque de Contacto Directo y WhatsApp */}
-        <div className="flex items-center justify-between px-3 py-2 rounded-xl bg-slate-50/90 border border-slate-200/70 text-xs">
-          <span className="text-[11px] sm:text-xs text-slate-500 font-medium truncate flex items-center gap-1.5">
-            <Phone className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+        <div className={`flex items-center justify-between ${compact ? "px-2.5 py-1.5" : "px-3 py-2"} rounded-xl bg-slate-50/90 border border-slate-200/70 text-xs`}>
+          <span className="text-[11px] text-slate-500 font-medium truncate flex items-center gap-1.5">
+            <Phone className="w-3 h-3 text-slate-400 shrink-0" />
             <span className="truncate font-mono">{inquilino.telefono}</span>
           </span>
           <a
             href={urlWhatsapp}
             target="_blank"
             rel="noreferrer"
-            className="inline-flex items-center gap-1 text-[11px] sm:text-xs font-bold text-emerald-700 hover:text-emerald-800 transition-colors shrink-0 hover:scale-105 active:scale-95"
+            className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 hover:text-emerald-800 transition-colors shrink-0 hover:scale-105 active:scale-95"
             title="Enviar recordatorio por WhatsApp"
           >
             <WhatsAppIcon className="w-3.5 h-3.5 text-[#25D366]" />
@@ -208,17 +217,17 @@ export function PagoCard({
 
         {/* Fila de Comprobante Reportado */}
         {esPorConfirmar && (
-          <div className="flex items-center justify-between px-3 py-2 rounded-xl bg-blue-50/90 border border-blue-200/90 text-xs text-blue-900">
+          <div className="flex items-center justify-between px-2.5 py-1.5 rounded-xl bg-blue-50/90 border border-blue-200/90 text-xs text-blue-900">
             <span className="flex items-center gap-1.5 font-bold truncate">
-              <Receipt className="w-3.5 h-3.5 text-blue-600 shrink-0" />
-              <span className="truncate">
+              <Receipt className="w-3 h-3 text-blue-600 shrink-0" />
+              <span className="truncate text-[11px]">
                 {esAbonoReportado && montoReportadoParsed
                   ? `Abono: $${montoReportadoParsed.toFixed(2)} USD`
                   : "Comprobante reportado"}
               </span>
             </span>
             {pago.referencia && (
-              <span className="font-mono font-bold text-blue-700 text-[11px] bg-blue-100/90 px-2 py-0.5 rounded-md truncate max-w-[130px]">
+              <span className="font-mono font-bold text-blue-700 text-[10px] bg-blue-100/90 px-1.5 py-0.5 rounded-md truncate max-w-[110px]">
                 Ref: {pago.referencia}
               </span>
             )}
@@ -226,10 +235,10 @@ export function PagoCard({
         )}
 
         {/* Fila 4: Bloque Financiero en 2 Cajas Métricas Estructuradas */}
-        <div className="grid grid-cols-2 gap-2.5 pt-1">
+        <div className="grid grid-cols-2 gap-2 pt-0.5">
           {/* Caja 1: Monto de la Mensualidad o Abonado */}
           <div
-            className={`p-3 sm:p-3.5 rounded-xl border flex flex-col justify-between ${
+            className={`${compact ? "p-2.5" : "p-3 sm:p-3.5"} rounded-xl border flex flex-col justify-between ${
               pago.estado === EstadoPago.PAGADO
                 ? "bg-emerald-50/70 border-emerald-200/80"
                 : pago.estado === EstadoPago.PARCIAL
@@ -238,7 +247,7 @@ export function PagoCard({
             }`}
           >
             <span
-              className={`text-[10px] sm:text-[11px] font-bold uppercase tracking-wider block truncate ${
+              className={`text-[9px] sm:text-[10px] font-bold uppercase tracking-wider block truncate ${
                 pago.estado === EstadoPago.PAGADO
                   ? "text-emerald-800"
                   : pago.estado === EstadoPago.PARCIAL
@@ -252,9 +261,9 @@ export function PagoCard({
                 ? "Ya Abonado"
                 : "Mensualidad"}
             </span>
-            <div className="mt-1.5 flex items-baseline truncate">
+            <div className="mt-1 flex items-baseline truncate">
               <span
-                className={`text-lg sm:text-xl font-black font-heading tracking-tight ${
+                className={`${compact ? "text-base sm:text-lg" : "text-lg sm:text-xl"} font-black font-heading tracking-tight ${
                   pago.estado === EstadoPago.PAGADO
                     ? "text-[#175E38]"
                     : pago.estado === EstadoPago.PARCIAL
@@ -265,18 +274,18 @@ export function PagoCard({
                 ${(pago.estado === EstadoPago.PAGADO || pago.estado === EstadoPago.PARCIAL ? pago.montoPagado : pago.montoEsperado).toFixed(2)}
               </span>
               {pago.estado === EstadoPago.PARCIAL ? (
-                <span className="text-[10px] font-bold text-slate-400 ml-1 truncate">
+                <span className="text-[9px] font-bold text-slate-400 ml-1 truncate">
                   / ${pago.montoEsperado.toFixed(2)}
                 </span>
               ) : (
-                <span className="text-[11px] font-semibold text-slate-400 ml-1">USD</span>
+                <span className="text-[10px] font-semibold text-slate-400 ml-1">USD</span>
               )}
             </div>
           </div>
 
           {/* Caja 2: Fecha de Vencimiento / Estado / Resta por pagar */}
           <div
-            className={`p-3 sm:p-3.5 rounded-xl border flex flex-col justify-between text-right ${
+            className={`${compact ? "p-2.5" : "p-3 sm:p-3.5"} rounded-xl border flex flex-col justify-between text-right ${
               pago.estado === EstadoPago.VENCIDO
                 ? "bg-rose-50/70 border-rose-200/80"
                 : pago.estado === EstadoPago.PAGADO
@@ -287,7 +296,7 @@ export function PagoCard({
             }`}
           >
             <span
-              className={`text-[10px] sm:text-[11px] font-bold uppercase tracking-wider block truncate ${
+              className={`text-[9px] sm:text-[10px] font-bold uppercase tracking-wider block truncate ${
                 pago.estado === EstadoPago.VENCIDO
                   ? "text-[#CC1A22]"
                   : pago.estado === EstadoPago.PAGADO
@@ -303,22 +312,22 @@ export function PagoCard({
                 ? "Resta"
                 : "Corte / Vence"}
             </span>
-            <div className="mt-1.5 flex items-baseline justify-end truncate">
+            <div className="mt-1 flex items-baseline justify-end truncate">
               {pago.estado === EstadoPago.PAGADO ? (
-                <span className="inline-flex items-center justify-end gap-1 text-xs sm:text-sm font-bold text-[#175E38]">
+                <span className="inline-flex items-center justify-end gap-1 text-xs font-bold text-[#175E38]">
                   <CheckCircle2 className="w-3.5 h-3.5" />
                   <span>Al día</span>
                 </span>
               ) : pago.estado === EstadoPago.PARCIAL ? (
                 <>
-                  <span className="text-lg sm:text-xl font-black font-heading tracking-tight text-amber-700">
+                  <span className={`${compact ? "text-base sm:text-lg" : "text-lg sm:text-xl"} font-black font-heading tracking-tight text-amber-700`}>
                     ${saldoPendiente.toFixed(2)}
                   </span>
-                  <span className="text-[11px] font-semibold text-slate-400 ml-1">USD</span>
+                  <span className="text-[10px] font-semibold text-slate-400 ml-1">USD</span>
                 </>
               ) : (
                 <span
-                  className={`inline-flex items-center justify-end gap-1 text-xs sm:text-sm font-bold ${
+                  className={`inline-flex items-center justify-end gap-1 text-xs font-bold ${
                     pago.estado === EstadoPago.VENCIDO
                       ? "text-[#CC1A22]"
                       : "text-slate-700"
@@ -338,12 +347,12 @@ export function PagoCard({
       </div>
 
       {/* Footer de Acciones (Grid 50/50 simétrico y obligatorio) */}
-      <div className="border-t border-slate-100 bg-gradient-to-b from-slate-50/70 to-slate-100/60 p-3 sm:p-3.5 grid grid-cols-2 gap-2.5 relative z-10">
+      <div className={`border-t border-slate-100 bg-gradient-to-b from-slate-50/70 to-slate-100/60 ${compact ? "p-2.5 gap-2" : "p-3 sm:p-3.5 gap-2.5"} grid grid-cols-2 relative z-10`}>
         <button
           type="button"
           onClick={() => onVerFicha(pago.id)}
           disabled={isLoadingDetalle}
-          className="w-full h-10 px-3 rounded-xl text-xs font-bold bg-[#1C2539] text-white hover:bg-[#2a3754] transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-xs active:translate-y-0.5 disabled:opacity-60"
+          className={`w-full ${compact ? "h-8.5 text-[11px]" : "h-10 text-xs"} px-2.5 rounded-xl font-bold bg-[#1C2539] text-white hover:bg-[#2a3754] transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-xs active:translate-y-0.5 disabled:opacity-60`}
         >
           <Eye className="w-3.5 h-3.5 shrink-0" />
           <span className="truncate">Ver Ficha</span>
@@ -354,7 +363,7 @@ export function PagoCard({
             <button
               type="button"
               disabled
-              className="w-full h-10 px-2 rounded-xl text-xs font-bold bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed flex items-center justify-center gap-1.5 opacity-90 select-none transition-all"
+              className={`w-full ${compact ? "h-8.5 text-[11px]" : "h-10 text-xs"} px-2 rounded-xl font-bold bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed flex items-center justify-center gap-1.5 opacity-90 select-none transition-all`}
             >
               <Lock className="w-3.5 h-3.5 shrink-0 text-slate-400" />
               <span className="truncate">Mes anterior pendiente</span>
@@ -378,7 +387,7 @@ export function PagoCard({
               }
             }}
             disabled={isLoadingDetalle}
-            className={`relative w-full h-10 px-3 rounded-xl text-xs font-bold text-white transition-all flex items-center justify-center gap-1.5 cursor-pointer active:translate-y-0.5 ${
+            className={`relative w-full ${compact ? "h-8.5 text-[11px]" : "h-10 text-xs"} px-2.5 rounded-xl font-bold text-white transition-all flex items-center justify-center gap-1.5 cursor-pointer active:translate-y-0.5 ${
               pago.estado === EstadoPago.PAGADO
                 ? "bg-indigo-600 hover:bg-indigo-700 border-b-[3px] border-b-indigo-800 shadow-[0_2px_8px_rgba(79,70,229,0.35)]"
                 : esPorConfirmar

@@ -113,6 +113,10 @@ export interface EstadisticasCobranza {
   cantidadPorConfirmarGlobal?: number;
   porcentajeRecaudado: number;
   conteoPorPropiedad?: Record<string, number>;
+  // Métricas agregadas de Morosidad Histórica (Fase 25)
+  morosidadHistoricaTotal?: number;
+  morosidadHistoricaCuotas?: number;
+  morosidadHistoricaInquilinos?: number;
 }
 
 // Filtros para la consulta de cobranza
@@ -120,10 +124,11 @@ export interface FiltrosCobranza {
   mes: number;
   ano: number;
   propiedadId?: string;
-  estado?: EstadoPago | "TODOS" | "POR_CONFIRMAR";
+  estado?: EstadoPago | "TODOS" | "POR_CONFIRMAR" | "MOROSOS_HISTORICOS";
   busqueda?: string;
   pagina?: number;
   forzarSincronizacion?: boolean;
+  modoMorososHistoricos?: boolean;
 }
 
 // Propiedad simplificada para el selector de filtros

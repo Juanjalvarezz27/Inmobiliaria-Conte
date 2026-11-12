@@ -32,12 +32,14 @@ import {
   eliminarTransaccionPago,
   sincronizarCuotasMes,
   getPagoDetalle,
+  getMorososHistoricosAction,
   type RegistrarPagoInput,
 } from "@/lib/actions/cobranza";
 import type { PagoItem, EstadisticasCobranza, PropiedadOpcion } from "./types";
 import { PagoFormModal } from "./PagoFormModal";
 import { PagoDetalleModal } from "./PagoDetalleModal";
 import { ReciboModal } from "./ReciboModal";
+import { MorososHistoricosModal } from "./MorososHistoricosModal";
 import { toast } from "sonner";
 
 interface CobranzaClientProps {
@@ -85,6 +87,27 @@ export function CobranzaClient({
   const [pagoADetalle, setPagoADetalle] = useState<PagoItem | null>(null);
   const [pagoARecibo, setPagoARecibo] = useState<PagoItem | null>(null);
   const [isLoadingDetalle, setIsLoadingDetalle] = useState(false);
+
+  // Modal de Morosos Históricos (Fase 25)
+  const [isMorososModalOpen, setIsMorososModalOpen] = useState(false);
+  const [morososHistoricosList, setMorososHistoricosList] = useState<PagoItem[]>([]);
+  const [isLoadingMorosos, setIsLoadingMorosos] = useState(false);
+
+  // Abrir modal de deudas históricas con carga bajo demanda
+  const abrirModalMorosos = async () => {
+    setIsMorososModalOpen(true);
+    setIsLoadingMorosos(true);
+    try {
+      const res = await getMorososHistoricosAction();
+      if (res.success) {
+        setMorososHistoricosList(res.pagos);
+      } else {
+        toast.error(res.error || "No se pudieron cargar las deudas históricas.");
+      }
+    } finally {
+      setIsLoadingMorosos(false);
+    }
+  };
 
   // Carga lazy del detalle completo de un pago (solo al abrir el modal)
   const abrirDetalle = async (pagoId: string, abrirEnEdicion = false) => {
@@ -192,7 +215,8 @@ export function CobranzaClient({
     nuevaPropiedad = propiedadId,
     nuevoEstado = estadoFiltro,
     nuevaBusqueda = busqueda,
-    forzarSincronizacion = false
+    forzarSincronizacion = false,
+    modoMorososHistoricos = (nuevoEstado === "MOROSOS_HISTORICOS")
   ) => {
     startTransition(async () => {
       const res = await getPagosCobranza({
@@ -200,9 +224,10 @@ export function CobranzaClient({
         ano: nuevoAno,
         pagina: nuevaPagina,
         propiedadId: nuevaPropiedad,
-        estado: nuevoEstado as EstadoPago | "TODOS",
+        estado: nuevoEstado as EstadoPago | "TODOS" | "POR_CONFIRMAR" | "MOROSOS_HISTORICOS",
         busqueda: nuevaBusqueda,
         forzarSincronizacion,
+        modoMorososHistoricos,
       });
 
       if (res.success) {
@@ -435,6 +460,36 @@ export function CobranzaClient({
           color="rose"
         />
       </div>
+
+      {/* Banner de Alerta Permanente: Morosidad Histórica Acumulada de Meses Anteriores (Fase 25) */}
+      {Boolean(
+        estadisticas.morosidadHistoricaCuotas && estadisticas.morosidadHistoricaCuotas > 0
+      ) && (
+        <div className="px-4 py-3 bg-gradient-to-r from-rose-50 via-amber-50/70 to-rose-50 border border-rose-300/90 rounded-2xl shadow-2xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-[#CC1A22] text-white flex items-center justify-center shrink-0 shadow-2xs">
+              <AlertTriangle className="w-4.5 h-4.5" />
+            </div>
+            <div className="flex items-center gap-2 flex-wrap">
+              <h4 className="text-sm font-black text-slate-900 font-heading">
+                {estadisticas.morosidadHistoricaInquilinos} inquilino(s) con deudas de meses anteriores ({estadisticas.morosidadHistoricaCuotas} cuota(s))
+              </h4>
+              <span className="px-2 py-0.5 rounded-full text-[11px] font-black bg-rose-100 text-rose-800 border border-rose-300">
+                ${estadisticas.morosidadHistoricaTotal?.toFixed(2)} USD
+              </span>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={abrirModalMorosos}
+            className="w-full sm:w-auto h-8.5 px-3.5 rounded-xl text-xs font-bold bg-[#CC1A22] hover:bg-[#a81219] text-white transition-all flex items-center justify-center gap-1.5 cursor-pointer shrink-0 shadow-xs active:translate-y-0.5"
+          >
+            <span>Ver deudas</span>
+            <ChevronRight className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      )}
 
       {/* Banner de alerta: Pagos por confirmar reportados por inquilinos */}
       {Boolean(
@@ -747,6 +802,16 @@ export function CobranzaClient({
         isOpen={Boolean(pagoARecibo)}
         onClose={() => setPagoARecibo(null)}
         pago={pagoARecibo}
+      />
+
+      {/* Modal de Morosos Históricos (Fase 25) */}
+      <MorososHistoricosModal
+        isOpen={isMorososModalOpen}
+        onClose={() => setIsMorososModalOpen(false)}
+        pagos={morososHistoricosList}
+        isLoading={isLoadingMorosos}
+        onVerFicha={(pagoId) => abrirDetalle(pagoId, false)}
+        onRegistrarPago={(pagoId) => abrirDetalle(pagoId, true)}
       />
     </div>
   );

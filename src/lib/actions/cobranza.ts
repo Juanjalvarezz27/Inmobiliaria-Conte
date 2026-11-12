@@ -541,23 +541,58 @@ export async function getPagosCobranza({
   busqueda,
   pagina = 1,
   forzarSincronizacion = false,
+  modoMorososHistoricos = false,
 }: {
   mes: number;
   ano: number;
   propiedadId?: string;
-  estado?: EstadoPago | "TODOS" | "POR_CONFIRMAR";
+  estado?: EstadoPago | "TODOS" | "POR_CONFIRMAR" | "MOROSOS_HISTORICOS";
   busqueda?: string;
   pagina?: number;
   forzarSincronizacion?: boolean;
+  modoMorososHistoricos?: boolean;
 }) {
   try {
+    const ahora = new Date();
+    const mesActualCal = ahora.getUTCMonth() + 1;
+    const anoActualCal = ahora.getUTCFullYear();
+
     // Sincronización bajo demanda forzada explícitamente
-    if (forzarSincronizacion) {
+    if (forzarSincronizacion && !modoMorososHistoricos) {
       await sincronizarCuotasMes(mes, ano);
     }
 
-    // Filtro base por periodo
-    const whereAnd: Prisma.PagoWhereInput[] = [{ periodoMes: mes }, { periodoAno: ano }];
+    // Condición de morosidad histórica respecto al mes actual calendario
+    const condicionPeriodoPasado: Prisma.PagoWhereInput = {
+      OR: [
+        { periodoAno: { lt: anoActualCal } },
+        { periodoAno: anoActualCal, periodoMes: { lt: mesActualCal } },
+      ],
+    };
+
+    // Filtro base: o bien modo morosos históricos global, o bien periodo mes/ano regular
+    const whereAnd: Prisma.PagoWhereInput[] = [];
+
+    if (modoMorososHistoricos || estado === "MOROSOS_HISTORICOS") {
+      whereAnd.push({
+        estado: { not: EstadoPago.PAGADO },
+        ...condicionPeriodoPasado,
+      });
+    } else {
+      whereAnd.push({ periodoMes: mes }, { periodoAno: ano });
+
+      // Filtro por estado en modo mensual normal
+      if (estado === "POR_CONFIRMAR") {
+        whereAnd.push({
+          estado: { not: EstadoPago.PAGADO },
+          comprobanteUrl: { not: null },
+        });
+      } else if (estado && estado !== "TODOS") {
+        whereAnd.push({
+          estado: estado as EstadoPago,
+        });
+      }
+    }
 
     // Filtro por propiedad
     if (propiedadId && propiedadId !== "TODAS") {
@@ -567,18 +602,6 @@ export async function getPagosCobranza({
             propiedadId: propiedadId,
           },
         },
-      });
-    }
-
-    // Filtro por estado
-    if (estado === "POR_CONFIRMAR") {
-      whereAnd.push({
-        estado: { not: EstadoPago.PAGADO },
-        comprobanteUrl: { not: null },
-      });
-    } else if (estado && estado !== "TODOS") {
-      whereAnd.push({
-        estado: estado as EstadoPago,
       });
     }
 
@@ -615,15 +638,22 @@ export async function getPagosCobranza({
       agregadosPorPropiedad,
       cantidadPorConfirmarMes,
       cantidadPorConfirmarGlobal,
+      morososHistoricosData,
     ] = await Promise.all([
       prisma.pago.count({ where }),
       prisma.pago.findMany({
         where,
         select: PAGO_LIST_SELECT,
-        orderBy: [
-          { estado: "asc" },
-          { fechaVencimiento: "asc" },
-        ],
+        orderBy: (modoMorososHistoricos || estado === "MOROSOS_HISTORICOS")
+          ? [
+              { periodoAno: "asc" },
+              { periodoMes: "asc" },
+              { estado: "asc" },
+            ]
+          : [
+              { estado: "asc" },
+              { fechaVencimiento: "asc" },
+            ],
         skip,
         take: PAGE_SIZE,
       }),
@@ -652,6 +682,19 @@ export async function getPagosCobranza({
           comprobanteUrl: { not: null },
         },
       }),
+      // Fase 25: Auditoría agregada de Morosidad Histórica en una sola tupla SQL nativa (Cero sobrecarga de red)
+      prisma.$queryRaw<Array<{ total_mora: number; total_cuotas: number; total_inquilinos: number }>>`
+        SELECT 
+          COALESCE(SUM("montoEsperado" - "montoPagado"), 0)::float as total_mora,
+          COUNT(id)::int as total_cuotas,
+          COUNT(DISTINCT "contratoId")::int as total_inquilinos
+        FROM pagos
+        WHERE estado != 'PAGADO'
+          AND (
+            "periodoAno" < ${anoActualCal}
+            OR ("periodoAno" = ${anoActualCal} AND "periodoMes" < ${mesActualCal})
+          )
+      `,
     ]);
 
     // Fallback reactivo: si no se forzó sincronización y el mes no tenía cuotas generadas, sincronizar al vuelo
@@ -741,6 +784,9 @@ export async function getPagosCobranza({
     const porcentajeRecaudado =
       totalFacturado > 0 ? Number(((totalRecaudado / totalFacturado) * 100).toFixed(1)) : 0;
 
+    // Métricas de morosidad histórica agregadas directamente desde el motor PostgreSQL
+    const morosidadStats = morososHistoricosData?.[0] || { total_mora: 0, total_cuotas: 0, total_inquilinos: 0 };
+
     const estadisticas: EstadisticasCobranza = {
       totalFacturado: Number(totalFacturado.toFixed(2)),
       totalRecaudado: Number(totalRecaudado.toFixed(2)),
@@ -756,6 +802,9 @@ export async function getPagosCobranza({
       cantidadPorConfirmarGlobal,
       porcentajeRecaudado,
       conteoPorPropiedad: agregadosPorPropiedad,
+      morosidadHistoricaTotal: Number((morosidadStats.total_mora || 0).toFixed(2)),
+      morosidadHistoricaCuotas: morosidadStats.total_cuotas || 0,
+      morosidadHistoricaInquilinos: morosidadStats.total_inquilinos || 0,
     };
 
     // Detección de cuotas anteriores impagas para los contratos de la página (Fase 24: Imputación Secuencial)
@@ -1373,5 +1422,46 @@ export async function rechazarComprobanteReportadoAction(pagoId: string, motivo?
   } catch (error) {
     console.error("Error al rechazar comprobante:", error);
     return { success: false, error: "Ocurrió un error al descartar el comprobante." };
+  }
+}
+
+/**
+ * Obtiene la lista completa de cuotas morosas de periodos anteriores al mes actual (Fase 25)
+ */
+export async function getMorososHistoricosAction() {
+  try {
+    const ahora = new Date();
+    const mesActualCal = ahora.getUTCMonth() + 1;
+    const anoActualCal = ahora.getUTCFullYear();
+
+    const registros = await prisma.pago.findMany({
+      where: {
+        estado: { not: EstadoPago.PAGADO },
+        OR: [
+          { periodoAno: { lt: anoActualCal } },
+          { periodoAno: anoActualCal, periodoMes: { lt: mesActualCal } },
+        ],
+      },
+      select: PAGO_LIST_SELECT,
+      orderBy: [
+        { periodoAno: "asc" },
+        { periodoMes: "asc" },
+        { estado: "asc" },
+      ],
+    });
+
+    const pagos: PagoItem[] = registros.map((r) => serializePagoItem(r));
+
+    return {
+      success: true,
+      pagos,
+    };
+  } catch (error) {
+    console.error("Error al obtener morosos históricos:", error);
+    return {
+      success: false,
+      error: "No se pudieron cargar los deudores históricos",
+      pagos: [],
+    };
   }
 }
