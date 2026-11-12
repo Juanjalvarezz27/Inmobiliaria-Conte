@@ -17,6 +17,7 @@ import { toast } from "sonner";
 import { MESES } from "@/lib/date-utils";
 import type { PagoItem } from "./types";
 import { useOperacionesUploadThing } from "@/lib/uploadthing";
+import { comprimirImagen, formatearBytes } from "@/lib/file-compressor";
 import { actualizarSolvenciaServiciosAction } from "@/lib/actions/cobranza";
 
 interface ServiciosSolvenciaModalProps {
@@ -35,10 +36,14 @@ export function ServiciosSolvenciaModal({
   const [luzSolvente, setLuzSolvente] = useState<boolean>(false);
   const [luzNumeroFactura, setLuzNumeroFactura] = useState<string>("");
   const [luzComprobanteUrl, setLuzComprobanteUrl] = useState<string>("");
+  const [isCompressingLuz, setIsCompressingLuz] = useState<boolean>(false);
+  const [statsLuz, setStatsLuz] = useState<{ original: string; final: string; ahorroPct: number } | null>(null);
 
   const [aguaSolvente, setAguaSolvente] = useState<boolean>(false);
   const [aguaNumeroFactura, setAguaNumeroFactura] = useState<string>("");
   const [aguaComprobanteUrl, setAguaComprobanteUrl] = useState<string>("");
+  const [isCompressingAgua, setIsCompressingAgua] = useState<boolean>(false);
+  const [statsAgua, setStatsAgua] = useState<{ original: string; final: string; ahorroPct: number } | null>(null);
 
   const [serviciosObservaciones, setServiciosObservaciones] = useState<string>("");
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
@@ -93,19 +98,66 @@ export function ServiciosSolvenciaModal({
   const propiedadNombre = pago.contrato.unidad.propiedad.nombre;
   const inquilinoNombre = `${pago.contrato.inquilino.nombre} ${pago.contrato.inquilino.apellido || ""}`.trim();
 
-  const handleSubirArchivo = (tipo: "luz" | "agua", e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleSubirFoto = async (tipo: "luz" | "agua", e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (file.size > 4 * 1024 * 1024) {
-      toast.error("El archivo supera el límite de 4MB");
+    if (!file.type.startsWith("image/")) {
+      toast.error("Solo se permiten fotos o capturas (JPG, PNG o WEBP). No se admiten archivos PDF.");
+      e.target.value = "";
+      return;
+    }
+
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error("La foto supera el límite máximo de 10 MB antes de optimizar.");
+      e.target.value = "";
       return;
     }
 
     if (tipo === "luz") {
-      startUploadLuz([file]);
+      setIsCompressingLuz(true);
+      try {
+        const res = await comprimirImagen(file, {
+          formatoSalida: "image/webp",
+          calidad: 0.8,
+          maxDimension: 1600,
+        });
+        setStatsLuz({
+          original: formatearBytes(res.pesoOriginal),
+          final: formatearBytes(res.pesoFinal),
+          ahorroPct: res.ahorroPct,
+        });
+        await startUploadLuz([res.file]);
+      } catch (err) {
+        console.error("Error al comprimir foto de Corpoelec:", err);
+        toast.error("Error al procesar la compresión. Intentando subir original...");
+        await startUploadLuz([file]);
+      } finally {
+        setIsCompressingLuz(false);
+        e.target.value = "";
+      }
     } else {
-      startUploadAgua([file]);
+      setIsCompressingAgua(true);
+      try {
+        const res = await comprimirImagen(file, {
+          formatoSalida: "image/webp",
+          calidad: 0.8,
+          maxDimension: 1600,
+        });
+        setStatsAgua({
+          original: formatearBytes(res.pesoOriginal),
+          final: formatearBytes(res.pesoFinal),
+          ahorroPct: res.ahorroPct,
+        });
+        await startUploadAgua([res.file]);
+      } catch (err) {
+        console.error("Error al comprimir foto de Agua:", err);
+        toast.error("Error al procesar la compresión. Intentando subir original...");
+        await startUploadAgua([file]);
+      } finally {
+        setIsCompressingAgua(false);
+        e.target.value = "";
+      }
     }
   };
 
@@ -242,49 +294,80 @@ export function ServiciosSolvenciaModal({
             </div>
 
             {/* Comprobante / Recibo Adjunto */}
-            <div className="space-y-1 pt-1 border-t border-slate-200/60">
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-                Comprobante / Recibo (PDF o Foto)
-              </span>
+            <div className="space-y-1.5 pt-1 border-t border-slate-200/60">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
+                  Foto del Recibo (Luz)
+                </span>
+                <span className="text-[10px] font-medium text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">
+                  Máx. 1 foto · Optimizada
+                </span>
+              </div>
               {luzComprobanteUrl ? (
-                <div className="flex items-center justify-between bg-white border border-slate-200 rounded-xl px-2.5 py-1.5 text-xs">
-                  <a
-                    href={luzComprobanteUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="flex items-center gap-1.5 text-emerald-800 font-bold hover:underline truncate"
-                  >
-                    <FileText className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                    <span className="truncate text-[11px]">Ver Comprobante</span>
-                    <ExternalLink className="w-3 h-3 shrink-0" />
-                  </a>
+                <div className="flex items-center justify-between bg-white border border-emerald-200/90 rounded-xl p-2.5 shadow-2xs">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <img
+                      src={luzComprobanteUrl}
+                      alt="Recibo Corpoelec"
+                      className="w-11 h-11 rounded-lg object-cover border border-emerald-200 bg-white shrink-0 shadow-2xs"
+                    />
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="text-xs font-bold text-slate-900 truncate">
+                          Foto adjuntada
+                        </span>
+                        {statsLuz && (
+                          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-[#175E38] border border-emerald-200">
+                            {statsLuz.final} {statsLuz.ahorroPct > 0 && `(−${statsLuz.ahorroPct}%)`}
+                          </span>
+                        )}
+                      </div>
+                      <a
+                        href={luzComprobanteUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-[11px] text-[#175E38] font-bold hover:underline inline-flex items-center gap-1 mt-0.5"
+                      >
+                        <span>Ver foto completa</span>
+                        <ExternalLink className="w-3 h-3" />
+                      </a>
+                    </div>
+                  </div>
                   <button
                     type="button"
-                    onClick={() => setLuzComprobanteUrl("")}
-                    className="p-1 text-slate-400 hover:text-rose-600 rounded-lg hover:bg-rose-50 transition-colors cursor-pointer"
-                    title="Eliminar comprobante"
+                    onClick={() => {
+                      setLuzComprobanteUrl("");
+                      setStatsLuz(null);
+                    }}
+                    className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer shrink-0"
+                    title="Eliminar foto"
                   >
-                    <Trash2 className="w-3.5 h-3.5" />
+                    <Trash2 className="w-4 h-4" />
                   </button>
                 </div>
               ) : (
-                <label className="flex items-center justify-center gap-1.5 w-full py-1.5 bg-white hover:bg-slate-50 border border-dashed border-slate-300 rounded-xl text-[11px] font-bold text-slate-600 cursor-pointer transition-colors active:scale-98">
-                  {isUploadingLuz ? (
+                <label className="flex items-center justify-center gap-2 w-full py-2.5 bg-white hover:bg-slate-50 border border-dashed border-slate-300 hover:border-[#175E38] rounded-xl text-xs font-bold text-slate-600 cursor-pointer transition-colors active:scale-98">
+                  {isCompressingLuz ? (
                     <>
-                      <RotateCw className="w-3.5 h-3.5 animate-spin text-[#175E38]" />
-                      <span>Subiendo...</span>
+                      <RotateCw className="w-4 h-4 animate-spin text-amber-600" />
+                      <span>Optimizando foto...</span>
+                    </>
+                  ) : isUploadingLuz ? (
+                    <>
+                      <RotateCw className="w-4 h-4 animate-spin text-[#175E38]" />
+                      <span>Subiendo foto...</span>
                     </>
                   ) : (
                     <>
-                      <Upload className="w-3.5 h-3.5 text-slate-400" />
-                      <span>Adjuntar Recibo</span>
+                      <Upload className="w-4 h-4 text-slate-400" />
+                      <span>Adjuntar Foto del Recibo</span>
                     </>
                   )}
                   <input
                     type="file"
-                    accept="image/*,application/pdf"
-                    disabled={isUploadingLuz}
-                    onChange={(e) => handleSubirArchivo("luz", e)}
+                    accept="image/jpeg,image/png,image/webp"
+                    disabled={isUploadingLuz || isCompressingLuz}
+                    onChange={(e) => handleSubirFoto("luz", e)}
                     className="hidden"
                   />
                 </label>
@@ -363,49 +446,80 @@ export function ServiciosSolvenciaModal({
             </div>
 
             {/* Comprobante / Recibo Adjunto */}
-            <div className="space-y-1 pt-1 border-t border-slate-200/60">
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-                Comprobante / Recibo (PDF o Foto)
-              </span>
+            <div className="space-y-1.5 pt-1 border-t border-slate-200/60">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
+                  Foto del Recibo (Agua)
+                </span>
+                <span className="text-[10px] font-medium text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">
+                  Máx. 1 foto · Optimizada
+                </span>
+              </div>
               {aguaComprobanteUrl ? (
-                <div className="flex items-center justify-between bg-white border border-slate-200 rounded-xl px-2.5 py-1.5 text-xs">
-                  <a
-                    href={aguaComprobanteUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="flex items-center gap-1.5 text-blue-800 font-bold hover:underline truncate"
-                  >
-                    <FileText className="w-3.5 h-3.5 text-blue-600 shrink-0" />
-                    <span className="truncate text-[11px]">Ver Comprobante</span>
-                    <ExternalLink className="w-3 h-3 shrink-0" />
-                  </a>
+                <div className="flex items-center justify-between bg-white border border-blue-200/90 rounded-xl p-2.5 shadow-2xs">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <img
+                      src={aguaComprobanteUrl}
+                      alt="Recibo Agua"
+                      className="w-11 h-11 rounded-lg object-cover border border-blue-200 bg-white shrink-0 shadow-2xs"
+                    />
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="text-xs font-bold text-slate-900 truncate">
+                          Foto adjuntada
+                        </span>
+                        {statsAgua && (
+                          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-sky-100 text-sky-800 border border-sky-200">
+                            {statsAgua.final} {statsAgua.ahorroPct > 0 && `(−${statsAgua.ahorroPct}%)`}
+                          </span>
+                        )}
+                      </div>
+                      <a
+                        href={aguaComprobanteUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-[11px] text-blue-700 font-bold hover:underline inline-flex items-center gap-1 mt-0.5"
+                      >
+                        <span>Ver foto completa</span>
+                        <ExternalLink className="w-3 h-3" />
+                      </a>
+                    </div>
+                  </div>
                   <button
                     type="button"
-                    onClick={() => setAguaComprobanteUrl("")}
-                    className="p-1 text-slate-400 hover:text-rose-600 rounded-lg hover:bg-rose-50 transition-colors cursor-pointer"
-                    title="Eliminar comprobante"
+                    onClick={() => {
+                      setAguaComprobanteUrl("");
+                      setStatsAgua(null);
+                    }}
+                    className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer shrink-0"
+                    title="Eliminar foto"
                   >
-                    <Trash2 className="w-3.5 h-3.5" />
+                    <Trash2 className="w-4 h-4" />
                   </button>
                 </div>
               ) : (
-                <label className="flex items-center justify-center gap-1.5 w-full py-1.5 bg-white hover:bg-slate-50 border border-dashed border-slate-300 rounded-xl text-[11px] font-bold text-slate-600 cursor-pointer transition-colors active:scale-98">
-                  {isUploadingAgua ? (
+                <label className="flex items-center justify-center gap-2 w-full py-2.5 bg-white hover:bg-slate-50 border border-dashed border-slate-300 hover:border-blue-500 rounded-xl text-xs font-bold text-slate-600 cursor-pointer transition-colors active:scale-98">
+                  {isCompressingAgua ? (
                     <>
-                      <RotateCw className="w-3.5 h-3.5 animate-spin text-blue-600" />
-                      <span>Subiendo...</span>
+                      <RotateCw className="w-4 h-4 animate-spin text-sky-600" />
+                      <span>Optimizando foto...</span>
+                    </>
+                  ) : isUploadingAgua ? (
+                    <>
+                      <RotateCw className="w-4 h-4 animate-spin text-blue-600" />
+                      <span>Subiendo foto...</span>
                     </>
                   ) : (
                     <>
-                      <Upload className="w-3.5 h-3.5 text-slate-400" />
-                      <span>Adjuntar Recibo</span>
+                      <Upload className="w-4 h-4 text-slate-400" />
+                      <span>Adjuntar Foto del Recibo</span>
                     </>
                   )}
                   <input
                     type="file"
-                    accept="image/*,application/pdf"
-                    disabled={isUploadingAgua}
-                    onChange={(e) => handleSubirArchivo("agua", e)}
+                    accept="image/jpeg,image/png,image/webp"
+                    disabled={isUploadingAgua || isCompressingAgua}
+                    onChange={(e) => handleSubirFoto("agua", e)}
                     className="hidden"
                   />
                 </label>
@@ -464,3 +578,4 @@ export function ServiciosSolvenciaModal({
     </Modal>
   );
 }
+

@@ -4,7 +4,7 @@ import React, { useState, useRef, useEffect, useMemo } from "react";
 import { Modal, FormSectionHeader } from "@/components/ui";
 import { Select, type SelectOption } from "@/components/ui/select";
 import { useOperacionesUploadThing } from "@/lib/uploadthing";
-import { comprimirImagen } from "@/lib/file-compressor";
+import { comprimirImagen, formatearBytes } from "@/lib/file-compressor";
 import { toast } from "sonner";
 import { MetodoPago } from "@prisma/client";
 import { OPCIONES_METODO_PAGO } from "@/lib/constants/pagos";
@@ -92,6 +92,11 @@ export function ReportarPagoModal({
   // Manejo de comprobante bancario (UploadThing + compresión WebP silenciosa)
   const [comprobanteUrl, setComprobanteUrl] = useState<string>("");
   const [isCompressing, setIsCompressing] = useState<boolean>(false);
+  const [statsCompresion, setStatsCompresion] = useState<{
+    original: string;
+    final: string;
+    ahorroPct: number;
+  } | null>(null);
   const [isDragOver, setIsDragOver] = useState<boolean>(false);
 
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
@@ -193,17 +198,13 @@ export function ReportarPagoModal({
   const handleProcesarArchivo = async (file: File) => {
     if (!file) return;
 
-    if (!file.type.startsWith("image/") && file.type !== "application/pdf") {
-      toast.error("Formato no compatible. Por favor sube una imagen (JPG, PNG) o documento PDF.");
+    if (!file.type.startsWith("image/")) {
+      toast.error("Solo se permiten fotos o capturas (JPG, PNG o WEBP). No se admiten archivos PDF.");
       return;
     }
 
-    if (file.type === "application/pdf") {
-      if (file.size > 4 * 1024 * 1024) {
-        toast.error("El comprobante PDF no puede superar los 4 MB.");
-        return;
-      }
-      await startUpload([file]);
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error("La foto del comprobante no debe superar los 10 MB antes de optimizar.");
       return;
     }
 
@@ -213,6 +214,11 @@ export function ReportarPagoModal({
         formatoSalida: "image/webp",
         calidad: 0.8,
         maxDimension: 1600,
+      });
+      setStatsCompresion({
+        original: formatearBytes(res.pesoOriginal),
+        final: formatearBytes(res.pesoFinal),
+        ahorroPct: res.ahorroPct,
       });
       await startUpload([res.file]);
     } catch (err) {
@@ -550,7 +556,7 @@ export function ReportarPagoModal({
           <input
             ref={fileInputRef}
             type="file"
-            accept="image/*,application/pdf"
+            accept="image/jpeg,image/png,image/webp"
             onChange={(e) => {
               const f = e.target.files?.[0];
               if (f) handleProcesarArchivo(f);
@@ -562,20 +568,22 @@ export function ReportarPagoModal({
             <div className="flex items-center justify-between p-3.5 bg-emerald-50/80 border border-emerald-200 rounded-2xl shadow-2xs">
               <div className="flex items-center gap-3 min-w-0">
                 <div className="w-12 h-12 rounded-xl border border-emerald-200 bg-white shrink-0 overflow-hidden shadow-2xs flex items-center justify-center">
-                  {comprobanteUrl.toLowerCase().endsWith(".pdf") ? (
-                    <FileText className="w-6 h-6 text-emerald-700" />
-                  ) : (
-                    <img
-                      src={comprobanteUrl}
-                      alt="Capture de pago"
-                      className="w-full h-full object-cover"
-                    />
-                  )}
+                  <img
+                    src={comprobanteUrl}
+                    alt="Capture de pago"
+                    className="w-full h-full object-cover"
+                  />
                 </div>
                 <div className="min-w-0">
-                  <div className="flex items-center gap-1.5 text-xs font-black text-emerald-900">
-                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                    <span>Comprobante listo</span>
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className="text-xs font-black text-emerald-900">
+                      Foto adjuntada
+                    </span>
+                    {statsCompresion && (
+                      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-[#175E38] border border-emerald-200">
+                        {statsCompresion.final} {statsCompresion.ahorroPct > 0 && `(−${statsCompresion.ahorroPct}%)`}
+                      </span>
+                    )}
                   </div>
 
                   <a
@@ -584,7 +592,7 @@ export function ReportarPagoModal({
                     rel="noreferrer"
                     className="text-[11px] text-emerald-700 hover:text-emerald-900 font-semibold underline flex items-center gap-1 mt-0.5"
                   >
-                    <span>Ver archivo adjunto</span>
+                    <span>Ver foto completa</span>
                     <ExternalLink className="w-3 h-3" />
                   </a>
                 </div>
@@ -594,11 +602,12 @@ export function ReportarPagoModal({
                 type="button"
                 onClick={() => {
                   setComprobanteUrl("");
+                  setStatsCompresion(null);
                   if (fileInputRef.current) fileInputRef.current.value = "";
                 }}
                 disabled={isSubmitting}
                 className="w-9 h-9 rounded-xl bg-rose-50 text-rose-600 hover:bg-rose-100 border border-rose-200/80 flex items-center justify-center transition-all cursor-pointer shadow-2xs shrink-0 ml-2"
-                title="Eliminar y subir otro"
+                title="Eliminar y subir otra foto"
               >
                 <Trash2 className="w-4 h-4" />
               </button>
@@ -633,7 +642,7 @@ export function ReportarPagoModal({
                 <div className="py-2 flex flex-col items-center gap-1.5">
                   <Loader2 className="w-6 h-6 animate-spin text-[#175E38]" />
                   <span className="text-xs font-bold text-slate-800">
-                    Optimizando captura bancaria...
+                    Optimizando foto bancaria...
                   </span>
                 </div>
               ) : isUploading ? (
@@ -650,10 +659,10 @@ export function ReportarPagoModal({
                   </div>
                   <div>
                     <p className="text-xs font-bold text-slate-800">
-                      Toca para subir tu comprobante <span className="hidden sm:inline">o arrástralo aquí</span>
+                      Toca para subir tu foto <span className="hidden sm:inline">o arrástrala aquí</span>
                     </p>
                     <p className="text-[11px] text-slate-500 mt-0.5">
-                      Capturas en JPG, PNG o PDF (máx. 4 MB)
+                      Foto o captura en JPG, PNG o WEBP (máx. 1 foto optimizada)
                     </p>
                   </div>
                 </>
