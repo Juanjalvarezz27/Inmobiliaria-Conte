@@ -855,44 +855,39 @@ export function InquilinoPagosClient({
                                   <button
                                     type="button"
                                     onClick={() => setPagoParaServicios(pago)}
-                                    className="w-full flex items-center justify-between px-2.5 py-1.5 mt-2 rounded-xl bg-slate-50/90 hover:bg-slate-100/90 border border-slate-200/70 hover:border-slate-300 transition-all cursor-pointer group/serv active:scale-[0.99] text-xs"
+                                    className="w-full grid grid-cols-2 gap-2 p-1.5 mt-2 rounded-xl bg-slate-50/90 hover:bg-slate-100/90 border border-slate-200/70 hover:border-slate-300 transition-all cursor-pointer active:scale-[0.99] text-xs"
                                     title="Consultar o reportar solvencia de luz y agua"
                                   >
-                                    <div className="flex items-center gap-1.5 shrink-0">
-                                      <span
-                                        className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-bold border transition-colors ${
-                                          pago.luzSolvente
-                                            ? "bg-emerald-50 text-emerald-800 border-emerald-200/90"
-                                            : "bg-amber-50 text-amber-800 border-amber-200/90"
+                                    {/* Badge Luz (Corpoelec) */}
+                                    <span
+                                      className={`inline-flex items-center justify-center gap-1.5 py-1 px-2 rounded-lg text-[10px] sm:text-[11px] font-bold border transition-colors ${
+                                        pago.luzSolvente
+                                          ? "bg-emerald-50 text-emerald-800 border-emerald-200/90"
+                                          : "bg-amber-50 text-amber-800 border-amber-200/90"
+                                      }`}
+                                    >
+                                      <Zap
+                                        className={`w-3 h-3 shrink-0 ${
+                                          pago.luzSolvente ? "text-emerald-600 fill-emerald-500" : "text-amber-500 fill-amber-400"
                                         }`}
-                                      >
-                                        <Zap
-                                          className={`w-3 h-3 shrink-0 ${
-                                            pago.luzSolvente ? "text-emerald-600 fill-emerald-500" : "text-amber-500 fill-amber-400"
-                                          }`}
-                                        />
-                                        <span>Luz: {pago.luzSolvente ? "Al día" : "Pendiente"}</span>
-                                      </span>
+                                      />
+                                      <span className="truncate">Luz: {pago.luzSolvente ? "Al día" : "Pendiente"}</span>
+                                    </span>
 
-                                      <span
-                                        className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-bold border transition-colors ${
-                                          pago.aguaSolvente
-                                            ? "bg-sky-50 text-sky-800 border-sky-200/90"
-                                            : "bg-rose-50 text-rose-700 border-rose-200/80"
+                                    {/* Badge Agua (Azul Hidroandes) */}
+                                    <span
+                                      className={`inline-flex items-center justify-center gap-1.5 py-1 px-2 rounded-lg text-[10px] sm:text-[11px] font-bold border transition-colors ${
+                                        pago.aguaSolvente
+                                          ? "bg-emerald-50 text-emerald-800 border-emerald-200/90"
+                                          : "bg-blue-50 text-blue-700 border-blue-200/90"
+                                      }`}
+                                    >
+                                      <Droplets
+                                        className={`w-3 h-3 shrink-0 ${
+                                          pago.aguaSolvente ? "text-emerald-600 fill-emerald-500" : "text-blue-500 fill-blue-400"
                                         }`}
-                                      >
-                                        <Droplets
-                                          className={`w-3 h-3 shrink-0 ${
-                                            pago.aguaSolvente ? "text-sky-600 fill-sky-400" : "text-rose-500 fill-rose-400"
-                                          }`}
-                                        />
-                                        <span>Agua: {pago.aguaSolvente ? "Al día" : "Pendiente"}</span>
-                                      </span>
-                                    </div>
-
-                                    <span className="text-[11px] font-bold text-[#175E38] group-hover/serv:underline inline-flex items-center gap-0.5 shrink-0 ml-1">
-                                      <span>Reportar</span>
-                                      <ChevronRight className="w-3.5 h-3.5 text-[#175E38] group-hover/serv:translate-x-0.5 transition-transform" />
+                                      />
+                                      <span className="truncate">Agua: {pago.aguaSolvente ? "Al día" : "Pendiente"}</span>
                                     </span>
                                   </button>
                                 </div>
