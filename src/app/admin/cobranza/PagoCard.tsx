@@ -16,6 +16,8 @@ import {
   Zap,
   Droplets,
   ChevronRight,
+  Check,
+  Clock,
 } from "lucide-react";
 import { WhatsAppIcon } from "@/components/icons/whatsapp-icon";
 import { EstadoPago } from "@prisma/client";
@@ -235,34 +237,46 @@ export function PagoCard({
           >
             {/* Badge Luz (Corpoelec) */}
             <span
-              className={`inline-flex items-center justify-center gap-1.5 py-1 px-2 rounded-lg text-[10px] sm:text-[11px] font-bold border transition-colors ${
+              className={`inline-flex items-center justify-center gap-1.5 py-1 px-2 rounded-lg text-xs font-bold border transition-colors ${
                 pago.luzSolvente
                   ? "bg-emerald-50 text-emerald-800 border-emerald-200/90"
                   : "bg-amber-50 text-amber-800 border-amber-200/90"
               }`}
+              title={pago.luzSolvente ? "Electricidad (Corpoelec): Al día" : "Electricidad (Corpoelec): Pendiente"}
             >
               <Zap
-                className={`w-3 h-3 shrink-0 ${
+                className={`w-3.5 h-3.5 shrink-0 ${
                   pago.luzSolvente ? "text-emerald-600 fill-emerald-500" : "text-amber-500 fill-amber-400"
                 }`}
               />
-              <span className="truncate">Luz: {pago.luzSolvente ? "Al día" : "Pendiente"}</span>
+              <span>Luz</span>
+              {pago.luzSolvente ? (
+                <Check className="w-3.5 h-3.5 text-emerald-600 stroke-[2.5] shrink-0" />
+              ) : (
+                <Clock className="w-3.5 h-3.5 text-amber-600 stroke-[2.5] shrink-0" />
+              )}
             </span>
 
             {/* Badge Agua (Azul Hidroandes) */}
             <span
-              className={`inline-flex items-center justify-center gap-1.5 py-1 px-2 rounded-lg text-[10px] sm:text-[11px] font-bold border transition-colors ${
+              className={`inline-flex items-center justify-center gap-1.5 py-1 px-2 rounded-lg text-xs font-bold border transition-colors ${
                 pago.aguaSolvente
                   ? "bg-emerald-50 text-emerald-800 border-emerald-200/90"
                   : "bg-blue-50 text-blue-700 border-blue-200/90"
               }`}
+              title={pago.aguaSolvente ? "Agua Potable: Al día" : "Agua Potable: Pendiente"}
             >
               <Droplets
-                className={`w-3 h-3 shrink-0 ${
+                className={`w-3.5 h-3.5 shrink-0 ${
                   pago.aguaSolvente ? "text-emerald-600 fill-emerald-500" : "text-blue-500 fill-blue-400"
                 }`}
               />
-              <span className="truncate">Agua: {pago.aguaSolvente ? "Al día" : "Pendiente"}</span>
+              <span>Agua</span>
+              {pago.aguaSolvente ? (
+                <Check className="w-3.5 h-3.5 text-emerald-600 stroke-[2.5] shrink-0" />
+              ) : (
+                <Clock className="w-3.5 h-3.5 text-blue-600 stroke-[2.5] shrink-0" />
+              )}
             </span>
           </button>
         )}

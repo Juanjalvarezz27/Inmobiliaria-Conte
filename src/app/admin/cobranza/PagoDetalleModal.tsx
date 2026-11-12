@@ -30,6 +30,7 @@ import {
   Lock,
   Zap,
   Droplets,
+  Check,
 } from "lucide-react";
 import { Modal, ImageViewerModal } from "@/components/ui";
 import { Badge } from "@/components/ui/badge";
@@ -699,13 +700,23 @@ export function PagoDetalleModal({
                   <span className="text-xs font-bold text-slate-800">Electricidad (Corpoelec)</span>
                 </div>
                 <span
-                  className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-black ${
+                  className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold ${
                     pago.luzSolvente
                       ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
-                      : "bg-rose-50 text-rose-700 border border-rose-200"
+                      : "bg-amber-50 text-amber-800 border border-amber-200"
                   }`}
                 >
-                  {pago.luzSolvente ? "Solvente" : "Pendiente"}
+                  {pago.luzSolvente ? (
+                    <>
+                      <Check className="w-3.5 h-3.5 text-emerald-600 stroke-[2.5]" />
+                      <span>Solvente</span>
+                    </>
+                  ) : (
+                    <>
+                      <Clock className="w-3.5 h-3.5 text-amber-600 stroke-[2.5]" />
+                      <span>Pendiente</span>
+                    </>
+                  )}
                 </span>
               </div>
               <div className="text-[11px] text-slate-600 flex items-center justify-between">
@@ -719,7 +730,7 @@ export function PagoDetalleModal({
                   rel="noreferrer"
                   className="text-[11px] text-emerald-700 hover:text-emerald-800 font-bold underline inline-flex items-center gap-1 mt-0.5"
                 >
-                  <Eye className="w-3 h-3" /> Ver Comprobante Corpoelec
+                  <Eye className="w-3 h-3" /> Ver Foto Corpoelec
                 </a>
               )}
             </div>
@@ -728,17 +739,27 @@ export function PagoDetalleModal({
             <div className="p-3 rounded-xl bg-slate-50 border border-slate-200/80 flex flex-col justify-between gap-2">
               <div className="flex items-center justify-between gap-2">
                 <div className="flex items-center gap-1.5">
-                  <Droplets className="w-4 h-4 text-sky-500 shrink-0" />
+                  <Droplets className="w-4 h-4 text-blue-500 shrink-0" />
                   <span className="text-xs font-bold text-slate-800">Agua Potable</span>
                 </div>
                 <span
-                  className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-black ${
+                  className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold ${
                     pago.aguaSolvente
-                      ? "bg-sky-50 text-sky-700 border border-sky-200"
-                      : "bg-rose-50 text-rose-700 border border-rose-200"
+                      ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                      : "bg-blue-50 text-blue-700 border border-blue-200"
                   }`}
                 >
-                  {pago.aguaSolvente ? "Solvente" : "Pendiente"}
+                  {pago.aguaSolvente ? (
+                    <>
+                      <Check className="w-3.5 h-3.5 text-emerald-600 stroke-[2.5]" />
+                      <span>Solvente</span>
+                    </>
+                  ) : (
+                    <>
+                      <Clock className="w-3.5 h-3.5 text-blue-600 stroke-[2.5]" />
+                      <span>Pendiente</span>
+                    </>
+                  )}
                 </span>
               </div>
               <div className="text-[11px] text-slate-600 flex items-center justify-between">
