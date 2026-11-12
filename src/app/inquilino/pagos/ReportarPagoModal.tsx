@@ -29,6 +29,7 @@ import {
   Mail,
   Copy,
   Check,
+  Store,
 } from "lucide-react";
 import { formatBS } from "@/lib/formatters";
 import type { TasaBcvResponse } from "@/lib/bcv";
@@ -99,11 +100,14 @@ export function ReportarPagoModal({
   // Sincronizar cuota preseleccionada y limpiar campos al abrir el modal
   useEffect(() => {
     if (isOpen) {
-      const idSeleccionado = pagoPreseleccionado?.id || pagosPendientes[0]?.id || "";
+      // Si viene preseleccionado desde una tarjeta específica y existe en las cuotas elegibles, respetarlo;
+      // de lo contrario, tomar la cuota prioritaria (índice 0: deudas en mora o del mes corriente primero)
+      const existePre = pagoPreseleccionado && pagosPendientes.some((p) => p.id === pagoPreseleccionado.id);
+      const idSeleccionado = existePre ? pagoPreseleccionado!.id : pagosPendientes[0]?.id || "";
       setPagoId(idSeleccionado);
-      const cuota = pagosPendientes.find((p) => p.id === idSeleccionado) || pagoPreseleccionado || pagosPendientes[0];
+      const cuota = pagosPendientes.find((p) => p.id === idSeleccionado) || pagosPendientes[0];
       if (cuota) {
-        setMontoReportado(Math.max(0, cuota.montoEsperado - cuota.montoPagado));
+        setMontoReportado(Math.max(0, Number((cuota.montoEsperado - cuota.montoPagado).toFixed(2))));
       }
       setReferencia("");
       setNotas("");
@@ -156,24 +160,35 @@ export function ReportarPagoModal({
     }
   };
 
-  // Opciones limpias para el selector híbrido cuando hay múltiples cuotas
+  const ahora = useMemo(() => new Date(), []);
+
+  // Opciones con máxima notoriedad del LOCAL y la mensualidad en el selector
   const opcionesCuotas = useMemo((): SelectOption[] => {
+    const mesActual = ahora.getUTCMonth() + 1;
+    const anoActual = ahora.getUTCFullYear();
+
     return pagosPendientes.map((p) => {
       const mesNombre = MESES[p.periodoMes - 1] || `Mes ${p.periodoMes}`;
       const localStr = p.contrato?.unidad?.codigo || "Espacio";
       const propStr = p.contrato?.unidad?.propiedad?.nombre || "";
-      const deuda = Math.max(0, p.montoEsperado - p.montoPagado);
+      const diaCobro = p.contrato?.diaCobro;
+      const deuda = Math.max(0, Number((p.montoEsperado - p.montoPagado).toFixed(2)));
+
+      const esAdelanto =
+        p.periodoAno > anoActual || (p.periodoAno === anoActual && p.periodoMes > mesActual);
+
       return {
         value: p.id,
-        label: `${mesNombre} ${p.periodoAno}`,
-        sublabel: `${localStr}${propStr ? ` · ${propStr}` : ""}`,
+        label: `${localStr} — ${mesNombre} ${p.periodoAno}`,
+        sublabel: `${propStr}${diaCobro ? ` · Corte: Día ${diaCobro}` : ""}${esAdelanto ? " · Adelanto" : ""}`,
+        icon: Store,
         badge: {
           text: `$${deuda.toFixed(2)} USD`,
-          variant: "emerald",
+          variant: esAdelanto ? "blue" : "emerald",
         },
       };
     });
-  }, [pagosPendientes]);
+  }, [pagosPendientes, ahora]);
 
   const handleProcesarArchivo = async (file: File) => {
     if (!file) return;
@@ -300,28 +315,26 @@ export function ReportarPagoModal({
             title="Cuota a Solventar"
           />
 
-          {/* Selector de Cuota Único (Sin duplicidades ni bloqueos de overflow) */}
-          <div className="space-y-1.5">
-            <label className="block text-xs font-bold text-slate-700 uppercase tracking-wide">
-              Mensualidad a Solventar <span className="text-emerald-700">*</span>
-            </label>
+          {/* Selector de Local y Cuota con Máxima Notoriedad */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between flex-wrap gap-1">
+              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wide">
+                Espacio y Mensualidad a Solventar <span className="text-emerald-700">*</span>
+              </label>
+              {opcionesCuotas.length > 1 && (
+                <span className="text-[11px] font-semibold text-slate-500">
+                  {opcionesCuotas.length} opciones disponibles
+                </span>
+              )}
+            </div>
+
             <Select
               value={pagoId}
               onChange={handleCambioCuota}
               options={opcionesCuotas}
               disabled={isSubmitting}
-              placeholder="Seleccionar cuota pendiente..."
+              placeholder="Seleccionar local y mensualidad..."
             />
-
-            {/* Fecha de corte mensual si está configurada */}
-            {cuotaSeleccionada?.contrato?.diaCobro && (
-              <div className="flex items-center justify-end text-[11px] text-slate-500 font-medium px-1 pt-0.5">
-                <span className="flex items-center gap-1 text-slate-600 font-semibold">
-                  <Clock className="w-3 h-3 text-slate-400 shrink-0" />
-                  <span>Corte: Día {cuotaSeleccionada.contrato.diaCobro} de cada mes</span>
-                </span>
-              </div>
-            )}
           </div>
 
           {/* Formulario de Monto y Fecha (Uno debajo de otro) */}

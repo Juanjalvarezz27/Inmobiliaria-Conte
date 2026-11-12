@@ -248,17 +248,10 @@ export function CobranzaClient({
     recargarCobranzas(nuevoMes, nuevoAno, 1);
   };
 
-  // Forzar sincronización bajo demanda
-  const handleSincronizarManual = () => {
-    startTransition(async () => {
-      const res = await sincronizarCuotasMes(mes, ano);
-      if (res.success) {
-        toast.success(`Cuotas sincronizadas (${res.generados} nuevas, ${res.actualizados} vencidas).`);
-        recargarCobranzas(mes, ano, pagina);
-      } else {
-        toast.error("No se pudieron sincronizar las cuotas.");
-      }
-    });
+  // Refrescar listado bajo demanda
+  const handleRefrescar = () => {
+    recargarCobranzas(mes, ano, pagina, propiedadId, estadoFiltro, busqueda, false);
+    toast.success("Listado de cobranzas actualizado.");
   };
 
   // Manejador para registrar pago
@@ -389,13 +382,13 @@ export function CobranzaClient({
             {/* Separador vertical tenue */}
             <div className="h-6 w-px bg-slate-200 shrink-0 mx-0.5" />
 
-            {/* Botón sincronizar */}
+            {/* Botón refrescar listado */}
             <button
               type="button"
-              onClick={handleSincronizarManual}
+              onClick={handleRefrescar}
               disabled={isPending}
-              className="w-8.5 h-8.5 sm:w-9 sm:h-9 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-[#175E38] border border-emerald-200/80 flex items-center justify-center transition-colors cursor-pointer shrink-0 shadow-2xs"
-              title="Actualizar y sincronizar cuotas"
+              className="w-8.5 h-8.5 sm:w-9 sm:h-9 rounded-xl bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200/90 flex items-center justify-center transition-colors cursor-pointer shrink-0 shadow-2xs"
+              title="Refrescar listado"
             >
               <RotateCw className={`w-3.5 h-3.5 sm:w-4 sm:h-4 ${isPending ? "animate-spin" : ""}`} />
             </button>
@@ -444,8 +437,10 @@ export function CobranzaClient({
       </div>
 
       {/* Banner de alerta: Pagos por confirmar reportados por inquilinos */}
-      {((estadisticas.cantidadPorConfirmar && estadisticas.cantidadPorConfirmar > 0) ||
-        (estadisticas.cantidadPorConfirmarGlobal && estadisticas.cantidadPorConfirmarGlobal > 0)) && (
+      {Boolean(
+        (estadisticas.cantidadPorConfirmar && estadisticas.cantidadPorConfirmar > 0) ||
+        (estadisticas.cantidadPorConfirmarGlobal && estadisticas.cantidadPorConfirmarGlobal > 0)
+      ) && (
         <div className="p-4 bg-gradient-to-r from-blue-50 via-indigo-50/70 to-blue-50 border border-blue-200/90 rounded-2xl shadow-2xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-blue-600 text-white flex items-center justify-center shrink-0 shadow-2xs">
@@ -556,12 +551,42 @@ export function CobranzaClient({
       {pagos.length === 0 ? (
         <EmptyState
           title="No se encontraron cuotas para este periodo"
-          description={`No hay registros de cobro en ${nombreMesActual} ${ano} con los filtros aplicados. Puedes cambiar de mes o sincronizar cuotas si hay contratos activos.`}
+          description={
+            (() => {
+              const d = new Date();
+              const mesActualReal = d.getMonth() + 1;
+              const anoActualReal = d.getFullYear();
+              const esFuturo = ano > anoActualReal || (ano === anoActualReal && mes > mesActualReal + 1);
+
+              if (esFuturo) {
+                return `No hay cuotas habilitadas en ${nombreMesActual} ${ano}. En períodos futuros, las mensualidades se habilitan automáticamente solo cuando el calendario avance y cada contrato haya liquidado sus cuotas previas.`;
+              }
+              return `No hay registros de cobro en ${nombreMesActual} ${ano} con los filtros aplicados.`;
+            })()
+          }
           icon="receipt"
-          action={{
-            label: "Sincronizar Cuotas del Mes",
-            onClick: handleSincronizarManual,
-          }}
+          action={
+            (() => {
+              const d = new Date();
+              const mesActualReal = d.getMonth() + 1;
+              const anoActualReal = d.getFullYear();
+              const esMesDistinto = mes !== mesActualReal || ano !== anoActualReal;
+
+              if (esMesDistinto) {
+                const nombreMesReal = MESES.find((m) => m.value === String(mesActualReal))?.label || "Mes Actual";
+                return {
+                  label: `Ir a ${nombreMesReal} ${anoActualReal}`,
+                  onClick: () => {
+                    setMes(mesActualReal);
+                    setAno(anoActualReal);
+                    setPagina(1);
+                    recargarCobranzas(mesActualReal, anoActualReal, 1);
+                  },
+                };
+              }
+              return undefined;
+            })()
+          }
         />
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5 sm:gap-4">

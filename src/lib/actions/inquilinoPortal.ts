@@ -9,6 +9,7 @@ import { MetodoPago, MonedaTransaccion } from "@prisma/client";
 import type { PagoItem } from "@/app/admin/cobranza/types";
 import { getTasaBcvOficial, type TasaBcvResponse } from "@/lib/bcv";
 import { enviarNotificacionPagoReportadoAdmin } from "@/lib/email-templates/notificacion-pago-reportado";
+import { sincronizarCuotasMes } from "@/lib/actions/cobranza";
 
 /**
  * Ejecuta tareas asíncronas secundarias (como emails SMTP) en segundo plano
@@ -529,6 +530,21 @@ export async function getInquilinoPagosDataAction(): Promise<{
   const session = await auth();
   if (!session?.user?.id) throw new Error("No autenticado");
 
+  // Fase 24: Sincronizar bajo demanda el mes en curso y el próximo mes (máx 1 mes de adelanto)
+  const ahora = new Date();
+  const mesActual = ahora.getUTCMonth() + 1;
+  const anoActual = ahora.getUTCFullYear();
+  let proximoMes = mesActual + 1;
+  let proximoAno = anoActual;
+  if (proximoMes > 12) {
+    proximoMes = 1;
+    proximoAno += 1;
+  }
+  await Promise.all([
+    sincronizarCuotasMes(mesActual, anoActual),
+    sincronizarCuotasMes(proximoMes, proximoAno),
+  ]);
+
   // Obtener la tasa oficial BCV del día en paralelo
   const tasaBcvActual = await getTasaBcvOficial();
 
@@ -789,6 +805,65 @@ export async function reportarPagoInquilinoAction(input: ReportarPagoInput): Pro
         error: `El monto reportado ($${montoReportado.toFixed(2)} USD) no puede superar el saldo pendiente de esta mensualidad ($${saldoPendiente.toFixed(2)} USD).`,
       };
     }
+
+    // Validación de Imputación Secuencial (Fase 24): No permitir pagar meses futuros si existen cuotas anteriores impagas
+    const cuotaAnteriorImpaga = await prisma.pago.findFirst({
+      where: {
+        contratoId: pago.contratoId,
+        OR: [
+          { periodoAno: { lt: pago.periodoAno } },
+          { periodoAno: pago.periodoAno, periodoMes: { lt: pago.periodoMes } },
+        ],
+        estado: { not: "PAGADO" },
+      },
+      orderBy: [
+        { periodoAno: "asc" },
+        { periodoMes: "asc" },
+      ],
+      select: {
+        periodoMes: true,
+        periodoAno: true,
+        montoEsperado: true,
+        montoPagado: true,
+      },
+    });
+
+    if (cuotaAnteriorImpaga) {
+      const nombreMesAnterior = new Date(Date.UTC(cuotaAnteriorImpaga.periodoAno, cuotaAnteriorImpaga.periodoMes - 1, 1)).toLocaleDateString("es-VE", {
+        month: "long",
+        year: "numeric",
+        timeZone: "UTC",
+      });
+      const saldoRestante = Math.max(0, cuotaAnteriorImpaga.montoEsperado - cuotaAnteriorImpaga.montoPagado).toFixed(2);
+      return {
+        success: false,
+        error: `Para mantener la correlatividad contable, debes solventar primero la mensualidad de ${nombreMesAnterior} (Resta: $${saldoRestante} USD) antes de reportar este período.`,
+      };
+    }
+
+    // Validación de Tope Calendario (Fase 24): Máximo 1 mes por encima del mes calendario actual
+    const ahoraUTC = new Date();
+    const mesActualUtc = ahoraUTC.getUTCMonth() + 1;
+    const anoActualUtc = ahoraUTC.getUTCFullYear();
+    let maxMesAdelanto = mesActualUtc + 1;
+    let maxAnoAdelanto = anoActualUtc;
+    while (maxMesAdelanto > 12) {
+      maxMesAdelanto -= 12;
+      maxAnoAdelanto += 1;
+    }
+
+    const excedeTopeCalendario =
+      pago.periodoAno > maxAnoAdelanto ||
+      (pago.periodoAno === maxAnoAdelanto && pago.periodoMes > maxMesAdelanto);
+
+    if (excedeTopeCalendario) {
+      return {
+        success: false,
+        error: `Solo se permite reportar hasta 1 mes por encima del mes calendario actual (${maxMesAdelanto}/${maxAnoAdelanto}). Períodos posteriores se habilitarán cuando avance el calendario.`,
+      };
+    }
+
+    // Validación de correlatividad aprobada: al no tener cuotas previas impagas y no exceder el tope, el pago es elegible.
 
     // Determinar si es método en Bolívares y calcular montos congelados
     const esMonedaNacional =

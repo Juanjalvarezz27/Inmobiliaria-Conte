@@ -53,10 +53,13 @@ const updateContratoSchema = z.object({
 export type CreateContratoInput = z.infer<typeof createContratoSchema>;
 export type UpdateContratoInput = z.infer<typeof updateContratoSchema>;
 
-// Calcula todos los períodos (mes/año) comprendidos entre dos fechas en formato UTC
-function obtenerPeriodosContrato(
+// Calcula los períodos a pregenerar en base de datos:
+// Devengados (históricos hasta hoy) + como máximo 1 mes de adelanto (mesActual + 1).
+// Las mensualidades futuras más allá de mesActual + 1 se generan bajo demanda vía sincronizarCuotasMes.
+function obtenerPeriodosParaGenerarContrato(
   fechaInicio: Date,
-  fechaFin: Date
+  fechaFin: Date,
+  maxMesesAdelanto: number = 1
 ): Array<{ mes: number; ano: number }> {
   const periodos: Array<{ mes: number; ano: number }> = [];
   const inicio = new Date(fechaInicio);
@@ -68,7 +71,24 @@ function obtenerPeriodosContrato(
   const finAno = fin.getUTCFullYear();
   const finMes = fin.getUTCMonth() + 1;
 
-  while (ano < finAno || (ano === finAno && mes <= finMes)) {
+  // Límite superior: mesActual + 1 mes de adelanto
+  const ahora = new Date();
+  let limiteAno = ahora.getUTCFullYear();
+  let limiteMes = ahora.getUTCMonth() + 1 + maxMesesAdelanto;
+  while (limiteMes > 12) {
+    limiteMes -= 12;
+    limiteAno += 1;
+  }
+
+  // Tope final: el menor entre la fecha de fin del contrato y el límite de adelanto
+  let topeAno = finAno;
+  let topeMes = finMes;
+  if (limiteAno < finAno || (limiteAno === finAno && limiteMes < finMes)) {
+    topeAno = limiteAno;
+    topeMes = limiteMes;
+  }
+
+  while (ano < topeAno || (ano === topeAno && mes <= topeMes)) {
     periodos.push({ mes, ano });
     mes += 1;
     if (mes > 12) {
@@ -482,8 +502,8 @@ export async function createContrato(data: CreateContratoInput) {
         data: { estado: EstadoUnidad.OCUPADO },
       });
 
-      // 5. Pre-generar cronograma de cuotas mensuales del contrato
-      const periodos = obtenerPeriodosContrato(fInicio, fFin);
+      // 5. Pre-generar cronograma de cuotas mensuales acotado (devengadas + máx 1 mes de adelanto)
+      const periodos = obtenerPeriodosParaGenerarContrato(fInicio, fFin);
       const ahora = new Date();
       const cuotasParaCrear = periodos.map(({ mes, ano }) => {
         const ultimoDiaMes = new Date(Date.UTC(ano, mes, 0)).getUTCDate();
@@ -749,8 +769,8 @@ export async function updateContrato(id: string, data: UpdateContratoInput) {
           }
         }
 
-        // B) Si se amplió fechaFin o faltan cuotas por generar en el cronograma
-        const periodosTotales = obtenerPeriodosContrato(contratoPrevio.fechaInicio, nuevaFechaFin);
+        // B) Si se amplió fechaFin o faltan cuotas por generar en el cronograma acotado
+        const periodosTotales = obtenerPeriodosParaGenerarContrato(contratoPrevio.fechaInicio, nuevaFechaFin);
         const setPagosExistentes = new Set(contratoPrevio.pagos.map((p) => `${p.periodoAno}-${p.periodoMes}`));
 
         const nuevasCuotas = [];

@@ -44,6 +44,11 @@ export interface PagoItem {
   comprobanteUrl: string | null;
   estado: EstadoPago;
   notas: string | null;
+  anteriorImpago?: {
+    mes: number;
+    ano: number;
+    saldo: number;
+  } | null;
   createdAt: string;
   updatedAt: string;
   transacciones?: TransaccionPagoItem[];

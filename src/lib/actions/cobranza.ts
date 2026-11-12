@@ -246,6 +246,7 @@ function serializePagoItem(p: any): PagoItem {
     comprobanteUrl: p.comprobanteUrl,
     estado: p.estado,
     notas: p.notas,
+    anteriorImpago: p.anteriorImpago || null,
     createdAt: p.createdAt.toISOString(),
     updatedAt: p.updatedAt.toISOString(),
     transacciones: p.transacciones
@@ -278,10 +279,29 @@ function serializePagoItem(p: any): PagoItem {
  */
 export async function sincronizarCuotasMes(mes: number, ano: number) {
   try {
+    const ahora = new Date();
+    const mesActual = ahora.getUTCMonth() + 1;
+    const anoActual = ahora.getUTCFullYear();
+
+    let maxMes = mesActual + 1;
+    let maxAno = anoActual;
+    while (maxMes > 12) {
+      maxMes -= 12;
+      maxAno += 1;
+    }
+
+    // Regla de Negocio (Fase 24): Tope máximo absoluto del calendario: mesActual + 1
+    // Ningún contrato puede tener cuotas más allá de 1 mes por encima del mes calendario actual
+    const esFuturoLejano = ano > maxAno || (ano === maxAno && mes > maxMes);
+    if (esFuturoLejano) {
+      return { success: true, generados: 0, actualizados: 0 };
+    }
+
+    const esPeriodoFuturo = ano > anoActual || (ano === anoActual && mes > mesActual);
+
     const inicioMes = new Date(Date.UTC(ano, mes - 1, 1, 0, 0, 0, 0));
     const finMes = new Date(Date.UTC(ano, mes, 0, 23, 59, 59, 999));
     const ultimoDiaMes = finMes.getUTCDate();
-    const ahora = new Date();
 
     // Contratos que estuvieron vigentes en este mes calendario
     // Únicamente contratos activos o por vencer generan cuotas mensuales
@@ -297,6 +317,7 @@ export async function sincronizarCuotasMes(mes: number, ano: number) {
         id: true,
         diaCobro: true,
         montoAlquiler: true,
+        fechaInicio: true,
       },
     });
 
@@ -320,10 +341,55 @@ export async function sincronizarCuotasMes(mes: number, ano: number) {
         fechaVencimiento: true,
         montoEsperado: true,
         montoPagado: true,
+        comprobanteUrl: true,
       },
     });
 
     const mapaPagosExistentes = new Map(pagosExistentes.map((p) => [p.contratoId, p]));
+
+    // Regla de Negocio (Fase 24: Correlatividad Estricta y Adelanto de Cuotas):
+    // Si el período es futuro, un contrato SOLO puede tener cuota en (mes, ano) si:
+    // 1. No tiene NINGUNA cuota anterior impaga.
+    // 2. Y si el contrato ya estaba activo en el mes previo (mes - 1), dicho mes DEBE estar PAGADO.
+    const contratosNoElegiblesFuturo = new Set<string>();
+
+    if (esPeriodoFuturo) {
+      const prevMes = mes === 1 ? 12 : mes - 1;
+      const prevAno = mes === 1 ? ano - 1 : ano;
+
+      // 1. Contratos con cualquier cuota anterior no pagada
+      const anterioresImpagos = await prisma.pago.findMany({
+        where: {
+          contratoId: { in: contratoIds },
+          estado: { not: EstadoPago.PAGADO },
+          OR: [
+            { periodoAno: { lt: ano } },
+            { periodoAno: ano, periodoMes: { lt: mes } },
+          ],
+        },
+        select: { contratoId: true },
+      });
+      anterioresImpagos.forEach((p) => contratosNoElegiblesFuturo.add(p.contratoId));
+
+      // 2. Contratos cuyo mes inmediato anterior NO fue pagado
+      const pagosMesAnterior = await prisma.pago.findMany({
+        where: {
+          contratoId: { in: contratoIds },
+          periodoMes: prevMes,
+          periodoAno: prevAno,
+          estado: EstadoPago.PAGADO,
+        },
+        select: { contratoId: true },
+      });
+      const contratosConMesAnteriorPagado = new Set(pagosMesAnterior.map((p) => p.contratoId));
+
+      for (const c of contratosVigentes) {
+        const finMesPrev = new Date(Date.UTC(prevAno, prevMes, 0, 23, 59, 59, 999));
+        if (c.fechaInicio <= finMesPrev && !contratosConMesAnteriorPagado.has(c.id)) {
+          contratosNoElegiblesFuturo.add(c.id);
+        }
+      }
+    }
 
     const nuevosPagos = [];
     const pagosParaVencer: string[] = [];
@@ -333,11 +399,26 @@ export async function sincronizarCuotasMes(mes: number, ano: number) {
       fechaVencimiento: Date;
       estado: EstadoPago;
     }> = [];
+    const pagosParaEliminar: string[] = [];
 
     for (const contrato of contratosVigentes) {
       const diaEfectivo = Math.min(contrato.diaCobro, ultimoDiaMes);
       const fechaVencimiento = new Date(Date.UTC(ano, mes - 1, diaEfectivo, 23, 59, 59, 999));
       const pagoActual = mapaPagosExistentes.get(contrato.id);
+
+      // Si es período futuro y el contrato no es elegible:
+      if (esPeriodoFuturo && contratosNoElegiblesFuturo.has(contrato.id)) {
+        // Si existe una cuota prematura vacía (sin abonos ni comprobante), eliminarla para sanear la DB
+        if (
+          pagoActual &&
+          pagoActual.montoPagado === 0 &&
+          !pagoActual.comprobanteUrl &&
+          pagoActual.estado !== EstadoPago.PAGADO
+        ) {
+          pagosParaEliminar.push(pagoActual.id);
+        }
+        continue;
+      }
 
       if (!pagoActual) {
         const esVencido = ahora > fechaVencimiento;
@@ -371,15 +452,25 @@ export async function sincronizarCuotasMes(mes: number, ano: number) {
       }
     }
 
-    // Creación en lote de cuotas faltantes
-    if (nuevosPagos.length > 0) {
-      await prisma.pago.createMany({
-        data: nuevosPagos,
-        skipDuplicates: true,
+    // Sanear cuotas futuras prematuras si existen
+    if (pagosParaEliminar.length > 0) {
+      await prisma.pago.deleteMany({
+        where: { id: { in: pagosParaEliminar } },
       });
     }
 
+    // Creación en lote de cuotas faltantes elegibles
+    let generados = 0;
+    if (nuevosPagos.length > 0) {
+      const resCreate = await prisma.pago.createMany({
+        data: nuevosPagos,
+        skipDuplicates: true,
+      });
+      generados = resCreate.count;
+    }
+
     // Actualización de cuotas pendientes cuya mensualidad o día cambió
+    let actualizados = 0;
     if (pagosParaActualizar.length > 0) {
       await prisma.$transaction(
         pagosParaActualizar.map((item) =>
@@ -393,6 +484,7 @@ export async function sincronizarCuotasMes(mes: number, ano: number) {
           })
         )
       );
+      actualizados = pagosParaActualizar.length;
     }
 
     // Actualización a vencido de cuotas que pasaron la fecha de corte
@@ -666,8 +758,50 @@ export async function getPagosCobranza({
       conteoPorPropiedad: agregadosPorPropiedad,
     };
 
-    // Serializar fechas ISO para Client Components
-    const pagos: PagoItem[] = registros.map(serializePagoItem);
+    // Detección de cuotas anteriores impagas para los contratos de la página (Fase 24: Imputación Secuencial)
+    const contratoIds = Array.from(new Set(registros.map((r) => r.contratoId)));
+    const cuotasAnterioresImpagas =
+      contratoIds.length > 0
+        ? await prisma.pago.findMany({
+            where: {
+              contratoId: { in: contratoIds },
+              estado: { not: EstadoPago.PAGADO },
+              OR: [
+                { periodoAno: { lt: ano } },
+                { periodoAno: ano, periodoMes: { lt: mes } },
+              ],
+            },
+            select: {
+              contratoId: true,
+              periodoMes: true,
+              periodoAno: true,
+              montoEsperado: true,
+              montoPagado: true,
+            },
+            orderBy: [
+              { periodoAno: "asc" },
+              { periodoMes: "asc" },
+            ],
+          })
+        : [];
+
+    const mapaAnterioresImpagas = new Map<string, { mes: number; ano: number; saldo: number }>();
+    for (const c of cuotasAnterioresImpagas) {
+      if (!mapaAnterioresImpagas.has(c.contratoId)) {
+        mapaAnterioresImpagas.set(c.contratoId, {
+          mes: c.periodoMes,
+          ano: c.periodoAno,
+          saldo: Number((c.montoEsperado - c.montoPagado).toFixed(2)),
+        });
+      }
+    }
+
+    // Serializar fechas ISO para Client Components e inyectar anteriorImpago
+    const pagos: PagoItem[] = registros.map((r) => {
+      const serialized = serializePagoItem(r);
+      serialized.anteriorImpago = mapaAnterioresImpagas.get(r.contratoId) || null;
+      return serialized;
+    });
 
     return {
       success: true,
@@ -761,10 +895,61 @@ export async function registrarPago(input: RegistrarPagoInput) {
     const pagoActualizado = await prisma.$transaction(async (tx) => {
       const pagoActual = await tx.pago.findUnique({
         where: { id: pagoId },
+        include: { contrato: true },
       });
 
       if (!pagoActual) {
         throw new Error("El registro de cobro no existe");
+      }
+
+      // 0a. Regla de Imputación Secuencial (Fase 24): Bloquear pago si hay cuotas anteriores pendientes
+      const cuotaAnteriorImpaga = await tx.pago.findFirst({
+        where: {
+          contratoId: pagoActual.contratoId,
+          OR: [
+            { periodoAno: { lt: pagoActual.periodoAno } },
+            { periodoAno: pagoActual.periodoAno, periodoMes: { lt: pagoActual.periodoMes } },
+          ],
+          estado: { not: EstadoPago.PAGADO },
+        },
+        orderBy: [
+          { periodoAno: "asc" },
+          { periodoMes: "asc" },
+        ],
+        select: {
+          periodoMes: true,
+          periodoAno: true,
+          montoEsperado: true,
+          montoPagado: true,
+        },
+      });
+
+      if (cuotaAnteriorImpaga) {
+        const saldoImpago = Math.max(0, cuotaAnteriorImpaga.montoEsperado - cuotaAnteriorImpaga.montoPagado).toFixed(2);
+        throw new Error(
+          `Imputación contable bloqueada: el contrato tiene una cuota anterior pendiente (Período: ${cuotaAnteriorImpaga.periodoMes}/${cuotaAnteriorImpaga.periodoAno}, Resta: $${saldoImpago} USD). Por principio contable estricto, debes liquidar primero el período más antiguo.`
+        );
+      }
+
+      // 0b. Regla de Tope de Calendario (Fase 24): Solo permitir liquidar hasta mesActual + 1 del calendario
+      const ahoraUTC = new Date();
+      const mesActualUtc = ahoraUTC.getUTCMonth() + 1;
+      const anoActualUtc = ahoraUTC.getUTCFullYear();
+      let maxMesAdelanto = mesActualUtc + 1;
+      let maxAnoAdelanto = anoActualUtc;
+      while (maxMesAdelanto > 12) {
+        maxMesAdelanto -= 12;
+        maxAnoAdelanto += 1;
+      }
+
+      const excedeTopeCalendario =
+        pagoActual.periodoAno > maxAnoAdelanto ||
+        (pagoActual.periodoAno === maxAnoAdelanto && pagoActual.periodoMes > maxMesAdelanto);
+
+      if (excedeTopeCalendario) {
+        throw new Error(
+          `Solo se permite liquidar hasta 1 mes por encima del mes calendario actual (Tope permitido: ${maxMesAdelanto}/${maxAnoAdelanto}). Este período se habilitará automáticamente cuando el calendario avance.`
+        );
       }
 
       // 1. Asentar la transacción individual en el Libro Mayor
@@ -804,7 +989,7 @@ export async function registrarPago(input: RegistrarPagoInput) {
       }
 
       // 4. Actualizar el encabezado de la mensualidad con los datos consolidados
-      return await tx.pago.update({
+      const pagoActualizadoTx = await tx.pago.update({
         where: { id: pagoId },
         data: {
           montoPagado: totalAbonado,
@@ -821,6 +1006,49 @@ export async function registrarPago(input: RegistrarPagoInput) {
         },
         select: PAGO_SELECT,
       });
+
+      // 5. Si la cuota quedó liquidada (PAGADO), habilitar automáticamente la siguiente mensualidad correlativa si no excede el tope de 1 mes arriba del mes actual
+      if (nuevoEstado === EstadoPago.PAGADO) {
+        const sigMes = pagoActual.periodoMes === 12 ? 1 : pagoActual.periodoMes + 1;
+        const sigAno = pagoActual.periodoMes === 12 ? pagoActual.periodoAno + 1 : pagoActual.periodoAno;
+        const noExcedeTope =
+          sigAno < maxAnoAdelanto || (sigAno === maxAnoAdelanto && sigMes <= maxMesAdelanto);
+
+        if (noExcedeTope) {
+          const finMesSig = new Date(Date.UTC(sigAno, sigMes, 0, 23, 59, 59, 999));
+
+          if (pagoActual.contrato.fechaFin >= finMesSig) {
+            const yaExisteSig = await tx.pago.findFirst({
+              where: {
+                contratoId: pagoActual.contratoId,
+                periodoMes: sigMes,
+                periodoAno: sigAno,
+              },
+              select: { id: true },
+            });
+
+            if (!yaExisteSig) {
+              const ultimoDiaSig = finMesSig.getUTCDate();
+              const diaEfectivoSig = Math.min(pagoActual.contrato.diaCobro, ultimoDiaSig);
+              const fechaVenceSig = new Date(Date.UTC(sigAno, sigMes - 1, diaEfectivoSig, 23, 59, 59, 999));
+
+              await tx.pago.create({
+                data: {
+                  contratoId: pagoActual.contratoId,
+                  periodoMes: sigMes,
+                  periodoAno: sigAno,
+                  montoEsperado: pagoActual.contrato.montoAlquiler,
+                  montoPagado: 0,
+                  fechaVencimiento: fechaVenceSig,
+                  estado: EstadoPago.PENDIENTE,
+                },
+              });
+            }
+          }
+        }
+      }
+
+      return pagoActualizadoTx;
     });
 
     // Enviar notificación por correo al inquilino en segundo plano (respuesta instantánea < 150ms)
@@ -1037,7 +1265,38 @@ export async function getPagoDetalle(pagoId: string) {
       return { success: false, error: "Registro de cobro no encontrado" };
     }
 
-    return { success: true, pago: serializePagoItem(pago) };
+    // Fase 24: Detectar si el contrato tiene mensualidades anteriores pendientes (Imputación correlativa)
+    const cuotaAnteriorImpaga = await prisma.pago.findFirst({
+      where: {
+        contratoId: pago.contratoId,
+        estado: { not: EstadoPago.PAGADO },
+        OR: [
+          { periodoAno: { lt: pago.periodoAno } },
+          { periodoAno: pago.periodoAno, periodoMes: { lt: pago.periodoMes } },
+        ],
+      },
+      select: {
+        periodoMes: true,
+        periodoAno: true,
+        montoEsperado: true,
+        montoPagado: true,
+      },
+      orderBy: [
+        { periodoAno: "asc" },
+        { periodoMes: "asc" },
+      ],
+    });
+
+    const serialized = serializePagoItem(pago);
+    if (cuotaAnteriorImpaga) {
+      serialized.anteriorImpago = {
+        mes: cuotaAnteriorImpaga.periodoMes,
+        ano: cuotaAnteriorImpaga.periodoAno,
+        saldo: Number((cuotaAnteriorImpaga.montoEsperado - cuotaAnteriorImpaga.montoPagado).toFixed(2)),
+      };
+    }
+
+    return { success: true, pago: serialized };
   } catch (error) {
     console.error("Error al obtener detalle del pago:", error);
     return { success: false, error: "No se pudo cargar la ficha del pago" };

@@ -12,9 +12,11 @@ import {
   Calendar,
   Phone,
   Mail,
+  Lock,
 } from "lucide-react";
 import { WhatsAppIcon } from "@/components/icons/whatsapp-icon";
 import { EstadoPago } from "@prisma/client";
+import { MESES } from "@/lib/date-utils";
 import type { PagoItem } from "./types";
 
 // Estilo del sol decorativo en esquina según el estado del cobro
@@ -347,51 +349,71 @@ export function PagoCard({
           <span className="truncate">Ver Ficha</span>
         </button>
 
-        <button
-          type="button"
-          onClick={() => {
-            if (pago.estado === EstadoPago.PAGADO) {
-              onVerRecibo(pago);
-            } else {
-              onRegistrarPago(pago.id);
-            }
-          }}
-          disabled={isLoadingDetalle}
-          className={`relative w-full h-10 px-3 rounded-xl text-xs font-bold text-white transition-all flex items-center justify-center gap-1.5 cursor-pointer active:translate-y-0.5 ${
-            pago.estado === EstadoPago.PAGADO
-              ? "bg-indigo-600 hover:bg-indigo-700 border-b-[3px] border-b-indigo-800 shadow-[0_2px_8px_rgba(79,70,229,0.35)]"
-              : esPorConfirmar
-              ? "bg-blue-600 hover:bg-blue-700 border-b-[3px] border-b-blue-800 shadow-[0_2px_8px_rgba(37,99,235,0.35)]"
-              : "bg-[#175E38] hover:bg-[#124b2d] border-b-[3px] border-b-[#0e3a23] shadow-[0_2px_6px_rgba(23,94,56,0.3)]"
-          }`}
-        >
-          {esPorConfirmar && (
-            <span
-              className="absolute -top-1.5 -right-1.5 z-10 flex items-center justify-center w-5 h-5 rounded-full bg-amber-500 text-white shadow-md border-2 border-white ring-1 ring-amber-600/30 pointer-events-none"
-              title="Esta acción verifica el comprobante y envía correo al Inquilino"
+        {pago.estado !== EstadoPago.PAGADO && pago.anteriorImpago ? (
+          <div className="w-full relative group/lock">
+            <button
+              type="button"
+              disabled
+              className="w-full h-10 px-2 rounded-xl text-xs font-bold bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed flex items-center justify-center gap-1.5 opacity-90 select-none transition-all"
             >
-              <Mail className="w-2.5 h-2.5 stroke-[2.5]" />
-            </span>
-          )}
-          {pago.estado === EstadoPago.PAGADO ? (
-            <>
-              <Receipt className="w-3.5 h-3.5 shrink-0" />
-              <span className="truncate">Recibo</span>
-            </>
-          ) : esPorConfirmar ? (
-            <>
-              <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
-              <span className="truncate">Confirmar Pago</span>
-            </>
-          ) : (
-            <>
-              <DollarSign className="w-3.5 h-3.5 shrink-0" />
-              <span className="truncate">
-                {pago.estado === EstadoPago.PARCIAL ? "Abonar" : "Registrar Pago"}
+              <Lock className="w-3.5 h-3.5 shrink-0 text-slate-400" />
+              <span className="truncate">Mes anterior pendiente</span>
+            </button>
+            <div className="hidden group-hover/lock:block absolute bottom-full right-0 mb-2 w-64 p-2.5 bg-slate-900 text-white text-[11px] leading-snug rounded-xl shadow-xl text-center z-50 pointer-events-none">
+              Por imputación contable secuencial, debes liquidar primero la mensualidad de{" "}
+              <strong className="text-emerald-400">
+                {MESES[(pago.anteriorImpago.mes || 1) - 1]} {pago.anteriorImpago.ano}
+              </strong>{" "}
+              (Resta: ${pago.anteriorImpago.saldo.toFixed(2)} USD).
+            </div>
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={() => {
+              if (pago.estado === EstadoPago.PAGADO) {
+                onVerRecibo(pago);
+              } else {
+                onRegistrarPago(pago.id);
+              }
+            }}
+            disabled={isLoadingDetalle}
+            className={`relative w-full h-10 px-3 rounded-xl text-xs font-bold text-white transition-all flex items-center justify-center gap-1.5 cursor-pointer active:translate-y-0.5 ${
+              pago.estado === EstadoPago.PAGADO
+                ? "bg-indigo-600 hover:bg-indigo-700 border-b-[3px] border-b-indigo-800 shadow-[0_2px_8px_rgba(79,70,229,0.35)]"
+                : esPorConfirmar
+                ? "bg-blue-600 hover:bg-blue-700 border-b-[3px] border-b-blue-800 shadow-[0_2px_8px_rgba(37,99,235,0.35)]"
+                : "bg-[#175E38] hover:bg-[#124b2d] border-b-[3px] border-b-[#0e3a23] shadow-[0_2px_6px_rgba(23,94,56,0.3)]"
+            }`}
+          >
+            {esPorConfirmar && (
+              <span
+                className="absolute -top-1.5 -right-1.5 z-10 flex items-center justify-center w-5 h-5 rounded-full bg-amber-500 text-white shadow-md border-2 border-white ring-1 ring-amber-600/30 pointer-events-none"
+                title="Esta acción verifica el comprobante y envía correo al Inquilino"
+              >
+                <Mail className="w-2.5 h-2.5 stroke-[2.5]" />
               </span>
-            </>
-          )}
-        </button>
+            )}
+            {pago.estado === EstadoPago.PAGADO ? (
+              <>
+                <Receipt className="w-3.5 h-3.5 shrink-0" />
+                <span className="truncate">Recibo</span>
+              </>
+            ) : esPorConfirmar ? (
+              <>
+                <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
+                <span className="truncate">Confirmar Pago</span>
+              </>
+            ) : (
+              <>
+                <DollarSign className="w-3.5 h-3.5 shrink-0" />
+                <span className="truncate">
+                  {pago.estado === EstadoPago.PARCIAL ? "Abonar" : "Registrar Pago"}
+                </span>
+              </>
+            )}
+          </button>
+        )}
       </div>
     </div>
   );

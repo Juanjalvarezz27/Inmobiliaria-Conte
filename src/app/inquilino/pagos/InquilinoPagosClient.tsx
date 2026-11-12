@@ -23,6 +23,7 @@ import {
   Receipt,
   Store,
   ChevronDown,
+  Lock,
 } from "lucide-react";
 import { PageHeader, StatCard, Badge, ImageViewerModal } from "@/components/ui";
 import { FilterDropdown, type FilterDropdownOption } from "@/components/ui/filter-dropdown";
@@ -95,8 +96,36 @@ export function InquilinoPagosClient({
   }, [pagos]);
 
   // Cuotas pendientes o en mora que son elegibles para reportar pago
+  // Principio de imputación secuencial (Fase 24):
+  // 1. Solo es elegible la cuota impaga más antigua de cada contrato.
+  // 2. Prioridad estricta: Deudas vencidas o del mes corriente PRIMERO; adelantos futuros al final.
   const cuotasParaReportar = useMemo(() => {
-    return pagos.filter((p) => p.estado !== "PAGADO");
+    const ahora = new Date();
+    const mesActual = ahora.getUTCMonth() + 1;
+    const anoActual = ahora.getUTCFullYear();
+
+    const impagas = pagos.filter((p) => p.estado !== "PAGADO");
+    const elegibles = impagas.filter((pago) => {
+      const tieneAnteriorImpaga = impagas.some(
+        (otro) =>
+          otro.contratoId === pago.contratoId &&
+          (otro.periodoAno < pago.periodoAno ||
+            (otro.periodoAno === pago.periodoAno && otro.periodoMes < pago.periodoMes))
+      );
+      return !tieneAnteriorImpaga;
+    });
+
+    return elegibles.sort((a, b) => {
+      const esFuturoA = a.periodoAno > anoActual || (a.periodoAno === anoActual && a.periodoMes > mesActual);
+      const esFuturoB = b.periodoAno > anoActual || (b.periodoAno === anoActual && b.periodoMes > mesActual);
+
+      // Si una es adelanto y la otra es deuda actual/pasada, la deuda actual va primero
+      if (esFuturoA !== esFuturoB) return esFuturoA ? 1 : -1;
+
+      // Dentro de la misma categoría, ordenar cronológicamente de la más antigua a la más nueva
+      if (a.periodoAno !== b.periodoAno) return a.periodoAno - b.periodoAno;
+      return a.periodoMes - b.periodoMes;
+    });
   }, [pagos]);
 
   // Opciones con conteos para el FilterDropdown de Estado
@@ -636,9 +665,14 @@ export function InquilinoPagosClient({
                         type="button"
                         onClick={(e) => {
                           e.stopPropagation();
-                          const cuotaPendiente =
-                            grupo.pagos.find((p) => p.estado !== "PAGADO" && !p.comprobanteUrl) ||
-                            grupo.pagos.find((p) => p.estado !== "PAGADO");
+                          // Imputación secuencial: seleccionar siempre la cuota impaga más antigua del local
+                          const cuotaPendiente = [...grupo.pagos]
+                            .filter((p) => p.estado !== "PAGADO")
+                            .sort((a, b) =>
+                              a.periodoAno !== b.periodoAno
+                                ? a.periodoAno - b.periodoAno
+                                : a.periodoMes - b.periodoMes
+                            )[0];
                           if (cuotaPendiente) abrirReporteParaCuota(cuotaPendiente);
                         }}
                         className="h-9 px-3.5 rounded-xl text-xs font-bold bg-[#175E38] hover:bg-[#124b2d] text-white border-b-[3px] border-b-[#0e3a23] active:translate-y-0.5 shadow-xs transition-all flex items-center gap-1.5 cursor-pointer"
@@ -688,6 +722,15 @@ export function InquilinoPagosClient({
                           // Detección de comprobante previamente descartado por la administración
                           const matchRechazo = pago.notas?.match(/Comprobante descartado por administración:\s*([^.\n]+)/i);
                           const motivoRechazo = matchRechazo ? matchRechazo[1].trim() : null;
+
+                          // Imputación Secuencial (Fase 24): Verificar si hay mensualidades anteriores impagas para este contrato
+                          const cuotaAnteriorImpaga = grupo.pagos.find(
+                            (p) =>
+                              (p.periodoAno < pago.periodoAno ||
+                                (p.periodoAno === pago.periodoAno && p.periodoMes < pago.periodoMes)) &&
+                              p.estado !== "PAGADO"
+                          );
+                          const tieneAnteriorImpaga = Boolean(cuotaAnteriorImpaga);
 
                           return (
                             <div
@@ -958,6 +1001,23 @@ export function InquilinoPagosClient({
                                       <ArrowUpRight className="w-3.5 h-3.5" />
                                       <span className="truncate">Actualizar</span>
                                     </button>
+                                  </div>
+                                ) : tieneAnteriorImpaga ? (
+                                  <div className="w-full relative group/lock">
+                                    <button
+                                      type="button"
+                                      disabled
+                                      className="w-full h-10 px-3 rounded-xl text-xs font-bold bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed flex items-center justify-center gap-1.5 opacity-90 transition-all select-none"
+                                    >
+                                      <Lock className="w-3.5 h-3.5 shrink-0 text-slate-400" />
+                                      <span className="truncate">Mes anterior pendiente</span>
+                                    </button>
+                                    <div className="hidden group-hover/lock:block absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-64 p-2.5 bg-slate-900 text-white text-[11px] leading-snug rounded-xl shadow-xl text-center z-50 pointer-events-none">
+                                      Para mantener la correlatividad contable, debes solventar primero la mensualidad de{" "}
+                                      <strong className="text-emerald-400">
+                                        {MESES[(cuotaAnteriorImpaga?.periodoMes || 1) - 1]} {cuotaAnteriorImpaga?.periodoAno}
+                                      </strong>.
+                                    </div>
                                   </div>
                                 ) : (
                                   <button

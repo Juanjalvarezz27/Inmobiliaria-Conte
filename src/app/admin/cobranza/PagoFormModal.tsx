@@ -15,6 +15,7 @@ import {
   DollarSign,
   Image as ImageIcon,
   Mail,
+  Lock,
 } from "lucide-react";
 import { Modal } from "@/components/ui/modal";
 import { FormSectionHeader } from "@/components/ui/form-section-header";
@@ -26,6 +27,7 @@ import { comprimirImagen, formatearBytes } from "@/lib/file-compressor";
 import type { PagoItem } from "./types";
 import { rechazarComprobanteReportadoAction, type RegistrarPagoInput } from "@/lib/actions/cobranza";
 import { OPCIONES_METODO_PAGO } from "@/lib/constants/pagos";
+import { MESES } from "@/lib/date-utils";
 
 interface PagoFormModalProps {
   isOpen: boolean;
@@ -219,6 +221,28 @@ function PagoFormContent({
   return (
     <>
       <form onSubmit={handleSubmit} className="space-y-4">
+      {/* Banner de Imputación Contable Bloqueada */}
+      {pago.anteriorImpago && pago.estado !== EstadoPago.PAGADO && (
+        <div className="p-3.5 rounded-2xl bg-amber-50 border border-amber-200/90 text-amber-900 shadow-2xs flex items-start gap-3">
+          <div className="w-8 h-8 rounded-xl bg-amber-100 border border-amber-300 flex items-center justify-center shrink-0 text-amber-700 shadow-2xs mt-0.5">
+            <Lock className="w-4 h-4 stroke-[2.2]" />
+          </div>
+          <div className="min-w-0 flex-1 text-xs leading-relaxed">
+            <p className="font-bold text-amber-950 font-heading">
+              Imputación Contable Bloqueada: Mensualidad anterior pendiente
+            </p>
+            <p className="text-amber-800 text-[11px] mt-0.5 font-medium">
+              Este contrato mantiene un saldo pendiente en{" "}
+              <strong>
+                {MESES[(pago.anteriorImpago.mes || 1) - 1]} {pago.anteriorImpago.ano}
+              </strong>{" "}
+              (Resta: <strong>${pago.anteriorImpago.saldo.toFixed(2)} USD</strong>). Por norma contable y correlatividad de pagos,
+              debes liquidar primero dicho período antes de asentar pagos en este mes.
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Ficha resumen del cobro con desglose financiero */}
       <div className="bg-slate-50 border border-slate-200/90 rounded-2xl p-3.5 sm:p-4 space-y-3 shadow-2xs">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2.5 border-b border-slate-200/80">
@@ -619,9 +643,18 @@ function PagoFormContent({
           </button>
           <button
             type="submit"
-            disabled={isLoading || isSubmitting || isUploading || isCompressing || isRechazando}
-            className={`relative w-full sm:w-auto px-6 h-11 rounded-xl text-xs sm:text-sm font-bold text-white active:translate-y-0.5 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 ${
-              esPorConfirmar
+            disabled={
+              isLoading ||
+              isSubmitting ||
+              isUploading ||
+              isCompressing ||
+              isRechazando ||
+              Boolean(pago.anteriorImpago && pago.estado !== EstadoPago.PAGADO)
+            }
+            className={`relative w-full sm:w-auto px-6 h-11 rounded-xl text-xs sm:text-sm font-bold text-white active:translate-y-0.5 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${
+              pago.anteriorImpago && pago.estado !== EstadoPago.PAGADO
+                ? "bg-slate-400 border-b-[3px] border-b-slate-600"
+                : esPorConfirmar
                 ? "bg-blue-600 hover:bg-blue-700 border-b-[3px] border-b-blue-800 shadow-[0_2px_8px_rgba(37,99,235,0.35)]"
                 : "bg-gradient-to-r from-[#175E38] to-[#124b2d] hover:brightness-105 border-b-[3px] border-b-[#0e3a23] shadow-[0_2px_8px_rgba(23,94,56,0.3)]"
             }`}

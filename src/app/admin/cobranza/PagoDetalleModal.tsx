@@ -27,10 +27,12 @@ import {
   Plus,
   Receipt,
   History,
+  Lock,
 } from "lucide-react";
 import { Modal, ImageViewerModal } from "@/components/ui";
 import { Badge } from "@/components/ui/badge";
 import { WhatsAppIcon } from "@/components/icons/whatsapp-icon";
+import { MESES } from "@/lib/date-utils";
 import {
   formatCurrency,
   TIPO_PROPIEDAD_LABEL,
@@ -202,6 +204,28 @@ export function PagoDetalleModal({
       maxWidth="3xl"
     >
       <div className="space-y-4">
+        {/* Banner de Imputación Contable Bloqueada */}
+        {pago.anteriorImpago && pago.estado !== EstadoPago.PAGADO && (
+          <div className="p-3.5 rounded-2xl bg-amber-50 border border-amber-200/90 text-amber-900 shadow-2xs flex items-start gap-3">
+            <div className="w-8 h-8 rounded-xl bg-amber-100 border border-amber-300 flex items-center justify-center shrink-0 text-amber-700 shadow-2xs mt-0.5">
+              <Lock className="w-4 h-4 stroke-[2.2]" />
+            </div>
+            <div className="min-w-0 flex-1 text-xs leading-relaxed">
+              <p className="font-bold text-amber-950 font-heading">
+                Imputación Contable Bloqueada: Mensualidad anterior pendiente
+              </p>
+              <p className="text-amber-800 text-[11px] mt-0.5 font-medium">
+                Este contrato mantiene un saldo pendiente en{" "}
+                <strong>
+                  {MESES[(pago.anteriorImpago.mes || 1) - 1]} {pago.anteriorImpago.ano}
+                </strong>{" "}
+                (Resta: <strong>${pago.anteriorImpago.saldo.toFixed(2)} USD</strong>). Por norma contable y correlatividad de pagos,
+                debes liquidar primero dicho período antes de asentar cobros o abonos en este mes.
+              </p>
+            </div>
+          </div>
+        )}
+
         {/* 1. Métricas Clave de la Cuota (Cuadrícula 2x2 en Móvil / 4 Columnas en Desktop) */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-3">
           {/* Monto Facturado */}
@@ -652,17 +676,37 @@ export function PagoDetalleModal({
             {/* Botones de acción en la cabecera del libro mayor */}
             <div className="grid grid-cols-2 sm:flex sm:items-center gap-2 w-full sm:w-auto">
               {saldoPendiente > 0 && onRegistrarNuevo && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    onClose();
-                    onRegistrarNuevo(pago);
-                  }}
-                  className="w-full sm:w-auto h-9 sm:h-8 inline-flex items-center justify-center gap-1.5 px-3 rounded-xl text-xs font-bold bg-[#175E38] text-white hover:bg-[#124b2d] shadow-xs transition-all active:scale-95 cursor-pointer"
-                >
-                  <Plus className="w-3.5 h-3.5 shrink-0" />
-                  <span className="truncate">Registrar Abono</span>
-                </button>
+                pago.anteriorImpago ? (
+                  <div className="relative group/lock w-full sm:w-auto">
+                    <button
+                      type="button"
+                      disabled
+                      className="w-full sm:w-auto h-9 sm:h-8 inline-flex items-center justify-center gap-1.5 px-3 rounded-xl text-xs font-bold bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed opacity-90 select-none"
+                    >
+                      <Lock className="w-3.5 h-3.5 shrink-0 text-slate-400" />
+                      <span className="truncate">Mes anterior pendiente</span>
+                    </button>
+                    <div className="hidden group-hover/lock:block absolute bottom-full right-0 mb-2 w-64 p-2.5 bg-slate-900 text-white text-[11px] leading-snug rounded-xl shadow-xl text-center z-50 pointer-events-none">
+                      Por imputación contable secuencial, debes liquidar primero la mensualidad de{" "}
+                      <strong className="text-emerald-400">
+                        {MESES[(pago.anteriorImpago.mes || 1) - 1]} {pago.anteriorImpago.ano}
+                      </strong>{" "}
+                      (Resta: ${pago.anteriorImpago.saldo.toFixed(2)} USD).
+                    </div>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onClose();
+                      onRegistrarNuevo(pago);
+                    }}
+                    className="w-full sm:w-auto h-9 sm:h-8 inline-flex items-center justify-center gap-1.5 px-3 rounded-xl text-xs font-bold bg-[#175E38] text-white hover:bg-[#124b2d] shadow-xs transition-all active:scale-95 cursor-pointer"
+                  >
+                    <Plus className="w-3.5 h-3.5 shrink-0" />
+                    <span className="truncate">Registrar Abono</span>
+                  </button>
+                )
               )}
               {pago.montoPagado > 0 && onVerRecibo && (
                 <button
@@ -915,27 +959,47 @@ export function PagoDetalleModal({
                 pago.estado === EstadoPago.VENCIDO ||
                 pago.estado === EstadoPago.PARCIAL) &&
                 onRegistrarNuevo && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      onClose();
-                      onRegistrarNuevo(pago);
-                    }}
-                    className={`w-full sm:w-auto px-4 h-11 rounded-xl text-xs sm:text-sm font-bold text-white transition-all flex items-center justify-center gap-1.5 cursor-pointer active:translate-y-0.5 ${
-                      Boolean(pago.comprobanteUrl)
-                        ? "bg-blue-600 hover:bg-blue-700 border-b-[3px] border-b-blue-800 shadow-[0_2px_8px_rgba(37,99,235,0.35)]"
-                        : "bg-[#175E38] hover:bg-[#124b2d] border-b-[3px] border-b-[#0e3a23] shadow-[0_2px_8px_rgba(23,94,56,0.25)]"
-                    }`}
-                  >
-                    <DollarSign className="w-4 h-4" />
-                    <span className="truncate">
-                      {Boolean(pago.comprobanteUrl)
-                        ? "Comprobar Pago"
-                        : pago.estado === EstadoPago.PARCIAL
-                        ? "Abonar Restante"
-                        : "Registrar Pago"}
-                    </span>
-                  </button>
+                  pago.anteriorImpago ? (
+                    <div className="relative group/lock w-full sm:w-auto">
+                      <button
+                        type="button"
+                        disabled
+                        className="w-full sm:w-auto px-4 h-11 rounded-xl text-xs sm:text-sm font-bold bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed flex items-center justify-center gap-1.5 opacity-90 select-none"
+                      >
+                        <Lock className="w-4 h-4 text-slate-400 shrink-0" />
+                        <span className="truncate">Mes anterior pendiente</span>
+                      </button>
+                      <div className="hidden group-hover/lock:block absolute bottom-full right-0 mb-2 w-72 p-2.5 bg-slate-900 text-white text-[11px] leading-snug rounded-xl shadow-xl text-center z-50 pointer-events-none">
+                        Por imputación contable correlativa, debes liquidar primero la mensualidad de{" "}
+                        <strong className="text-emerald-400">
+                          {MESES[(pago.anteriorImpago.mes || 1) - 1]} {pago.anteriorImpago.ano}
+                        </strong>{" "}
+                        (Resta: ${pago.anteriorImpago.saldo.toFixed(2)} USD).
+                      </div>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onClose();
+                        onRegistrarNuevo(pago);
+                      }}
+                      className={`w-full sm:w-auto px-4 h-11 rounded-xl text-xs sm:text-sm font-bold text-white transition-all flex items-center justify-center gap-1.5 cursor-pointer active:translate-y-0.5 ${
+                        Boolean(pago.comprobanteUrl)
+                          ? "bg-blue-600 hover:bg-blue-700 border-b-[3px] border-b-blue-800 shadow-[0_2px_8px_rgba(37,99,235,0.35)]"
+                          : "bg-[#175E38] hover:bg-[#124b2d] border-b-[3px] border-b-[#0e3a23] shadow-[0_2px_8px_rgba(23,94,56,0.25)]"
+                      }`}
+                    >
+                      <DollarSign className="w-4 h-4" />
+                      <span className="truncate">
+                        {Boolean(pago.comprobanteUrl)
+                          ? "Comprobar Pago"
+                          : pago.estado === EstadoPago.PARCIAL
+                          ? "Abonar Restante"
+                          : "Registrar Pago"}
+                      </span>
+                    </button>
+                  )
                 )}
             </div>
           </div>
