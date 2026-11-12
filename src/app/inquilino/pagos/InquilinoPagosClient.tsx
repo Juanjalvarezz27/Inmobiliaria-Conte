@@ -513,36 +513,40 @@ export function InquilinoPagosClient({
 
       {/* Banner de Servicios Públicos Pendientes */}
       {(resumen.totalServiciosPendientes ?? 0) > 0 && (
-        <section className="relative overflow-hidden rounded-2xl border border-amber-200/90 border-b-[3px] border-b-amber-500 bg-gradient-to-r from-amber-50/90 via-white to-sky-50/40 p-4 sm:p-5 shadow-sm transition-all">
+        <section className="relative overflow-hidden rounded-2xl bg-white border border-slate-200/90 border-b-[3px] border-b-slate-300/90 p-4 sm:p-5 shadow-[0_4px_20px_-2px_rgba(28,37,57,0.06)] group">
+          {/* Resplandor ambiental de marca */}
+          <div className="absolute -top-8 -left-8 w-28 h-28 bg-[#175E38]/10 rounded-full blur-2xl pointer-events-none" />
+
           <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-100 to-sky-100 text-amber-800 border border-amber-200 flex items-center justify-center shrink-0">
-                <div className="flex items-center -space-x-1">
-                  <Zap className="w-4 h-4 text-amber-600 fill-amber-500" />
-                  <Droplets className="w-4 h-4 text-blue-600 fill-blue-500" />
+            <div className="flex items-center gap-3.5 min-w-0">
+              <div className="w-11 h-11 rounded-xl bg-slate-50 border border-slate-200/80 flex items-center justify-center shrink-0 shadow-2xs">
+                <div className="flex items-center -space-x-0.5">
+                  <Zap className="w-4 h-4 text-amber-500 fill-amber-500" />
+                  <Droplets className="w-4 h-4 text-blue-500 fill-blue-500" />
                 </div>
               </div>
-              <div>
+              <div className="min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <span className="px-2.5 py-0.5 rounded-full text-xs font-black bg-amber-100 text-amber-900 border border-amber-300 flex items-center gap-1">
-                    <Clock className="w-3 h-3 text-amber-700" />
-                    SERVICIOS PÚBLICOS POR ADJUNTAR
+                  <span className="text-xs font-black text-slate-900 tracking-tight font-heading">
+                    Solvencia de Servicios Públicos
                   </span>
-                  <span className="text-xs font-bold text-slate-700">
+                  <div className="flex items-center gap-1.5 flex-wrap">
                     {resumen.serviciosLuzPendientesCount > 0 && (
-                      <span className="text-amber-800 font-semibold mr-2">
-                        ⚡ {resumen.serviciosLuzPendientesCount} mes(es) Luz
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[11px] font-bold bg-amber-50 text-amber-900 border border-amber-200/80">
+                        <Zap className="w-3 h-3 text-amber-600 fill-amber-500" />
+                        {resumen.serviciosLuzPendientesCount} {resumen.serviciosLuzPendientesCount === 1 ? "mes" : "meses"} Luz
                       </span>
                     )}
                     {resumen.serviciosAguaPendientesCount > 0 && (
-                      <span className="text-blue-800 font-semibold">
-                        💧 {resumen.serviciosAguaPendientesCount} mes(es) Agua
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[11px] font-bold bg-blue-50 text-blue-900 border border-blue-200/80">
+                        <Droplets className="w-3 h-3 text-blue-600 fill-blue-500" />
+                        {resumen.serviciosAguaPendientesCount} {resumen.serviciosAguaPendientesCount === 1 ? "mes" : "meses"} Agua
                       </span>
                     )}
-                  </span>
+                  </div>
                 </div>
-                <p className="text-xs text-slate-600 font-medium mt-1">
-                  Ubica el botón de servicios (<span className="font-semibold text-slate-800">⚡ Luz / 💧 Agua</span>) en cada tarjeta mensual para anexar tus comprobantes y mantener tu solvencia al día.
+                <p className="text-xs text-slate-500 font-medium mt-0.5">
+                  Ubica el botón de servicios (<span className="font-semibold text-slate-800">⚡ Luz / 💧 Agua</span>) en cada tarjeta mensual para adjuntar tus comprobantes de pago.
                 </p>
               </div>
             </div>
