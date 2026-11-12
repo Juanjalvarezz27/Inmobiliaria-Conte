@@ -824,6 +824,7 @@ export function InquilinoPagosClient({
                                       </div>
                                     )}
 
+                                    {/* Badge de Estado del Alquiler */}
                                     {esPagado ? (
                                       <span className="px-2.5 py-1 rounded-full text-[11px] font-black bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1">
                                         <CheckCircle2 className="w-3 h-3" />
@@ -851,59 +852,59 @@ export function InquilinoPagosClient({
                                       </span>
                                     )}
                                   </div>
-
-                                  {/* Servicios Públicos (Fase 27: Corpoelec y Agua) */}
-                                  <button
-                                    type="button"
-                                    onClick={() => setPagoParaServicios(pago)}
-                                    className="w-full grid grid-cols-2 gap-2 p-1.5 mt-2 rounded-xl bg-slate-50/90 hover:bg-slate-100/90 border border-slate-200/70 hover:border-slate-300 transition-all cursor-pointer active:scale-[0.99] text-xs"
-                                    title="Consultar o reportar solvencia de luz y agua"
-                                  >
-                                    {/* Badge Luz (Corpoelec) */}
-                                    <span
-                                      className={`inline-flex items-center justify-center gap-1.5 py-1 px-2 rounded-lg text-xs font-bold border transition-colors ${
-                                        pago.luzSolvente
-                                          ? "bg-emerald-50 text-emerald-800 border-emerald-200/90"
-                                          : "bg-amber-50 text-amber-800 border-amber-200/90"
-                                      }`}
-                                      title={pago.luzSolvente ? "Luz: Solvente / Al día" : "Luz: Pendiente"}
-                                    >
-                                      <Zap
-                                        className={`w-3.5 h-3.5 shrink-0 ${
-                                          pago.luzSolvente ? "text-emerald-600 fill-emerald-500" : "text-amber-500 fill-amber-400"
-                                        }`}
-                                      />
-                                      <span>Luz</span>
-                                      {pago.luzSolvente ? (
-                                        <Check className="w-3.5 h-3.5 text-emerald-600 stroke-[2.5] shrink-0" />
-                                      ) : (
-                                        <Clock className="w-3.5 h-3.5 text-amber-600 stroke-[2.5] shrink-0" />
-                                      )}
-                                    </span>
-
-                                    {/* Badge Agua (Azul Hidroandes) */}
-                                    <span
-                                      className={`inline-flex items-center justify-center gap-1.5 py-1 px-2 rounded-lg text-xs font-bold border transition-colors ${
-                                        pago.aguaSolvente
-                                          ? "bg-emerald-50 text-emerald-800 border-emerald-200/90"
-                                          : "bg-blue-50 text-blue-700 border-blue-200/90"
-                                      }`}
-                                      title={pago.aguaSolvente ? "Agua: Solvente / Al día" : "Agua: Pendiente"}
-                                    >
-                                      <Droplets
-                                        className={`w-3.5 h-3.5 shrink-0 ${
-                                          pago.aguaSolvente ? "text-emerald-600 fill-emerald-500" : "text-blue-500 fill-blue-400"
-                                        }`}
-                                      />
-                                      <span>Agua</span>
-                                      {pago.aguaSolvente ? (
-                                        <Check className="w-3.5 h-3.5 text-emerald-600 stroke-[2.5] shrink-0" />
-                                      ) : (
-                                        <Clock className="w-3.5 h-3.5 text-blue-600 stroke-[2.5] shrink-0" />
-                                      )}
-                                    </span>
-                                  </button>
                                 </div>
+
+                                {/* Servicios Públicos (Fase 27: Corpoelec y Agua - Fila independiente arriba de las cajas financieras) */}
+                                <button
+                                  type="button"
+                                  onClick={() => setPagoParaServicios(pago)}
+                                  className="w-full grid grid-cols-2 gap-2 p-1.5 rounded-xl bg-slate-50/90 hover:bg-slate-100/90 border border-slate-200/70 hover:border-slate-300 transition-all cursor-pointer active:scale-[0.99] text-xs"
+                                  title="Consultar o reportar solvencia de luz y agua"
+                                >
+                                  {/* Badge Luz (Corpoelec) */}
+                                  <span
+                                    className={`inline-flex items-center justify-center gap-1.5 py-1 px-2 rounded-lg text-xs font-bold border transition-colors ${
+                                      pago.luzSolvente
+                                        ? "bg-emerald-50 text-emerald-800 border-emerald-200/90"
+                                        : "bg-amber-50 text-amber-800 border-amber-200/90"
+                                    }`}
+                                    title={pago.luzSolvente ? "Luz: Solvente / Al día" : "Luz: Pendiente"}
+                                  >
+                                    <Zap
+                                      className={`w-3.5 h-3.5 shrink-0 ${
+                                        pago.luzSolvente ? "text-emerald-600 fill-emerald-500" : "text-amber-500 fill-amber-400"
+                                      }`}
+                                    />
+                                    <span>Luz</span>
+                                    {pago.luzSolvente ? (
+                                      <Check className="w-3.5 h-3.5 text-emerald-600 stroke-[2.5] shrink-0" />
+                                    ) : (
+                                      <Clock className="w-3.5 h-3.5 text-amber-600 stroke-[2.5] shrink-0" />
+                                    )}
+                                  </span>
+
+                                  {/* Badge Agua (Azul Hidroandes) */}
+                                  <span
+                                    className={`inline-flex items-center justify-center gap-1.5 py-1 px-2 rounded-lg text-xs font-bold border transition-colors ${
+                                      pago.aguaSolvente
+                                        ? "bg-emerald-50 text-emerald-800 border-emerald-200/90"
+                                        : "bg-blue-50 text-blue-700 border-blue-200/90"
+                                    }`}
+                                    title={pago.aguaSolvente ? "Agua: Solvente / Al día" : "Agua: Pendiente"}
+                                  >
+                                    <Droplets
+                                      className={`w-3.5 h-3.5 shrink-0 ${
+                                        pago.aguaSolvente ? "text-emerald-600 fill-emerald-500" : "text-blue-500 fill-blue-400"
+                                      }`}
+                                    />
+                                    <span>Agua</span>
+                                    {pago.aguaSolvente ? (
+                                      <Check className="w-3.5 h-3.5 text-emerald-600 stroke-[2.5] shrink-0" />
+                                    ) : (
+                                      <Clock className="w-3.5 h-3.5 text-blue-600 stroke-[2.5] shrink-0" />
+                                    )}
+                                  </span>
+                                </button>
 
                                 {/* Cajas de Datos Financieros con soporte multimoneda */}
                                 <div className="grid grid-cols-2 gap-2 pt-1">
