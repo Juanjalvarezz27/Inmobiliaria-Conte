@@ -9,6 +9,7 @@ import { z } from "zod";
 import { EstadoContrato, EstadoPago, MetodoPago, MonedaTransaccion, Prisma, TransaccionPago } from "@prisma/client";
 import { eliminarArchivosUploadThing } from "@/lib/uploadthing-server";
 import { getPropiedadesOpciones } from "./propiedades";
+import { obtenerFechaHoyVenezuela } from "@/lib/bcv";
 import type { PagoItem, EstadisticasCobranza } from "@/app/admin/cobranza/types";
 import { enviarNotificacionPagoConfirmadoInquilino } from "@/lib/email-templates/notificacion-pago-confirmado";
 import { enviarNotificacionPagoRechazadoInquilino } from "@/lib/email-templates/notificacion-pago-rechazado";
@@ -245,9 +246,12 @@ const PAGO_LIST_SELECT = {
   },
 } satisfies Prisma.PagoSelect;
 
-// Helper para serializar fechas ISO para Client Components
+// Helper para serializar fechas ISO e inyectar anteriorImpago si aplica
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function serializePagoItem(p: any): PagoItem {
+function serializePagoItem(
+  p: any,
+  anteriorImpagoOverride?: { mes: number; ano: number; saldo: number } | null
+): PagoItem {
   return {
     id: p.id,
     contratoId: p.contratoId,
@@ -275,7 +279,7 @@ function serializePagoItem(p: any): PagoItem {
     aguaComprobanteUrl: p.aguaComprobanteUrl || null,
     serviciosObservaciones: p.serviciosObservaciones || null,
     fechaRevisionServicios: p.fechaRevisionServicios ? p.fechaRevisionServicios.toISOString() : null,
-    anteriorImpago: p.anteriorImpago || null,
+    anteriorImpago: anteriorImpagoOverride !== undefined ? anteriorImpagoOverride : (p.anteriorImpago || null),
     createdAt: p.createdAt.toISOString(),
     updatedAt: p.updatedAt.toISOString(),
     transacciones: p.transacciones
@@ -608,9 +612,9 @@ export async function getPagosCobranza({
   }
 
   try {
-    const ahora = new Date();
-    const mesActualCal = ahora.getUTCMonth() + 1;
-    const anoActualCal = ahora.getUTCFullYear();
+    // Fecha local en Venezuela (evita desajustes por desfase UTC a fin de mes)
+    const hoyStr = obtenerFechaHoyVenezuela();
+    const [anoActualCal, mesActualCal] = hoyStr.split("-").map(Number);
 
     // Sincronización bajo demanda forzada explícitamente
     if (forzarSincronizacion && !modoMorososHistoricos) {
@@ -902,9 +906,8 @@ export async function getPagosCobranza({
 
     // Serializar fechas ISO para Client Components e inyectar anteriorImpago
     const pagos: PagoItem[] = registros.map((r) => {
-      const serialized = serializePagoItem(r);
-      serialized.anteriorImpago = mapaAnterioresImpagas.get(r.contratoId) || null;
-      return serialized;
+      const impago = mapaAnterioresImpagas.get(r.contratoId) || null;
+      return serializePagoItem(r, impago);
     });
 
     return {
@@ -946,24 +949,7 @@ export async function getPagosCobranza({
  * Obtiene el detalle actualizado de una cuota mensual con su libro mayor completo
  */
 export async function getDetallePago(id: string) {
-  const authCheck = await requireAdminSession();
-  if (!authCheck.ok) return { success: false, error: authCheck.error };
-
-  try {
-    const pago = await prisma.pago.findUnique({
-      where: { id },
-      select: PAGO_SELECT,
-    });
-
-    if (!pago) {
-      return { success: false, error: "Registro de cobro no encontrado." };
-    }
-
-    return { success: true, pago: serializePagoItem(pago) };
-  } catch (error) {
-    console.error("Error al obtener detalle de cobro:", error);
-    return { success: false, error: "No se pudo cargar el detalle del cobro." };
-  }
+  return getPagoDetalle(id);
 }
 
 /**
@@ -1406,15 +1392,15 @@ export async function getPagoDetalle(pagoId: string) {
       ],
     });
 
-    const serialized = serializePagoItem(pago);
-    if (cuotaAnteriorImpaga) {
-      serialized.anteriorImpago = {
-        mes: cuotaAnteriorImpaga.periodoMes,
-        ano: cuotaAnteriorImpaga.periodoAno,
-        saldo: Number((cuotaAnteriorImpaga.montoEsperado - cuotaAnteriorImpaga.montoPagado).toFixed(2)),
-      };
-    }
+    const anteriorImpagoInfo = cuotaAnteriorImpaga
+      ? {
+          mes: cuotaAnteriorImpaga.periodoMes,
+          ano: cuotaAnteriorImpaga.periodoAno,
+          saldo: Number((cuotaAnteriorImpaga.montoEsperado - cuotaAnteriorImpaga.montoPagado).toFixed(2)),
+        }
+      : null;
 
+    const serialized = serializePagoItem(pago, anteriorImpagoInfo);
     return { success: true, pago: serialized };
   } catch (error) {
     console.error("Error al obtener detalle del pago:", error);
@@ -1506,9 +1492,9 @@ export async function getMorososHistoricosAction() {
   if (!authCheck.ok) return { success: false, error: authCheck.error, pagos: [] };
 
   try {
-    const ahora = new Date();
-    const mesActualCal = ahora.getUTCMonth() + 1;
-    const anoActualCal = ahora.getUTCFullYear();
+    // Fecha local en Venezuela (evita desajustes por desfase UTC a fin de mes)
+    const hoyStr = obtenerFechaHoyVenezuela();
+    const [anoActualCal, mesActualCal] = hoyStr.split("-").map(Number);
 
     const registros = await prisma.pago.findMany({
       where: {

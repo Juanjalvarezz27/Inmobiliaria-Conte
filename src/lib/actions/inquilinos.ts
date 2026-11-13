@@ -165,7 +165,6 @@ export async function getInquilinos(busqueda?: string) {
         : undefined,
       select: INQUILINO_LIST_SELECT,
       orderBy: { createdAt: "desc" },
-      take: 200,
     });
 
     return { success: true, data: inquilinos };

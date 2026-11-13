@@ -215,16 +215,15 @@ export interface FiltrosContratos extends PaginationParams {
   estado?: EstadoContrato | "TODOS";
 }
 
-// Consulta paginada real en servidor para contratos (sin tope de take: 200)
-export async function getContratosPaginadosAction(
-  filtros: FiltrosContratos = {}
-): Promise<PaginatedResult<any>> {
-  await assertAdminSession();
-  const { page, pageSize, skip, take } = resolvePagination(filtros, 15);
-  const estado = filtros.estado && filtros.estado !== "TODOS" ? filtros.estado : undefined;
-  const q = filtros.search?.trim().toLowerCase();
+// Helper para construir filtros de contratos consistentes
+function buildContratosWhere(filtros?: {
+  estado?: EstadoContrato | "TODOS";
+  search?: string;
+}): Prisma.ContratoWhereInput {
+  const estado = filtros?.estado && filtros.estado !== "TODOS" ? filtros.estado : undefined;
+  const q = filtros?.search?.trim().toLowerCase();
 
-  const where: Prisma.ContratoWhereInput = {
+  return {
     ...(estado ? { estado } : {}),
     ...(q
       ? {
@@ -239,6 +238,15 @@ export async function getContratosPaginadosAction(
         }
       : {}),
   };
+}
+
+// Consulta paginada real en servidor para contratos
+export async function getContratosPaginadosAction(
+  filtros: FiltrosContratos = {}
+): Promise<PaginatedResult<any>> {
+  await assertAdminSession();
+  const { page, pageSize, skip, take } = resolvePagination(filtros, 15);
+  const where = buildContratosWhere(filtros);
 
   const [total, contratos] = await prisma.$transaction([
     prisma.contrato.count({ where }),
@@ -265,24 +273,7 @@ export async function getContratos(filtros?: {
   if (!authCheck.ok) return { success: false, error: authCheck.error };
 
   try {
-    const estado = filtros?.estado && filtros.estado !== "TODOS" ? filtros.estado : undefined;
-    const q = filtros?.search?.trim().toLowerCase();
-
-    const where: Prisma.ContratoWhereInput = {
-      ...(estado ? { estado } : {}),
-      ...(q
-        ? {
-            OR: [
-              { codigo: { contains: q, mode: "insensitive" } },
-              { inquilino: { nombre: { contains: q, mode: "insensitive" } } },
-              { inquilino: { apellido: { contains: q, mode: "insensitive" } } },
-              { inquilino: { documentoIdentidad: { contains: q, mode: "insensitive" } } },
-              { unidad: { codigo: { contains: q, mode: "insensitive" } } },
-              { unidad: { propiedad: { nombre: { contains: q, mode: "insensitive" } } } },
-            ],
-          }
-        : {}),
-    };
+    const where = buildContratosWhere(filtros);
 
     if (filtros?.page || filtros?.pageSize) {
       const { skip, take, page, pageSize } = resolvePagination(filtros, 15);
@@ -398,7 +389,6 @@ export async function getUnidadesDisponiblesParaContrato() {
         { propiedad: { nombre: "asc" } },
         { codigo: "asc" },
       ],
-      take: 150,
     });
 
     return { success: true, data: unidades };
@@ -425,7 +415,6 @@ export async function getInquilinosParaSelector() {
         telefono: true,
       },
       orderBy: { nombre: "asc" },
-      take: 200,
     });
 
     return { success: true, data: inquilinos };

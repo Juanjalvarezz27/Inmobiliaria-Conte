@@ -625,6 +625,7 @@ export async function getHistorialInquilinosUnidadAction(unidadId: string) {
           },
         },
       },
+      take: 100,
     });
 
     return {
