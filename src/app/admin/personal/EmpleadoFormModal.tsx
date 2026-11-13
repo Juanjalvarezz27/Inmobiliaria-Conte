@@ -75,6 +75,13 @@ export function EmpleadoFormModal({
   // Gestión de contraseña para acceso al portal móvil
   const [passwordTemporal, setPasswordTemporal] = useState("");
 
+  // Al crear, pre-llenar contraseña con cédula; el admin puede sobreescribirla
+  useEffect(() => {
+    if (!empleadoAEditar && cedula.trim()) {
+      setPasswordTemporal(cedula.trim().toUpperCase());
+    }
+  }, [cedula, empleadoAEditar]);
+
   // Expediente digital y contrato laboral firmado
   const [contratoUrl, setContratoUrl] = useState(empleadoAEditar?.contratoUrl || "");
   const [isCompressing, setIsCompressing] = useState(false);
@@ -176,9 +183,9 @@ export function EmpleadoFormModal({
       return;
     }
 
-    // Validación de contraseña si hay correo
-    if (!empleadoAEditar && email.trim() && !passwordTemporal.trim()) {
-      toast.error("Por favor asigne una contraseña de acceso para el trabajador.");
+    // Validación de contraseña: siempre requerida al crear (cédula la pre-llena, pero puede borrarse)
+    if (!empleadoAEditar && !passwordTemporal.trim()) {
+      toast.error("La contraseña de acceso es requerida. Por defecto usa la cédula.");
       return;
     }
     if (passwordTemporal.trim() && passwordTemporal.trim().length < 6) {
@@ -461,7 +468,7 @@ export function EmpleadoFormModal({
                   placeholder={
                     empleadoAEditar?.usuarioId
                       ? "Dejar en blanco para mantener la actual..."
-                      : "Ej: Conte2026*"
+                      : "Se usa la cédula por defecto..."
                   }
                   className="w-full h-11 pl-10 pr-3.5 rounded-xl border border-slate-300 text-sm font-medium text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#175E38]/20 focus:border-[#175E38] transition-all bg-white"
                 />
@@ -470,7 +477,7 @@ export function EmpleadoFormModal({
               <p className="text-[11px] text-slate-500">
                 {empleadoAEditar?.usuarioId
                   ? "Si el trabajador olvidó su clave, escriba una nueva para reestablecerla de inmediato."
-                  : "Contraseña con la que el trabajador iniciará sesión por primera vez."}
+                  : "Por defecto se usa la cédula como contraseña inicial. El trabajador puede cambiarla desde su perfil."}
               </p>
             </div>
           </div>

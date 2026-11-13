@@ -566,40 +566,41 @@ export function InquilinoPagosClient({
 
       {/* Banner de Servicios Públicos Pendientes */}
       {(resumen.totalServiciosPendientes ?? 0) > 0 && (
-        <section className="relative overflow-hidden rounded-2xl bg-white border border-slate-200/90 border-b-[3px] border-b-slate-300/90 p-4 sm:p-5 shadow-[0_4px_20px_-2px_rgba(28,37,57,0.06)] group">
-          {/* Resplandor ambiental de marca */}
-          <div className="absolute -top-8 -left-8 w-28 h-28 bg-[#175E38]/10 rounded-full blur-2xl pointer-events-none" />
+        <section className="group relative overflow-hidden bg-gradient-to-b from-white via-white to-slate-50/70 rounded-2xl p-4 sm:p-5 border border-slate-200/90 border-b-[3px] border-b-slate-300/90 shadow-[0_4px_18px_-2px_rgba(28,37,57,0.07),0_2px_6px_-1px_rgba(28,37,57,0.04)] hover:shadow-[0_14px_30px_-4px_rgba(28,37,57,0.12)] hover:-translate-y-0.5 transition-all duration-300">
+          {/* Sol decorativo amber — igual que StatCard color amber */}
+          <div className="absolute -top-7 -left-7 w-24 h-24 pointer-events-none overflow-hidden rounded-full">
+            <div className="absolute inset-0 rounded-full blur-lg bg-amber-500/20" />
+            <div className="absolute inset-2 rounded-full bg-white/5 border border-amber-400/25" />
+            <div className="absolute inset-5 rounded-full bg-gradient-to-br from-amber-600/25 to-transparent transition-transform duration-500 group-hover:scale-125" />
+          </div>
 
           <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div className="flex items-center gap-3.5 min-w-0">
-              <div className="w-11 h-11 rounded-xl bg-slate-50 border border-slate-200/80 flex items-center justify-center shrink-0 shadow-2xs">
-                <div className="flex items-center -space-x-0.5">
-                  <Zap className="w-4 h-4 text-amber-500 fill-amber-500" />
-                  <Droplets className="w-4 h-4 text-blue-500 fill-blue-500" />
-                </div>
+              {/* Icono: AlertTriangle stroke-only, igual que el sistema */}
+              <div className="w-9 h-9 shrink-0 rounded-xl flex items-center justify-center shadow-xs bg-amber-50 border border-amber-100 text-amber-600">
+                <AlertTriangle className="w-4 h-4 stroke-[2.2]" />
               </div>
+
               <div className="min-w-0">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className="text-xs font-black text-slate-900 tracking-tight font-heading">
-                    Solvencia de Servicios Públicos
-                  </span>
-                  <div className="flex items-center gap-1.5 flex-wrap">
-                    {resumen.serviciosLuzPendientesCount > 0 && (
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[11px] font-bold bg-amber-50 text-amber-900 border border-amber-200/80">
-                        <Zap className="w-3 h-3 text-amber-600 fill-amber-500" />
-                        {resumen.serviciosLuzPendientesCount} {resumen.serviciosLuzPendientesCount === 1 ? "mes" : "meses"} Luz
-                      </span>
-                    )}
-                    {resumen.serviciosAguaPendientesCount > 0 && (
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[11px] font-bold bg-blue-50 text-blue-900 border border-blue-200/80">
-                        <Droplets className="w-3 h-3 text-blue-600 fill-blue-500" />
-                        {resumen.serviciosAguaPendientesCount} {resumen.serviciosAguaPendientesCount === 1 ? "mes" : "meses"} Agua
-                      </span>
-                    )}
-                  </div>
+                <span className="text-[10.5px] font-bold text-slate-600 uppercase tracking-wider block">
+                  Solvencia de Servicios Públicos
+                </span>
+                <div className="flex items-center gap-1.5 flex-wrap mt-1">
+                  {resumen.serviciosLuzPendientesCount > 0 && (
+                    <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-lg text-[11px] font-bold bg-amber-50 text-amber-900 border border-amber-200/80">
+                      <span className="w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0" />
+                      {resumen.serviciosLuzPendientesCount} {resumen.serviciosLuzPendientesCount === 1 ? "mes" : "meses"} · Luz
+                    </span>
+                  )}
+                  {resumen.serviciosAguaPendientesCount > 0 && (
+                    <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-lg text-[11px] font-bold bg-sky-50 text-sky-900 border border-sky-200/80">
+                      <span className="w-1.5 h-1.5 rounded-full bg-sky-500 shrink-0" />
+                      {resumen.serviciosAguaPendientesCount} {resumen.serviciosAguaPendientesCount === 1 ? "mes" : "meses"} · Agua
+                    </span>
+                  )}
                 </div>
-                <p className="text-xs text-slate-500 font-medium mt-0.5">
-                  Ubica el botón de servicios (<span className="font-semibold text-slate-800">⚡ Luz / 💧 Agua</span>) en cada tarjeta mensual para adjuntar tus comprobantes de pago.
+                <p className="text-[11px] sm:text-xs text-slate-500 font-medium mt-1 leading-snug">
+                  Usa los botones de Luz y Agua en cada cuota para adjuntar tus comprobantes de Corpoelec e Hidroandes.
                 </p>
               </div>
             </div>
@@ -952,19 +953,19 @@ export function InquilinoPagosClient({
                                   </div>
                                 </div>
 
-                                {/* Servicios Públicos (Fase 27: Corpoelec y Agua - Fila independiente arriba de las cajas financieras) */}
+                                {/* Servicios Públicos — botón interactivo con relieve institucional */}
                                 <button
                                   type="button"
                                   onClick={() => setPagoParaServicios(pago)}
-                                  className="w-full grid grid-cols-2 gap-2 p-1.5 rounded-xl bg-slate-50/90 hover:bg-slate-100/90 border border-slate-200/70 hover:border-slate-300 transition-all cursor-pointer active:scale-[0.99] text-xs"
+                                  className="w-full flex items-center gap-2 p-2 rounded-xl bg-white hover:bg-slate-50/80 border border-slate-200/80 hover:border-slate-300 border-b-[2px] border-b-slate-300/80 shadow-2xs hover:shadow-sm transition-all cursor-pointer active:translate-y-px active:shadow-none text-xs group/btn"
                                   title="Consultar o reportar solvencia de luz y agua"
                                 >
                                   {/* Badge Luz (Corpoelec) */}
                                   <span
-                                    className={`inline-flex items-center justify-center gap-1.5 py-1 px-2 rounded-lg text-xs font-bold border transition-colors ${
+                                    className={`inline-flex items-center justify-center gap-1.5 flex-1 py-1.5 px-2 rounded-lg text-xs font-bold border transition-all ${
                                       pago.luzSolvente
-                                        ? "bg-emerald-50 text-emerald-800 border-emerald-200/90"
-                                        : "bg-amber-50 text-amber-800 border-amber-200/90"
+                                        ? "bg-emerald-50 text-emerald-800 border-emerald-200 shadow-2xs"
+                                        : "bg-amber-50 text-amber-900 border-amber-200/90"
                                     }`}
                                     title={pago.luzSolvente ? "Luz: Solvente / Al día" : "Luz: Pendiente"}
                                   >
@@ -981,27 +982,33 @@ export function InquilinoPagosClient({
                                     )}
                                   </span>
 
-                                  {/* Badge Agua (Azul Hidroandes) */}
+                                  {/* Separador vertical */}
+                                  <span className="w-px h-5 bg-slate-200/80 shrink-0" />
+
+                                  {/* Badge Agua (Hidroandes) */}
                                   <span
-                                    className={`inline-flex items-center justify-center gap-1.5 py-1 px-2 rounded-lg text-xs font-bold border transition-colors ${
+                                    className={`inline-flex items-center justify-center gap-1.5 flex-1 py-1.5 px-2 rounded-lg text-xs font-bold border transition-all ${
                                       pago.aguaSolvente
-                                        ? "bg-emerald-50 text-emerald-800 border-emerald-200/90"
-                                        : "bg-blue-50 text-blue-700 border-blue-200/90"
+                                        ? "bg-emerald-50 text-emerald-800 border-emerald-200 shadow-2xs"
+                                        : "bg-sky-50 text-sky-900 border-sky-200/90"
                                     }`}
                                     title={pago.aguaSolvente ? "Agua: Solvente / Al día" : "Agua: Pendiente"}
                                   >
                                     <Droplets
                                       className={`w-3.5 h-3.5 shrink-0 ${
-                                        pago.aguaSolvente ? "text-emerald-600 fill-emerald-500" : "text-blue-500 fill-blue-400"
+                                        pago.aguaSolvente ? "text-emerald-600 fill-emerald-500" : "text-sky-500 fill-sky-400"
                                       }`}
                                     />
                                     <span>Agua</span>
                                     {pago.aguaSolvente ? (
                                       <Check className="w-3.5 h-3.5 text-emerald-600 stroke-[2.5] shrink-0" />
                                     ) : (
-                                      <Clock className="w-3.5 h-3.5 text-blue-600 stroke-[2.5] shrink-0" />
+                                      <Clock className="w-3.5 h-3.5 text-sky-600 stroke-[2.5] shrink-0" />
                                     )}
                                   </span>
+
+                                  {/* Flecha indicadora de acción */}
+                                  <ChevronRight className="w-3.5 h-3.5 text-slate-400 group-hover/btn:text-slate-600 shrink-0 transition-colors" />
                                 </button>
 
                                 {/* Cajas de Datos Financieros con soporte multimoneda */}

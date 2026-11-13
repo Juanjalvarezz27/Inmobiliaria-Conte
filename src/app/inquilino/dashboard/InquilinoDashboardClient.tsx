@@ -13,6 +13,7 @@ import {
   Info,
   Zap,
   Droplets,
+  Upload,
 } from "lucide-react";
 import { StatCard } from "@/components/ui/stat-card";
 import type { ResumenFinancieroInquilino, LocalArrendadoResumen } from "@/lib/actions/inquilinoPortal";
@@ -166,39 +167,40 @@ export function InquilinoDashboardClient({
 
       {/* 3. Notificación de Solvencia de Servicios Públicos (Luz y Agua) */}
       {(resumen.totalServiciosPendientes ?? 0) > 0 && (
-        <section className="relative overflow-hidden rounded-2xl bg-white border border-slate-200/90 border-b-[3px] border-b-slate-300/90 p-4 sm:p-5 shadow-[0_4px_20px_-2px_rgba(28,37,57,0.06)] group">
-          {/* Resplandor ambiental sutil de marca */}
-          <div className="absolute -top-8 -left-8 w-28 h-28 bg-[#175E38]/10 rounded-full blur-2xl pointer-events-none" />
+        <section className="group relative overflow-hidden bg-gradient-to-b from-white via-white to-slate-50/70 rounded-2xl p-4 sm:p-5 border border-slate-200/90 border-b-[3px] border-b-slate-300/90 shadow-[0_4px_18px_-2px_rgba(28,37,57,0.07),0_2px_6px_-1px_rgba(28,37,57,0.04)] hover:shadow-[0_14px_30px_-4px_rgba(28,37,57,0.12)] hover:-translate-y-0.5 transition-all duration-300">
+          {/* Sol decorativo amber — igual que StatCard color amber */}
+          <div className="absolute -top-7 -left-7 w-24 h-24 pointer-events-none overflow-hidden rounded-full">
+            <div className="absolute inset-0 rounded-full blur-lg bg-amber-500/20" />
+            <div className="absolute inset-2 rounded-full bg-white/5 border border-amber-400/25" />
+            <div className="absolute inset-5 rounded-full bg-gradient-to-br from-amber-600/25 to-transparent transition-transform duration-500 group-hover:scale-125" />
+          </div>
 
           <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div className="flex items-center gap-3.5 min-w-0">
-              <div className="w-11 h-11 rounded-xl bg-slate-50 border border-slate-200/80 flex items-center justify-center shrink-0 shadow-2xs">
-                <div className="flex items-center -space-x-0.5">
-                  <Zap className="w-4 h-4 text-amber-500 fill-amber-500" />
-                  <Droplets className="w-4 h-4 text-blue-500 fill-blue-500" />
-                </div>
+              {/* Icono: AlertTriangle stroke-only, igual que el sistema */}
+              <div className="w-9 h-9 shrink-0 rounded-xl flex items-center justify-center shadow-xs bg-amber-50 border border-amber-100 text-amber-600">
+                <AlertTriangle className="w-4 h-4 stroke-[2.2]" />
               </div>
+
               <div className="min-w-0">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className="text-xs font-black text-slate-900 tracking-tight font-heading">
-                    Solvencia de Servicios Públicos
-                  </span>
-                  <div className="flex items-center gap-1.5 flex-wrap">
-                    {resumen.serviciosLuzPendientesCount > 0 && (
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[11px] font-bold bg-amber-50 text-amber-900 border border-amber-200/80">
-                        <Zap className="w-3 h-3 text-amber-600 fill-amber-500" />
-                        {resumen.serviciosLuzPendientesCount} {resumen.serviciosLuzPendientesCount === 1 ? "mes" : "meses"} Luz
-                      </span>
-                    )}
-                    {resumen.serviciosAguaPendientesCount > 0 && (
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[11px] font-bold bg-blue-50 text-blue-900 border border-blue-200/80">
-                        <Droplets className="w-3 h-3 text-blue-600 fill-blue-500" />
-                        {resumen.serviciosAguaPendientesCount} {resumen.serviciosAguaPendientesCount === 1 ? "mes" : "meses"} Agua
-                      </span>
-                    )}
-                  </div>
+                <span className="text-[10.5px] font-bold text-slate-600 uppercase tracking-wider block">
+                  Solvencia de Servicios Públicos
+                </span>
+                <div className="flex items-center gap-1.5 flex-wrap mt-1">
+                  {resumen.serviciosLuzPendientesCount > 0 && (
+                    <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-lg text-[11px] font-bold bg-amber-50 text-amber-900 border border-amber-200/80">
+                      <span className="w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0" />
+                      {resumen.serviciosLuzPendientesCount} {resumen.serviciosLuzPendientesCount === 1 ? "mes" : "meses"} · Luz
+                    </span>
+                  )}
+                  {resumen.serviciosAguaPendientesCount > 0 && (
+                    <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-lg text-[11px] font-bold bg-sky-50 text-sky-900 border border-sky-200/80">
+                      <span className="w-1.5 h-1.5 rounded-full bg-sky-500 shrink-0" />
+                      {resumen.serviciosAguaPendientesCount} {resumen.serviciosAguaPendientesCount === 1 ? "mes" : "meses"} · Agua
+                    </span>
+                  )}
                 </div>
-                <p className="text-xs text-slate-500 font-medium mt-0.5 line-clamp-1 sm:line-clamp-none">
+                <p className="text-[11px] sm:text-xs text-slate-500 font-medium mt-1 leading-snug">
                   Comprobantes de Corpoelec o Hidroandes sin adjuntar. Consigna tus recibos para evitar restricciones.
                 </p>
               </div>
@@ -208,7 +210,7 @@ export function InquilinoDashboardClient({
               href="/inquilino/pagos"
               className="w-full sm:w-auto h-10 px-4 rounded-xl text-xs font-bold bg-[#175E38] text-white hover:bg-[#124b2d] border-b-[3px] border-b-[#0e3a23] active:translate-y-0.5 shadow-[0_2px_8px_rgba(23,94,56,0.2)] transition-all flex items-center justify-center gap-1.5 cursor-pointer shrink-0"
             >
-              <Zap className="w-3.5 h-3.5 text-amber-300" />
+              <Upload className="w-3.5 h-3.5" />
               <span>Adjuntar Recibos</span>
             </Link>
           </div>
