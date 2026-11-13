@@ -25,20 +25,28 @@ export function EntregaGuardiaModal({
   compañerosSeguridad,
   horasEnCurso,
 }: EntregaGuardiaModalProps) {
-  const [relevoSeleccionado, setRelevoSeleccionado] = useState<string>("");
+  const [relevoIdSeleccionado, setRelevoIdSeleccionado] = useState<string>("");
+  const [relevoNombreSeleccionado, setRelevoNombreSeleccionado] = useState<string>("");
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 
   const opcionesRelevo = compañerosSeguridad.map((c) => ({
-    value: c.nombre,
+    value: c.id,
     label: `${c.nombre} (C.I. ${c.cedula})`,
   }));
+
+  const handleCambioRelevo = (idSeleccionado: string) => {
+    setRelevoIdSeleccionado(idSeleccionado);
+    const companero = compañerosSeguridad.find((c) => c.id === idSeleccionado);
+    setRelevoNombreSeleccionado(companero?.nombre || idSeleccionado);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
       setIsSubmitting(true);
       await onConfirm({
-        guardiaRelevoNombre: relevoSeleccionado || undefined,
+        guardiaRelevoId: relevoIdSeleccionado || undefined,
+        guardiaRelevoNombre: relevoNombreSeleccionado || undefined,
       });
       onClose();
     } finally {
@@ -87,16 +95,19 @@ export function EntregaGuardiaModal({
           {opcionesRelevo.length > 0 ? (
             <Select
               options={opcionesRelevo}
-              value={relevoSeleccionado}
-              onChange={(v) => setRelevoSeleccionado(v)}
+              value={relevoIdSeleccionado}
+              onChange={(v) => handleCambioRelevo(v)}
               placeholder="Selecciona al compañero de guardia..."
               className="w-full"
             />
           ) : (
             <input
               type="text"
-              value={relevoSeleccionado}
-              onChange={(e) => setRelevoSeleccionado(e.target.value)}
+              value={relevoNombreSeleccionado}
+              onChange={(e) => {
+                setRelevoNombreSeleccionado(e.target.value);
+                setRelevoIdSeleccionado("");
+              }}
               placeholder="Ej: Pedro Pérez (Vigilante entrante)"
               className="w-full h-11 px-3 text-xs sm:text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-hidden focus:ring-2 focus:ring-[#175E38]/20 focus:border-[#175E38]"
             />

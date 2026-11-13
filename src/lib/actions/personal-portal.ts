@@ -325,6 +325,7 @@ export async function getPortalEmpleadoData(): Promise<{ success: boolean; data?
 
 export interface EntregaGuardiaInput {
   ubicacion?: string;
+  guardiaRelevoId?: string;
   guardiaRelevoNombre?: string;
   observacionesEntrega?: string;
 }
@@ -430,13 +431,64 @@ export async function marcarEntradaSalidaEmpleadoAction(input?: string | Entrega
         : payload.observacionesEntrega;
     }
 
-    await prisma.registroAsistencia.update({
-      where: { id: asistenciaPendienteSalida.id },
-      data: {
-        horaSalida: ahora,
-        ubicacionSalida: nombreLugar,
-        observaciones: notaFinal || (esGuardia24h ? `Guardia finalizada (${diffHoras}h de servicio)` : null),
-      },
+    const nombreVigilanteSaliente = `${empleado.nombre} ${empleado.apellido || ""}`.trim();
+
+    // Transacción atómica: 
+    // a) Liquidar la guardia de 24h del vigilante saliente (A)
+    // b) Si seleccionó relevo (B), aperturar automáticamente la guardia del vigilante entrante (B)
+    await prisma.$transaction(async (tx) => {
+      // 1. Cerrar guardia de A
+      await tx.registroAsistencia.update({
+        where: { id: asistenciaPendienteSalida.id },
+        data: {
+          horaSalida: ahora,
+          ubicacionSalida: nombreLugar,
+          observaciones: notaFinal || (esGuardia24h ? `Guardia finalizada (${diffHoras}h de servicio)` : null),
+        },
+      });
+
+      // 2. Si hay un compañero relevo identificado: Iniciar automáticamente la guardia de B
+      if (payload.guardiaRelevoId || payload.guardiaRelevoNombre) {
+        // Buscar el empleado relevo (por ID o por nombre)
+        const empleadoRelevo = payload.guardiaRelevoId
+          ? await tx.empleado.findUnique({
+              where: { id: payload.guardiaRelevoId },
+              select: { id: true, nombre: true, cargo: true, propiedadId: true },
+            })
+          : await tx.empleado.findFirst({
+              where: {
+                nombre: { startsWith: payload.guardiaRelevoNombre?.split(" ")[0] },
+                propiedadId: empleado.propiedadId,
+                cargo: CargoEmpleado.SEGURIDAD,
+                activo: true,
+              },
+              select: { id: true, nombre: true, cargo: true, propiedadId: true },
+            });
+
+        if (empleadoRelevo && empleadoRelevo.id !== empleado.id) {
+          // Verificar si B ya tiene un turno abierto para no duplicar
+          const turnoAbiertoRelevo = await tx.registroAsistencia.findFirst({
+            where: {
+              empleadoId: empleadoRelevo.id,
+              horaSalida: null,
+              horaEntrada: { gte: limite30Horas },
+            },
+          });
+
+          if (!turnoAbiertoRelevo) {
+            await tx.registroAsistencia.create({
+              data: {
+                empleadoId: empleadoRelevo.id,
+                fecha: ahora,
+                horaEntrada: ahora,
+                estado: EstadoAsistencia.PRESENTE,
+                ubicacionEntrada: nombreLugar,
+                observaciones: `Inicio de guardia automática por relevo (Recibido de ${nombreVigilanteSaliente})`,
+              },
+            });
+          }
+        }
+      }
     });
 
     revalidatePath("/empleado/dashboard");
