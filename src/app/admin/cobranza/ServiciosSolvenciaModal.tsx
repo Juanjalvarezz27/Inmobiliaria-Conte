@@ -53,11 +53,11 @@ export function ServiciosSolvenciaModal({
   // Inicializar estados con la información del pago seleccionado
   useEffect(() => {
     if (pago) {
-      setLuzSolvente(Boolean(pago.luzSolvente));
+      setLuzSolvente(Boolean(pago.luzSolvente || pago.luzComprobanteUrl || pago.luzNumeroFactura));
       setLuzNumeroFactura(pago.luzNumeroFactura || "");
       setLuzComprobanteUrl(pago.luzComprobanteUrl || "");
 
-      setAguaSolvente(Boolean(pago.aguaSolvente));
+      setAguaSolvente(Boolean(pago.aguaSolvente || pago.aguaComprobanteUrl || pago.aguaNumeroFactura));
       setAguaNumeroFactura(pago.aguaNumeroFactura || "");
       setAguaComprobanteUrl(pago.aguaComprobanteUrl || "");
 
@@ -71,6 +71,7 @@ export function ServiciosSolvenciaModal({
       onClientUploadComplete: (res) => {
         if (res && res[0]) {
           setLuzComprobanteUrl(res[0].ufsUrl || res[0].url);
+          setLuzSolvente(true);
           toast.success("Recibo de Corpoelec cargado exitosamente.");
         }
       },
@@ -85,6 +86,7 @@ export function ServiciosSolvenciaModal({
       onClientUploadComplete: (res) => {
         if (res && res[0]) {
           setAguaComprobanteUrl(res[0].ufsUrl || res[0].url);
+          setAguaSolvente(true);
           toast.success("Recibo de agua cargado exitosamente.");
         }
       },
@@ -289,7 +291,11 @@ export function ServiciosSolvenciaModal({
                 id="luzFacturaInput"
                 type="text"
                 value={luzNumeroFactura}
-                onChange={(e) => setLuzNumeroFactura(e.target.value)}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setLuzNumeroFactura(val);
+                  if (val.trim()) setLuzSolvente(true);
+                }}
                 placeholder="Ej: 100002345678"
                 className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-xl text-xs font-medium text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#175E38]/20 focus:border-[#175E38] transition-all"
               />
@@ -300,9 +306,6 @@ export function ServiciosSolvenciaModal({
               <div className="flex items-center justify-between">
                 <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
                   Foto del Recibo (Luz)
-                </span>
-                <span className="text-[10px] font-medium text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">
-                  Máx. 1 foto · Optimizada
                 </span>
               </div>
               {luzComprobanteUrl ? (
@@ -441,7 +444,11 @@ export function ServiciosSolvenciaModal({
                 id="aguaFacturaInput"
                 type="text"
                 value={aguaNumeroFactura}
-                onChange={(e) => setAguaNumeroFactura(e.target.value)}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setAguaNumeroFactura(val);
+                  if (val.trim()) setAguaSolvente(true);
+                }}
                 placeholder="Ej: H-987654"
                 className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-xl text-xs font-medium text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 transition-all"
               />
@@ -452,9 +459,6 @@ export function ServiciosSolvenciaModal({
               <div className="flex items-center justify-between">
                 <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
                   Foto del Recibo (Agua)
-                </span>
-                <span className="text-[10px] font-medium text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">
-                  Máx. 1 foto · Optimizada
                 </span>
               </div>
               {aguaComprobanteUrl ? (

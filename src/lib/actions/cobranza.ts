@@ -1562,6 +1562,10 @@ export async function actualizarSolvenciaServiciosAction(input: ActualizarSolven
       serviciosObservaciones,
     } = validacion.data;
 
+    // Si tiene foto o número de factura y no se indicó explícitamente false, se marca solvente
+    const luzFinalSolvente = Boolean(luzSolvente || luzComprobanteUrl?.trim() || luzNumeroFactura?.trim());
+    const aguaFinalSolvente = Boolean(aguaSolvente || aguaComprobanteUrl?.trim() || aguaNumeroFactura?.trim());
+
     const pago = await prisma.pago.findUnique({
       where: { id: pagoId },
       include: {
@@ -1592,10 +1596,10 @@ export async function actualizarSolvenciaServiciosAction(input: ActualizarSolven
     const pagoActualizado = await prisma.pago.update({
       where: { id: pagoId },
       data: {
-        luzSolvente,
+        luzSolvente: luzFinalSolvente,
         luzNumeroFactura: luzNumeroFactura?.trim() || null,
         luzComprobanteUrl: luzComprobanteUrl?.trim() || null,
-        aguaSolvente,
+        aguaSolvente: aguaFinalSolvente,
         aguaNumeroFactura: aguaNumeroFactura?.trim() || null,
         aguaComprobanteUrl: aguaComprobanteUrl?.trim() || null,
         serviciosObservaciones: serviciosObservaciones?.trim() || null,
