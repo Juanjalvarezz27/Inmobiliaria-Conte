@@ -31,6 +31,16 @@ export function EntregaGuardiaModal({
   const [relevoNombreSeleccionado, setRelevoNombreSeleccionado] = useState<string>("");
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 
+  // Resetear estado cada vez que el modal se abre
+  React.useEffect(() => {
+    if (isOpen) {
+      setModo("CON_RELEVO");
+      setRelevoIdSeleccionado("");
+      setRelevoNombreSeleccionado("");
+      setIsSubmitting(false);
+    }
+  }, [isOpen]);
+
   // Opciones de compañeros de seguridad más la opción explícita de sin relevo
   const opcionesRelevo = [
     ...compañerosSeguridad.map((c) => ({
@@ -113,7 +123,7 @@ export function EntregaGuardiaModal({
           <div className="shrink-0 text-right">
             <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-black bg-emerald-100 text-[#175E38] border border-emerald-300">
               <Clock className="w-3.5 h-3.5" />
-              <span>24 Horas</span>
+              <span>{horasEnCurso > 0 ? `${horasEnCurso}h` : "24h"}</span>
             </span>
           </div>
         </div>

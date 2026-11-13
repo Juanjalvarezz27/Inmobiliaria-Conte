@@ -81,6 +81,7 @@ export function EmpleadoFormModal({
   const [isSubiendoContrato, setIsSubiendoContrato] = useState(false);
   const [infoCompresion, setInfoCompresion] = useState<string | null>(null);
   const [viewerAbierto, setViewerAbierto] = useState(false);
+  const [confirmBorrarContrato, setConfirmBorrarContrato] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { startUpload } = useOperacionesUploadThing("contratoLaboral");
@@ -514,6 +515,7 @@ export function EmpleadoFormModal({
               ref={fileInputRef}
               onChange={handleSeleccionarArchivo}
               accept=".pdf,image/png,image/jpeg,image/webp,image/jpg"
+              multiple
               className="hidden"
             />
 
@@ -554,17 +556,38 @@ export function EmpleadoFormModal({
                       <RefreshCw className="w-3.5 h-3.5" />
                       <span>Cambiar</span>
                     </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setContratoUrl("");
-                        setInfoCompresion(null);
-                      }}
-                      className="inline-flex items-center gap-1 p-1.5 rounded-lg text-xs font-bold text-rose-600 hover:bg-rose-50 transition-all cursor-pointer"
-                      title="Quitar contrato"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
+                    {confirmBorrarContrato ? (
+                      <div className="flex items-center gap-1">
+                        <span className="text-[10px] font-bold text-rose-700">¿Eliminar?</span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setContratoUrl("");
+                            setInfoCompresion(null);
+                            setConfirmBorrarContrato(false);
+                          }}
+                          className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-bold bg-rose-100 text-rose-700 hover:bg-rose-200 transition-all cursor-pointer"
+                        >
+                          Sí
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setConfirmBorrarContrato(false)}
+                          className="inline-flex items-center gap-1 p-1.5 rounded-lg text-[10px] font-bold bg-slate-100 text-slate-600 hover:bg-slate-200 transition-all cursor-pointer"
+                        >
+                          No
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => setConfirmBorrarContrato(true)}
+                        className="inline-flex items-center gap-1 p-1.5 rounded-lg text-xs font-bold text-rose-600 hover:bg-rose-50 transition-all cursor-pointer"
+                        title="Quitar contrato"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    )}
                   </div>
                 </div>
 
