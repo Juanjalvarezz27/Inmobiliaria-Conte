@@ -10,7 +10,7 @@ import type { EntregaGuardiaInput } from "@/lib/actions/personal-portal";
 interface EntregaGuardiaModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onConfirm: (input: EntregaGuardiaInput) => Promise<void>;
+  onConfirm: (input: EntregaGuardiaInput) => Promise<boolean | void>;
   compañerosSeguridad: Array<{
     id: string;
     nombre: string;
@@ -64,20 +64,23 @@ export function EntregaGuardiaModal({
 
     try {
       setIsSubmitting(true);
-      if (modo === "SIN_RELEVO") {
-        await onConfirm({
-          sinRelevo: true,
-          guardiaRelevoId: undefined,
-          guardiaRelevoNombre: undefined,
-        });
-      } else {
-        await onConfirm({
-          sinRelevo: false,
-          guardiaRelevoId: relevoIdSeleccionado || undefined,
-          guardiaRelevoNombre: relevoNombreSeleccionado || undefined,
-        });
+      const payload: EntregaGuardiaInput =
+        modo === "SIN_RELEVO"
+          ? {
+              sinRelevo: true,
+              guardiaRelevoId: undefined,
+              guardiaRelevoNombre: undefined,
+            }
+          : {
+              sinRelevo: false,
+              guardiaRelevoId: relevoIdSeleccionado || undefined,
+              guardiaRelevoNombre: relevoNombreSeleccionado || undefined,
+            };
+
+      const resultado = await onConfirm(payload);
+      if (resultado !== false) {
+        onClose();
       }
-      onClose();
     } finally {
       setIsSubmitting(false);
     }

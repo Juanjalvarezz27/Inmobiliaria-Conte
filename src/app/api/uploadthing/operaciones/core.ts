@@ -39,6 +39,14 @@ export const operacionesFileRouter = {
   }).onUploadComplete(async ({ file }) => {
     return { url: file.ufsUrl || file.url };
   }),
+
+  // Contratos laborales de empleados (PDF o imagen escaneada/fotografiada)
+  contratoLaboral: f({
+    pdf: { maxFileSize: "8MB", maxFileCount: 1 },
+    image: { maxFileSize: "4MB", maxFileCount: 1 },
+  }).onUploadComplete(async ({ file }) => {
+    return { url: file.ufsUrl || file.url };
+  }),
 } satisfies FileRouter;
 
 export type OperacionesFileRouter = typeof operacionesFileRouter;

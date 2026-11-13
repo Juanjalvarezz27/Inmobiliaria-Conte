@@ -14,6 +14,7 @@ export interface EmpleadoItem {
   salarioMensual: number | null;
   activo: boolean;
   notas: string | null;
+  contratoUrl?: string | null;
   propiedadId: string | null;
   propiedad?: {
     id: string;

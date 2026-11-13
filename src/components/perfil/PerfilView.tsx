@@ -19,7 +19,9 @@ import {
   Building2,
   Briefcase,
   AlertCircle,
+  FileText,
 } from "lucide-react";
+import { ImageViewerModal } from "@/components/ui/image-viewer-modal";
 import { notify } from "@/lib/notifications";
 import { actualizarPasswordAction, type PerfilUsuarioData } from "@/lib/actions/perfil";
 
@@ -37,6 +39,7 @@ export function PerfilView({ usuario }: PerfilViewProps) {
   const [showConfirm, setShowConfirm] = useState(false);
   const [isPending, setIsPending] = useState(false);
   const [mustChangePassword, setMustChangePassword] = useState(usuario.mustChangePassword);
+  const [viewerContratoAbierto, setViewerContratoAbierto] = useState(false);
 
   // Estados de error específico por campo para feedback inmediato
   const [campoError, setCampoError] = useState<"passwordActual" | "passwordNueva" | "passwordConfirmacion" | null>(null);
@@ -267,20 +270,62 @@ export function PerfilView({ usuario }: PerfilViewProps) {
 
             {/* Datos Especiales según el Rol */}
             {usuario.empleado && (
-              <div className="p-3 bg-sky-50/70 border border-sky-200/80 rounded-xl space-y-1">
-                <div className="flex items-center gap-1.5 text-sky-800 font-bold text-[11px] uppercase tracking-wider">
-                  <Briefcase className="w-3.5 h-3.5" />
-                  <span>Datos Operativos</span>
-                </div>
-                <div className="text-xs text-sky-950">
-                  <strong>Cargo:</strong> {usuario.empleado.cargoPersonalizado || usuario.empleado.cargo}
-                </div>
-                {usuario.empleado.propiedadNombre && (
-                  <div className="text-xs text-sky-950">
-                    <strong>Sede:</strong> {usuario.empleado.propiedadNombre}
+              <>
+                <div className="p-3 bg-sky-50/70 border border-sky-200/80 rounded-xl space-y-1">
+                  <div className="flex items-center gap-1.5 text-sky-800 font-bold text-[11px] uppercase tracking-wider">
+                    <Briefcase className="w-3.5 h-3.5" />
+                    <span>Datos Operativos</span>
                   </div>
-                )}
-              </div>
+                  <div className="text-xs text-sky-950">
+                    <strong>Cargo:</strong> {usuario.empleado.cargoPersonalizado || usuario.empleado.cargo}
+                  </div>
+                  {usuario.empleado.propiedadNombre && (
+                    <div className="text-xs text-sky-950">
+                      <strong>Sede:</strong> {usuario.empleado.propiedadNombre}
+                    </div>
+                  )}
+                </div>
+
+                {/* Tarjeta de Contrato Laboral */}
+                <div className="p-3.5 bg-gradient-to-r from-emerald-50/60 via-white to-slate-50 border border-emerald-200/80 rounded-xl space-y-2.5 shadow-2xs">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <div className="w-7 h-7 rounded-lg bg-emerald-100 text-[#175E38] flex items-center justify-center shrink-0 border border-emerald-200">
+                        <FileText className="w-3.5 h-3.5" />
+                      </div>
+                      <span className="text-xs font-bold text-slate-900 block">
+                        Mi Contrato de Trabajo
+                      </span>
+                    </div>
+                    {usuario.empleado.contratoUrl ? (
+                      <span className="px-2 py-0.5 rounded-md text-[10px] font-black bg-emerald-100 text-[#175E38] border border-emerald-300">
+                        Vigente
+                      </span>
+                    ) : (
+                      <span className="px-2 py-0.5 rounded-md text-[10px] font-semibold bg-slate-100 text-slate-500 border border-slate-200">
+                        En resguardo
+                      </span>
+                    )}
+                  </div>
+
+                  <p className="text-[11px] text-slate-500 leading-relaxed">
+                    {usuario.empleado.contratoUrl
+                      ? "Tu contrato laboral firmado se encuentra digitalizado en tu expediente para consulta en alta resolución o descarga."
+                      : "Tu contrato físico está en resguardo por la administración de Inmobiliaria Conté y aún no ha sido digitalizado en el sistema."}
+                  </p>
+
+                  {usuario.empleado.contratoUrl && (
+                    <button
+                      type="button"
+                      onClick={() => setViewerContratoAbierto(true)}
+                      className="w-full h-9 rounded-lg text-xs font-bold bg-[#175E38] hover:bg-[#124b2d] text-white transition-all flex items-center justify-center gap-1.5 shadow-2xs cursor-pointer active:scale-98"
+                    >
+                      <Eye className="w-3.5 h-3.5" />
+                      <span>Consultar Mi Contrato</span>
+                    </button>
+                  )}
+                </div>
+              </>
             )}
 
             {usuario.inquilino && (
@@ -517,6 +562,17 @@ export function PerfilView({ usuario }: PerfilViewProps) {
           </form>
         </section>
       </div>
+
+      {/* Visor Modal de Contrato Laboral */}
+      {usuario.empleado?.contratoUrl && (
+        <ImageViewerModal
+          isOpen={viewerContratoAbierto}
+          onClose={() => setViewerContratoAbierto(false)}
+          images={[usuario.empleado.contratoUrl]}
+          title="Mi Contrato de Trabajo"
+          subtitle={`${usuario.nombre} ${usuario.apellido || ""}`}
+        />
+      )}
     </div>
   );
 }

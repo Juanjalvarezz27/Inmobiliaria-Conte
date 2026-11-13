@@ -37,6 +37,7 @@ const createEmpleadoSchema = z.object({
   fechaIngreso: z.string().optional().nullable(),
   salarioMensual: z.number().optional().nullable(),
   notas: z.string().optional().nullable(),
+  contratoUrl: z.string().optional().nullable().or(z.literal("")),
   propiedadId: z.string().optional().nullable(),
   crearUsuario: z.boolean().optional(),
   passwordTemporal: z.string().optional().nullable(),
@@ -486,6 +487,7 @@ export async function getPersonalData(): Promise<PersonalDashboardData> {
       salarioMensual: emp.salarioMensual,
       activo: emp.activo,
       notas: emp.notas,
+      contratoUrl: emp.contratoUrl || null,
       propiedadId: emp.propiedadId,
       propiedad: emp.propiedad,
       usuarioId: emp.usuarioId,
@@ -644,6 +646,7 @@ export async function crearEmpleadoAction(rawInput: CreateEmpleadoInput) {
         fechaIngreso,
         salarioMensual: validated.salarioMensual ?? null,
         notas: validated.notas || null,
+        contratoUrl: validated.contratoUrl || null,
         propiedadId,
         activo: true,
         usuarioId,
@@ -768,6 +771,10 @@ export async function actualizarEmpleadoAction(id: string, rawInput: UpdateEmple
             ? validated.salarioMensual
             : empleadoExistente.salarioMensual,
         notas: validated.notas !== undefined ? validated.notas : empleadoExistente.notas,
+        contratoUrl:
+          validated.contratoUrl !== undefined
+            ? (validated.contratoUrl || null)
+            : empleadoExistente.contratoUrl,
         ...(validated.propiedadId !== undefined && {
           propiedadId:
             validated.propiedadId === "GENERAL" || !validated.propiedadId

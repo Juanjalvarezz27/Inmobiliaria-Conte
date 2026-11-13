@@ -64,7 +64,7 @@ export function EmpleadoAsistenciaClient({
   const registrosPaginados = historial.slice(indiceInicio, indiceInicio + ITEMS_POR_PAGINA);
 
   // Marcaje de jornada regular o inicio de turno
-  const handleMarcaje = async (input?: EntregaGuardiaInput) => {
+  const handleMarcaje = async (input?: EntregaGuardiaInput): Promise<boolean> => {
     try {
       setIsPunching(true);
       const res = await marcarEntradaSalidaEmpleadoAction(input);
@@ -130,19 +130,36 @@ export function EmpleadoAsistenciaClient({
             )
           );
         }
+        return true;
       } else {
         toast.error(res.error || "No se pudo registrar asistencia.");
+        return false;
       }
     } catch (error: unknown) {
       console.error("Error al registrar marcación:", error);
-      const msg = error instanceof Error ? error.message : "Error al registrar marcación.";
-      // Recuperación automática ante desincronización de Server Action por recarga de código en desarrollo
-      if (msg.includes("unexpected response") || msg.includes("Failed to find Server Action")) {
-        toast.error("La conexión con el servidor se actualizó. Recargando para sincronizar...");
+      const errStr =
+        error instanceof Error
+          ? error.message
+          : typeof error === "object" && error !== null && "message" in error
+          ? String((error as { message: unknown }).message)
+          : String(error || "");
+
+      // Detección exhaustiva de desincronización de Server Action o desconexión en desarrollo
+      const esDesync =
+        errStr.includes("unexpected response") ||
+        errStr.includes("Failed to find Server Action") ||
+        errStr.includes("Failed to fetch") ||
+        errStr.includes("NetworkError") ||
+        errStr.includes("Load failed");
+
+      if (esDesync) {
+        toast.error("La sesión con el servidor se actualizó por cambios de desarrollo. Recargando para sincronizar...");
         setTimeout(() => window.location.reload(), 1200);
-        return;
+        return false;
       }
-      toast.error(msg);
+
+      toast.error(errStr || "Error al registrar marcación.");
+      return false;
     } finally {
       setIsPunching(false);
     }

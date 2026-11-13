@@ -20,8 +20,10 @@ import {
   Droplets,
   Shield,
   Wallet,
+  Eye,
 } from "lucide-react";
 import { Modal } from "@/components/ui/modal";
+import { ImageViewerModal } from "@/components/ui/image-viewer-modal";
 import { StatCard } from "@/components/ui/stat-card";
 import { WhatsAppIcon } from "@/components/icons/whatsapp-icon";
 import { EstadoAsistencia, CargoEmpleado } from "@prisma/client";
@@ -127,6 +129,7 @@ export function EmpleadoDetalleModal({
 }: EmpleadoDetalleModalProps) {
   // Pestaña activa dentro de la ficha del colaborador (solo 2 pestañas naturales)
   const [vistaActiva, setVistaActiva] = useState<VistaFicha>("TAREAS");
+  const [viewerContratoAbierto, setViewerContratoAbierto] = useState(false);
 
   // Historial dinámico de asistencias y faltas
   const [historialCompleto, setHistorialCompleto] = useState<RegistroAsistenciaItem[]>([]);
@@ -345,6 +348,48 @@ export function EmpleadoDetalleModal({
               <p className="leading-relaxed line-clamp-2">{emp.notas}</p>
             </div>
           )}
+
+          {/* Expediente Digital / Contrato de Trabajo */}
+          <div className="p-3 rounded-xl bg-slate-50 border border-slate-200/90 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div
+                className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 border ${
+                  emp.contratoUrl
+                    ? "bg-emerald-50 text-[#175E38] border-emerald-200"
+                    : "bg-slate-100 text-slate-500 border-slate-200"
+                }`}
+              >
+                <FileText className="w-4 h-4" />
+              </div>
+              <div className="min-w-0">
+                <span className="text-xs font-bold text-slate-800 block truncate">
+                  {emp.contratoUrl
+                    ? "Contrato Laboral Registrado"
+                    : "Contrato Laboral No Adjunto"}
+                </span>
+                <span className="text-[11px] text-slate-500 block truncate">
+                  {emp.contratoUrl
+                    ? "Documento escaneado / firmado disponible en el expediente"
+                    : "El trabajador aún no tiene contrato digital en su ficha"}
+                </span>
+              </div>
+            </div>
+
+            {emp.contratoUrl ? (
+              <button
+                type="button"
+                onClick={() => setViewerContratoAbierto(true)}
+                className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-[#175E38] hover:bg-[#124b2d] text-white transition-all shadow-2xs shrink-0 cursor-pointer"
+              >
+                <Eye className="w-3.5 h-3.5" />
+                <span>Ver Contrato</span>
+              </button>
+            ) : (
+              <span className="text-[11px] font-semibold text-amber-800 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-md self-start sm:self-auto shrink-0">
+                Sin adjunto
+              </span>
+            )}
+          </div>
         </div>
 
         {/* 4 StatCards Oficiales con Efecto Sol y Relieve 3D */}
@@ -503,6 +548,17 @@ export function EmpleadoDetalleModal({
           </div>
         </div>
       </div>
+
+      {/* Visor Modal de Contrato Laboral */}
+      {emp?.contratoUrl && (
+        <ImageViewerModal
+          isOpen={viewerContratoAbierto}
+          onClose={() => setViewerContratoAbierto(false)}
+          images={[emp.contratoUrl]}
+          title="Contrato de Trabajo"
+          subtitle={`${emp.nombre} ${emp.apellido || ""} • C.I. ${emp.cedula}`}
+        />
+      )}
     </Modal>
   );
 }

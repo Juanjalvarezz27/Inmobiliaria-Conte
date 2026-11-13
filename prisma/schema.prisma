@@ -410,6 +410,7 @@ model Empleado {
   salarioMensual Float?               // Salario u honorarios en USD
   activo         Boolean              @default(true)
   notas          String?
+  contratoUrl    String?              // URL del contrato laboral firmado (PDF o imagen en UploadThing)
 
   propiedadId    String?
   propiedad      Propiedad?           @relation(fields: [propiedadId], references: [id], onDelete: SetNull)

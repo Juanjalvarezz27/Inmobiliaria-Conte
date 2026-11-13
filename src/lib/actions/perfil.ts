@@ -56,6 +56,7 @@ export interface PerfilUsuarioData {
     cedula: string;
     telefono: string;
     fechaIngreso: Date;
+    contratoUrl: string | null;
     propiedadNombre: string | null;
   } | null;
 }
@@ -103,6 +104,7 @@ export async function getPerfilUsuario(): Promise<{
             cedula: true,
             telefono: true,
             fechaIngreso: true,
+            contratoUrl: true,
             propiedad: {
               select: {
                 nombre: true,
@@ -138,6 +140,7 @@ export async function getPerfilUsuario(): Promise<{
             cedula: usuario.empleado.cedula,
             telefono: usuario.empleado.telefono,
             fechaIngreso: usuario.empleado.fechaIngreso,
+            contratoUrl: usuario.empleado.contratoUrl || null,
             propiedadNombre: usuario.empleado.propiedad?.nombre || null,
           }
         : null,

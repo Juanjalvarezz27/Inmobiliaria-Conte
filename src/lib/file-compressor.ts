@@ -2,7 +2,7 @@ import { PDFDocument } from "pdf-lib";
 
 // ============================================================
 // MÓDULO CENTRAL DE COMPRESIÓN DE ARCHIVOS (IMÁGENES Y PDFS)
-// Inmobiliaria Conté - Servicio Unificado de Optimización
+// Inmobiliaria Conté - Servicio Unificado de Optimización V2
 // ============================================================
 
 export interface ResultadoCompresion {
@@ -15,7 +15,8 @@ export interface ResultadoCompresion {
 export interface OpcionesCompresionImagen {
   maxDimension?: number;
   calidad?: number;
-  formatoSalida?: "image/jpeg" | "image/webp";
+  pesoMaximoKB?: number;
+  formatoSalida?: "image/webp" | "image/jpeg";
   fondoBlanco?: boolean;
 }
 
@@ -36,7 +37,82 @@ export function formatearBytes(bytes: number): string {
 }
 
 // ------------------------------------------------------------
-// COMPRESIÓN DE IMÁGENES (Canvas API)
+// MOTOR INTERNO DE CANVAS OPTIMIZADO (Reutilizable y sin fugas)
+// ------------------------------------------------------------
+
+async function decodificarImagen(fuente: File | Blob): Promise<ImageBitmap | HTMLImageElement> {
+  if (typeof createImageBitmap === "function") {
+    try {
+      return await createImageBitmap(fuente);
+    } catch {
+      // Fallback a HTMLImageElement si falla createImageBitmap
+    }
+  }
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(fuente);
+    const img = new Image();
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      resolve(img);
+    };
+    img.onerror = (err) => {
+      URL.revokeObjectURL(url);
+      reject(err);
+    };
+    img.src = url;
+  });
+}
+
+function obtenerDimensionesFuente(fuente: ImageBitmap | HTMLImageElement): { width: number; height: number } {
+  const w = "naturalWidth" in fuente ? fuente.naturalWidth || fuente.width : fuente.width;
+  const h = "naturalHeight" in fuente ? fuente.naturalHeight || fuente.height : fuente.height;
+  return { width: Math.max(1, w), height: Math.max(1, h) };
+}
+
+function calcularDimensiones(width: number, height: number, maxDim: number) {
+  if (width <= maxDim && height <= maxDim) return { width, height };
+  if (width >= height) {
+    return { width: maxDim, height: Math.max(1, Math.round((height * maxDim) / width)) };
+  }
+  return { width: Math.max(1, Math.round((width * maxDim) / height)), height: maxDim };
+}
+
+function canvasABlob(canvas: HTMLCanvasElement, tipo: string, calidad: number): Promise<Blob | null> {
+  return new Promise((resolve) => {
+    try {
+      canvas.toBlob(
+        (blob) => {
+          if (blob) {
+            resolve(blob);
+          } else {
+            // Fallback mediante DataURL para compatibilidad universal
+            try {
+              const dataUrl = canvas.toDataURL(tipo, calidad);
+              const parts = dataUrl.split(",");
+              const byteString = atob(parts[1]);
+              const mimeString = parts[0].split(":")[1].split(";")[0];
+              const ab = new ArrayBuffer(byteString.length);
+              const ia = new Uint8Array(ab);
+              for (let i = 0; i < byteString.length; i++) {
+                ia[i] = byteString.charCodeAt(i);
+              }
+              resolve(new Blob([ab], { type: mimeString }));
+            } catch {
+              resolve(null);
+            }
+          }
+        },
+        tipo,
+        calidad
+      );
+    } catch {
+      resolve(null);
+    }
+  });
+}
+
+// ------------------------------------------------------------
+// COMPRESIÓN DE IMÁGENES (WebP por defecto + Ajuste por Peso)
 // ------------------------------------------------------------
 
 export async function comprimirImagen(
@@ -46,124 +122,73 @@ export async function comprimirImagen(
   const {
     maxDimension = 1600,
     calidad = 0.78,
-    formatoSalida = "image/jpeg",
-    fondoBlanco = true,
+    pesoMaximoKB = 350,
+    formatoSalida = "image/webp",
+    fondoBlanco = false,
   } = opciones || {};
 
-  // Si no es un archivo de imagen, devolver el archivo intacto
-  if (!file.type.startsWith("image/")) {
-    return {
-      file,
-      pesoOriginal: file.size,
-      pesoFinal: file.size,
-      ahorroPct: 0,
-    };
+  if (!file.type.startsWith("image/") || typeof window === "undefined" || !window.document) {
+    return { file, pesoOriginal: file.size, pesoFinal: file.size, ahorroPct: 0 };
   }
 
-  // Verificación de entorno de navegador (Canvas)
-  if (typeof window === "undefined" || !window.document) {
-    return {
-      file,
-      pesoOriginal: file.size,
-      pesoFinal: file.size,
-      ahorroPct: 0,
-    };
+  try {
+    const fuente = await decodificarImagen(file);
+    const { width: origW, height: origH } = obtenerDimensionesFuente(fuente);
+    const { width, height } = calcularDimensiones(origW, origH, maxDimension);
+
+    const canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext("2d", { alpha: !fondoBlanco && formatoSalida === "image/webp" });
+
+    if (!ctx) {
+      if ("close" in fuente) fuente.close();
+      return { file, pesoOriginal: file.size, pesoFinal: file.size, ahorroPct: 0 };
+    }
+
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = "high";
+
+    if (fondoBlanco || formatoSalida === "image/jpeg") {
+      ctx.fillStyle = "#FFFFFF";
+      ctx.fillRect(0, 0, width, height);
+    }
+
+    ctx.drawImage(fuente, 0, 0, width, height);
+    if ("close" in fuente) fuente.close();
+
+    // Compresión adaptativa: Si supera pesoMaximoKB, reduce gradualmente la calidad
+    let calidadActual = calidad;
+    let blob = await canvasABlob(canvas, formatoSalida, calidadActual);
+
+    const limiteBytes = pesoMaximoKB * 1024;
+    while (blob && blob.size > limiteBytes && calidadActual > 0.52) {
+      calidadActual = Number((calidadActual - 0.1).toFixed(2));
+      blob = await canvasABlob(canvas, formatoSalida, calidadActual);
+    }
+
+    canvas.width = 0;
+    canvas.height = 0;
+
+    if (!blob || blob.size >= file.size) {
+      return { file, pesoOriginal: file.size, pesoFinal: file.size, ahorroPct: 0 };
+    }
+
+    const tipoReal = blob.type || formatoSalida;
+    const extension = tipoReal.includes("webp") ? "webp" : tipoReal.includes("png") ? "png" : "jpg";
+    const nombreBase = file.name.replace(/\.[^.]+$/, "");
+    const archivoFinal = new File([blob], `${nombreBase}.${extension}`, { type: tipoReal });
+
+    const pesoOriginal = file.size;
+    const pesoFinal = archivoFinal.size;
+    const ahorroPct = Math.max(0, Math.round((1 - pesoFinal / pesoOriginal) * 100));
+
+    return { file: archivoFinal, pesoOriginal, pesoFinal, ahorroPct };
+  } catch {
+    return { file, pesoOriginal: file.size, pesoFinal: file.size, ahorroPct: 0 };
   }
-
-  return new Promise((resolve) => {
-    const url = URL.createObjectURL(file);
-    const img = new Image();
-
-    img.onload = () => {
-      URL.revokeObjectURL(url);
-
-      let { width, height } = img;
-      if (width > maxDimension || height > maxDimension) {
-        if (width >= height) {
-          height = Math.round((height * maxDimension) / width);
-          width = maxDimension;
-        } else {
-          width = Math.round((width * maxDimension) / height);
-          height = maxDimension;
-        }
-      }
-
-      const canvas = document.createElement("canvas");
-      canvas.width = width;
-      canvas.height = height;
-      const ctx = canvas.getContext("2d");
-
-      if (!ctx) {
-        resolve({
-          file,
-          pesoOriginal: file.size,
-          pesoFinal: file.size,
-          ahorroPct: 0,
-        });
-        return;
-      }
-
-      ctx.imageSmoothingEnabled = true;
-      ctx.imageSmoothingQuality = "high";
-
-      if (fondoBlanco) {
-        ctx.fillStyle = "#FFFFFF";
-        ctx.fillRect(0, 0, width, height);
-      }
-
-      ctx.drawImage(img, 0, 0, width, height);
-
-      canvas.toBlob(
-        (blob) => {
-          if (!blob) {
-            resolve({
-              file,
-              pesoOriginal: file.size,
-              pesoFinal: file.size,
-              ahorroPct: 0,
-            });
-            return;
-          }
-
-          // Si el archivo comprimido resulta más pesado que el original, mantenemos el original
-          const usarComprimido = blob.size < file.size;
-          const extension = formatoSalida === "image/webp" ? "webp" : "jpg";
-          const nombreBase = file.name.replace(/\.[^.]+$/, "");
-          const archivoFinal = usarComprimido
-            ? new File([blob], `${nombreBase}.${extension}`, { type: formatoSalida })
-            : file;
-
-          const pesoOriginal = file.size;
-          const pesoFinal = archivoFinal.size;
-          const ahorroPct = Math.max(0, Math.round((1 - pesoFinal / pesoOriginal) * 100));
-
-          resolve({
-            file: archivoFinal,
-            pesoOriginal,
-            pesoFinal,
-            ahorroPct,
-          });
-        },
-        formatoSalida,
-        calidad
-      );
-    };
-
-    img.onerror = () => {
-      URL.revokeObjectURL(url);
-      resolve({
-        file,
-        pesoOriginal: file.size,
-        pesoFinal: file.size,
-        ahorroPct: 0,
-      });
-    };
-
-    img.src = url;
-  });
 }
 
-// Procesa una lista de imágenes en paralelo
 export async function comprimirImagenes(
   archivos: File[],
   opciones?: OpcionesCompresionImagen
@@ -175,80 +200,65 @@ export async function comprimirImagenes(
 // COMPRESIÓN DE DOCUMENTOS Y PDFS
 // ------------------------------------------------------------
 
-const PDF_JPEG_QUALITY = 0.72;
-const PDF_RENDER_SCALE = 1.5;
-const MAX_PAGINAS_RASTERIZAR = 40;
-const UMBRAL_DENSIDAD_ESCANEO = 120 * 1024;
+const PDF_JPEG_QUALITY = 0.62;
+const PDF_RENDER_SCALE = 1.35;
+const MAX_PAGINAS_RASTERIZAR = 50;
+const UMBRAL_DENSIDAD_ESCANEO = 95 * 1024;
 
-async function comprimirImagenCanvasInterno(
+async function comprimirImagenParaPdf(
   fileOBlob: File | Blob,
-  maxDim = 1400,
-  quality = 0.72
+  maxDim = 1350,
+  quality = PDF_JPEG_QUALITY
 ): Promise<{ blob: Blob; width: number; height: number }> {
-  return new Promise((resolve) => {
-    const url = URL.createObjectURL(fileOBlob);
-    const img = new Image();
+  const fuente = await decodificarImagen(fileOBlob);
+  const { width: origW, height: origH } = obtenerDimensionesFuente(fuente);
+  const { width, height } = calcularDimensiones(origW, origH, maxDim);
 
-    img.onload = () => {
-      URL.revokeObjectURL(url);
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext("2d", { alpha: false });
 
-      let { width, height } = img;
-      if (width > maxDim || height > maxDim) {
-        if (width >= height) {
-          height = Math.round((height * maxDim) / width);
-          width = maxDim;
-        } else {
-          width = Math.round((width * maxDim) / height);
-          height = maxDim;
-        }
-      }
+  if (!ctx) {
+    if ("close" in fuente) fuente.close();
+    return { blob: fileOBlob, width: origW, height: origH };
+  }
 
-      const canvas = document.createElement("canvas");
-      canvas.width = width;
-      canvas.height = height;
-      const ctx = canvas.getContext("2d");
-      if (!ctx) {
-        resolve({ blob: fileOBlob, width: img.width, height: img.height });
-        return;
-      }
-      ctx.imageSmoothingEnabled = true;
-      ctx.imageSmoothingQuality = "high";
-      ctx.drawImage(img, 0, 0, width, height);
+  ctx.fillStyle = "#FFFFFF";
+  ctx.fillRect(0, 0, width, height);
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = "high";
 
-      canvas.toBlob(
-        (blob) => {
-          if (!blob) {
-            resolve({ blob: fileOBlob, width: img.width, height: img.height });
-            return;
-          }
-          resolve({ blob, width, height });
-        },
-        "image/jpeg",
-        quality
-      );
-    };
+  // Mejora de contraste para textos escaneados con tolerancia ante navegadores sin soporte de filtro
+  try {
+    ctx.filter = "contrast(1.08) saturate(0.15)";
+    ctx.drawImage(fuente, 0, 0, width, height);
+    ctx.filter = "none";
+  } catch {
+    ctx.drawImage(fuente, 0, 0, width, height);
+  }
 
-    img.onerror = () => {
-      URL.revokeObjectURL(url);
-      resolve({ blob: fileOBlob, width: 0, height: 0 });
-    };
+  if ("close" in fuente) fuente.close();
 
-    img.src = url;
-  });
+  const blob = await canvasABlob(canvas, "image/jpeg", quality);
+  canvas.width = 0;
+  canvas.height = 0;
+
+  return { blob: blob || fileOBlob, width, height };
 }
 
-// Optimización estructural nativa de PDF con pdf-lib (ultra rápida)
+// Optimización estructural nativa de PDF con pdf-lib
 async function optimizarConPdfLib(archivo: File): Promise<File> {
   const arrayBuffer = await archivo.arrayBuffer();
   const pdfDoc = await PDFDocument.load(arrayBuffer, { ignoreEncryption: true });
   const bytes = await pdfDoc.save({ useObjectStreams: true });
   const nombreBase = archivo.name.replace(/\.[^.]+$/, "");
-  return new File([bytes.buffer as ArrayBuffer], `${nombreBase}-optimizado.pdf`, {
+  return new File([bytes as unknown as BlobPart], `${nombreBase}-optimizado.pdf`, {
     type: "application/pdf",
   });
 }
 
-// Render-to-compress por Canvas para PDFs escaneados pesados
+// Render-to-compress por Canvas reciclando un único lienzo en RAM
 async function renderPdfAJpegsYReensamblar(
   archivo: File,
   numPaginas: number,
@@ -258,54 +268,69 @@ async function renderPdfAJpegsYReensamblar(
 ): Promise<File> {
   const pdfSalida = await PDFDocument.create();
 
-  for (let numPagina = 1; numPagina <= numPaginas; numPagina++) {
-    if (signal?.aborted) {
-      throw new Error("Compresión cancelada por el usuario.");
+  const canvas = document.createElement("canvas");
+  const ctx = canvas.getContext("2d", { alpha: false, willReadFrequently: false });
+
+  if (!ctx) throw new Error("No se pudo inicializar el contexto gráfico 2D.");
+
+  try {
+    for (let numPagina = 1; numPagina <= numPaginas; numPagina++) {
+      if (signal?.aborted) {
+        throw new Error("Compresión cancelada por el usuario.");
+      }
+
+      const progresoBase = Math.round(10 + ((numPagina - 1) / numPaginas) * 80);
+      onProgreso?.({
+        porcentaje: progresoBase,
+        etapa: `Optimizando página ${numPagina} de ${numPaginas}...`,
+        paginaActual: numPagina,
+        totalPaginas: numPaginas,
+      });
+
+      const page = await pdfDocument.getPage(numPagina);
+      const viewportOriginal = page.getViewport({ scale: 1.0 });
+      const viewportRender = page.getViewport({ scale: PDF_RENDER_SCALE });
+
+      canvas.width = Math.floor(viewportRender.width);
+      canvas.height = Math.floor(viewportRender.height);
+
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      await page.render({
+        canvasContext: ctx,
+        viewport: viewportRender,
+      }).promise;
+
+      // Liberar memoria interna de PDF.js para esta página
+      try {
+        page.cleanup();
+      } catch {
+        // Ignorar fallos no críticos de limpieza
+      }
+
+      const jpegBlob = await canvasABlob(canvas, "image/jpeg", PDF_JPEG_QUALITY);
+      if (!jpegBlob) continue;
+
+      const jpegBuffer = await jpegBlob.arrayBuffer();
+      const embeddedJpeg = await pdfSalida.embedJpg(jpegBuffer);
+
+      // Conservamos el tamaño físico real usando viewportOriginal
+      const pagina = pdfSalida.addPage([viewportOriginal.width, viewportOriginal.height]);
+      pagina.drawImage(embeddedJpeg, {
+        x: 0,
+        y: 0,
+        width: viewportOriginal.width,
+        height: viewportOriginal.height,
+      });
     }
+  } finally {
+    canvas.width = 0;
+    canvas.height = 0;
+  }
 
-    const progresoBase = Math.round(10 + ((numPagina - 1) / numPaginas) * 80);
-    onProgreso?.({
-      porcentaje: progresoBase,
-      etapa: `Optimizando página ${numPagina} de ${numPaginas}...`,
-      paginaActual: numPagina,
-      totalPaginas: numPaginas,
-    });
-
-    const page = await pdfDocument.getPage(numPagina);
-    const viewport = page.getViewport({ scale: PDF_RENDER_SCALE });
-
-    const canvas = document.createElement("canvas");
-    canvas.width = viewport.width;
-    canvas.height = viewport.height;
-
-    const ctx = canvas.getContext("2d");
-    if (!ctx) continue;
-
-    ctx.fillStyle = "#ffffff";
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-    await page.render({
-      canvas,
-      canvasContext: ctx,
-      viewport,
-    }).promise;
-
-    const jpegBlob = await new Promise<Blob | null>((resolve) => {
-      canvas.toBlob((blob) => resolve(blob), "image/jpeg", PDF_JPEG_QUALITY);
-    });
-
-    if (!jpegBlob) continue;
-
-    const jpegBuffer = await jpegBlob.arrayBuffer();
-    const embeddedJpeg = await pdfSalida.embedJpg(jpegBuffer);
-
-    const pagina = pdfSalida.addPage([viewport.width, viewport.height]);
-    pagina.drawImage(embeddedJpeg, {
-      x: 0,
-      y: 0,
-      width: viewport.width,
-      height: viewport.height,
-    });
+  if (pdfSalida.getPageCount() === 0) {
+    throw new Error("No se pudo procesar ninguna página del documento.");
   }
 
   onProgreso?.({
@@ -325,12 +350,12 @@ async function renderPdfAJpegsYReensamblar(
     totalPaginas: numPaginas,
   });
 
-  return new File([bytes.buffer as ArrayBuffer], `${nombreBase}-comprimido.pdf`, {
+  return new File([bytes as unknown as BlobPart], `${nombreBase}-comprimido.pdf`, {
     type: "application/pdf",
   });
 }
 
-// Convierte fotos de páginas en un único PDF comprimido
+// Convierte fotos de páginas en un único PDF comprimido con orientación adaptativa
 async function convertirImagenesAPdfComprimido(
   archivos: File[],
   onProgreso?: CallbackProgreso,
@@ -353,20 +378,24 @@ async function convertirImagenesAPdfComprimido(
       totalPaginas: total,
     });
 
-    const { blob, width, height } = await comprimirImagenCanvasInterno(archivo, 1400, PDF_JPEG_QUALITY);
+    const { blob, width, height } = await comprimirImagenParaPdf(archivo, 1350, PDF_JPEG_QUALITY);
     const buffer = await blob.arrayBuffer();
     const embeddedImg = await pdfDoc.embedJpg(buffer);
 
-    const LETTER_W = 612;
-    const LETTER_H = 792;
-    const scale = Math.min(LETTER_W / width, LETTER_H / height);
+    // Orientación inteligente (Carta vertical 612x792 o apaisada 792x612 según la foto)
+    const esHorizontal = width > height;
+    const pageW = esHorizontal ? 792 : 612;
+    const pageH = esHorizontal ? 612 : 792;
+    const scale = Math.min(pageW / width, pageH / height);
+    const drawW = width * scale;
+    const drawH = height * scale;
 
-    const pagina = pdfDoc.addPage([LETTER_W, LETTER_H]);
+    const pagina = pdfDoc.addPage([pageW, pageH]);
     pagina.drawImage(embeddedImg, {
-      x: (LETTER_W - width * scale) / 2,
-      y: (LETTER_H - height * scale) / 2,
-      width: width * scale,
-      height: height * scale,
+      x: (pageW - drawW) / 2,
+      y: (pageH - drawH) / 2,
+      width: drawW,
+      height: drawH,
     });
   }
 
@@ -386,7 +415,9 @@ async function convertirImagenesAPdfComprimido(
     totalPaginas: total,
   });
 
-  return new File([pdfBytes.buffer as ArrayBuffer], "contrato-firmado-comprimido.pdf", {
+  const baseNombre = archivos[0]?.name ? archivos[0].name.replace(/\.[^.]+$/, "") : "contrato-firmado";
+
+  return new File([pdfBytes as unknown as BlobPart], `${baseNombre}-comprimido.pdf`, {
     type: "application/pdf",
   });
 }
@@ -443,24 +474,39 @@ export async function comprimirDocumentoContrato(
 
   try {
     pdfDocument = await Promise.race([loadingTask.promise, timeoutPromise]);
-    numPaginas = pdfDocument.numPages;
+    numPaginas = Math.max(1, pdfDocument.numPages || 1);
   } catch {
-    const pdfFallback = await optimizarConPdfLib(primerArchivo);
-    return {
-      file: pdfFallback,
-      pesoOriginal: primerArchivo.size,
-      pesoFinal: pdfFallback.size,
-      ahorroPct: Math.max(0, Math.round((1 - pdfFallback.size / primerArchivo.size) * 100)),
-    };
+    try {
+      const pdfFallback = await optimizarConPdfLib(primerArchivo);
+      const archivoFinal = pdfFallback.size < primerArchivo.size ? pdfFallback : primerArchivo;
+      return {
+        file: archivoFinal,
+        pesoOriginal: primerArchivo.size,
+        pesoFinal: archivoFinal.size,
+        ahorroPct: Math.max(0, Math.round((1 - archivoFinal.size / primerArchivo.size) * 100)),
+      };
+    } catch {
+      return { file: primerArchivo, pesoOriginal: primerArchivo.size, pesoFinal: primerArchivo.size, ahorroPct: 0 };
+    }
   }
 
   if (signal?.aborted) {
+    try {
+      await pdfDocument.destroy();
+    } catch {
+      // Ignorar fallo al destruir tras abort
+    }
     throw new Error("Compresión cancelada por el usuario.");
   }
 
   if (numPaginas > 100) {
+    try {
+      await pdfDocument.destroy();
+    } catch {
+      // Ignorar fallo al destruir
+    }
     throw new Error(
-      `El documento seleccionado tiene ${numPaginas} páginas. Los contratos de arrendamiento no deben superar las 100 páginas. Por favor sube únicamente el contrato de este espacio.`
+      `El documento seleccionado tiene ${numPaginas} páginas. Los contratos de arrendamiento o trabajo no deben superar las 100 páginas. Por favor sube únicamente el contrato de este espacio.`
     );
   }
 
@@ -469,32 +515,41 @@ export async function comprimirDocumentoContrato(
     numPaginas <= MAX_PAGINAS_RASTERIZAR && bytesPorPagina >= UMBRAL_DENSIDAD_ESCANEO;
 
   if (!debeRasterizar) {
+    try {
+      await pdfDocument.destroy();
+    } catch {
+      // Ignorar fallo de cierre
+    }
     onProgreso?.({
       porcentaje: 45,
-      etapa: `Documento vectorial (${numPaginas} págs). Aplicando optimización estructural rápida...`,
+      etapa: `Documento ligero (${numPaginas} págs). Aplicando optimización estructural...`,
       paginaActual: numPaginas,
       totalPaginas: numPaginas,
     });
 
-    const pdfOptimizado = await optimizarConPdfLib(primerArchivo);
+    try {
+      const pdfOptimizado = await optimizarConPdfLib(primerArchivo);
 
-    onProgreso?.({
-      porcentaje: 100,
-      etapa: "Documento optimizado exitosamente.",
-      paginaActual: numPaginas,
-      totalPaginas: numPaginas,
-    });
+      onProgreso?.({
+        porcentaje: 100,
+        etapa: "Documento optimizado exitosamente.",
+        paginaActual: numPaginas,
+        totalPaginas: numPaginas,
+      });
 
-    const pesoFinal = Math.min(pdfOptimizado.size, primerArchivo.size);
-    const archivoFinal = pesoFinal < primerArchivo.size ? pdfOptimizado : primerArchivo;
-    const ahorroPct = Math.max(0, Math.round((1 - pesoFinal / primerArchivo.size) * 100));
+      const archivoFinal = pdfOptimizado.size < primerArchivo.size ? pdfOptimizado : primerArchivo;
+      const pesoFinal = archivoFinal.size;
+      const ahorroPct = Math.max(0, Math.round((1 - pesoFinal / primerArchivo.size) * 100));
 
-    return {
-      file: archivoFinal,
-      pesoOriginal: primerArchivo.size,
-      pesoFinal,
-      ahorroPct,
-    };
+      return {
+        file: archivoFinal,
+        pesoOriginal: primerArchivo.size,
+        pesoFinal,
+        ahorroPct,
+      };
+    } catch {
+      return { file: primerArchivo, pesoOriginal: primerArchivo.size, pesoFinal: primerArchivo.size, ahorroPct: 0 };
+    }
   }
 
   try {
@@ -505,16 +560,35 @@ export async function comprimirDocumentoContrato(
       onProgreso,
       signal
     );
-    const pesoFinal = pdfComprimido.size;
+    try {
+      await pdfDocument.destroy();
+    } catch {
+      // Ignorar fallo
+    }
+
+    // Salvaguarda: Nunca devolver un PDF más pesado que el original
+    const archivoFinal = pdfComprimido.size < primerArchivo.size ? pdfComprimido : primerArchivo;
+    const pesoFinal = archivoFinal.size;
     const ahorroPct = Math.max(0, Math.round((1 - pesoFinal / primerArchivo.size) * 100));
-    return { file: pdfComprimido, pesoOriginal: primerArchivo.size, pesoFinal, ahorroPct };
+
+    return { file: archivoFinal, pesoOriginal: primerArchivo.size, pesoFinal, ahorroPct };
   } catch (err) {
+    try {
+      await pdfDocument.destroy();
+    } catch {
+      // Ignorar fallo
+    }
     if (signal?.aborted) throw err;
     console.warn("[file-compressor] Fallback a optimización estructural:", err);
-    const pdfFallback = await optimizarConPdfLib(primerArchivo);
-    const pesoFinal = pdfFallback.size;
-    const ahorroPct = Math.max(0, Math.round((1 - pesoFinal / primerArchivo.size) * 100));
-    return { file: pdfFallback, pesoOriginal: primerArchivo.size, pesoFinal, ahorroPct };
+    try {
+      const pdfFallback = await optimizarConPdfLib(primerArchivo);
+      const archivoFinal = pdfFallback.size < primerArchivo.size ? pdfFallback : primerArchivo;
+      const pesoFinal = archivoFinal.size;
+      const ahorroPct = Math.max(0, Math.round((1 - pesoFinal / primerArchivo.size) * 100));
+      return { file: archivoFinal, pesoOriginal: primerArchivo.size, pesoFinal, ahorroPct };
+    } catch {
+      return { file: primerArchivo, pesoOriginal: primerArchivo.size, pesoFinal: primerArchivo.size, ahorroPct: 0 };
+    }
   }
 }
 
