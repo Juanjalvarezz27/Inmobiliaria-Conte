@@ -501,31 +501,41 @@ export function ContratoFormModal({
 
           {/* Panel Contextual para Contratos Preexistentes con Antigüedad */}
           {esContratoHistorico && !isEditing && (
-            <div className="bg-amber-50/80 border border-amber-200/90 rounded-2xl p-4 text-xs text-amber-950 space-y-2.5 transition-all">
-              <div className="flex items-start gap-2.5">
-                <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+            <div className="bg-amber-50/70 border border-amber-200/90 rounded-2xl p-4 sm:p-4.5 transition-all shadow-xs">
+              <div className="flex items-center gap-2.5">
+                <div className="w-7 h-7 rounded-lg bg-amber-100 text-amber-700 flex items-center justify-center shrink-0 border border-amber-200/60">
+                  <AlertTriangle className="w-3.5 h-3.5" />
+                </div>
                 <div>
-                  <p className="font-bold text-amber-950">Inquilino con Antigüedad / Contrato Preexistente</p>
-                  <p className="text-[11px] text-amber-800 leading-relaxed mt-0.5">
-                    Este contrato inició en el pasado. Para no generar deudas ficticias de años anteriores ni recibos de servicios vencidos, indica a partir de qué fecha empezará el sistema a facturar.
+                  <h4 className="font-bold text-xs sm:text-sm text-amber-950 leading-tight">
+                    Inquilino con Antigüedad (Contrato Preexistente)
+                  </h4>
+                  <p className="text-[11px] text-amber-800/90 mt-0.5 leading-snug">
+                    Se respetará su antigüedad legal, pero solo se generarán cobros a partir de la fecha de corte.
                   </p>
                 </div>
               </div>
-              <div className="flex flex-col sm:flex-row sm:items-center gap-2 pt-2 border-t border-amber-200/60">
-                <label className="text-[11px] font-bold text-amber-950 shrink-0">
-                  Inicio de Facturación en Sistema (Corte):
-                </label>
-                <input
-                  type="date"
-                  value={fechaInicioCobranza}
-                  min={fechaInicio}
-                  max={fechaFin}
-                  onChange={(e) => setFechaInicioCobranza(e.target.value)}
-                  className="h-9 px-3 text-xs border border-amber-300 rounded-xl bg-white font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-amber-500/30"
-                />
-                <span className="text-[10px] text-amber-700 italic">
-                  (Por defecto: mes actual. Los meses anteriores se consideran solventes).
-                </span>
+
+              <div className="mt-3 pt-3 border-t border-amber-200/70 grid grid-cols-1 sm:grid-cols-12 gap-3 items-center">
+                <div className="sm:col-span-7">
+                  <label className="block text-xs font-bold text-amber-950">
+                    Fecha de Inicio de Facturación en Sistema (Corte)
+                  </label>
+                  <p className="text-[11px] text-amber-800/80 mt-0.5 leading-tight">
+                    Por defecto: mes actual. Los meses anteriores se consideran solventes sin deuda.
+                  </p>
+                </div>
+                <div className="sm:col-span-5 relative">
+                  <Calendar className="w-4 h-4 text-amber-600 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  <input
+                    type="date"
+                    value={fechaInicioCobranza}
+                    min={fechaInicio}
+                    max={fechaFin}
+                    onChange={(e) => setFechaInicioCobranza(e.target.value)}
+                    className="w-full pl-9 pr-3 h-10 text-xs sm:text-sm font-semibold border border-amber-300 rounded-xl bg-white text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-600 transition-all shadow-2xs"
+                  />
+                </div>
               </div>
             </div>
           )}
