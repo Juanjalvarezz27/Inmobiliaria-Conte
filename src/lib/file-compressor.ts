@@ -1,4 +1,5 @@
 import { PDFDocument } from "pdf-lib";
+import type { PDFDocumentProxy } from "pdfjs-dist";
 
 // ============================================================
 // MÓDULO CENTRAL DE COMPRESIÓN DE ARCHIVOS (IMÁGENES Y PDFS)
@@ -262,7 +263,7 @@ async function optimizarConPdfLib(archivo: File): Promise<File> {
 async function renderPdfAJpegsYReensamblar(
   archivo: File,
   numPaginas: number,
-  pdfDocument: any, // eslint-disable-line @typescript-eslint/no-explicit-any
+  pdfDocument: PDFDocumentProxy,
   onProgreso?: CallbackProgreso,
   signal?: AbortSignal
 ): Promise<File> {
@@ -300,6 +301,7 @@ async function renderPdfAJpegsYReensamblar(
       await page.render({
         canvasContext: ctx,
         viewport: viewportRender,
+        canvas,
       }).promise;
 
       // Liberar memoria interna de PDF.js para esta página
@@ -435,12 +437,28 @@ export async function comprimirDocumentoContrato(
 
   const pesoOriginalTotal = archivos.reduce((acc, f) => acc + f.size, 0);
   const sonImagenes = archivos.every((f) => f.type.startsWith("image/"));
+  const sonPdf = archivos.every(
+    (f) => f.type === "application/pdf" || f.name.toLowerCase().endsWith(".pdf")
+  );
+
+  // Validación de tipo mixto o formato no admitido
+  if (!sonImagenes && !sonPdf) {
+    throw new Error(
+      "No se permite combinar archivos PDF e imágenes en la misma carga. Selecciona únicamente un PDF o únicamente imágenes."
+    );
+  }
 
   if (sonImagenes) {
     const pdfComprimido = await convertirImagenesAPdfComprimido(archivos, onProgreso, signal);
     const pesoFinal = pdfComprimido.size;
     const ahorroPct = Math.max(0, Math.round((1 - pesoFinal / pesoOriginalTotal) * 100));
     return { file: pdfComprimido, pesoOriginal: pesoOriginalTotal, pesoFinal, ahorroPct };
+  }
+
+  if (archivos.length > 1) {
+    throw new Error(
+      "Solo puedes subir un único archivo PDF para el contrato. Si deseas anexar varias hojas por separado, cárgalas como fotografías."
+    );
   }
 
   const primerArchivo = archivos[0];
@@ -469,8 +487,7 @@ export async function comprimirDocumentoContrato(
   });
 
   let numPaginas = 1;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let pdfDocument: any = null;
+  let pdfDocument: PDFDocumentProxy | null = null;
 
   try {
     pdfDocument = await Promise.race([loadingTask.promise, timeoutPromise]);
@@ -492,7 +509,7 @@ export async function comprimirDocumentoContrato(
 
   if (signal?.aborted) {
     try {
-      await pdfDocument.destroy();
+      await pdfDocument.cleanup();
     } catch {
       // Ignorar fallo al destruir tras abort
     }
@@ -501,7 +518,7 @@ export async function comprimirDocumentoContrato(
 
   if (numPaginas > 100) {
     try {
-      await pdfDocument.destroy();
+      await pdfDocument.cleanup();
     } catch {
       // Ignorar fallo al destruir
     }
@@ -516,7 +533,7 @@ export async function comprimirDocumentoContrato(
 
   if (!debeRasterizar) {
     try {
-      await pdfDocument.destroy();
+      await pdfDocument.cleanup();
     } catch {
       // Ignorar fallo de cierre
     }
@@ -561,7 +578,7 @@ export async function comprimirDocumentoContrato(
       signal
     );
     try {
-      await pdfDocument.destroy();
+      await pdfDocument.cleanup();
     } catch {
       // Ignorar fallo
     }
@@ -574,7 +591,7 @@ export async function comprimirDocumentoContrato(
     return { file: archivoFinal, pesoOriginal: primerArchivo.size, pesoFinal, ahorroPct };
   } catch (err) {
     try {
-      await pdfDocument.destroy();
+      await pdfDocument.cleanup();
     } catch {
       // Ignorar fallo
     }

@@ -7,6 +7,22 @@ import { authConfig } from "./auth.config";
 export const { handlers, signIn, signOut, auth } = NextAuth({
   ...authConfig,
   session: { strategy: "jwt", maxAge: 8 * 60 * 60 }, // 8 horas en segundos → 28.800
+  callbacks: {
+    ...authConfig.callbacks,
+    async session(params) {
+      const baseSession = (await authConfig.callbacks?.session?.(params)) ?? params.session;
+      if (baseSession?.user?.id) {
+        const u = await prisma.usuario.findUnique({
+          where: { id: baseSession.user.id },
+          select: { activo: true },
+        });
+        if (!u || !u.activo) {
+          return null as unknown as typeof baseSession;
+        }
+      }
+      return baseSession;
+    },
+  },
   providers: [
     Credentials({
       name: "Credenciales",

@@ -16,6 +16,7 @@ import {
 } from "@prisma/client";
 import { PaginationParams, PaginatedResult } from "@/types/pagination";
 import { resolvePagination, createPaginatedResponse } from "@/lib/pagination-helper";
+import { eliminarDocumentosUploadThing } from "@/lib/uploadthing-server";
 import type {
   PersonalDashboardData,
   EmpleadoItem,
@@ -824,6 +825,17 @@ export async function actualizarEmpleadoAction(id: string, rawInput: UpdateEmple
         usuarioId,
       },
     });
+
+    // Purgar contrato anterior de UploadThing si fue reemplazado o eliminado
+    if (
+      validated.contratoUrl !== undefined &&
+      empleadoExistente.contratoUrl &&
+      empleadoExistente.contratoUrl !== validated.contratoUrl
+    ) {
+      eliminarDocumentosUploadThing(empleadoExistente.contratoUrl).catch((err) => {
+        console.warn("No se pudo purgar contrato antiguo de UploadThing:", err);
+      });
+    }
 
     revalidatePath("/admin/personal");
     return { success: true, data: empleadoActualizado };
