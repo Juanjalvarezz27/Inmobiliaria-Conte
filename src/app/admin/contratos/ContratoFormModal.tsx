@@ -63,8 +63,15 @@ export function ContratoFormModal({
   isLoading = false,
 }: ContratoFormModalProps) {
   // Fechas por defecto: hoy y 1 año después
-  const hoyStr = new Date().toISOString().split("T")[0];
+  const hoyObj = new Date();
+  const hoyStr = hoyObj.toISOString().split("T")[0];
+  const primerDiaMesActualStr = `${hoyObj.getFullYear()}-${String(hoyObj.getMonth() + 1).padStart(2, "0")}-01`;
   const unAnoDespues = new Date();
+  const [fechaInicioCobranza, setFechaInicioCobranza] = useState<string>(
+    initialData?.fechaInicioCobranza
+      ? new Date(initialData.fechaInicioCobranza).toISOString().split("T")[0]
+      : primerDiaMesActualStr
+  );
   unAnoDespues.setFullYear(unAnoDespues.getFullYear() + 1);
   const unAnoStr = unAnoDespues.toISOString().split("T")[0];
 
@@ -331,6 +338,7 @@ export function ContratoFormModal({
       inquilinoId,
       unidadId,
       fechaInicio,
+      fechaInicioCobranza: esContratoHistorico ? fechaInicioCobranza : null,
       fechaFin,
       diaCobro: diaNum,
       montoAlquiler: canonNum,
@@ -348,6 +356,7 @@ export function ContratoFormModal({
   };
 
   const isEditing = !!initialData;
+  const esContratoHistorico = Boolean(fechaInicio && fechaInicio < primerDiaMesActualStr);
   const unidadSeleccionada = unidadesDisponibles.find((u) => u.id === unidadId);
 
   const getEstadoTexto = (estado: EstadoUnidad) => {
@@ -489,6 +498,37 @@ export function ContratoFormModal({
               </div>
             </div>
           </div>
+
+          {/* Panel Contextual para Contratos Preexistentes con Antigüedad */}
+          {esContratoHistorico && !isEditing && (
+            <div className="bg-amber-50/80 border border-amber-200/90 rounded-2xl p-4 text-xs text-amber-950 space-y-2.5 transition-all">
+              <div className="flex items-start gap-2.5">
+                <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                <div>
+                  <p className="font-bold text-amber-950">Inquilino con Antigüedad / Contrato Preexistente</p>
+                  <p className="text-[11px] text-amber-800 leading-relaxed mt-0.5">
+                    Este contrato inició en el pasado. Para no generar deudas ficticias de años anteriores ni recibos de servicios vencidos, indica a partir de qué fecha empezará el sistema a facturar.
+                  </p>
+                </div>
+              </div>
+              <div className="flex flex-col sm:flex-row sm:items-center gap-2 pt-2 border-t border-amber-200/60">
+                <label className="text-[11px] font-bold text-amber-950 shrink-0">
+                  Inicio de Facturación en Sistema (Corte):
+                </label>
+                <input
+                  type="date"
+                  value={fechaInicioCobranza}
+                  min={fechaInicio}
+                  max={fechaFin}
+                  onChange={(e) => setFechaInicioCobranza(e.target.value)}
+                  className="h-9 px-3 text-xs border border-amber-300 rounded-xl bg-white font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-amber-500/30"
+                />
+                <span className="text-[10px] text-amber-700 italic">
+                  (Por defecto: mes actual. Los meses anteriores se consideran solventes).
+                </span>
+              </div>
+            </div>
+          )}
 
           {/* Fila 2: Condiciones Económicas (3 columnas simétricas y limpias) */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">

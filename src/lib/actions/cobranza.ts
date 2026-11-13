@@ -337,11 +337,14 @@ export async function sincronizarCuotasMes(mes: number, ano: number) {
     const ultimoDiaMes = finMes.getUTCDate();
 
     // Contratos que estuvieron vigentes en este mes calendario
-    // Únicamente contratos activos o por vencer generan cuotas mensuales
+    // Únicamente contratos activos o por vencer generan cuotas mensuales a partir de su fecha de corte de cobranza
     const contratosVigentes = await prisma.contrato.findMany({
       where: {
-        fechaInicio: { lte: finMes },
         fechaFin: { gte: inicioMes },
+        OR: [
+          { fechaInicioCobranza: null, fechaInicio: { lte: finMes } },
+          { fechaInicioCobranza: { not: null, lte: finMes } },
+        ],
         estado: {
           in: [EstadoContrato.ACTIVO, EstadoContrato.POR_VENCER],
         },
@@ -351,6 +354,7 @@ export async function sincronizarCuotasMes(mes: number, ano: number) {
         diaCobro: true,
         montoAlquiler: true,
         fechaInicio: true,
+        fechaInicioCobranza: true,
       },
     });
 

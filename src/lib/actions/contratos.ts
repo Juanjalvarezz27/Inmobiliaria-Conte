@@ -21,6 +21,7 @@ const createContratoSchema = z.object({
   inquilinoId: z.string().min(1, "Debes seleccionar un inquilino"),
   unidadId: z.string().min(1, "Debes seleccionar un espacio disponible"),
   fechaInicio: z.string().min(1, "La fecha de inicio es requerida"),
+  fechaInicioCobranza: z.string().optional().nullable(),
   fechaFin: z.string().min(1, "La fecha de fin es requerida"),
   diaCobro: z.coerce
     .number()
@@ -60,10 +61,13 @@ export type UpdateContratoInput = z.infer<typeof updateContratoSchema>;
 function obtenerPeriodosParaGenerarContrato(
   fechaInicio: Date,
   fechaFin: Date,
+  fechaInicioCobranza?: Date | null,
   maxMesesAdelanto: number = 1
 ): Array<{ mes: number; ano: number }> {
   const periodos: Array<{ mes: number; ano: number }> = [];
-  const inicio = new Date(fechaInicio);
+  // Usar fechaInicioCobranza si fue especificada para evitar generar años de deudas históricas
+  const fechaEfectiva = fechaInicioCobranza ? new Date(fechaInicioCobranza) : new Date(fechaInicio);
+  const inicio = new Date(fechaEfectiva);
   const fin = new Date(fechaFin);
 
   let ano = inicio.getUTCFullYear();
@@ -106,6 +110,7 @@ const CONTRATO_LIST_SELECT = {
   id: true,
   codigo: true,
   fechaInicio: true,
+  fechaInicioCobranza: true,
   fechaFin: true,
   diaCobro: true,
   montoAlquiler: true,
@@ -489,12 +494,24 @@ export async function createContrato(data: CreateContratoInput) {
         }
       }
 
+      // Salvaguarda para contratos históricos: si la fecha de inicio es anterior al mes actual
+      // y no se especificó fecha de corte, se asigna el mes actual para no crear deudas vencidas fantasmas
+      const ahora = new Date();
+      const inicioMesActual = new Date(Date.UTC(ahora.getUTCFullYear(), ahora.getUTCMonth(), 1));
+      let fInicioCobranza: Date | null = null;
+      if (parsed.fechaInicioCobranza) {
+        fInicioCobranza = new Date(parsed.fechaInicioCobranza);
+      } else if (fInicio < inicioMesActual) {
+        fInicioCobranza = inicioMesActual;
+      }
+
       const contrato = await tx.contrato.create({
         data: {
           codigo: codigoContrato,
           inquilinoId: parsed.inquilinoId,
           unidadId: parsed.unidadId,
           fechaInicio: fInicio,
+          fechaInicioCobranza: fInicioCobranza,
           fechaFin: fFin,
           diaCobro: parsed.diaCobro,
           montoAlquiler: parsed.montoAlquiler,
@@ -518,8 +535,7 @@ export async function createContrato(data: CreateContratoInput) {
       });
 
       // 5. Pre-generar cronograma de cuotas mensuales acotado (devengadas + máx 1 mes de adelanto)
-      const periodos = obtenerPeriodosParaGenerarContrato(fInicio, fFin);
-      const ahora = new Date();
+      const periodos = obtenerPeriodosParaGenerarContrato(fInicio, fFin, fInicioCobranza);
       const cuotasParaCrear = periodos.map(({ mes, ano }) => {
         const ultimoDiaMes = new Date(Date.UTC(ano, mes, 0)).getUTCDate();
         const diaEfectivo = Math.min(parsed.diaCobro, ultimoDiaMes);
@@ -791,7 +807,11 @@ export async function updateContrato(id: string, data: UpdateContratoInput) {
         }
 
         // B) Si se amplió fechaFin o faltan cuotas por generar en el cronograma acotado
-        const periodosTotales = obtenerPeriodosParaGenerarContrato(contratoPrevio.fechaInicio, nuevaFechaFin);
+        const periodosTotales = obtenerPeriodosParaGenerarContrato(
+          contratoPrevio.fechaInicio,
+          nuevaFechaFin,
+          contratoPrevio.fechaInicioCobranza
+        );
         const setPagosExistentes = new Set(contratoPrevio.pagos.map((p) => `${p.periodoAno}-${p.periodoMes}`));
 
         const nuevasCuotas = [];

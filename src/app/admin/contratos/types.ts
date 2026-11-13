@@ -14,6 +14,7 @@ export type ContratoConRelaciones = {
   id: string;
   codigo: string;
   fechaInicio: Date;
+  fechaInicioCobranza?: Date | null;
   fechaFin: Date;
   diaCobro: number;
   montoAlquiler: number;
