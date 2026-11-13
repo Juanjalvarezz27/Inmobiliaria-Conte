@@ -354,7 +354,7 @@ export async function marcarEntradaSalidaEmpleadoAction(input?: string | Entrega
     const finHoy = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate(), 23, 59, 59, 999);
 
     // Cierre perezoso (Just-In-Time) de turnos olvidados anteriores de este trabajador
-    await cerrarJornadasIncompletasEmpleado(empleado.id);
+    const turnosCerrados = await cerrarJornadasIncompletasEmpleado(empleado.id);
 
     // 1. Buscar si tiene una guardia/turno abierto pendiente de salida
     // Si es seguridad, busca hasta 30 horas hacia atrás (permite cerrar guardia de ayer)
@@ -367,6 +367,21 @@ export async function marcarEntradaSalidaEmpleadoAction(input?: string | Entrega
       },
       orderBy: { horaEntrada: "desc" },
     });
+
+    // Salvaguarda: si se auto-cerró un turno por exceso de tiempo y no hay otro abierto, notificar sin crear entrada involuntaria
+    if (!asistenciaPendienteSalida && turnosCerrados > 0) {
+      revalidatePath("/empleado/dashboard");
+      revalidatePath("/empleado/asistencia");
+      revalidatePath("/admin/personal");
+      return {
+        success: true,
+        tipo: "SALIDA",
+        esGuardia24h: esSeguridad,
+        message: esSeguridad
+          ? "Tu guardia anterior fue cerrada automáticamente por exceder las 30 horas continuas. Vuelve a marcar si vas a iniciar un nuevo turno."
+          : "Tu jornada anterior fue cerrada automáticamente por el sistema. Vuelve a pulsar si deseas iniciar una nueva jornada.",
+      };
+    }
 
     const nombreLugar = payload.ubicacion || empleado.propiedad?.nombre || "Marcaje Móvil";
 

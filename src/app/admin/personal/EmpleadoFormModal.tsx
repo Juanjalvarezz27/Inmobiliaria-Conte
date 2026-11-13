@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { User, KeyRound, Loader2, Building2, FileText, Upload, Trash2, Eye, RefreshCw, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
 import { Modal } from "@/components/ui/modal";
@@ -114,19 +114,10 @@ export function EmpleadoFormModal({
     }
   };
 
-  // Sincronizar estado cuando cambia el empleado a editar
-  const [prevTarget, setPrevTarget] = useState<{ id?: string; isOpen: boolean; propId?: string | null }>({
-    id: empleadoAEditar?.id,
-    isOpen,
-    propId: propiedadPreseleccionadaId,
-  });
+  // Sincronizar estado cuando se abre el modal o cambia el empleado seleccionado
+  useEffect(() => {
+    if (!isOpen) return;
 
-  if (
-    prevTarget.id !== empleadoAEditar?.id ||
-    prevTarget.isOpen !== isOpen ||
-    prevTarget.propId !== propiedadPreseleccionadaId
-  ) {
-    setPrevTarget({ id: empleadoAEditar?.id, isOpen, propId: propiedadPreseleccionadaId });
     if (empleadoAEditar) {
       setNombre(empleadoAEditar.nombre);
       setApellido(empleadoAEditar.apellido || "");
@@ -143,6 +134,7 @@ export function EmpleadoFormModal({
       setPasswordTemporal("");
       setContratoUrl(empleadoAEditar.contratoUrl || "");
       setInfoCompresion(null);
+      setConfirmBorrarContrato(false);
     } else {
       setNombre("");
       setApellido("");
@@ -159,8 +151,9 @@ export function EmpleadoFormModal({
       setPasswordTemporal("");
       setContratoUrl("");
       setInfoCompresion(null);
+      setConfirmBorrarContrato(false);
     }
-  }
+  }, [isOpen, empleadoAEditar, propiedadPreseleccionadaId, hoyStr]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

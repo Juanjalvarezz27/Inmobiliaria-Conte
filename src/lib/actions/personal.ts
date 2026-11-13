@@ -181,9 +181,12 @@ export async function sincronizarInasistenciasPasadas(): Promise<{ sincronizadas
       return { sincronizadas: 0 };
     }
 
-    // 1. Obtener empleados activos con fecha de ingreso y de creación en el sistema
+    // 1. Obtener empleados activos (excluyendo personal de SEGURIDAD con régimen de guardias continuas 24h)
     const empleadosActivos = await prisma.empleado.findMany({
-      where: { activo: true },
+      where: {
+        activo: true,
+        cargo: { not: CargoEmpleado.SEGURIDAD },
+      },
       select: { id: true, fechaIngreso: true, createdAt: true },
     });
 
@@ -287,6 +290,21 @@ export async function sincronizarInasistenciasPasadas(): Promise<{ sincronizadas
     if (idsFinde.length > 0) {
       await prisma.registroAsistencia.deleteMany({
         where: { id: { in: idsFinde } },
+      });
+    }
+
+    // Depuración de inasistencias automáticas para personal de SEGURIDAD (régimen de guardia rotativa)
+    const empleadosSeguridad = await prisma.empleado.findMany({
+      where: { cargo: CargoEmpleado.SEGURIDAD },
+      select: { id: true },
+    });
+    if (empleadosSeguridad.length > 0) {
+      await prisma.registroAsistencia.deleteMany({
+        where: {
+          empleadoId: { in: empleadosSeguridad.map((s) => s.id) },
+          observaciones: "Inasistencia automática - Jornada sin registro de entrada",
+          estado: EstadoAsistencia.FALTA_INJUSTIFICADA,
+        },
       });
     }
 
@@ -1178,7 +1196,7 @@ export async function obtenerHistorialAsistenciaEmpleadoAction(
     const [empleado, total, registros] = await Promise.all([
       prisma.empleado.findUnique({
         where: { id: empleadoId },
-        select: { fechaIngreso: true, createdAt: true },
+        select: { fechaIngreso: true, createdAt: true, cargo: true },
       }),
       prisma.registroAsistencia.count({ where: { empleadoId } }),
       prisma.registroAsistencia.findMany({
@@ -1202,8 +1220,8 @@ export async function obtenerHistorialAsistenciaEmpleadoAction(
       createdAt: r.createdAt.toISOString(),
     }));
 
-    // Generar inasistencias virtuales para días laborales pasados que no tienen registro en BD
-    if (empleado) {
+    // Generar inasistencias virtuales para días laborales pasados que no tienen registro en BD (solo personal regular L-V)
+    if (empleado && empleado.cargo !== CargoEmpleado.SEGURIDAD) {
       const registrosFechasSet = new Set<string>();
       for (const r of registros) {
         const d = new Date(r.fecha);
