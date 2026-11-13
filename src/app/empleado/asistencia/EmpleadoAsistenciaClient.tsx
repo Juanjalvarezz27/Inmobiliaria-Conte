@@ -104,7 +104,7 @@ export function EmpleadoAsistenciaClient({
         } else if (res.tipo === "SALIDA" && asistenciaHoy) {
           const obsSalida = input?.guardiaRelevoNombre
             ? `Relevo: Entregado a ${input.guardiaRelevoNombre}${input.observacionesEntrega ? ` | ${input.observacionesEntrega}` : ""}`
-            : (asistenciaHoy.observaciones || null);
+            : (input?.sinRelevo ? "Fin de turno: Sin relevo presencial" : (asistenciaHoy.observaciones || null));
 
           setAsistenciaHoy((prev) =>
             prev
@@ -133,8 +133,10 @@ export function EmpleadoAsistenciaClient({
       } else {
         toast.error(res.error || "No se pudo registrar asistencia.");
       }
-    } catch {
-      toast.error("Error al registrar marcación.");
+    } catch (error: unknown) {
+      console.error("Error al registrar marcación:", error);
+      const msg = error instanceof Error ? error.message : "Error al registrar marcación.";
+      toast.error(msg);
     } finally {
       setIsPunching(false);
     }

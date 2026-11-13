@@ -82,7 +82,7 @@ export function EmpleadoDashboardClient({ initialData }: Props) {
         } else if (res.tipo === "SALIDA") {
           const obsSalida = input?.guardiaRelevoNombre
             ? `Relevo: Entregado a ${input.guardiaRelevoNombre}${input.observacionesEntrega ? ` | ${input.observacionesEntrega}` : ""}`
-            : (asistenciaHoy?.observaciones || null);
+            : (input?.sinRelevo ? "Fin de turno: Sin relevo presencial" : (asistenciaHoy?.observaciones || null));
 
           setData((prev) => ({
             ...prev,
@@ -99,8 +99,10 @@ export function EmpleadoDashboardClient({ initialData }: Props) {
       } else {
         toast.error(res.error || "No se pudo registrar la marcación.");
       }
-    } catch {
-      toast.error("Error de conexión al marcar asistencia.");
+    } catch (error: unknown) {
+      console.error("Error al marcar asistencia:", error);
+      const msg = error instanceof Error ? error.message : "Error de conexión al marcar asistencia.";
+      toast.error(msg);
     } finally {
       setIsPunching(false);
     }

@@ -327,6 +327,7 @@ export interface EntregaGuardiaInput {
   ubicacion?: string;
   guardiaRelevoId?: string;
   guardiaRelevoNombre?: string;
+  sinRelevo?: boolean;
   observacionesEntrega?: string;
 }
 
@@ -419,16 +420,37 @@ export async function marcarEntradaSalidaEmpleadoAction(input?: string | Entrega
     const diffHoras = Math.max(0, Math.round((salidaMs - entradaMs) / (1000 * 60 * 60) * 10) / 10);
     const esGuardia24h = esSeguridad || diffHoras >= 12;
 
+    const esSinRelevo = Boolean(
+      payload.sinRelevo ||
+      payload.guardiaRelevoId === "SIN_RELEVO" ||
+      (!payload.guardiaRelevoId && !payload.guardiaRelevoNombre)
+    );
+
+    const idRelevoValido = !esSinRelevo && typeof payload.guardiaRelevoId === "string" && payload.guardiaRelevoId.trim().length > 0 && payload.guardiaRelevoId !== "SIN_RELEVO"
+      ? payload.guardiaRelevoId.trim()
+      : null;
+
+    const nombreRelevoValido = !esSinRelevo && typeof payload.guardiaRelevoNombre === "string" && payload.guardiaRelevoNombre.trim().length > 0 && payload.guardiaRelevoNombre !== "SIN_RELEVO"
+      ? payload.guardiaRelevoNombre.trim()
+      : null;
+
+    const tieneRelevoValido = Boolean(idRelevoValido || nombreRelevoValido);
+
     let notaFinal = asistenciaPendienteSalida.observaciones || "";
-    if (payload.guardiaRelevoNombre) {
+    if (tieneRelevoValido && nombreRelevoValido) {
       notaFinal = notaFinal
-        ? `${notaFinal} | Relevo: Entregado a ${payload.guardiaRelevoNombre}`
-        : `Relevo: Entregado a ${payload.guardiaRelevoNombre}`;
+        ? `${notaFinal} | Relevo: Entregado a ${nombreRelevoValido}`
+        : `Relevo: Entregado a ${nombreRelevoValido}`;
+    } else if (esSinRelevo && esGuardia24h) {
+      notaFinal = notaFinal
+        ? `${notaFinal} | Fin de turno: Sin relevo presencial`
+        : `Guardia finalizada sin relevo presencial (${diffHoras}h de servicio)`;
     }
-    if (payload.observacionesEntrega) {
+
+    if (payload.observacionesEntrega && payload.observacionesEntrega.trim()) {
       notaFinal = notaFinal
-        ? `${notaFinal} | Nota: ${payload.observacionesEntrega}`
-        : payload.observacionesEntrega;
+        ? `${notaFinal} | Nota: ${payload.observacionesEntrega.trim()}`
+        : payload.observacionesEntrega.trim();
     }
 
     const nombreVigilanteSaliente = `${empleado.nombre} ${empleado.apellido || ""}`.trim();
@@ -448,22 +470,23 @@ export async function marcarEntradaSalidaEmpleadoAction(input?: string | Entrega
       });
 
       // 2. Si hay un compañero relevo identificado: Iniciar automáticamente la guardia de B
-      if (payload.guardiaRelevoId || payload.guardiaRelevoNombre) {
-        // Buscar el empleado relevo (por ID o por nombre)
-        const empleadoRelevo = payload.guardiaRelevoId
+      if (tieneRelevoValido) {
+        const empleadoRelevo = idRelevoValido
           ? await tx.empleado.findUnique({
-              where: { id: payload.guardiaRelevoId },
+              where: { id: idRelevoValido },
               select: { id: true, nombre: true, cargo: true, propiedadId: true },
             })
-          : await tx.empleado.findFirst({
-              where: {
-                nombre: { startsWith: payload.guardiaRelevoNombre?.split(" ")[0] },
-                propiedadId: empleado.propiedadId,
-                cargo: CargoEmpleado.SEGURIDAD,
-                activo: true,
-              },
-              select: { id: true, nombre: true, cargo: true, propiedadId: true },
-            });
+          : (nombreRelevoValido
+              ? await tx.empleado.findFirst({
+                  where: {
+                    nombre: { startsWith: nombreRelevoValido.split(" ")[0] },
+                    propiedadId: empleado.propiedadId,
+                    cargo: CargoEmpleado.SEGURIDAD,
+                    activo: true,
+                  },
+                  select: { id: true, nombre: true, cargo: true, propiedadId: true },
+                })
+              : null);
 
         if (empleadoRelevo && empleadoRelevo.id !== empleado.id) {
           // Verificar si B ya tiene un turno abierto para no duplicar
@@ -496,9 +519,9 @@ export async function marcarEntradaSalidaEmpleadoAction(input?: string | Entrega
     revalidatePath("/admin/personal");
 
     const mensajeSalida = esGuardia24h
-      ? (payload.guardiaRelevoNombre
-          ? `Guardia de 24h entregada con éxito a ${payload.guardiaRelevoNombre} a las ${ahora.toLocaleTimeString("es-VE", { hour: "2-digit", minute: "2-digit" })}. ¡Excelente labor!`
-          : `Guardia de 24h concluida con éxito a las ${ahora.toLocaleTimeString("es-VE", { hour: "2-digit", minute: "2-digit" })} (${diffHoras}h). ¡Buen descanso!`)
+      ? (tieneRelevoValido && nombreRelevoValido
+          ? `Guardia de 24h entregada con éxito a ${nombreRelevoValido} a las ${ahora.toLocaleTimeString("es-VE", { hour: "2-digit", minute: "2-digit" })}. ¡Excelente labor!`
+          : `Guardia de 24h concluida con éxito sin relevo presencial a las ${ahora.toLocaleTimeString("es-VE", { hour: "2-digit", minute: "2-digit" })} (${diffHoras}h). ¡Buen descanso!`)
       : `Salida registrada con éxito a las ${ahora.toLocaleTimeString("es-VE", { hour: "2-digit", minute: "2-digit" })}. ¡Buen descanso!`;
 
     return {
