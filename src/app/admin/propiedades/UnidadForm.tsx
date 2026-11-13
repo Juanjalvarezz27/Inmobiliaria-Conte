@@ -23,7 +23,7 @@ import {
   eliminarImagenUploadThingAction,
 } from "@/lib/actions/unidades";
 import { EstadoUnidad, TipoPropiedad, TipoUnidad } from "@prisma/client";
-import { comprimirImagenes, formatearBytes } from "@/lib/file-compressor";
+import { comprimirImagenes, formatearBytes, PRESETS_COMPRESION } from "@/lib/file-compressor";
 
 interface PropiedadBasica {
   id: string;
@@ -130,7 +130,8 @@ export function UnidadForm({ propiedades, initialData, onSubmit, onCancel, isLoa
     setIsCompressing(true);
     let archivosASubir: File[];
     try {
-      const resultados = await comprimirImagenes(archivosSeleccionados);
+      // Preset optimizado para fotografías de locales e inmuebles
+      const resultados = await comprimirImagenes(archivosSeleccionados, PRESETS_COMPRESION.fotosInmueble);
       archivosASubir = resultados.map((r) => r.file);
 
       // Calcular ahorro total para el toast informativo

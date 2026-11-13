@@ -27,7 +27,7 @@ import { Modal } from "@/components/ui/modal";
 import { FormSectionHeader } from "@/components/ui/form-section-header";
 import { Select, type SelectOption } from "@/components/ui/select";
 import { useOperacionesUploadThing } from "@/lib/uploadthing";
-import { comprimirImagenes, formatearBytes } from "@/lib/file-compressor";
+import { comprimirImagenes, formatearBytes, PRESETS_COMPRESION } from "@/lib/file-compressor";
 import {
   crearTicketAdminAction,
   type TecnicoDisponible,
@@ -118,10 +118,8 @@ export function CrearTicketAdminModal({
 
     try {
       setIsCompressing(true);
-      const res = await comprimirImagenes(procesar, {
-        maxDimension: 1600,
-        calidad: 0.82,
-      });
+      // Preset de alta fidelidad optimizado para inspección de averías
+      const res = await comprimirImagenes(procesar, PRESETS_COMPRESION.fotosAveria);
       setIsCompressing(false);
 
       const pesoOriginal = res.reduce((s, r) => s + r.pesoOriginal, 0);

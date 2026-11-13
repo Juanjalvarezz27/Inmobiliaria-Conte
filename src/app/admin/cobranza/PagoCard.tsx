@@ -245,15 +245,15 @@ export function PagoCard({
               title={pago.luzSolvente ? "Electricidad (Corpoelec): Al día" : "Electricidad (Corpoelec): Pendiente"}
             >
               <Zap
-                className={`w-3.5 h-3.5 shrink-0 ${
-                  pago.luzSolvente ? "text-emerald-600 fill-emerald-500" : "text-amber-500 fill-amber-400"
+                className={`w-3.5 h-3.5 shrink-0 stroke-[2] ${
+                  pago.luzSolvente ? "text-emerald-600" : "text-amber-500"
                 }`}
               />
               <span>Luz</span>
               {pago.luzSolvente ? (
                 <Check className="w-3.5 h-3.5 text-emerald-600 stroke-[2.5] shrink-0" />
               ) : (
-                <Clock className="w-3.5 h-3.5 text-amber-600 stroke-[2.5] shrink-0" />
+                <Clock className="w-3.5 h-3.5 text-amber-600 stroke-[2] shrink-0" />
               )}
             </span>
 
@@ -267,15 +267,15 @@ export function PagoCard({
               title={pago.aguaSolvente ? "Agua Potable: Al día" : "Agua Potable: Pendiente"}
             >
               <Droplets
-                className={`w-3.5 h-3.5 shrink-0 ${
-                  pago.aguaSolvente ? "text-emerald-600 fill-emerald-500" : "text-blue-500 fill-blue-400"
+                className={`w-3.5 h-3.5 shrink-0 stroke-[2] ${
+                  pago.aguaSolvente ? "text-emerald-600" : "text-blue-500"
                 }`}
               />
               <span>Agua</span>
               {pago.aguaSolvente ? (
                 <Check className="w-3.5 h-3.5 text-emerald-600 stroke-[2.5] shrink-0" />
               ) : (
-                <Clock className="w-3.5 h-3.5 text-blue-600 stroke-[2.5] shrink-0" />
+                <Clock className="w-3.5 h-3.5 text-blue-600 stroke-[2] shrink-0" />
               )}
             </span>
           </button>

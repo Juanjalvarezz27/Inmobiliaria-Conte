@@ -26,7 +26,7 @@ import {
 } from "@/lib/types/seguridad";
 import { toast } from "sonner";
 import { useOperacionesUploadThing } from "@/lib/uploadthing";
-import { comprimirImagenes, formatearBytes } from "@/lib/file-compressor";
+import { comprimirImagenes, formatearBytes, PRESETS_COMPRESION } from "@/lib/file-compressor";
 import {
   registrarIncidenciaAction,
   actualizarIncidenciaAction,
@@ -158,10 +158,8 @@ export function ReportarNovedadModal({
     try {
       setIsCompressing(true);
       toast.info("Optimizando fotografías...");
-      const comprimidos = await comprimirImagenes(archivosAProcesar, {
-        maxDimension: 1400,
-        calidad: 0.78,
-      });
+      // Preset optimizado para novedades y minutas de seguridad
+      const comprimidos = await comprimirImagenes(archivosAProcesar, PRESETS_COMPRESION.fotosNovedad);
 
       const pesoOriginal = comprimidos.reduce((s, r) => s + r.pesoOriginal, 0);
       const pesoFinal = comprimidos.reduce((s, r) => s + r.pesoFinal, 0);

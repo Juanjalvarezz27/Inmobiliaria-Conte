@@ -4,7 +4,7 @@ import React, { useState, useRef, useEffect, useMemo } from "react";
 import { Modal, FormSectionHeader } from "@/components/ui";
 import { Select, type SelectOption } from "@/components/ui/select";
 import { useOperacionesUploadThing } from "@/lib/uploadthing";
-import { comprimirImagen, formatearBytes } from "@/lib/file-compressor";
+import { comprimirImagen, formatearBytes, PRESETS_COMPRESION } from "@/lib/file-compressor";
 import { toast } from "sonner";
 import { MetodoPago } from "@prisma/client";
 import { OPCIONES_METODO_PAGO } from "@/lib/constants/pagos";
@@ -210,11 +210,8 @@ export function ReportarPagoModal({
 
     setIsCompressing(true);
     try {
-      const res = await comprimirImagen(file, {
-        formatoSalida: "image/webp",
-        calidad: 0.8,
-        maxDimension: 1600,
-      });
+      // Preset de alta compresión y nitidez para comprobantes bancarios
+      const res = await comprimirImagen(file, PRESETS_COMPRESION.comprobantePago);
       setStatsCompresion({
         original: formatearBytes(res.pesoOriginal),
         final: formatearBytes(res.pesoFinal),

@@ -19,7 +19,7 @@ import { toast } from "sonner";
 import { MESES } from "@/lib/date-utils";
 import type { PagoItem } from "./types";
 import { useOperacionesUploadThing } from "@/lib/uploadthing";
-import { comprimirImagen, formatearBytes } from "@/lib/file-compressor";
+import { comprimirImagen, formatearBytes, PRESETS_COMPRESION } from "@/lib/file-compressor";
 import { actualizarSolvenciaServiciosAction } from "@/lib/actions/cobranza";
 
 interface ServiciosSolvenciaModalProps {
@@ -121,11 +121,8 @@ export function ServiciosSolvenciaModal({
     if (tipo === "luz") {
       setIsCompressingLuz(true);
       try {
-        const res = await comprimirImagen(file, {
-          formatoSalida: "image/webp",
-          calidad: 0.8,
-          maxDimension: 1600,
-        });
+        // Preset optimizado para recibos impresos de electricidad
+        const res = await comprimirImagen(file, PRESETS_COMPRESION.recibosServicios);
         setStatsLuz({
           original: formatearBytes(res.pesoOriginal),
           final: formatearBytes(res.pesoFinal),
@@ -143,11 +140,8 @@ export function ServiciosSolvenciaModal({
     } else {
       setIsCompressingAgua(true);
       try {
-        const res = await comprimirImagen(file, {
-          formatoSalida: "image/webp",
-          calidad: 0.8,
-          maxDimension: 1600,
-        });
+        // Preset optimizado para facturas/recibos de agua potable
+        const res = await comprimirImagen(file, PRESETS_COMPRESION.recibosServicios);
         setStatsAgua({
           original: formatearBytes(res.pesoOriginal),
           final: formatearBytes(res.pesoFinal),

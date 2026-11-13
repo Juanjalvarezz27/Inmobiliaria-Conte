@@ -970,15 +970,15 @@ export function InquilinoPagosClient({
                                     title={pago.luzSolvente ? "Luz: Solvente / Al día" : "Luz: Pendiente"}
                                   >
                                     <Zap
-                                      className={`w-3.5 h-3.5 shrink-0 ${
-                                        pago.luzSolvente ? "text-emerald-600 fill-emerald-500" : "text-amber-500 fill-amber-400"
+                                      className={`w-3.5 h-3.5 shrink-0 stroke-[2] ${
+                                        pago.luzSolvente ? "text-emerald-600" : "text-amber-500"
                                       }`}
                                     />
                                     <span>Luz</span>
                                     {pago.luzSolvente ? (
                                       <Check className="w-3.5 h-3.5 text-emerald-600 stroke-[2.5] shrink-0" />
                                     ) : (
-                                      <Clock className="w-3.5 h-3.5 text-amber-600 stroke-[2.5] shrink-0" />
+                                      <Clock className="w-3.5 h-3.5 text-amber-600 stroke-[2] shrink-0" />
                                     )}
                                   </span>
 
@@ -995,15 +995,15 @@ export function InquilinoPagosClient({
                                     title={pago.aguaSolvente ? "Agua: Solvente / Al día" : "Agua: Pendiente"}
                                   >
                                     <Droplets
-                                      className={`w-3.5 h-3.5 shrink-0 ${
-                                        pago.aguaSolvente ? "text-emerald-600 fill-emerald-500" : "text-sky-500 fill-sky-400"
+                                      className={`w-3.5 h-3.5 shrink-0 stroke-[2] ${
+                                        pago.aguaSolvente ? "text-emerald-600" : "text-sky-500"
                                       }`}
                                     />
                                     <span>Agua</span>
                                     {pago.aguaSolvente ? (
                                       <Check className="w-3.5 h-3.5 text-emerald-600 stroke-[2.5] shrink-0" />
                                     ) : (
-                                      <Clock className="w-3.5 h-3.5 text-sky-600 stroke-[2.5] shrink-0" />
+                                      <Clock className="w-3.5 h-3.5 text-sky-600 stroke-[2] shrink-0" />
                                     )}
                                   </span>
 

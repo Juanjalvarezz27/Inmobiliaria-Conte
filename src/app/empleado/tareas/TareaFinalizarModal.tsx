@@ -16,7 +16,7 @@ import { toast } from "sonner";
 import { Modal } from "@/components/ui/modal";
 import { FormSectionHeader } from "@/components/ui/form-section-header";
 import { useOperacionesUploadThing } from "@/lib/uploadthing";
-import { comprimirImagenes, formatearBytes } from "@/lib/file-compressor";
+import { comprimirImagenes, formatearBytes, PRESETS_COMPRESION } from "@/lib/file-compressor";
 import { completarTareaEmpleadoAction, type PortalEmpleadoData } from "@/lib/actions/personal-portal";
 import { EstadoTarea } from "@prisma/client";
 import { formatearFechaNumerica } from "@/lib/date-utils";
@@ -96,7 +96,8 @@ export function TareaFinalizarModal({
     setIsCompressing(true);
     let archivosASubir: File[];
     try {
-      const resultados = await comprimirImagenes(seleccionadas);
+      // Preset de evidencias para tareas finalizadas
+      const resultados = await comprimirImagenes(seleccionadas, PRESETS_COMPRESION.fotosAveria);
       archivosASubir = resultados.map((r) => r.file);
       const pesoOriginal = resultados.reduce((s, r) => s + r.pesoOriginal, 0);
       const pesoFinal = resultados.reduce((s, r) => s + r.pesoFinal, 0);

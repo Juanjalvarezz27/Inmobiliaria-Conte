@@ -25,7 +25,7 @@ import { Select } from "@/components/ui/select";
 import { EstadoTarea } from "@prisma/client";
 import { useOperacionesUploadThing } from "@/lib/uploadthing";
 import { eliminarImagenUploadThingAction } from "@/lib/actions/unidades";
-import { comprimirImagenes, formatearBytes } from "@/lib/file-compressor";
+import { comprimirImagenes, formatearBytes, PRESETS_COMPRESION } from "@/lib/file-compressor";
 import {
   ESTADO_TAREA_CONFIG,
   PRIORIDAD_TAREA_CONFIG,
@@ -164,7 +164,8 @@ export function TareaDetalleModal({
     setIsCompressing(true);
     let archivosASubir: File[];
     try {
-      const resultados = await comprimirImagenes(archivosSeleccionados);
+      // Preset de evidencias para tareas y mantenimientos
+      const resultados = await comprimirImagenes(archivosSeleccionados, PRESETS_COMPRESION.fotosAveria);
       archivosASubir = resultados.map((r) => r.file);
 
       const pesoOriginal = resultados.reduce((s, r) => s + r.pesoOriginal, 0);

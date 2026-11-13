@@ -14,7 +14,7 @@ import { toast } from "sonner";
 import { Modal } from "@/components/ui/modal";
 import { FormSectionHeader } from "@/components/ui/form-section-header";
 import { useOperacionesUploadThing } from "@/lib/uploadthing";
-import { comprimirImagenes, formatearBytes } from "@/lib/file-compressor";
+import { comprimirImagenes, formatearBytes, PRESETS_COMPRESION } from "@/lib/file-compressor";
 import {
   resolverTicketAction,
   type TicketItem,
@@ -80,10 +80,8 @@ export function FiniquitarTicketModal({
 
     try {
       setIsCompressing(true);
-      const res = await comprimirImagenes(procesar, {
-        maxDimension: 1600,
-        calidad: 0.82,
-      });
+      // Preset de averías para comprobación fotográfica de finiquito
+      const res = await comprimirImagenes(procesar, PRESETS_COMPRESION.fotosAveria);
       setIsCompressing(false);
 
       const pesoOriginal = res.reduce((s, r) => s + r.pesoOriginal, 0);

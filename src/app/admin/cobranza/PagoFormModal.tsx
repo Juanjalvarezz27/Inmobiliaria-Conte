@@ -23,7 +23,7 @@ import { Select } from "@/components/ui/select";
 import { useOperacionesUploadThing } from "@/lib/uploadthing";
 import { toast } from "sonner";
 import { MetodoPago, EstadoPago } from "@prisma/client";
-import { comprimirImagen, formatearBytes } from "@/lib/file-compressor";
+import { comprimirImagen, formatearBytes, PRESETS_COMPRESION } from "@/lib/file-compressor";
 import type { PagoItem } from "./types";
 import { rechazarComprobanteReportadoAction, type RegistrarPagoInput } from "@/lib/actions/cobranza";
 import { OPCIONES_METODO_PAGO } from "@/lib/constants/pagos";
@@ -149,7 +149,8 @@ function PagoFormContent({
     setIsCompressing(true);
 
     try {
-      const res = await comprimirImagen(file);
+      // Optimización con preset específico para comprobantes bancarios
+      const res = await comprimirImagen(file, PRESETS_COMPRESION.comprobantePago);
       setStatsCompresion({
         original: formatearBytes(res.pesoOriginal),
         final: formatearBytes(res.pesoFinal),
