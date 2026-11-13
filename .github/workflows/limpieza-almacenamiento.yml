@@ -13,6 +13,12 @@ jobs:
     steps:
       - name: Invocar endpoint seguro de limpieza
         run: |
+          if [ -z "${{ secrets.APP_URL }}" ]; then
+            echo "Aviso: La variable secreta APP_URL aún no está configurada (sistema en fase de desarrollo / pre-despliegue)."
+            echo "Omitiendo ejecución sin fallar. Se activará automáticamente cuando agregues APP_URL tras el despliegue."
+            exit 0
+          fi
+
           echo "Iniciando solicitud de depuración de almacenamiento..."
           HTTP_STATUS=$(curl -s -o respuesta.json -w "%{http_code}" -X POST "${{ secrets.APP_URL }}/api/cron/limpieza-almacenamiento" \
             -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
