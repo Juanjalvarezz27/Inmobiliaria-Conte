@@ -102,6 +102,12 @@ export function EmpleadoDashboardClient({ initialData }: Props) {
     } catch (error: unknown) {
       console.error("Error al marcar asistencia:", error);
       const msg = error instanceof Error ? error.message : "Error de conexión al marcar asistencia.";
+      // Recuperación automática ante desincronización de Server Action por recarga de código en desarrollo
+      if (msg.includes("unexpected response") || msg.includes("Failed to find Server Action")) {
+        toast.error("La conexión con el servidor se actualizó. Recargando para sincronizar...");
+        setTimeout(() => window.location.reload(), 1200);
+        return;
+      }
       toast.error(msg);
     } finally {
       setIsPunching(false);
