@@ -100,15 +100,15 @@ export const TEMA_ESTADO_CARD: Record<
   }
 > = {
   PENDIENTE: {
-    glowBg: "bg-amber-500/28",
-    glowBorder: "border-amber-400/40 bg-amber-500/10",
-    glowGrad: "from-amber-500/45",
-    cardBorder: "border-slate-200/90 border-b-[3px] border-b-slate-300/90",
-    cardBg: "bg-gradient-to-b from-white via-white to-slate-50/60",
-    codeBadge: "bg-slate-50 text-slate-700 border-slate-200 font-bold",
-    estadoBadge: "bg-amber-50 text-amber-800 border-amber-200 font-bold",
+    glowBg: "bg-amber-500/35",
+    glowBorder: "border-amber-400/50 bg-amber-500/15",
+    glowGrad: "from-amber-500/60",
+    cardBorder: "border-amber-300/90 border-b-[3px] border-b-amber-500/90 ring-2 ring-amber-500/15",
+    cardBg: "bg-gradient-to-b from-amber-50/20 via-white to-slate-50/60",
+    codeBadge: "bg-amber-50/80 text-amber-900 border-amber-200 font-bold",
+    estadoBadge: "bg-amber-100 text-amber-900 border-amber-300 font-black shadow-2xs",
     cardShadow:
-      "shadow-[0_4px_20px_-2px_rgba(28,37,57,0.07),0_2px_6px_-1px_rgba(28,37,57,0.04)] hover:shadow-[0_16px_36px_-4px_rgba(28,37,57,0.13),0_6px_12px_-2px_rgba(28,37,57,0.06)]",
+      "shadow-[0_4px_22px_-2px_rgba(245,158,11,0.18),0_2px_6px_-1px_rgba(28,37,57,0.04)] hover:shadow-[0_16px_36px_-4px_rgba(245,158,11,0.25),0_6px_12px_-2px_rgba(28,37,57,0.06)]",
   },
   EN_PROCESO: {
     glowBg: "bg-blue-500/26",

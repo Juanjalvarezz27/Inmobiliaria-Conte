@@ -535,12 +535,12 @@ export function AdminMantenimientoClient({
                           <CheckCircle2 className="w-3.5 h-3.5 text-[#175E38] stroke-[2.5]" />
                         )}
                         {ticket.estado === EstadoTicket.PENDIENTE && (
-                          <Clock className="w-3.5 h-3.5 text-amber-800" />
+                          <span className="w-2 h-2 rounded-full bg-amber-600 animate-ping shrink-0" />
                         )}
                         {ticket.estado === EstadoTicket.EN_PROCESO && (
                           <Wrench className="w-3.5 h-3.5 text-blue-800" />
                         )}
-                        <span>{estCfg.label}</span>
+                        <span>{ticket.estado === EstadoTicket.PENDIENTE ? "Sin Asignar" : estCfg.label}</span>
                       </span>
                     </div>
 
@@ -642,11 +642,15 @@ export function AdminMantenimientoClient({
                       <button
                         type="button"
                         onClick={() => abrirAsignar(ticket)}
-                        className="w-full h-11 px-2.5 rounded-xl text-xs font-bold bg-[#175E38] text-white hover:bg-[#124b2d] transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-[0_2px_6px_rgba(23,94,56,0.3)] border-b-[3px] border-b-[#0e3a23] active:translate-y-0.5"
+                        className={`w-full h-11 px-2.5 rounded-xl text-xs font-bold text-white transition-all flex items-center justify-center gap-1.5 cursor-pointer active:translate-y-0.5 ${
+                          !ticket.empleado
+                            ? "bg-amber-600 hover:bg-amber-700 shadow-[0_4px_14px_rgba(217,119,6,0.38)] border-b-[3px] border-b-amber-800 ring-2 ring-amber-400/40"
+                            : "bg-[#175E38] text-white hover:bg-[#124b2d] shadow-[0_2px_6px_rgba(23,94,56,0.3)] border-b-[3px] border-b-[#0e3a23]"
+                        }`}
                       >
                         <UserCheck className="w-3.5 h-3.5 shrink-0" />
                         <span className="truncate">
-                          {ticket.empleado ? "Reasignar" : "Asignar"}
+                          {ticket.empleado ? "Reasignar" : "Asignar Técnico"}
                         </span>
                       </button>
                     ) : (

@@ -119,7 +119,7 @@ export function PagoCard({
       key={pago.id}
       className={`group/pagocard relative overflow-hidden bg-gradient-to-b from-white via-white to-slate-50/70 rounded-2xl border border-b-[3px] shadow-[0_4px_18px_-2px_rgba(28,37,57,0.07),0_2px_6px_-1px_rgba(28,37,57,0.04)] hover:shadow-[0_14px_30px_-4px_rgba(28,37,57,0.12),0_4px_10px_-2px_rgba(28,37,57,0.06)] hover:-translate-y-1.5 transition-all duration-300 flex flex-col justify-between ${
         esPorConfirmar
-          ? "border-blue-300/90 border-b-blue-400/90 ring-2 ring-blue-500/10"
+          ? "border-blue-400 border-b-[3px] border-b-blue-600 ring-2 ring-blue-500/20 shadow-[0_6px_22px_-2px_rgba(37,99,235,0.18)]"
           : "border-slate-200/90 border-b-slate-300/90"
       }`}
     >
@@ -136,8 +136,8 @@ export function PagoCard({
         <div className="flex items-center justify-between gap-1.5 flex-wrap">
           {/* Badge de Estado */}
           {esPorConfirmar ? (
-            <span className={`inline-flex items-center gap-1.5 ${compact ? "px-2 py-0.5 text-[11px]" : "px-3 py-1 text-xs"} font-black bg-blue-50 text-blue-700 border border-blue-200/90 shadow-2xs shrink-0 rounded-lg`}>
-              <span className="w-1.5 h-1.5 rounded-full bg-blue-600 animate-pulse" />
+            <span className={`inline-flex items-center gap-1.5 ${compact ? "px-2 py-0.5 text-[11px]" : "px-3 py-1 text-xs"} font-black bg-blue-100/90 text-blue-900 border border-blue-300 shadow-2xs shrink-0 rounded-lg ring-2 ring-blue-500/20`}>
+              <span className="w-2 h-2 rounded-full bg-blue-600 animate-ping" />
               <span>Por Confirmar</span>
             </span>
           ) : (
@@ -457,7 +457,7 @@ export function PagoCard({
               pago.estado === EstadoPago.PAGADO
                 ? "bg-indigo-600 hover:bg-indigo-700 border-b-[3px] border-b-indigo-800 shadow-[0_2px_8px_rgba(79,70,229,0.35)]"
                 : esPorConfirmar
-                ? "bg-blue-600 hover:bg-blue-700 border-b-[3px] border-b-blue-800 shadow-[0_2px_8px_rgba(37,99,235,0.35)]"
+                ? "bg-blue-600 hover:bg-blue-700 border-b-[3px] border-b-blue-900 shadow-[0_4px_14px_rgba(37,99,235,0.45)] ring-2 ring-blue-400/40"
                 : "bg-[#175E38] hover:bg-[#124b2d] border-b-[3px] border-b-[#0e3a23] shadow-[0_2px_6px_rgba(23,94,56,0.3)]"
             }`}
           >
@@ -477,7 +477,7 @@ export function PagoCard({
             ) : esPorConfirmar ? (
               <>
                 <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
-                <span className="truncate">Confirmar Pago</span>
+                <span className="truncate">Confirmar</span>
               </>
             ) : (
               <>
