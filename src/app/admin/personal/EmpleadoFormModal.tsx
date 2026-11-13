@@ -4,7 +4,6 @@ import { useState, useRef, useEffect } from "react";
 import { User, KeyRound, Loader2, Building2, FileText, Upload, Trash2, Eye, RefreshCw, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
 import { Modal } from "@/components/ui/modal";
-import { FormSectionHeader } from "@/components/ui/form-section-header";
 import { Select } from "@/components/ui/select";
 import { PhoneInput } from "@/components/ui/phone-input";
 import { ImageViewerModal } from "@/components/ui/image-viewer-modal";
@@ -229,12 +228,15 @@ export function EmpleadoFormModal({
       <form onSubmit={handleSubmit} className="space-y-6">
         {/* Sección 1: Datos Personales */}
         <div className="space-y-4">
-          <FormSectionHeader step={1} title="Datos Personales y Contacto" />
+          <div>
+            <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-400">Paso 1</p>
+            <h4 className="text-sm font-bold text-slate-800 mt-0.5">Datos Personales y Contacto</h4>
+          </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
             {/* Nombre */}
             <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1.5">
+              <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1.5">
                 Nombres <span className="text-rose-500">*</span>
               </label>
               <input
@@ -249,7 +251,7 @@ export function EmpleadoFormModal({
 
             {/* Apellido */}
             <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1.5">
+              <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1.5">
                 Apellidos
               </label>
               <input
@@ -263,7 +265,7 @@ export function EmpleadoFormModal({
 
             {/* Cédula */}
             <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1.5">
+              <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1.5">
                 Cédula de Identidad <span className="text-rose-500">*</span>
               </label>
               <input
@@ -278,7 +280,7 @@ export function EmpleadoFormModal({
 
             {/* Teléfono */}
             <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1.5">
+              <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1.5">
                 Teléfono de Contacto (WhatsApp) <span className="text-rose-500">*</span>
               </label>
               <PhoneInput
@@ -290,7 +292,7 @@ export function EmpleadoFormModal({
 
             {/* Correo Electrónico */}
             <div className="sm:col-span-2">
-              <label className="block text-xs font-bold text-slate-700 mb-1.5">
+              <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1.5">
                 Correo Electrónico (Acceso al Portal Móvil)
               </label>
               <input
@@ -309,12 +311,15 @@ export function EmpleadoFormModal({
 
         {/* Sección 2: Ficha Laboral */}
         <div className="space-y-4">
-          <FormSectionHeader step={2} title="Ficha Laboral y Cargo" />
+          <div>
+            <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-400">Paso 2</p>
+            <h4 className="text-sm font-bold text-slate-800 mt-0.5">Ficha Laboral y Cargo</h4>
+          </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
             {/* Propiedad Asignada a ancho completo */}
             <div className="sm:col-span-2">
-              <label className="block text-xs font-bold text-slate-700 mb-1.5">
+              <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1.5">
                 Propiedad Asignada
               </label>
               <Select
@@ -330,7 +335,7 @@ export function EmpleadoFormModal({
 
             {/* Cargo */}
             <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1.5">
+              <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1.5">
                 Cargo Operativo <span className="text-rose-500">*</span>
               </label>
               <Select
@@ -343,7 +348,7 @@ export function EmpleadoFormModal({
 
             {/* Fecha de Ingreso */}
             <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1.5">
+              <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1.5">
                 Fecha de Ingreso
               </label>
               <input
@@ -357,7 +362,7 @@ export function EmpleadoFormModal({
             {/* Campo condicional para especificar cargo cuando es OTRO */}
             {cargo === CargoEmpleado.OTRO && (
               <div className="sm:col-span-2 animate-in fade-in-0 duration-200">
-                <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1.5">
                   Especificar Cargo <span className="text-rose-500">*</span>
                 </label>
                 <input
@@ -372,7 +377,7 @@ export function EmpleadoFormModal({
 
             {/* Salario u Honorarios (Opcional) */}
             <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1.5">
+              <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1.5">
                 Salario / Honorarios Mensuales ($ USD)
               </label>
               <div className="relative">
@@ -393,7 +398,7 @@ export function EmpleadoFormModal({
 
             {/* Dirección de habitación */}
             <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1.5">
+              <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1.5">
                 Dirección de Habitación
               </label>
               <input
@@ -407,7 +412,7 @@ export function EmpleadoFormModal({
 
             {/* Notas / Observaciones */}
             <div className="sm:col-span-2">
-              <label className="block text-xs font-bold text-slate-700 mb-1.5">
+              <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1.5">
                 Observaciones o Especialidad
               </label>
               <textarea
@@ -423,7 +428,10 @@ export function EmpleadoFormModal({
 
         {/* Sección 3: Acceso al Sistema */}
         <div className="space-y-4">
-          <FormSectionHeader step={3} title="Credenciales de Acceso al Portal Móvil" />
+          <div>
+            <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-400">Paso 3</p>
+            <h4 className="text-sm font-bold text-slate-800 mt-0.5">Credenciales de Acceso al Portal Móvil</h4>
+          </div>
 
           <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/90 space-y-3">
             {/* Estado de la cuenta */}
@@ -447,7 +455,7 @@ export function EmpleadoFormModal({
             {/* Input de contraseña */}
             <div className="pt-3 border-t border-slate-200/80 space-y-2">
               <div className="flex items-center justify-between">
-                <label className="block text-xs font-bold text-slate-700">
+                <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500">
                   {empleadoAEditar?.usuarioId
                     ? "Nueva Contraseña (Opcional)"
                     : "Contraseña Inicial de Acceso"}
@@ -485,7 +493,10 @@ export function EmpleadoFormModal({
 
         {/* Sección 4: Expediente Digital y Contrato Laboral (Opcional) */}
         <div className="space-y-4">
-          <FormSectionHeader step={4} title="Expediente Digital y Contrato Laboral (Opcional)" />
+          <div>
+            <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-400">Paso 4</p>
+            <h4 className="text-sm font-bold text-slate-800 mt-0.5">Expediente Digital y Contrato Laboral (Opcional)</h4>
+          </div>
 
           <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/90 space-y-3">
             <div className="flex items-center justify-between">
@@ -634,55 +645,29 @@ export function EmpleadoFormModal({
         </div>
 
         {/* Botones de Acción Inferiores */}
-        <div className="pt-2">
-          {/* Móvil: Grid 50/50 */}
-          <div className="grid grid-cols-2 gap-2.5 w-full h-11 sm:hidden">
-            <button
-              type="button"
-              onClick={onClose}
-              disabled={isLoading || isCompressing || isSubiendoContrato}
-              className="w-full h-11 rounded-xl text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 transition-all flex items-center justify-center cursor-pointer"
-            >
-              Cancelar
-            </button>
-            <button
-              type="submit"
-              disabled={isLoading || isCompressing || isSubiendoContrato}
-              className="w-full h-11 rounded-xl text-xs font-bold text-white bg-gradient-to-r from-[#175E38] to-[#124b2d] border-b-[3px] border-b-[#0e3a23] active:translate-y-0.5 transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-[0_2px_8px_rgba(23,94,56,0.25)]"
-            >
-              {isLoading || isCompressing || isSubiendoContrato ? (
+        <div className="pt-4 border-t border-slate-100 flex flex-col-reverse sm:flex-row sm:items-center sm:justify-end gap-2.5">
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={isLoading || isCompressing || isSubiendoContrato}
+            className="w-full sm:w-auto sm:min-w-[120px] px-4 py-2.5 rounded-xl border border-slate-200 text-xs sm:text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            Cancelar
+          </button>
+          <button
+            type="submit"
+            disabled={isLoading || isCompressing || isSubiendoContrato}
+            className="w-full sm:w-auto sm:min-w-[180px] inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#175E38] to-[#124b2d] text-white text-xs sm:text-sm font-bold shadow-[0_2px_8px_rgba(23,94,56,0.3)] border-b-[3px] border-b-[#0e3a23] hover:from-[#145231] hover:to-[#0f3d25] active:translate-y-0.5 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {isLoading || isCompressing || isSubiendoContrato ? (
+              <>
                 <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <span>{empleadoAEditar ? "Guardar" : "Registrar"}</span>
-              )}
-            </button>
-          </div>
-
-          {/* Desktop: Centrado con tamaños mínimos */}
-          <div className="hidden sm:flex sm:items-center sm:justify-center gap-3">
-            <button
-              type="button"
-              onClick={onClose}
-              disabled={isLoading || isCompressing || isSubiendoContrato}
-              className="min-w-[130px] h-11 px-5 rounded-xl text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 transition-all cursor-pointer"
-            >
-              Cancelar
-            </button>
-            <button
-              type="submit"
-              disabled={isLoading || isCompressing || isSubiendoContrato}
-              className="min-w-[180px] h-11 px-6 rounded-xl text-xs font-bold text-white bg-gradient-to-r from-[#175E38] to-[#124b2d] border-b-[3px] border-b-[#0e3a23] active:translate-y-0.5 transition-all flex items-center justify-center gap-2 cursor-pointer shadow-[0_2px_8px_rgba(23,94,56,0.25)]"
-            >
-              {isLoading || isCompressing || isSubiendoContrato ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  <span>Procesando...</span>
-                </>
-              ) : (
-                <span>{empleadoAEditar ? "Guardar Cambios" : "Completar Registro"}</span>
-              )}
-            </button>
-          </div>
+                <span>Procesando...</span>
+              </>
+            ) : (
+              <span>{empleadoAEditar ? "Guardar Cambios" : "Completar Registro"}</span>
+            )}
+          </button>
         </div>
       </form>
 

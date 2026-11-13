@@ -16,7 +16,6 @@ import {
   ShieldCheck,
 } from "lucide-react";
 import { Modal } from "@/components/ui/modal";
-import { FormSectionHeader } from "@/components/ui/form-section-header";
 import { Select } from "@/components/ui/select";
 import { EspacioSelectorMultiNivel } from "./EspacioSelectorMultiNivel";
 import { useOperacionesUploadThing } from "@/lib/uploadthing";
@@ -384,12 +383,15 @@ export function ContratoFormModal({
       <form onSubmit={handleSubmit} className="space-y-5">
         {/* Paso 1: Partes del Contrato */}
         <div className="space-y-3.5">
-          <FormSectionHeader step={1} title="Partes y Espacio Inmobiliario" />
+          <div>
+            <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-400">Paso 1</p>
+            <h4 className="text-sm font-bold text-slate-800 mt-0.5">Partes y Espacio Inmobiliario</h4>
+          </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
             {/* Selector de Inquilino */}
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+              <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1.5">
                 Inquilino / Arrendatario <span className="text-[#CC1A22]">*</span>
               </label>
               {isEditing ? (
@@ -425,7 +427,7 @@ export function ContratoFormModal({
 
             {/* Selector de Espacio Disponible */}
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+              <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1.5">
                 Espacio en Alquiler <span className="text-[#CC1A22]">*</span>
               </label>
               {isEditing ? (
@@ -433,7 +435,7 @@ export function ContratoFormModal({
                   {initialData.unidad.codigo} · {initialData.unidad.propiedad.nombre}
                 </div>
               ) : unidadesDisponibles.length === 0 ? (
-                <div className="px-3 py-2 text-xs text-amber-800 bg-amber-50 rounded-xl border border-amber-200">
+                <div className="p-3 bg-amber-50/50 border border-amber-200/70 rounded-xl text-xs text-amber-800">
                   ⚠️ No hay espacios disponibles. Registra o libera un espacio primero.
                 </div>
               ) : (
@@ -445,7 +447,7 @@ export function ContratoFormModal({
                     placeholder="Selecciona un espacio libre..."
                   />
                   {unidadSeleccionada && unidadSeleccionada.estado !== EstadoUnidad.DISPONIBLE && (
-                    <div className="p-2.5 bg-amber-50 border border-amber-200/90 rounded-xl text-xs text-amber-900 flex items-start gap-2 shadow-2xs">
+                    <div className="p-3.5 bg-amber-50/50 border border-amber-200/70 rounded-xl text-xs text-amber-900 flex items-start gap-2">
                       <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
                       <span>
                         Este espacio figura como <strong>{getEstadoTexto(unidadSeleccionada.estado)}</strong>. Al guardar el contrato, su estado pasará automáticamente a <strong>Ocupado</strong>.
@@ -459,14 +461,17 @@ export function ContratoFormModal({
         </div>
 
         {/* Paso 2: Vigencia y Condiciones Económicas */}
-        <div className="space-y-4">
-          <FormSectionHeader step={2} title="Vigencia y Condiciones Económicas" />
+        <div className="border-t border-slate-100 pt-5 space-y-4">
+          <div>
+            <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-400">Paso 2</p>
+            <h4 className="text-sm font-bold text-slate-800 mt-0.5">Vigencia y Condiciones Económicas</h4>
+          </div>
 
           {/* Fila 1: Período del Contrato (2 columnas simétricas 50 / 50) */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
             {/* Fecha de Inicio */}
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+              <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1.5">
                 Fecha de Inicio <span className="text-[#CC1A22]">*</span>
               </label>
               <div className="relative">
@@ -483,7 +488,7 @@ export function ContratoFormModal({
 
             {/* Fecha de Fin */}
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+              <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1.5">
                 Fecha de Fin <span className="text-[#CC1A22]">*</span>
               </label>
               <div className="relative">
@@ -501,7 +506,7 @@ export function ContratoFormModal({
 
           {/* Panel Contextual para Contratos Preexistentes con Antigüedad */}
           {esContratoHistorico && !isEditing && (
-            <div className="bg-amber-50/70 border border-amber-200/90 rounded-2xl p-4 sm:p-5 transition-all shadow-xs">
+            <div className="bg-amber-50/50 border border-amber-200/70 rounded-xl p-3.5 transition-all">
               <div className="flex items-center gap-2.5 mb-2">
                 <div className="w-7 h-7 rounded-md bg-amber-100 text-amber-700 flex items-center justify-center shrink-0 border border-amber-200/60">
                   <AlertTriangle className="w-3.5 h-3.5" />
@@ -539,50 +544,11 @@ export function ContratoFormModal({
             </div>
           )}
 
-            <div className="bg-amber-50/70 border border-amber-200/90 rounded-2xl p-4 sm:p-4.5 transition-all shadow-xs">
-              <div className="flex items-center gap-2.5">
-                <div className="w-7 h-7 rounded-lg bg-amber-100 text-amber-700 flex items-center justify-center shrink-0 border border-amber-200/60">
-                  <AlertTriangle className="w-3.5 h-3.5" />
-                </div>
-                <div>
-                  <h4 className="font-bold text-xs sm:text-sm text-amber-950 leading-tight">
-                    Inquilino con Antigüedad (Contrato Preexistente)
-                  </h4>
-                  <p className="text-[11px] text-amber-800/90 mt-0.5 leading-snug">
-                    Se respetará su antigüedad legal, pero solo se generarán cobros a partir de la fecha de corte.
-                  </p>
-                </div>
-              </div>
-
-              <div className="mt-3 pt-3 border-t border-amber-200/70 grid grid-cols-1 sm:grid-cols-12 gap-3 items-center">
-                <div className="sm:col-span-7">
-                  <label className="block text-xs font-bold text-amber-950">
-                    Fecha de Inicio de Facturación en Sistema (Corte)
-                  </label>
-                  <p className="text-[11px] text-amber-800/80 mt-0.5 leading-tight">
-                    Por defecto: mes actual. Los meses anteriores se consideran solventes sin deuda.
-                  </p>
-                </div>
-                <div className="sm:col-span-5 relative">
-                  <Calendar className="w-4 h-4 text-amber-600 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-                  <input
-                    type="date"
-                    value={fechaInicioCobranza}
-                    min={fechaInicio}
-                    max={fechaFin}
-                    onChange={(e) => setFechaInicioCobranza(e.target.value)}
-                    className="w-full pl-9 pr-3 h-10 text-xs sm:text-sm font-semibold border border-amber-300 rounded-xl bg-white text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-600 transition-all shadow-2xs"
-                  />
-                </div>
-              </div>
-            </div>
-          )}
-
           {/* Fila 2: Condiciones Económicas (3 columnas simétricas y limpias) */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
             {/* Canon (USD) */}
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+              <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1.5">
                 Canon (USD) <span className="text-[#CC1A22]">*</span>
               </label>
               <div className="relative">
@@ -616,7 +582,7 @@ export function ContratoFormModal({
 
             {/* Día de Cobro del Mes (1 a 31) con Calendario */}
             <div ref={calendarioRef} className="relative">
-              <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+              <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1.5">
                 Día de Cobro del Mes <span className="text-[#CC1A22]">*</span>
               </label>
               <button
@@ -687,7 +653,7 @@ export function ContratoFormModal({
 
             {/* Depósito en Garantía (Opcional) */}
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+              <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1.5">
                 Depósito en Garantía (USD)
               </label>
               <div className="relative">
@@ -755,7 +721,7 @@ export function ContratoFormModal({
             (parseFloat(montoAlquiler) !== initialData.montoAlquiler && !isNaN(parseFloat(montoAlquiler))) ||
             (parseInt(diaCobro, 10) !== initialData.diaCobro && !isNaN(parseInt(diaCobro, 10)))
           ) && (
-            <div className="p-3.5 bg-emerald-50/90 border border-emerald-200/90 rounded-2xl space-y-1.5 text-xs text-emerald-950 shadow-2xs animate-in fade-in-50 duration-200">
+            <div className="p-3.5 bg-emerald-50/50 border border-emerald-200/70 rounded-xl space-y-1.5 text-xs text-emerald-950 shadow-2xs animate-in fade-in-50 duration-200">
               <div className="flex items-center gap-1.5 font-bold text-emerald-900">
                 <ShieldCheck className="w-4 h-4 text-[#175E38] shrink-0" />
                 <span>Preservación Histórica de Pagos Garantizada</span>
@@ -768,12 +734,15 @@ export function ContratoFormModal({
         </div>
 
         {/* Paso 3: Documento Firmado y Observaciones */}
-        <div className="space-y-3.5">
-          <FormSectionHeader step={3} title="Documento PDF Firmado y Cláusulas" />
+        <div className="border-t border-slate-100 pt-5 space-y-3.5">
+          <div>
+            <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-400">Paso 3</p>
+            <h4 className="text-sm font-bold text-slate-800 mt-0.5">Documento PDF Firmado y Cláusulas</h4>
+          </div>
 
           {/* Subida o visor de PDF firmado */}
           <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+            <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1.5">
               Copia Digital del Contrato Firmado (PDF, máx. 4 MB)
             </label>
 
@@ -958,7 +927,7 @@ export function ContratoFormModal({
 
           {/* Observaciones y Cláusulas Especiales */}
           <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+            <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1.5">
               Observaciones o Cláusulas Especiales
             </label>
             <textarea
@@ -972,19 +941,19 @@ export function ContratoFormModal({
         </div>
 
         {/* Botones de Acción */}
-        <div className="pt-3 border-t border-slate-100 flex flex-col-reverse sm:flex-row sm:items-center sm:justify-end gap-2.5">
+        <div className="pt-4 border-t border-slate-100 flex flex-col-reverse sm:flex-row sm:items-center sm:justify-end gap-2.5">
           <button
             type="button"
             onClick={onClose}
             disabled={isLoading}
-            className="w-full sm:w-auto min-w-[120px] px-4 py-2.5 rounded-xl border border-slate-200 text-xs sm:text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-colors cursor-pointer"
+            className="w-full sm:w-auto sm:min-w-[120px] px-4 py-2.5 rounded-xl border border-slate-200 text-xs sm:text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-colors cursor-pointer"
           >
             Cancelar
           </button>
           <button
             type="submit"
             disabled={isLoading || isUploading || isCompressing || (!initialData && unidadesDisponibles.length === 0)}
-            className="w-full sm:w-auto min-w-[170px] inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#175E38] to-[#124b2d] text-white text-xs sm:text-sm font-bold shadow-[0_2px_8px_rgba(23,94,56,0.3)] border-b-[3px] border-b-[#0e3a23] hover:from-[#145231] hover:to-[#0f3d25] active:translate-y-0.5 transition-all cursor-pointer disabled:opacity-50"
+            className="w-full sm:w-auto sm:min-w-[180px] inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#175E38] to-[#124b2d] text-white text-xs sm:text-sm font-bold shadow-[0_2px_8px_rgba(23,94,56,0.3)] border-b-[3px] border-b-[#0e3a23] hover:from-[#145231] hover:to-[#0f3d25] active:translate-y-0.5 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isLoading ? (
               <>

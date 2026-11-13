@@ -25,7 +25,6 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { Modal } from "@/components/ui/modal";
-import { FormSectionHeader } from "@/components/ui/form-section-header";
 import { Select, type SelectOption } from "@/components/ui/select";
 import { useOperacionesUploadThing } from "@/lib/uploadthing";
 import { comprimirImagenes, formatearBytes, PRESETS_COMPRESION } from "@/lib/file-compressor";
@@ -273,19 +272,19 @@ export function ReportarAveriaModal({
       <form onSubmit={handleSubmit} className="space-y-5">
         {/* Paso 1: Ubicación y Clasificación */}
         <div>
-          <FormSectionHeader
-            step={1}
-            title="Ubicación y Tipo de Incidencia"
-          />
+          <div>
+            <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-400">Paso 1</p>
+            <h4 className="text-sm font-bold text-slate-800 mt-0.5">Ubicación y Tipo de Incidencia</h4>
+          </div>
           <p className="text-xs text-slate-500 mt-1">
             Indica dónde se originó la avería y a qué especialidad técnica corresponde.
           </p>
           <div className="space-y-3.5 mt-3">
             {/* Ubicación */}
             <div className="space-y-1">
-              <label className="text-xs font-semibold text-slate-700 flex items-center gap-1.5">
+              <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1.5 flex items-center gap-1.5">
                 <Store className="w-3.5 h-3.5 text-[#175E38]" />
-                Ubicación del Problema <span className="text-rose-500">*</span>
+                <span>Ubicación del Problema <span className="text-rose-500">*</span></span>
               </label>
               <Select
                 value={ubicacionSeleccionada}
@@ -297,9 +296,9 @@ export function ReportarAveriaModal({
 
             {/* Categoría */}
             <div className="space-y-1">
-              <label className="text-xs font-semibold text-slate-700 flex items-center gap-1.5">
+              <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1.5 flex items-center gap-1.5">
                 {getCategoriaIcon(categoria)}
-                Especialidad Técnica <span className="text-rose-500">*</span>
+                <span>Especialidad Técnica <span className="text-rose-500">*</span></span>
               </label>
               <Select
                 value={categoria}
@@ -312,9 +311,9 @@ export function ReportarAveriaModal({
             {/* Si selecciona "Otras Incidencias", especificar cuál */}
             {categoria === CategoriaTicket.OTRO && (
               <div className="space-y-1 animate-in fade-in-50 slide-in-from-top-1 duration-200">
-                <label className="text-xs font-semibold text-slate-700 flex items-center gap-1.5">
+                <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1.5 flex items-center gap-1.5">
                   <PenLine className="w-3.5 h-3.5 text-[#175E38]" />
-                  Especifica cuál es la incidencia <span className="text-rose-500">*</span>
+                  <span>Especifica cuál es la incidencia <span className="text-rose-500">*</span></span>
                 </label>
                 <input
                   type="text"
@@ -332,19 +331,19 @@ export function ReportarAveriaModal({
 
         {/* Paso 2: Detalle de la Avería */}
         <div>
-          <FormSectionHeader
-            step={2}
-            title="Descripción de la Falla"
-          />
+          <div>
+            <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-400">Paso 2</p>
+            <h4 className="text-sm font-bold text-slate-800 mt-0.5">Descripción de la Falla</h4>
+          </div>
           <p className="text-xs text-slate-500 mt-1">
             Explica con la mayor precisión posible qué sucede para enviar al técnico con las herramientas adecuadas.
           </p>
           <div className="space-y-3 mt-3">
             {/* Título */}
             <div className="space-y-1">
-              <label className="text-xs font-semibold text-slate-700 flex items-center gap-1.5">
+              <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1.5 flex items-center gap-1.5">
                 <FileText className="w-3.5 h-3.5 text-slate-500" />
-                Resumen Breve del Problema <span className="text-rose-500">*</span>
+                <span>Resumen Breve del Problema <span className="text-rose-500">*</span></span>
               </label>
               <input
                 type="text"
@@ -359,7 +358,7 @@ export function ReportarAveriaModal({
 
             {/* Descripción */}
             <div className="space-y-1">
-              <label className="text-xs font-semibold text-slate-700">
+              <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1.5">
                 Detalle y Síntomas Observados <span className="text-rose-500">*</span>
               </label>
               <textarea
@@ -380,10 +379,10 @@ export function ReportarAveriaModal({
 
         {/* Paso 3: Evidencias Fotográficas */}
         <div>
-          <FormSectionHeader
-            step={3}
-            title="Fotografías de la Avería (Recomendado)"
-          />
+          <div>
+            <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-400">Paso 3</p>
+            <h4 className="text-sm font-bold text-slate-800 mt-0.5">Fotografías de la Avería (Recomendado)</h4>
+          </div>
           <p className="text-xs text-slate-500 mt-1">
             Adjunta hasta {MAX_FOTOS} fotografías claras del daño o filtración.
           </p>
@@ -478,20 +477,20 @@ export function ReportarAveriaModal({
           </div>
         </div>
 
-        {/* Botones de acción inferiores (Regla de oro: Grid 50/50 en móvil) */}
-        <div className="pt-2 border-t border-slate-100 grid grid-cols-2 sm:flex sm:items-center sm:justify-end gap-2.5">
+        {/* Botones de acción inferiores */}
+        <div className="pt-4 border-t border-slate-100 flex flex-col-reverse sm:flex-row sm:items-center sm:justify-end gap-2.5">
           <button
             type="button"
             onClick={onClose}
             disabled={isBusy}
-            className="w-full sm:w-auto min-w-[110px] h-11 px-4 rounded-xl text-xs font-bold bg-white text-slate-700 border border-slate-200 hover:bg-slate-50 transition-all cursor-pointer shadow-2xs active:translate-y-0.5"
+            className="w-full sm:w-auto sm:min-w-[120px] px-4 py-2.5 rounded-xl border border-slate-200 text-xs sm:text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
           >
             Cancelar
           </button>
           <button
             type="submit"
             disabled={isBusy}
-            className="relative w-full sm:w-auto min-w-[180px] h-11 px-4 sm:px-5 rounded-xl text-xs font-bold bg-gradient-to-r from-[#175E38] to-[#124b2d] text-white border-b-[3px] border-b-[#0e3a23] hover:brightness-105 transition-all flex items-center justify-center gap-1.5 sm:gap-2 cursor-pointer shadow-[0_2px_8px_rgba(23,94,56,0.25)] active:translate-y-0.5 disabled:opacity-50 disabled:pointer-events-none"
+            className="relative w-full sm:w-auto sm:min-w-[180px] inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#175E38] to-[#124b2d] text-white text-xs sm:text-sm font-bold shadow-[0_2px_8px_rgba(23,94,56,0.3)] border-b-[3px] border-b-[#0e3a23] hover:from-[#145231] hover:to-[#0f3d25] active:translate-y-0.5 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {/* Indicador flotante: Notifica avería por correo al Admin */}
             <span

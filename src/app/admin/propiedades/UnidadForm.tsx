@@ -186,7 +186,7 @@ export function UnidadForm({ propiedades, initialData, onSubmit, onCancel, isLoa
     <form onSubmit={handleSubmit} className="space-y-4">
       {/* Propiedad a la que pertenece */}
       <div>
-        <label htmlFor="unidad-propiedad" className="block text-xs font-bold text-slate-700 mb-1.5">
+        <label htmlFor="unidad-propiedad" className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1.5">
           Propiedad a la que pertenece *
         </label>
         <Select
@@ -206,7 +206,7 @@ export function UnidadForm({ propiedades, initialData, onSubmit, onCancel, isLoa
       {/* Tipo de Espacio e Identificador */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
         <div>
-          <label htmlFor="unidad-tipo" className="block text-xs font-bold text-slate-700 mb-1.5">
+          <label htmlFor="unidad-tipo" className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1.5">
             Tipo de Espacio *
           </label>
           <Select
@@ -223,7 +223,7 @@ export function UnidadForm({ propiedades, initialData, onSubmit, onCancel, isLoa
         </div>
 
         <div>
-          <label htmlFor="unidad-codigo" className="block text-xs font-bold text-slate-700 mb-1.5">
+          <label htmlFor="unidad-codigo" className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1.5">
             Identificador / Código *
           </label>
           <input
@@ -246,7 +246,7 @@ export function UnidadForm({ propiedades, initialData, onSubmit, onCancel, isLoa
       {/* Piso / Nivel y Estado de Ocupación */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
         <div>
-          <label htmlFor="unidad-piso" className="block text-xs font-bold text-slate-700 mb-1.5">
+          <label htmlFor="unidad-piso" className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1.5">
             Piso / Nivel
           </label>
           <div className="relative">
@@ -264,7 +264,7 @@ export function UnidadForm({ propiedades, initialData, onSubmit, onCancel, isLoa
         </div>
 
         <div>
-          <label htmlFor="unidad-estado" className="block text-xs font-bold text-slate-700 mb-1.5">
+          <label htmlFor="unidad-estado" className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1.5">
             Estado de Ocupación
           </label>
           <Select
@@ -282,7 +282,7 @@ export function UnidadForm({ propiedades, initialData, onSubmit, onCancel, isLoa
       {/* Área y Precio Mensual */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
         <div>
-          <label htmlFor="unidad-area" className="block text-xs font-bold text-slate-700 mb-1.5">
+          <label htmlFor="unidad-area" className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1.5">
             Área en Metros² (m²)
           </label>
           <div className="relative">
@@ -306,7 +306,7 @@ export function UnidadForm({ propiedades, initialData, onSubmit, onCancel, isLoa
         </div>
 
         <div>
-          <label htmlFor="unidad-precio" className="block text-xs font-bold text-slate-700 mb-1.5">
+          <label htmlFor="unidad-precio" className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1.5">
             Precio Mensual ($)
           </label>
           <div className="relative">
@@ -332,7 +332,7 @@ export function UnidadForm({ propiedades, initialData, onSubmit, onCancel, isLoa
 
       {/* Descripción / Observaciones */}
       <div>
-        <label htmlFor="unidad-desc" className="block text-xs font-bold text-slate-700 mb-1.5">
+        <label htmlFor="unidad-desc" className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1.5">
           Descripción / Observaciones (Opcional)
         </label>
         <textarea
@@ -348,7 +348,7 @@ export function UnidadForm({ propiedades, initialData, onSubmit, onCancel, isLoa
       {/* ─── Fotografías del Espacio ─── */}
       <div className="space-y-2 pt-1">
         <div className="flex items-center justify-between">
-          <label className="block text-xs font-bold text-slate-700">
+          <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1.5">
             Fotografías del Espacio
           </label>
         </div>
@@ -550,34 +550,29 @@ export function UnidadForm({ propiedades, initialData, onSubmit, onCancel, isLoa
         )}
       </div>
 
-      {/* ─── Botones de Acción (Design System) ─── */}
-      <div className="pt-2">
-        {/* Divisor delimitador con desvanecimiento */}
-        <div className="h-px w-full bg-gradient-to-r from-slate-200/40 via-slate-400 to-slate-200/40 mb-4" />
-
-        <div className="grid grid-cols-2 gap-2.5 sm:gap-3.5 w-full sm:flex sm:items-center sm:justify-center pb-1">
-          <button
-            type="button"
-            onClick={onCancel}
-            className="w-full sm:w-auto sm:min-w-[130px] h-11 px-3 sm:px-6 text-xs sm:text-sm font-bold text-slate-600 hover:text-slate-900 border border-slate-200 rounded-xl hover:bg-slate-100 transition-all cursor-pointer flex items-center justify-center text-center"
-          >
-            Cancelar
-          </button>
-          <button
-            type="submit"
-            disabled={isLoading || isUploading || isCompressing || !codigo.trim() || !propiedadId}
-            className="w-full sm:w-auto sm:min-w-[180px] h-11 px-3 sm:px-8 text-xs sm:text-sm font-bold text-white bg-gradient-to-r from-[#175E38] to-[#124b2d] hover:from-[#145331] hover:to-[#0f3d24] rounded-xl shadow-md hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer border-b-[3px] border-b-[#0e3a23] active:translate-y-0.5 flex items-center justify-center text-center whitespace-nowrap"
-          >
-            {isLoading ? (
-              <span className="flex items-center gap-1.5 justify-center">
-                <Loader2 className="w-4 h-4 animate-spin shrink-0" />
-                <span>Guardando...</span>
-              </span>
-            ) : (
-              <span>{initialData ? "Guardar Cambios" : "Registrar Espacio"}</span>
-            )}
-          </button>
-        </div>
+      {/* Botones de acción */}
+      <div className="pt-4 border-t border-slate-100 flex flex-col-reverse sm:flex-row sm:items-center sm:justify-end gap-2.5">
+        <button
+          type="button"
+          onClick={onCancel}
+          className="w-full sm:w-auto sm:min-w-[120px] px-4 py-2.5 rounded-xl border border-slate-200 text-xs sm:text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-colors cursor-pointer"
+        >
+          Cancelar
+        </button>
+        <button
+          type="submit"
+          disabled={isLoading || isUploading || isCompressing || !codigo.trim() || !propiedadId}
+          className="w-full sm:w-auto sm:min-w-[180px] inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#175E38] to-[#124b2d] text-white text-xs sm:text-sm font-bold shadow-[0_2px_8px_rgba(23,94,56,0.3)] border-b-[3px] border-b-[#0e3a23] hover:from-[#145231] hover:to-[#0f3d25] active:translate-y-0.5 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {isLoading ? (
+            <span className="flex items-center gap-1.5 justify-center">
+              <Loader2 className="w-4 h-4 animate-spin shrink-0" />
+              <span>Guardando...</span>
+            </span>
+          ) : (
+            <span>{initialData ? "Guardar Cambios" : "Registrar Espacio"}</span>
+          )}
+        </button>
       </div>
     </form>
   );

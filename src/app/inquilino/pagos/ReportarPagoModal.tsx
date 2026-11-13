@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useRef, useEffect, useMemo } from "react";
-import { Modal, FormSectionHeader } from "@/components/ui";
+import { Modal } from "@/components/ui";
 import { Select, type SelectOption } from "@/components/ui/select";
 import { useOperacionesUploadThing } from "@/lib/uploadthing";
 import { comprimirImagen, formatearBytes, PRESETS_COMPRESION } from "@/lib/file-compressor";
@@ -313,15 +313,15 @@ export function ReportarPagoModal({
 
         {/* Paso 1: Selección de Cuota y Monto */}
         <div className="space-y-3 sm:space-y-3.5">
-          <FormSectionHeader
-            step={1}
-            title="Cuota a Solventar"
-          />
+          <div>
+            <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-400">Paso 1</p>
+            <h4 className="text-sm font-bold text-slate-800 mt-0.5">Cuota a Solventar</h4>
+          </div>
 
           {/* Selector de Local y Cuota con Máxima Notoriedad */}
           <div className="space-y-2">
             <div className="flex items-center justify-between flex-wrap gap-1">
-              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wide">
+              <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1.5">
                 Espacio y Canon a Solventar <span className="text-emerald-700">*</span>
               </label>
               {opcionesCuotas.length > 1 && (
@@ -344,7 +344,7 @@ export function ReportarPagoModal({
           <div className="space-y-3 sm:space-y-3.5 pt-1">
             <div>
               <div className="flex items-center justify-between mb-1.5 flex-wrap gap-1">
-                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wide">
+                <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500">
                   Monto Reportado (USD) <span className="text-emerald-700">*</span>
                 </label>
                 {saldoMaximo > 0 && (
@@ -390,7 +390,7 @@ export function ReportarPagoModal({
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wide mb-1.5">
+              <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1.5">
                 Fecha de la Transferencia <span className="text-emerald-700">*</span>
               </label>
               <input
@@ -407,14 +407,14 @@ export function ReportarPagoModal({
 
         {/* Paso 2: Detalles Bancarios */}
         <div className="space-y-3 sm:space-y-3.5">
-          <FormSectionHeader
-            step={2}
-            title="Detalles Bancarios"
-          />
+          <div>
+            <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-400">Paso 2</p>
+            <h4 className="text-sm font-bold text-slate-800 mt-0.5">Detalles Bancarios</h4>
+          </div>
 
           <div className="space-y-3 sm:space-y-3.5">
             <div>
-              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wide mb-1.5">
+              <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1.5">
                 Método de Pago <span className="text-emerald-700">*</span>
               </label>
               <Select
@@ -486,7 +486,7 @@ export function ReportarPagoModal({
 
                 <div>
                   <div className="flex items-center justify-between mb-1">
-                    <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wide">
+                    <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500">
                       Monto debitado en Bolívares (Bs.) <span className="text-emerald-700">*</span>
                     </label>
                     <span className="text-[10px] text-slate-400">
@@ -513,7 +513,7 @@ export function ReportarPagoModal({
             )}
 
             <div>
-              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wide mb-1.5">
+              <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1.5">
                 N° de Referencia / Confirmación <span className="text-emerald-700">*</span>
               </label>
               <input
@@ -528,7 +528,7 @@ export function ReportarPagoModal({
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wide mb-1.5">
+              <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1.5">
                 Observaciones o Notas Adicionales (Opcional)
               </label>
               <input
@@ -545,10 +545,10 @@ export function ReportarPagoModal({
 
         {/* Paso 3: Comprobante de Pago (UploadThing) */}
         <div className="space-y-3">
-          <FormSectionHeader
-            step={3}
-            title="Comprobante o Capture"
-          />
+          <div>
+            <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-400">Paso 3</p>
+            <h4 className="text-sm font-bold text-slate-800 mt-0.5">Comprobante o Capture</h4>
+          </div>
 
           <input
             ref={fileInputRef}
@@ -668,20 +668,20 @@ export function ReportarPagoModal({
           )}
         </div>
 
-        {/* Acciones Inferiores (Grid 2 columnas en mobile, flex centrado en desktop) */}
-        <div className="pt-3 border-t border-slate-100 grid grid-cols-2 gap-2.5 sm:flex sm:items-center sm:justify-end">
+        {/* Acciones Inferiores */}
+        <div className="pt-4 border-t border-slate-100 flex flex-col-reverse sm:flex-row sm:items-center sm:justify-end gap-2.5">
           <button
             type="button"
             onClick={onClose}
             disabled={isSubmitting || isUploading || isCompressing}
-            className="w-full sm:w-auto px-4 h-11 rounded-xl text-xs sm:text-sm font-bold bg-slate-100 text-slate-700 hover:bg-slate-200 transition-colors cursor-pointer disabled:opacity-50"
+            className="w-full sm:w-auto sm:min-w-[120px] px-4 py-2.5 rounded-xl border border-slate-200 text-xs sm:text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
           >
             Cancelar
           </button>
           <button
             type="submit"
             disabled={isSubmitting || isUploading || isCompressing || !comprobanteUrl}
-            className="relative w-full sm:w-auto px-6 h-11 rounded-xl text-xs sm:text-sm font-bold bg-gradient-to-r from-[#175E38] to-[#124b2d] hover:brightness-105 text-white border-b-[3px] border-b-[#0e3a23] active:translate-y-0.5 transition-all shadow-[0_2px_8px_rgba(23,94,56,0.3)] flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+            className="relative w-full sm:w-auto sm:min-w-[180px] inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#175E38] to-[#124b2d] text-white text-xs sm:text-sm font-bold shadow-[0_2px_8px_rgba(23,94,56,0.3)] border-b-[3px] border-b-[#0e3a23] hover:from-[#145231] hover:to-[#0f3d25] active:translate-y-0.5 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {/* Indicador flotante: Notifica por correo */}
             <span

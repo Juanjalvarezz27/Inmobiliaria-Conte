@@ -60,11 +60,11 @@ export function EliminarUnidadModal({
           </div>
         )}
 
-        <div className="flex justify-end gap-3 pt-2">
+        <div className="pt-4 border-t border-slate-100 flex flex-col-reverse sm:flex-row sm:items-center sm:justify-end gap-2.5">
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2 text-sm font-semibold text-slate-700 border border-slate-200 rounded-xl hover:bg-slate-50 transition-colors cursor-pointer"
+            className="w-full sm:w-auto sm:min-w-[120px] px-4 py-2.5 rounded-xl border border-slate-200 text-xs sm:text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-colors cursor-pointer"
           >
             Cancelar
           </button>
@@ -72,7 +72,7 @@ export function EliminarUnidadModal({
             type="button"
             onClick={onEliminar}
             disabled={isLoading || tieneContratosActivos}
-            className="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold text-white bg-[#CC1A22] rounded-xl hover:bg-[#a81219] transition-colors disabled:opacity-50 cursor-pointer"
+            className="w-full sm:w-auto sm:min-w-[180px] inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-[#CC1A22] hover:bg-[#a81219] text-white text-xs sm:text-sm font-bold shadow-xs active:translate-y-0.5 transition-all disabled:opacity-50 cursor-pointer"
           >
             {isLoading ? (
               <RefreshCw className="w-4 h-4 animate-spin" />

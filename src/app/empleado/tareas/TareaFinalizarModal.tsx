@@ -14,7 +14,6 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { Modal } from "@/components/ui/modal";
-import { FormSectionHeader } from "@/components/ui/form-section-header";
 import { useOperacionesUploadThing } from "@/lib/uploadthing";
 import { comprimirImagenes, formatearBytes, PRESETS_COMPRESION } from "@/lib/file-compressor";
 import { completarTareaEmpleadoAction, type PortalEmpleadoData } from "@/lib/actions/personal-portal";
@@ -237,9 +236,12 @@ export function TareaFinalizarModal({
 
         {/* Paso 1: Observaciones y Resolución */}
         <div className="space-y-2">
-          <FormSectionHeader step={1} title="Resolución y Observaciones de la Labor" />
           <div>
-            <label className="block text-xs font-bold text-slate-700 mb-1.5">
+            <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-400">Paso 1</p>
+            <h4 className="text-sm font-bold text-slate-800 mt-0.5">Resolución y Observaciones de la Labor</h4>
+          </div>
+          <div>
+            <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1.5">
               Notas u Observaciones del Trabajo Realizado (Opcional)
             </label>
             <textarea
@@ -254,10 +256,13 @@ export function TareaFinalizarModal({
 
         {/* Paso 2: Evidencias Fotográficas */}
         <div className="space-y-3">
-          <FormSectionHeader step={2} title="Evidencias Fotográficas del Trabajo" />
+          <div>
+            <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-400">Paso 2</p>
+            <h4 className="text-sm font-bold text-slate-800 mt-0.5">Evidencias Fotográficas del Trabajo</h4>
+          </div>
 
           <div className="flex items-center justify-between">
-            <label className="block text-xs font-bold text-slate-700">
+            <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500">
               Fotografías de Comprobante / Evidencia
               {tarea.requiereEvidencia && (
                 <span className="text-rose-600 font-bold ml-1">* Obligatoria</span>
@@ -408,12 +413,12 @@ export function TareaFinalizarModal({
         </div>
 
         {/* Botones de acción */}
-        <div className="pt-3 border-t border-slate-100 grid grid-cols-2 sm:flex sm:justify-end gap-3">
+        <div className="pt-4 border-t border-slate-100 flex flex-col-reverse sm:flex-row sm:items-center sm:justify-end gap-2.5">
           <button
             type="button"
             onClick={onClose}
             disabled={isSubmitting}
-            className="h-11 px-5 rounded-xl font-bold text-xs text-slate-600 bg-slate-100 hover:bg-slate-200 transition-colors cursor-pointer"
+            className="w-full sm:w-auto sm:min-w-[120px] px-4 py-2.5 rounded-xl border border-slate-200 text-xs sm:text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
           >
             Cancelar
           </button>
@@ -422,7 +427,7 @@ export function TareaFinalizarModal({
             type="button"
             onClick={handleGuardarFinalizacion}
             disabled={isSubmitting || isUploading || isCompressing}
-            className="h-11 px-6 rounded-xl font-heading font-black text-xs text-white bg-gradient-to-r from-[#175E38] to-[#124b2d] hover:from-[#124b2d] hover:to-[#0e3a23] border-b-[3px] border-b-[#0e3a23] active:translate-y-0.5 transition-all shadow-[0_2px_8px_rgba(23,94,56,0.3)] flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+            className="w-full sm:w-auto sm:min-w-[180px] inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#175E38] to-[#124b2d] text-white text-xs sm:text-sm font-bold shadow-[0_2px_8px_rgba(23,94,56,0.3)] border-b-[3px] border-b-[#0e3a23] hover:from-[#145231] hover:to-[#0f3d25] active:translate-y-0.5 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isSubmitting ? (
               <>

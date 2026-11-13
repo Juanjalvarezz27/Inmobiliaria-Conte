@@ -157,7 +157,7 @@ export function CierreMesModal({
               {/* Sub-tarjetas de Ingresos y Egresos (Grid 50/50 Equilibrado con discriminación multimoneda) */}
               <div className="grid grid-cols-2 gap-2 sm:gap-3 pt-3 border-t border-slate-100">
                 {/* Ingresos Totales */}
-                <div className="bg-emerald-50/70 border border-emerald-200/80 rounded-xl p-2.5 sm:p-3 flex items-start gap-2.5 shadow-2xs">
+                <div className="bg-emerald-50/50 border border-emerald-200/70 rounded-xl p-2.5 sm:p-3 flex items-start gap-2.5">
                   <div className="w-8 h-8 rounded-lg bg-emerald-100 text-[#175E38] flex items-center justify-center shrink-0 mt-0.5">
                     <ArrowUpRight className="w-4 h-4 stroke-[2.5]" />
                   </div>
@@ -177,7 +177,7 @@ export function CierreMesModal({
                 </div>
 
                 {/* Egresos Totales */}
-                <div className="bg-rose-50/70 border border-rose-200/80 rounded-xl p-2.5 sm:p-3 flex items-start gap-2.5 shadow-2xs">
+                <div className="bg-rose-50/50 border border-rose-200/70 rounded-xl p-2.5 sm:p-3 flex items-start gap-2.5">
                   <div className="w-8 h-8 rounded-lg bg-rose-100 text-[#CC1A22] flex items-center justify-center shrink-0 mt-0.5">
                     <ArrowDownRight className="w-4 h-4 stroke-[2.5]" />
                   </div>
@@ -465,13 +465,20 @@ export function CierreMesModal({
               </div>
             </div>
 
-            {/* Acción de Imprimir Cierre (Ancho completo en Móvil, Alineado a la derecha en Desktop) */}
-            <div className="pt-3 sm:pt-4 border-t border-slate-100 flex items-center justify-end">
+            {/* Acción de Imprimir Cierre */}
+            <div className="pt-4 border-t border-slate-100 flex flex-col-reverse sm:flex-row sm:items-center sm:justify-end gap-2.5">
+              <button
+                type="button"
+                onClick={onClose}
+                className="w-full sm:w-auto sm:min-w-[120px] px-4 py-2.5 rounded-xl border border-slate-200 text-xs sm:text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-colors cursor-pointer"
+              >
+                Cerrar
+              </button>
               <button
                 type="button"
                 onClick={handleImprimir}
                 disabled={isGeneratingPdf}
-                className="w-full sm:w-auto sm:min-w-[180px] h-11 px-5 rounded-xl text-xs sm:text-sm font-bold text-white bg-gradient-to-r from-[#175E38] to-[#124b2d] border-b-[3px] border-b-[#0e3a23] hover:bg-[#124b2d] transition-all flex items-center justify-center gap-2 cursor-pointer active:translate-y-0.5 shadow-[0_2px_8px_rgba(23,94,56,0.25)] disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full sm:w-auto sm:min-w-[180px] inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#175E38] to-[#124b2d] text-white text-xs sm:text-sm font-bold shadow-[0_2px_8px_rgba(23,94,56,0.3)] border-b-[3px] border-b-[#0e3a23] hover:from-[#145231] hover:to-[#0f3d25] active:translate-y-0.5 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isGeneratingPdf ? (
                   <>

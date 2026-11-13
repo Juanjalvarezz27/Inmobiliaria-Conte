@@ -191,7 +191,7 @@ export function FinalizarContratoModal({
         </div>
 
         {/* Nota de liberación de unidad */}
-        <div className="p-3 rounded-xl bg-amber-50/80 border border-amber-200/80 text-xs text-amber-900 leading-relaxed">
+        <div className="bg-amber-50/50 border border-amber-200/70 rounded-xl p-3.5 text-xs text-amber-900 leading-relaxed">
           ℹ️ Al confirmar, el espacio <strong>{contrato.unidad.codigo}</strong> volverá a quedar <strong>DISPONIBLE</strong> en el catálogo y se purgarán automáticamente las cuotas futuras no devengadas.
         </div>
 
@@ -211,7 +211,7 @@ export function FinalizarContratoModal({
             </div>
 
             <div>
-              <label className="block text-[11px] font-semibold text-slate-700 mb-1.5">
+              <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1.5">
                 ¿Qué se acordó hacer con la garantía?
               </label>
               <div className="grid grid-cols-3 gap-2">
@@ -255,7 +255,7 @@ export function FinalizarContratoModal({
             {tipoResolucion === "MIXTO" && (
               <div className="grid grid-cols-2 gap-2.5 pt-1">
                 <div>
-                  <label className="block text-[11px] font-semibold text-slate-600 mb-1">
+                  <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1.5">
                     Monto a Devolver (USD)
                   </label>
                   <input
@@ -268,7 +268,7 @@ export function FinalizarContratoModal({
                   />
                 </div>
                 <div>
-                  <label className="block text-[11px] font-semibold text-slate-600 mb-1">
+                  <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1.5">
                     Monto a Retener (USD)
                   </label>
                   <input
@@ -287,7 +287,7 @@ export function FinalizarContratoModal({
             {tipoResolucion !== "RETENCION_TOTAL" && (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1">
                 <div>
-                  <label className="block text-[11px] font-semibold text-slate-600 mb-1">
+                  <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1.5">
                     Método de Reembolso
                   </label>
                   <Select
@@ -298,7 +298,7 @@ export function FinalizarContratoModal({
                   />
                 </div>
                 <div>
-                  <label className="block text-[11px] font-semibold text-slate-600 mb-1">
+                  <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1.5">
                     Referencia (Opcional)
                   </label>
                   <input
@@ -315,7 +315,7 @@ export function FinalizarContratoModal({
             {/* Motivo de la retención si hay retención */}
             {tipoResolucion !== "REEMBOLSO_TOTAL" && (
               <div>
-                <label className="block text-[11px] font-semibold text-slate-600 mb-1">
+                <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1.5">
                   Motivo de la Retención (Opcional)
                 </label>
                 <input
@@ -331,12 +331,12 @@ export function FinalizarContratoModal({
         ) : null}
 
         {/* Botones de acción inferiores */}
-        <div className="pt-2 grid grid-cols-2 gap-2.5 sm:flex sm:items-center sm:justify-end sm:gap-3">
+        <div className="pt-4 border-t border-slate-100 flex flex-col-reverse sm:flex-row sm:items-center sm:justify-end gap-2.5">
           <button
             type="button"
             onClick={onClose}
             disabled={isSubmitting}
-            className="w-full sm:w-auto min-w-[120px] h-10 px-4 rounded-xl text-xs sm:text-sm font-semibold text-slate-700 bg-white border border-slate-200 hover:bg-slate-50 transition-colors disabled:opacity-50 cursor-pointer shadow-2xs"
+            className="w-full sm:w-auto sm:min-w-[120px] px-4 py-2.5 rounded-xl border border-slate-200 text-xs sm:text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-colors cursor-pointer disabled:opacity-50"
           >
             Cancelar
           </button>
@@ -344,7 +344,7 @@ export function FinalizarContratoModal({
           <button
             type="submit"
             disabled={isSubmitting}
-            className={`w-full sm:w-auto min-w-[170px] h-10 px-4 rounded-xl text-xs sm:text-sm font-bold text-white transition-all flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50 active:translate-y-0.5 ${
+            className={`w-full sm:w-auto sm:min-w-[180px] inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl text-xs sm:text-sm font-bold text-white transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed active:translate-y-0.5 ${
               esRescindir
                 ? "bg-[#CC1A22] hover:bg-[#a81219] border-b-[3px] border-b-[#8a1117] shadow-[0_2px_8px_rgba(204,26,34,0.25)]"
                 : "bg-[#1C2539] hover:bg-[#2a3754] border-b-[3px] border-b-[#0f1420] shadow-[0_2px_8px_rgba(28,37,57,0.25)]"

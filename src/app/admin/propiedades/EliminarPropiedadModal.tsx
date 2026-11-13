@@ -115,18 +115,18 @@ export function EliminarPropiedadModal({
             Para poder archivar este inmueble, primero debes finalizar o rescindir sus contratos desde el módulo de contratos.
           </p>
 
-          <div className="flex flex-col-reverse sm:flex-row sm:items-center sm:justify-end gap-2.5 pt-2">
+          <div className="pt-4 border-t border-slate-100 flex flex-col-reverse sm:flex-row sm:items-center sm:justify-end gap-2.5">
             <button
               type="button"
               onClick={onClose}
-              className="w-full sm:w-auto px-4 py-2 text-sm font-semibold text-slate-700 border border-slate-200 rounded-xl hover:bg-slate-50 transition-colors cursor-pointer"
+              className="w-full sm:w-auto sm:min-w-[120px] px-4 py-2.5 rounded-xl border border-slate-200 text-xs sm:text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-colors cursor-pointer"
             >
               Entendido
             </button>
             <Link
               href="/admin/contratos"
               onClick={onClose}
-              className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 px-4 py-2 text-sm font-bold text-white bg-[#1C2539] hover:bg-[#2a3754] rounded-xl transition-all cursor-pointer shadow-xs active:translate-y-0.5"
+              className="w-full sm:w-auto sm:min-w-[180px] inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-[#1C2539] hover:bg-[#2a3754] text-white text-xs sm:text-sm font-bold shadow-xs active:translate-y-0.5 transition-all cursor-pointer"
             >
               <span>Ir a Contratos</span>
               <ExternalLink className="w-3.5 h-3.5" />
@@ -154,12 +154,12 @@ export function EliminarPropiedadModal({
             </p>
           </div>
 
-          <div className="grid grid-cols-2 gap-2 sm:flex sm:justify-end sm:gap-3 pt-2">
+          <div className="pt-4 border-t border-slate-100 flex flex-col-reverse sm:flex-row sm:items-center sm:justify-end gap-2.5">
             <button
               type="button"
               onClick={onClose}
               disabled={isLoading}
-              className="w-full sm:w-auto px-4 py-2 text-sm font-semibold text-slate-700 border border-slate-200 rounded-xl hover:bg-slate-50 transition-colors cursor-pointer"
+              className="w-full sm:w-auto sm:min-w-[120px] px-4 py-2.5 rounded-xl border border-slate-200 text-xs sm:text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-colors cursor-pointer"
             >
               Cancelar
             </button>
@@ -167,7 +167,7 @@ export function EliminarPropiedadModal({
               type="button"
               onClick={onEliminar}
               disabled={isLoading}
-              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-bold text-white bg-[#1C2539] hover:bg-[#2a3754] rounded-xl transition-all disabled:opacity-50 cursor-pointer shadow-xs active:translate-y-0.5"
+              className="w-full sm:w-auto sm:min-w-[180px] inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-[#1C2539] hover:bg-[#2a3754] text-white text-xs sm:text-sm font-bold shadow-xs active:translate-y-0.5 transition-all disabled:opacity-50 cursor-pointer"
             >
               {isLoading ? (
                 <RefreshCw className="w-4 h-4 animate-spin" />
@@ -199,12 +199,12 @@ export function EliminarPropiedadModal({
             </p>
           </div>
 
-          <div className="grid grid-cols-2 gap-2 sm:flex sm:justify-end sm:gap-3 pt-2">
+          <div className="pt-4 border-t border-slate-100 flex flex-col-reverse sm:flex-row sm:items-center sm:justify-end gap-2.5">
             <button
               type="button"
               onClick={onClose}
               disabled={isLoading}
-              className="w-full sm:w-auto px-4 py-2 text-sm font-semibold text-slate-700 border border-slate-200 rounded-xl hover:bg-slate-50 transition-colors cursor-pointer"
+              className="w-full sm:w-auto sm:min-w-[120px] px-4 py-2.5 rounded-xl border border-slate-200 text-xs sm:text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-colors cursor-pointer"
             >
               Cancelar
             </button>
@@ -212,7 +212,7 @@ export function EliminarPropiedadModal({
               type="button"
               onClick={onEliminar}
               disabled={isLoading}
-              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-bold text-white bg-[#CC1A22] rounded-xl hover:bg-[#a81219] transition-colors disabled:opacity-50 cursor-pointer shadow-xs active:translate-y-0.5"
+              className="w-full sm:w-auto sm:min-w-[180px] inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-[#CC1A22] hover:bg-[#a81219] text-white text-xs sm:text-sm font-bold shadow-xs active:translate-y-0.5 transition-all disabled:opacity-50 cursor-pointer"
             >
               {isLoading ? (
                 <RefreshCw className="w-4 h-4 animate-spin" />

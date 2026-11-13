@@ -18,7 +18,6 @@ import {
   Lock,
 } from "lucide-react";
 import { Modal } from "@/components/ui/modal";
-import { FormSectionHeader } from "@/components/ui/form-section-header";
 import { Select } from "@/components/ui/select";
 import { useOperacionesUploadThing } from "@/lib/uploadthing";
 import { toast } from "sonner";
@@ -224,8 +223,8 @@ function PagoFormContent({
       <form onSubmit={handleSubmit} className="space-y-4">
       {/* Banner de Imputación Contable Bloqueada */}
       {pago.anteriorImpago && pago.estado !== EstadoPago.PAGADO && (
-        <div className="p-3.5 rounded-2xl bg-amber-50 border border-amber-200/90 text-amber-900 shadow-2xs flex items-start gap-3">
-          <div className="w-8 h-8 rounded-xl bg-amber-100 border border-amber-300 flex items-center justify-center shrink-0 text-amber-700 shadow-2xs mt-0.5">
+        <div className="p-3.5 rounded-xl bg-amber-50/50 border border-amber-200/70 text-amber-900 flex items-start gap-3">
+          <div className="w-8 h-8 rounded-xl bg-amber-100 border border-amber-300 flex items-center justify-center shrink-0 text-amber-700 mt-0.5">
             <Lock className="w-4 h-4 stroke-[2.2]" />
           </div>
           <div className="min-w-0 flex-1 text-xs leading-relaxed">
@@ -245,7 +244,7 @@ function PagoFormContent({
       )}
 
       {/* Ficha resumen del cobro con desglose financiero */}
-      <div className="bg-slate-50 border border-slate-200/90 rounded-2xl p-3.5 sm:p-4 space-y-3 shadow-2xs">
+      <div className="bg-slate-50/50 border border-slate-200/70 rounded-xl p-3.5 sm:p-4 space-y-3">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2.5 border-b border-slate-200/80">
           <div>
             <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
@@ -270,7 +269,7 @@ function PagoFormContent({
 
         {/* 3 Cajas de métricas financieras del canon */}
         <div className="grid grid-cols-3 gap-2 text-center">
-          <div className="p-2 sm:p-2.5 bg-white rounded-xl border border-slate-200/80 shadow-2xs">
+          <div className="p-2 sm:p-2.5 bg-white rounded-xl border border-slate-200/80">
             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
               Canon Total
             </span>
@@ -278,7 +277,7 @@ function PagoFormContent({
               ${pago.montoEsperado.toFixed(2)}
             </span>
           </div>
-          <div className="p-2 sm:p-2.5 bg-emerald-50/70 rounded-xl border border-emerald-200/80 shadow-2xs">
+          <div className="p-2 sm:p-2.5 bg-emerald-50/50 rounded-xl border border-emerald-200/70">
             <span className="text-[10px] font-bold text-emerald-800 uppercase tracking-wider block">
               Ya Abonado
             </span>
@@ -286,7 +285,7 @@ function PagoFormContent({
               ${pago.montoPagado.toFixed(2)}
             </span>
           </div>
-          <div className="p-2 sm:p-2.5 bg-amber-50/70 rounded-xl border border-amber-200/80 shadow-2xs">
+          <div className="p-2 sm:p-2.5 bg-amber-50/50 rounded-xl border border-amber-200/70">
             <span className="text-[10px] font-bold text-amber-800 uppercase tracking-wider block">
               Resta
             </span>
@@ -305,7 +304,7 @@ function PagoFormContent({
             <button
               type="button"
               onClick={() => setMontoPagado(saldoRestante.toFixed(2))}
-              className="px-2.5 py-1 text-[11px] font-bold text-[#175E38] bg-emerald-100/70 hover:bg-emerald-100 rounded-lg border border-emerald-300 transition-all cursor-pointer shadow-2xs active:scale-95 shrink-0"
+              className="px-2.5 py-1 text-[11px] font-bold text-[#175E38] bg-emerald-100/70 hover:bg-emerald-100 rounded-lg border border-emerald-300 transition-all cursor-pointer active:scale-95 shrink-0"
             >
               Abonar resto (${saldoRestante.toFixed(2)} USD)
             </button>
@@ -315,7 +314,7 @@ function PagoFormContent({
 
       {/* Abonos previos registrados en este canon */}
       {pago.transacciones && pago.transacciones.length > 0 && (
-        <div className="bg-slate-50/90 border border-slate-200/90 rounded-2xl p-3 sm:p-3.5 space-y-2">
+        <div className="bg-slate-50/50 border border-slate-200/70 rounded-xl p-3 sm:p-3.5 space-y-2">
           <div className="flex items-center justify-between text-xs font-bold text-slate-700">
             <span>Abonos Previos Registrados ({pago.transacciones.length})</span>
             <span className="text-[#175E38]">Total Abonado: ${pago.montoPagado.toFixed(2)} USD</span>
@@ -350,16 +349,18 @@ function PagoFormContent({
       )}
 
       {/* Sección 1: Datos de la Transacción */}
-      <div>
-        <FormSectionHeader
-          step={1}
-          title={pago.montoPagado > 0 ? "Detalles del Nuevo Abono" : "Detalles del Pago"}
-        />
+      <div className="border-t border-slate-100 pt-5 space-y-3">
+        <div>
+          <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-400">Paso 1</p>
+          <h4 className="text-sm font-bold text-slate-800 mt-0.5">
+            {pago.montoPagado > 0 ? "Detalles del Nuevo Abono" : "Detalles del Pago"}
+          </h4>
+        </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 mt-3">
           {/* Monto pagado */}
           <div>
-            <div className="flex items-center justify-between mb-1 flex-wrap gap-1">
-              <label className="block text-xs font-bold text-slate-700">
+            <div className="flex items-center justify-between mb-1.5 flex-wrap gap-1">
+              <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1.5">
                 {pago.montoPagado > 0 ? "Monto de este Abono (USD)" : "Monto a Registrar (USD)"}{" "}
                 <span className="text-rose-500">*</span>
               </label>
@@ -398,7 +399,7 @@ function PagoFormContent({
             {montoNumero > 0 && (
               <div className="mt-2">
                 {completaPago ? (
-                  <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200 shadow-2xs">
+                  <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-emerald-50/70 text-emerald-800 border border-emerald-200/70">
                     <CheckCircle className="w-3.5 h-3.5 text-[#175E38] shrink-0" />
                     <span>
                       {esExcedente
@@ -407,7 +408,7 @@ function PagoFormContent({
                     </span>
                   </div>
                 ) : (
-                  <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-blue-50 text-blue-800 border border-blue-200 shadow-2xs">
+                  <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-blue-50/70 text-blue-800 border border-blue-200/70">
                     <AlertTriangle className="w-3.5 h-3.5 text-blue-600 shrink-0" />
                     <span>
                       Abono parcial · Acumulará ${nuevoTotalAcumulado.toFixed(2)} · Restará ${nuevoSaldoRestante.toFixed(2)} por pagar
@@ -420,7 +421,7 @@ function PagoFormContent({
 
           {/* Fecha del pago */}
           <div>
-            <label className="block text-xs font-bold text-slate-700 mb-1">
+            <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1.5">
               Fecha del Pago <span className="text-rose-500">*</span>
             </label>
             <div className="relative">
@@ -437,7 +438,7 @@ function PagoFormContent({
 
           {/* Método de Pago */}
           <div>
-            <label className="block text-xs font-bold text-slate-700 mb-1">
+            <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1.5">
               Método de Pago <span className="text-rose-500">*</span>
             </label>
             <Select
@@ -450,7 +451,7 @@ function PagoFormContent({
 
           {/* Referencia Bancaria */}
           <div>
-            <label className="block text-xs font-bold text-slate-700 mb-1">
+            <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1.5">
               Número de Referencia
             </label>
             <div className="relative">
@@ -468,13 +469,16 @@ function PagoFormContent({
       </div>
 
       {/* Sección 2: Comprobante y Notas */}
-      <div>
-        <FormSectionHeader step={2} title="Comprobante y Notas" />
+      <div className="border-t border-slate-100 pt-5 space-y-3">
+        <div>
+          <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-400">Paso 2</p>
+          <h4 className="text-sm font-bold text-slate-800 mt-0.5">Comprobante y Notas</h4>
+        </div>
         <div className="space-y-3 mt-3">
           {/* Carga de Comprobante (Máx 1 imagen, Opcional) */}
           <div>
             <div className="flex items-center justify-between mb-1.5">
-                <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                <label className="text-[11px] font-semibold uppercase tracking-wide text-slate-500 flex items-center gap-1.5 mb-1.5">
                   <ImageIcon className="w-3.5 h-3.5 text-slate-400" />
                   <span>Foto del Comprobante</span>
                   <span className="text-[11px] font-normal text-slate-400 bg-slate-100 px-2 py-0.5 rounded-md">
@@ -494,12 +498,12 @@ function PagoFormContent({
               />
 
               {comprobanteUrl ? (
-                <div className="flex items-center justify-between p-3 bg-emerald-50/80 border border-emerald-200/90 rounded-2xl shadow-2xs">
+                <div className="flex items-center justify-between p-3 bg-emerald-50/50 border border-emerald-200/70 rounded-xl">
                   <div className="flex items-center gap-3 min-w-0">
                     <img
                       src={comprobanteUrl}
                       alt="Comprobante de pago"
-                      className="w-12 h-12 rounded-xl object-cover border border-emerald-200 bg-white shrink-0 shadow-2xs"
+                      className="w-12 h-12 rounded-xl object-cover border border-emerald-200 bg-white shrink-0"
                     />
                     <div className="min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
@@ -596,7 +600,7 @@ function PagoFormContent({
 
           {/* Observaciones */}
           <div>
-            <label className="block text-xs font-bold text-slate-700 mb-1">
+            <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1.5">
               Observaciones o Notas
             </label>
             <textarea
@@ -611,13 +615,13 @@ function PagoFormContent({
       </div>
 
       {/* Botones de acción inferiores */}
-      <div className="pt-3 border-t border-slate-100 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5">
-        {esPorConfirmar ? (
+      <div className="pt-4 border-t border-slate-100 flex flex-col-reverse sm:flex-row sm:items-center sm:justify-end gap-2.5">
+        {esPorConfirmar && (
           <button
             type="button"
             onClick={() => setModalRechazoAbierto(true)}
             disabled={isLoading || isSubmitting || isRechazando}
-            className="relative h-11 px-4 rounded-xl text-xs sm:text-sm font-bold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200/90 transition-all flex items-center justify-center gap-1.5 cursor-pointer active:translate-y-0.5 disabled:opacity-50 order-2 sm:order-1 shadow-2xs"
+            className="relative w-full sm:w-auto sm:mr-auto px-4 py-2.5 rounded-xl border border-rose-200 text-xs sm:text-sm font-semibold text-rose-700 bg-rose-50/60 hover:bg-rose-100/80 transition-colors flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
           >
             {/* Indicador flotante: Notifica rechazo por correo */}
             <span
@@ -629,62 +633,58 @@ function PagoFormContent({
             <Trash2 className="w-4 h-4 text-rose-600 shrink-0" />
             <span>Rechazar Comprobante</span>
           </button>
-        ) : (
-          <div className="hidden sm:block" />
         )}
 
-        <div className="grid grid-cols-2 sm:flex sm:items-center gap-2.5 order-1 sm:order-2">
-          <button
-            type="button"
-            onClick={onClose}
-            disabled={isLoading || isSubmitting || isUploading || isCompressing || isRechazando}
-            className="w-full sm:w-auto px-4 h-11 rounded-xl text-xs sm:text-sm font-bold bg-slate-100 text-slate-700 hover:bg-slate-200 transition-colors cursor-pointer disabled:opacity-50"
+        <button
+          type="button"
+          onClick={onClose}
+          disabled={isLoading || isSubmitting || isUploading || isCompressing || isRechazando}
+          className="w-full sm:w-auto sm:min-w-[120px] px-4 py-2.5 rounded-xl border border-slate-200 text-xs sm:text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-colors cursor-pointer disabled:opacity-50"
+        >
+          Cancelar
+        </button>
+        <button
+          type="submit"
+          disabled={
+            isLoading ||
+            isSubmitting ||
+            isUploading ||
+            isCompressing ||
+            isRechazando ||
+            Boolean(pago.anteriorImpago && pago.estado !== EstadoPago.PAGADO)
+          }
+          className={`relative w-full sm:w-auto sm:min-w-[180px] inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl text-xs sm:text-sm font-bold shadow-[0_2px_8px_rgba(23,94,56,0.3)] border-b-[3px] active:translate-y-0.5 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${
+            pago.anteriorImpago && pago.estado !== EstadoPago.PAGADO
+              ? "bg-slate-400 border-b-slate-600 text-white"
+              : esPorConfirmar
+              ? "bg-blue-600 hover:bg-blue-700 border-b-blue-800 text-white shadow-[0_2px_8px_rgba(37,99,235,0.35)]"
+              : "bg-gradient-to-r from-[#175E38] to-[#124b2d] border-b-[#0e3a23] hover:from-[#145231] hover:to-[#0f3d25] text-white"
+          }`}
+        >
+          {/* Indicador flotante: Notifica confirmación de pago por correo */}
+          <span
+            className="absolute -top-1.5 -right-1.5 z-10 flex items-center justify-center w-5 h-5 rounded-full bg-amber-500 text-white shadow-md border-2 border-white ring-1 ring-amber-600/30 pointer-events-none"
+            title="Esta acción envía un correo de confirmación oficial al Inquilino"
           >
-            Cancelar
-          </button>
-          <button
-            type="submit"
-            disabled={
-              isLoading ||
-              isSubmitting ||
-              isUploading ||
-              isCompressing ||
-              isRechazando ||
-              Boolean(pago.anteriorImpago && pago.estado !== EstadoPago.PAGADO)
-            }
-            className={`relative w-full sm:w-auto px-6 h-11 rounded-xl text-xs sm:text-sm font-bold text-white active:translate-y-0.5 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${
-              pago.anteriorImpago && pago.estado !== EstadoPago.PAGADO
-                ? "bg-slate-400 border-b-[3px] border-b-slate-600"
-                : esPorConfirmar
-                ? "bg-blue-600 hover:bg-blue-700 border-b-[3px] border-b-blue-800 shadow-[0_2px_8px_rgba(37,99,235,0.35)]"
-                : "bg-gradient-to-r from-[#175E38] to-[#124b2d] hover:brightness-105 border-b-[3px] border-b-[#0e3a23] shadow-[0_2px_8px_rgba(23,94,56,0.3)]"
-            }`}
-          >
-            {/* Indicador flotante: Notifica confirmación de pago por correo */}
-            <span
-              className="absolute -top-1.5 -right-1.5 z-10 flex items-center justify-center w-5 h-5 rounded-full bg-amber-500 text-white shadow-md border-2 border-white ring-1 ring-amber-600/30 pointer-events-none"
-              title="Esta acción envía un correo de confirmación oficial al Inquilino"
-            >
-              <Mail className="w-2.5 h-2.5 stroke-[2.5]" />
-            </span>
-            {isLoading || isSubmitting ? (
-              <>
-                <Loader2 className="w-4 h-4 animate-spin" />
-                <span>Guardando...</span>
-              </>
-            ) : esPorConfirmar ? (
-              <>
-                <CheckCircle2 className="w-4 h-4" />
-                <span>Confirmar Pago</span>
-              </>
-            ) : (
-              <>
-                <CheckCircle className="w-4 h-4" />
-                <span>Registrar Pago</span>
-              </>
-            )}
-          </button>
-        </div>
+            <Mail className="w-2.5 h-2.5 stroke-[2.5]" />
+          </span>
+          {isLoading || isSubmitting ? (
+            <>
+              <Loader2 className="w-4 h-4 animate-spin" />
+              <span>Guardando...</span>
+            </>
+          ) : esPorConfirmar ? (
+            <>
+              <CheckCircle2 className="w-4 h-4" />
+              <span>Confirmar Pago</span>
+            </>
+          ) : (
+            <>
+              <CheckCircle className="w-4 h-4" />
+              <span>Registrar Pago</span>
+            </>
+          )}
+        </button>
       </div>
     </form>
 
@@ -703,7 +703,7 @@ function PagoFormContent({
         </p>
 
         <div className="space-y-1.5">
-          <label className="block text-xs font-bold text-slate-700 uppercase tracking-wide">
+          <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1.5">
             Motivo del Descarte <span className="text-[#CC1A22]">*</span>
           </label>
           <textarea
@@ -715,12 +715,12 @@ function PagoFormContent({
           />
         </div>
 
-        <div className="grid grid-cols-2 gap-2.5 pt-2">
+        <div className="pt-4 border-t border-slate-100 flex flex-col-reverse sm:flex-row sm:items-center sm:justify-end gap-2.5">
           <button
             type="button"
             onClick={() => setModalRechazoAbierto(false)}
             disabled={isRechazando}
-            className="h-11 px-4 rounded-xl text-xs font-bold bg-white text-slate-700 hover:bg-slate-100 border border-slate-300 transition-all cursor-pointer shadow-2xs active:translate-y-0.5 disabled:opacity-50"
+            className="w-full sm:w-auto sm:min-w-[120px] px-4 py-2.5 rounded-xl border border-slate-200 text-xs sm:text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-colors cursor-pointer disabled:opacity-50"
           >
             Cancelar
           </button>
@@ -728,7 +728,7 @@ function PagoFormContent({
             type="button"
             onClick={handleConfirmarRechazo}
             disabled={isRechazando || !motivoRechazoInput.trim()}
-            className="relative h-11 px-4 rounded-xl text-xs font-bold bg-[#CC1A22] hover:bg-[#a81219] text-white border-b-[3px] border-b-[#7a0d12] transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs active:translate-y-0.5 disabled:opacity-50"
+            className="relative w-full sm:w-auto sm:min-w-[180px] inline-flex items-center justify-center gap-1.5 px-5 py-2.5 rounded-xl bg-[#CC1A22] hover:bg-[#a81219] text-white text-xs sm:text-sm font-bold shadow-[0_2px_8px_rgba(204,26,34,0.3)] border-b-[3px] border-b-[#7a0d12] active:translate-y-0.5 transition-all cursor-pointer disabled:opacity-50"
           >
             {/* Indicador flotante: Notifica rechazo por correo */}
             <span

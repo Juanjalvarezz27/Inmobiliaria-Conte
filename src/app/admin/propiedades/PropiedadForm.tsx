@@ -258,20 +258,16 @@ export function PropiedadForm({ initialData, defaultTipo, onSubmit, onCancel, is
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
+    <form onSubmit={handleSubmit} className="space-y-7">
       {/* ─── 1. Selector de Tipo de Propiedad ─── */}
       <div className="space-y-3">
-        <div className="flex items-center gap-2.5 pb-0.5">
-          <div className="w-6 h-6 rounded-lg bg-[#175E38] text-white inline-flex items-center justify-center text-xs font-black shadow-xs shrink-0">
-            1
-          </div>
-          <h4 className="text-sm sm:text-base font-extrabold text-slate-900 tracking-tight">
-            Tipo de Inmueble <span className="text-[#175E38]">*</span>
-          </h4>
-        </div>
+        <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-400">Paso 1</p>
+        <h4 className="text-sm font-bold text-slate-800 -mt-1">
+          Tipo de Inmueble <span className="text-[#CC1A22]">*</span>
+        </h4>
 
         {/* Cuadrícula 4x2 sin scrollbar */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
           {OPCIONES_TIPO.map((opt) => {
             const Icon = opt.icon;
             const isSelected = tipo === opt.value;
@@ -330,23 +326,16 @@ export function PropiedadForm({ initialData, defaultTipo, onSubmit, onCancel, is
       </div>
 
       {/* ─── 2. Información General del Inmueble ─── */}
-      <div className="space-y-4 pt-1">
-        {/* Divisor delimitador más oscuro y definido */}
-        <div className="h-px w-full bg-gradient-to-r from-slate-200/40 via-slate-400 to-slate-200/40" />
-
-        <div className="flex items-center gap-2.5 pt-1">
-          <div className="w-6 h-6 rounded-lg bg-[#175E38] text-white inline-flex items-center justify-center text-xs font-black shadow-xs shrink-0">
-            2
-          </div>
-          <h4 className="text-sm sm:text-base font-extrabold text-slate-900 tracking-tight">
-            Información de la Propiedad
-          </h4>
+      <div className="space-y-4">
+        <div className="border-t border-slate-100 pt-5">
+          <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-400">Paso 2</p>
+          <h4 className="text-sm font-bold text-slate-800 mt-0.5">Información de la Propiedad</h4>
         </div>
 
         {/* Nombre */}
         <div>
-          <label htmlFor="prop-nombre" className="block text-xs font-bold text-slate-700 mb-1.5">
-            Nombre de la Propiedad *
+          <label htmlFor="prop-nombre" className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1.5">
+            Nombre de la Propiedad <span className="text-[#CC1A22]">*</span>
           </label>
           <div className="relative">
             <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
@@ -380,8 +369,8 @@ export function PropiedadForm({ initialData, defaultTipo, onSubmit, onCancel, is
         {/* Ciudad y Dirección */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
           <div>
-            <label htmlFor="prop-ciudad" className="block text-xs font-bold text-slate-700 mb-1.5">
-              Ciudad *
+            <label htmlFor="prop-ciudad" className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1.5">
+              Ciudad <span className="text-[#CC1A22]">*</span>
             </label>
             <div className="relative">
               <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
@@ -399,8 +388,8 @@ export function PropiedadForm({ initialData, defaultTipo, onSubmit, onCancel, is
           </div>
 
           <div>
-            <label htmlFor="prop-direccion" className="block text-xs font-bold text-slate-700 mb-1.5">
-              Dirección Detallada *
+            <label htmlFor="prop-direccion" className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1.5">
+              Dirección Detallada <span className="text-[#CC1A22]">*</span>
             </label>
             <div className="relative">
               <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
@@ -422,10 +411,10 @@ export function PropiedadForm({ initialData, defaultTipo, onSubmit, onCancel, is
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
           <div>
             <div className="flex items-center justify-between mb-1.5">
-              <label htmlFor="prop-telefono" className="block text-xs font-bold text-slate-700">
+              <label htmlFor="prop-telefono" className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500">
                 Teléfono de Contacto
               </label>
-              <span className="text-[10px] text-slate-400 font-medium">Opcional</span>
+              <span className="text-[10px] text-slate-400">Opcional</span>
             </div>
             <PhoneInput
               id="prop-telefono"
@@ -437,10 +426,10 @@ export function PropiedadForm({ initialData, defaultTipo, onSubmit, onCancel, is
 
           <div>
             <div className="flex items-center justify-between mb-1.5">
-              <label htmlFor="prop-propietario" className="block text-xs font-bold text-slate-700">
+              <label htmlFor="prop-propietario" className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500">
                 Propietario / Arrendador
               </label>
-              <span className="text-[10px] text-slate-400 font-medium">Opcional</span>
+              <span className="text-[10px] text-slate-400">Opcional</span>
             </div>
             <div className="relative">
               <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
@@ -460,8 +449,8 @@ export function PropiedadForm({ initialData, defaultTipo, onSubmit, onCancel, is
 
         {/* Descripción */}
         <div>
-          <label htmlFor="prop-descripcion" className="block text-xs font-bold text-slate-700 mb-1.5">
-            Descripción o Referencias (Opcional)
+          <label htmlFor="prop-descripcion" className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1.5">
+            Descripción o Referencias <span className="text-slate-400 normal-case font-normal">(Opcional)</span>
           </label>
           <textarea
             id="prop-descripcion"
@@ -476,29 +465,24 @@ export function PropiedadForm({ initialData, defaultTipo, onSubmit, onCancel, is
 
       {/* ─── 3. Características Técnicas (para complejos y grandes inmuebles) ─── */}
       {metaConfig && (
-        <div className="space-y-4 pt-1">
-          {/* Divisor delimitador más oscuro y definido */}
-          <div className="h-px w-full bg-gradient-to-r from-slate-200/40 via-slate-400 to-slate-200/40" />
-
-          <div className="flex items-center justify-between pt-1">
-            <div className="flex items-center gap-2.5">
-              <div className="w-6 h-6 rounded-lg bg-[#175E38] text-white inline-flex items-center justify-center text-xs font-black shadow-xs shrink-0">
-                3
+        <div className="space-y-4">
+          <div className="border-t border-slate-100 pt-5">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-400">Paso 3</p>
+                <h4 className="text-sm font-bold text-slate-800 mt-0.5">{metaConfig.label}</h4>
               </div>
-              <h4 className="text-sm sm:text-base font-extrabold text-slate-900 tracking-tight">
-                {metaConfig.label}
-              </h4>
+              <span className="text-[10px] font-semibold uppercase px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 border border-slate-200">
+                Opcional
+              </span>
             </div>
-            <span className="text-[10px] font-extrabold uppercase px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200/80 shadow-2xs">
-              Opcional
-            </span>
           </div>
 
           <div className={`grid grid-cols-1 ${metaConfig.pisos ? "sm:grid-cols-2" : ""} gap-3.5`}>
             {/* Número de pisos — solo para complejos y edificios */}
             {metaConfig.pisos && (
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1.5">
                   Número de Pisos / Niveles
                 </label>
                 <div className="relative">
@@ -522,7 +506,7 @@ export function PropiedadForm({ initialData, defaultTipo, onSubmit, onCancel, is
             {/* Área total */}
             {metaConfig.areaTotal && (
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1.5">
                   {metaConfig.areaTotalLabel}
                 </label>
                 <div className="relative">
@@ -557,30 +541,25 @@ export function PropiedadForm({ initialData, defaultTipo, onSubmit, onCancel, is
 
       {/* ─── Ficha de Alquiler Inicial para Propiedades Individuales ─── */}
       {!initialData && esIndividual && !esGrande && (
-        <div className="space-y-4 pt-1">
-          {/* Divisor delimitador más oscuro y definido */}
-          <div className="h-px w-full bg-gradient-to-r from-slate-200/40 via-slate-400 to-slate-200/40" />
-
-          <div className="relative overflow-hidden p-4 rounded-2xl bg-gradient-to-br from-emerald-50/70 via-slate-50/50 to-emerald-50/40 border border-emerald-200/90 space-y-3">
-            <div className="flex items-center justify-between pt-1">
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-xl bg-[#175E38]/10 text-[#175E38] flex items-center justify-center shrink-0">
-                  <Sparkles className="w-4 h-4" />
+        <div className="space-y-3">
+          <div className="border-t border-slate-100 pt-5">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="w-7 h-7 rounded-lg bg-emerald-50 text-[#175E38] flex items-center justify-center shrink-0 border border-emerald-200/60">
+                  <Sparkles className="w-3.5 h-3.5" />
                 </div>
-                <div>
-                  <h5 className="text-xs sm:text-sm font-bold text-slate-900 leading-tight">
-                    Ficha de Alquiler Inicial
-                  </h5>
-                </div>
+                <h5 className="text-sm font-bold text-slate-800">Ficha de Alquiler Inicial</h5>
               </div>
-              <span className="text-[10px] font-extrabold uppercase px-2.5 py-1 rounded-full bg-[#175E38]/10 text-[#175E38] border border-[#175E38]/20 shrink-0">
+              <span className="text-[10px] font-semibold uppercase px-2 py-0.5 rounded-full bg-emerald-50 text-[#175E38] border border-emerald-200/60">
                 Opcional
               </span>
             </div>
+            <p className="text-xs text-slate-400 mt-1 ml-9">Puedes completar esto después desde la ficha de la propiedad.</p>
+          </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1.5">
                   Área del Inmueble
                 </label>
                 <div className="relative">
@@ -603,7 +582,7 @@ export function PropiedadForm({ initialData, defaultTipo, onSubmit, onCancel, is
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1.5">
                   Precio Mensual de Alquiler
                 </label>
                 <div className="relative">
@@ -625,29 +604,28 @@ export function PropiedadForm({ initialData, defaultTipo, onSubmit, onCancel, is
                 </div>
               </div>
             </div>
-          </div>
         </div>
       )}
 
-      {/* ─── Botones de Acción (Mismo tamaño en mobile, centrados en desktop) ─── */}
-      <div className="grid grid-cols-2 gap-2.5 sm:gap-3.5 w-full sm:flex sm:items-center sm:justify-center pt-4 sm:pt-6 pb-1">
+      {/* ─── Botones de Acción ─── */}
+      <div className="pt-4 border-t border-slate-100 flex flex-col-reverse sm:flex-row sm:items-center sm:justify-end gap-2.5">
         <button
           type="button"
           onClick={onCancel}
-          className="w-full sm:w-auto sm:min-w-[130px] h-11 px-3 sm:px-6 text-xs sm:text-sm font-bold text-slate-600 hover:text-slate-900 border border-slate-200 rounded-xl hover:bg-slate-100 transition-all cursor-pointer flex items-center justify-center text-center"
+          className="w-full sm:w-auto sm:min-w-[120px] px-4 py-2.5 rounded-xl border border-slate-200 text-xs sm:text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-colors cursor-pointer"
         >
           Cancelar
         </button>
         <button
           type="submit"
           disabled={isLoading || !nombre.trim() || !direccion.trim() || !ciudad.trim()}
-          className="w-full sm:w-auto sm:min-w-[180px] h-11 px-3 sm:px-8 text-xs sm:text-sm font-bold text-white bg-gradient-to-r from-[#175E38] to-[#124b2d] hover:from-[#145331] hover:to-[#0f3d24] rounded-xl shadow-md hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer border-b-[3px] border-b-[#0e3a23] active:translate-y-0.5 flex items-center justify-center text-center whitespace-nowrap"
+          className="w-full sm:w-auto sm:min-w-[180px] inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#175E38] to-[#124b2d] text-white text-xs sm:text-sm font-bold shadow-[0_2px_8px_rgba(23,94,56,0.3)] border-b-[3px] border-b-[#0e3a23] hover:from-[#145231] hover:to-[#0f3d25] active:translate-y-0.5 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {isLoading ? (
-            <span className="flex items-center gap-1.5 justify-center">
+            <>
               <Loader2 className="w-4 h-4 animate-spin shrink-0" />
               <span>Guardando...</span>
-            </span>
+            </>
           ) : (
             <span>{initialData ? "Guardar Cambios" : "Registrar Propiedad"}</span>
           )}

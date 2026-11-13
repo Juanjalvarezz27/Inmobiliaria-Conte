@@ -12,7 +12,6 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { Modal } from "@/components/ui/modal";
-import { FormSectionHeader } from "@/components/ui/form-section-header";
 import { Select } from "@/components/ui/select";
 import {
   TipoTransaccionFinanciera,
@@ -297,7 +296,7 @@ export function TransaccionFormModal({
       <form onSubmit={handleSubmit} className="p-4 sm:p-6 space-y-6">
         {/* Toggle de Tipo: Egreso vs Ingreso Extra */}
         <div>
-          <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
+          <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1.5">
             Tipo de Movimiento
           </label>
           <div className="grid grid-cols-2 gap-2 p-1 bg-slate-100 rounded-xl border border-slate-200">
@@ -329,15 +328,15 @@ export function TransaccionFormModal({
         </div>
 
         {/* Sección 1: Datos Principales y Multimoneda */}
-        <div className="space-y-4">
-          <FormSectionHeader
-            step={1}
-            title="Importe y Moneda de Operación"
-          />
+        <div className="border-t border-slate-100 pt-5 space-y-4">
+          <div>
+            <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-400">Paso 1</p>
+            <h4 className="text-sm font-bold text-slate-800 mt-0.5">Importe y Moneda de Operación</h4>
+          </div>
 
           {/* Selector 50/50 de Moneda (Bolívares por defecto) */}
           <div>
-            <label className="block text-xs font-bold text-slate-700 mb-1.5">
+            <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1.5">
               Moneda de la Transacción <span className="text-rose-500">*</span>
             </label>
             <div className="grid grid-cols-2 gap-2 p-1 bg-slate-100 rounded-xl border border-slate-200">
@@ -371,7 +370,7 @@ export function TransaccionFormModal({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
             {/* Concepto / Descripción */}
             <div className="sm:col-span-2">
-              <label className="block text-xs font-bold text-slate-700 mb-1.5">
+              <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1.5">
                 Concepto o Descripción <span className="text-rose-500">*</span>
               </label>
               <div className="relative">
@@ -393,7 +392,7 @@ export function TransaccionFormModal({
             {/* Caso 1: Moneda en USD */}
             {monedaOriginal === MonedaTransaccion.USD ? (
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1.5">
                   Monto ($ USD) <span className="text-rose-500">*</span>
                 </label>
                 <div className="relative">
@@ -416,7 +415,7 @@ export function TransaccionFormModal({
               /* Caso 2: Moneda en VES (Bolívares) */
               <>
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                  <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1.5">
                     Monto en Bolívares (Bs.) <span className="text-rose-500">*</span>
                   </label>
                   <div className="relative">
@@ -439,7 +438,7 @@ export function TransaccionFormModal({
                 {/* Tasa BCV aplicada con opción de edición */}
                 <div>
                   <div className="flex items-center justify-between mb-1.5">
-                    <label className="block text-xs font-bold text-slate-700">
+                    <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500">
                       Tasa Oficial BCV <span className="text-rose-500">*</span>
                     </label>
                     <button
@@ -466,7 +465,7 @@ export function TransaccionFormModal({
                       />
                     </div>
                   ) : (
-                    <div className="h-11 px-3.5 bg-emerald-50 border border-emerald-200/90 rounded-xl flex items-center justify-between text-xs">
+                    <div className="h-11 px-3.5 bg-emerald-50/50 border border-emerald-200/70 rounded-xl flex items-center justify-between text-xs">
                       <div className="flex items-center gap-1.5 min-w-0">
                         {cargandoTasa ? (
                           <Loader2 className="w-3.5 h-3.5 animate-spin text-[#175E38]" />
@@ -500,7 +499,7 @@ export function TransaccionFormModal({
                 </div>
 
                 {/* Banner de Contravalor en USD en vivo */}
-                <div className="sm:col-span-2 p-3 bg-slate-50 border border-slate-200/80 rounded-xl flex items-center justify-between text-xs">
+                <div className="sm:col-span-2 p-3 bg-slate-50/50 border border-slate-200/70 rounded-xl flex items-center justify-between text-xs">
                   <span className="text-slate-500 font-semibold flex items-center gap-1.5">
                     <AlertCircle className="w-3.5 h-3.5 text-slate-400" />
                     <span>Equivalente Registrado en Balance:</span>
@@ -514,7 +513,7 @@ export function TransaccionFormModal({
 
             {/* Fecha del Movimiento */}
             <div className={monedaOriginal === MonedaTransaccion.VES ? "sm:col-span-1" : ""}>
-              <label className="block text-xs font-bold text-slate-700 mb-1.5">
+              <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1.5">
                 Fecha del Movimiento <span className="text-rose-500">*</span>
               </label>
               <div className="relative">
@@ -536,7 +535,7 @@ export function TransaccionFormModal({
 
             {/* Método de Pago */}
             <div className={monedaOriginal === MonedaTransaccion.VES ? "sm:col-span-1" : "sm:col-span-2"}>
-              <label className="block text-xs font-bold text-slate-700 mb-1.5">
+              <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1.5">
                 Método de Pago <span className="text-rose-500">*</span>
               </label>
               <Select
@@ -550,16 +549,16 @@ export function TransaccionFormModal({
         </div>
 
         {/* Sección 2: Imputación y Soporte */}
-        <div className="space-y-4">
-          <FormSectionHeader
-            step={2}
-            title="Centro de Costos y Referencia"
-          />
+        <div className="border-t border-slate-100 pt-5 space-y-4">
+          <div>
+            <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-400">Paso 2</p>
+            <h4 className="text-sm font-bold text-slate-800 mt-0.5">Centro de Costos y Referencia</h4>
+          </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
             {/* Propiedad / Centro de costo */}
             <div className="sm:col-span-2">
-              <label className="block text-xs font-bold text-slate-700 mb-1.5">
+              <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1.5">
                 Inmueble / Centro de Costo Asignado
               </label>
               <Select
@@ -579,7 +578,7 @@ export function TransaccionFormModal({
 
             {/* Beneficiario / Proveedor */}
             <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1.5">
+              <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1.5">
                 {tipo === TipoTransaccionFinanciera.EGRESO
                   ? "Proveedor o Beneficiario"
                   : "Cliente o Pagador"}
@@ -601,7 +600,7 @@ export function TransaccionFormModal({
 
             {/* Referencia o Nro de Factura */}
             <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1.5">
+              <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1.5">
                 Nro. de Factura o Referencia
               </label>
               <div className="relative">
@@ -617,7 +616,7 @@ export function TransaccionFormModal({
 
             {/* Observaciones o Notas */}
             <div className="sm:col-span-2">
-              <label className="block text-xs font-bold text-slate-700 mb-1.5">
+              <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1.5">
                 Observaciones o Notas
               </label>
               <textarea
@@ -632,19 +631,19 @@ export function TransaccionFormModal({
         </div>
 
         {/* Botones de Acción Inferiores */}
-        <div className="pt-2 border-t border-slate-100 flex flex-col-reverse sm:flex-row items-center justify-end gap-2.5 sm:gap-3">
+        <div className="pt-4 border-t border-slate-100 flex flex-col-reverse sm:flex-row sm:items-center sm:justify-end gap-2.5">
           <button
             type="button"
             onClick={onClose}
             disabled={isLoading}
-            className="w-full sm:w-auto min-w-[120px] h-11 px-4 rounded-xl text-xs font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 transition-all cursor-pointer flex items-center justify-center"
+            className="w-full sm:w-auto sm:min-w-[120px] px-4 py-2.5 rounded-xl border border-slate-200 text-xs sm:text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-colors cursor-pointer"
           >
             Cancelar
           </button>
           <button
             type="submit"
             disabled={isLoading}
-            className="w-full sm:w-auto min-w-[180px] h-11 px-5 rounded-xl text-xs font-bold text-white bg-gradient-to-r from-[#175E38] to-[#124b2d] hover:brightness-105 border-b-[3px] border-b-[#0e3a23] active:translate-y-0.5 transition-all shadow-[0_2px_8px_rgba(23,94,56,0.25)] flex items-center justify-center gap-2 cursor-pointer"
+            className="w-full sm:w-auto sm:min-w-[180px] inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#175E38] to-[#124b2d] text-white text-xs sm:text-sm font-bold shadow-[0_2px_8px_rgba(23,94,56,0.3)] border-b-[3px] border-b-[#0e3a23] hover:from-[#145231] hover:to-[#0f3d25] active:translate-y-0.5 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isLoading ? (
               <>

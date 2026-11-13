@@ -16,7 +16,6 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { Modal } from "@/components/ui/modal";
-import { FormSectionHeader } from "@/components/ui/form-section-header";
 import { PaginacionLocal } from "@/components/ui/paginacion-local";
 import { getAfinidadTecnico } from "@/lib/constants/mantenimiento";
 import {
@@ -179,10 +178,8 @@ export function AsignarTecnicoModal({
         {/* Paso 1: Seleccionar Especialista */}
         <div className="space-y-3">
           <div>
-            <FormSectionHeader
-              step={1}
-              title="Seleccionar Técnico o Empleado"
-            />
+            <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-400">Paso 1</p>
+            <h4 className="text-sm font-bold text-slate-800 mt-0.5">Seleccionar Técnico o Empleado</h4>
             <p className="text-xs text-slate-500 mt-1">
               Elige al profesional calificado para atender y reparar esta incidencia.
             </p>
@@ -219,7 +216,7 @@ export function AsignarTecnicoModal({
           {/* Lista Compacta de Especialistas */}
           <div className="space-y-1.5 max-h-[350px] overflow-y-auto pr-1">
             {tecnicos.length === 0 ? (
-              <div className="p-4 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-xs flex items-center gap-2">
+              <div className="p-3.5 rounded-xl bg-amber-50/50 border border-amber-200/70 text-amber-800 text-xs flex items-center gap-2">
                 <AlertCircle className="w-4 h-4 shrink-0" />
                 <span>No hay personal operativo activo registrado en el sistema.</span>
               </div>
@@ -347,13 +344,13 @@ export function AsignarTecnicoModal({
 
         {/* Paso 2: Instrucciones / Notas Administrativas */}
         <div>
-          <FormSectionHeader
-            step={2}
-            title="Instrucciones al Técnico (Opcional)"
-          />
-          <p className="text-xs text-slate-500 mt-1">
-            Indica detalles especiales, herramientas o presupuesto estimado.
-          </p>
+          <div>
+            <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-400">Paso 2</p>
+            <h4 className="text-sm font-bold text-slate-800 mt-0.5">Instrucciones al Técnico (Opcional)</h4>
+            <p className="text-xs text-slate-500 mt-1">
+              Indica detalles especiales, herramientas o presupuesto estimado.
+            </p>
+          </div>
 
           <textarea
             value={notasAdmin}
@@ -366,20 +363,20 @@ export function AsignarTecnicoModal({
           />
         </div>
 
-        {/* Botones de Acción (Regla de oro: Grid 50/50 en móvil) */}
-        <div className="pt-2 border-t border-slate-100 grid grid-cols-2 sm:flex sm:items-center sm:justify-end gap-2.5">
+        {/* Botones de Acción */}
+        <div className="pt-4 border-t border-slate-100 flex flex-col-reverse sm:flex-row sm:items-center sm:justify-end gap-2.5">
           <button
             type="button"
             onClick={onClose}
             disabled={isSubmitting}
-            className="w-full sm:w-auto min-w-[110px] h-11 px-4 rounded-xl text-xs font-bold bg-white text-slate-700 border border-slate-200 hover:bg-slate-50 transition-all cursor-pointer shadow-2xs active:translate-y-0.5"
+            className="w-full sm:w-auto sm:min-w-[120px] px-4 py-2.5 rounded-xl border border-slate-200 text-xs sm:text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
           >
             Cancelar
           </button>
           <button
             type="submit"
             disabled={isSubmitting || !empleadoId}
-            className="relative w-full sm:w-auto min-w-[180px] h-11 px-4 sm:px-5 rounded-xl text-xs font-bold bg-gradient-to-r from-[#175E38] to-[#124b2d] text-white border-b-[3px] border-b-[#0e3a23] hover:brightness-105 transition-all flex items-center justify-center gap-1.5 sm:gap-2 cursor-pointer shadow-[0_2px_8px_rgba(23,94,56,0.25)] active:translate-y-0.5 disabled:opacity-50 disabled:pointer-events-none"
+            className="relative w-full sm:w-auto sm:min-w-[180px] inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#175E38] to-[#124b2d] text-white text-xs sm:text-sm font-bold shadow-[0_2px_8px_rgba(23,94,56,0.3)] border-b-[3px] border-b-[#0e3a23] hover:from-[#145231] hover:to-[#0f3d25] active:translate-y-0.5 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {/* Indicador flotante: Notifica por correo al técnico */}
             <span

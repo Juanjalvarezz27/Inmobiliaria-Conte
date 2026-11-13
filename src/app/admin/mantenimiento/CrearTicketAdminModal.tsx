@@ -24,7 +24,6 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { Modal } from "@/components/ui/modal";
-import { FormSectionHeader } from "@/components/ui/form-section-header";
 import { Select, type SelectOption } from "@/components/ui/select";
 import { useOperacionesUploadThing } from "@/lib/uploadthing";
 import { comprimirImagenes, formatearBytes, PRESETS_COMPRESION } from "@/lib/file-compressor";
@@ -301,19 +300,19 @@ export function CrearTicketAdminModal({
       <form onSubmit={handleSubmit} className="space-y-4">
         {/* Paso 1: Ubicación del Inmueble */}
         <div>
-          <FormSectionHeader
-            step={1}
-            title="Inmueble y Ubicación del Problema"
-          />
+          <div>
+            <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-400">Paso 1</p>
+            <h4 className="text-sm font-bold text-slate-800 mt-0.5">Inmueble y Ubicación del Problema</h4>
+          </div>
           <p className="text-xs text-slate-500 mt-1">
             Selecciona el edificio y si la avería afecta a un local o a las áreas comunes.
           </p>
 
           <div className="space-y-3 mt-3">
             <div className="space-y-1">
-              <label className="text-xs font-semibold text-slate-700 flex items-center gap-1.5">
+              <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1.5 flex items-center gap-1.5">
                 <Building2 className="w-3.5 h-3.5 text-[#175E38]" />
-                Inmueble / Edificio <span className="text-rose-500">*</span>
+                <span>Inmueble / Edificio <span className="text-rose-500">*</span></span>
               </label>
               <Select
                 value={propiedadId}
@@ -331,10 +330,10 @@ export function CrearTicketAdminModal({
             </div>
 
             <div className="space-y-1">
-              <div className="flex items-center justify-between">
-                <label className="text-xs font-semibold text-slate-700 flex items-center gap-1.5">
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 flex items-center gap-1.5">
                   <Store className="w-3.5 h-3.5 text-slate-500" />
-                  Local o Espacio Específico
+                  <span>Local o Espacio Específico</span>
                 </label>
                 {unidadId && (
                   <button
@@ -362,17 +361,17 @@ export function CrearTicketAdminModal({
 
         {/* Paso 2: Especialidad Técnica */}
         <div>
-          <FormSectionHeader
-            step={2}
-            title="Especialidad Técnica"
-          />
+          <div>
+            <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-400">Paso 2</p>
+            <h4 className="text-sm font-bold text-slate-800 mt-0.5">Especialidad Técnica</h4>
+          </div>
           <p className="text-xs text-slate-500 mt-1">
             Indica el ramo o especialidad a la que corresponde la avería.
           </p>
 
           <div className="space-y-3 mt-3">
             <div className="space-y-1">
-              <label className="text-xs font-semibold text-slate-700">
+              <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1.5">
                 Especialidad Técnica <span className="text-rose-500">*</span>
               </label>
               <Select
@@ -385,7 +384,7 @@ export function CrearTicketAdminModal({
 
             {categoria === CategoriaTicket.OTRO && (
               <div className="space-y-1 animate-in fade-in-50 duration-200">
-                <label className="text-xs font-semibold text-slate-700">
+                <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1.5">
                   Especifica cuál es la incidencia <span className="text-rose-500">*</span>
                 </label>
                 <input
@@ -404,15 +403,15 @@ export function CrearTicketAdminModal({
 
         {/* Paso 3: Detalle de la Avería */}
         <div>
-          <FormSectionHeader
-            step={3}
-            title="Descripción de la Avería"
-          />
+          <div>
+            <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-400">Paso 3</p>
+            <h4 className="text-sm font-bold text-slate-800 mt-0.5">Descripción de la Avería</h4>
+          </div>
           <div className="space-y-2.5 mt-2.5">
             <div>
-              <label className="text-xs font-semibold text-slate-700 flex items-center gap-1">
+              <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1.5 flex items-center gap-1">
                 <FileText className="w-3.5 h-3.5 text-slate-400" />
-                Título del Problema <span className="text-rose-500">*</span>
+                <span>Título del Problema <span className="text-rose-500">*</span></span>
               </label>
               <input
                 type="text"
@@ -426,7 +425,7 @@ export function CrearTicketAdminModal({
             </div>
 
             <div>
-              <label className="text-xs font-semibold text-slate-700">
+              <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1.5">
                 Detalle y Diagnóstico Preliminar <span className="text-rose-500">*</span>
               </label>
               <textarea
@@ -444,19 +443,19 @@ export function CrearTicketAdminModal({
 
         {/* Paso 4: Asignación de Personal Técnico */}
         <div>
-          <FormSectionHeader
-            step={4}
-            title="Asignación de Personal Técnico"
-          />
+          <div>
+            <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-400">Paso 4</p>
+            <h4 className="text-sm font-bold text-slate-800 mt-0.5">Asignación de Personal Técnico</h4>
+          </div>
           <p className="text-xs text-slate-500 mt-1">
             Opcional. Puedes asignar un especialista ahora o dejar la incidencia en bandeja para asignarla luego.
           </p>
 
           <div className="space-y-3 mt-3">
             <div className="space-y-1">
-              <label className="text-xs font-semibold text-slate-700 flex items-center gap-1.5">
+              <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1.5 flex items-center gap-1.5">
                 <User className="w-3.5 h-3.5 text-slate-500" />
-                Asignar Técnico Ahora (Opcional)
+                <span>Asignar Técnico Ahora (Opcional)</span>
               </label>
               <Select
                 value={empleadoId}
@@ -468,7 +467,7 @@ export function CrearTicketAdminModal({
 
             {empleadoId !== "SIN_ASIGNAR" && (
               <div className="space-y-1 animate-in fade-in-50 duration-200">
-                <label className="text-xs font-semibold text-slate-700">
+                <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1.5">
                   Instrucciones o Notas Administrativas (Opcional)
                 </label>
                 <textarea
@@ -487,10 +486,10 @@ export function CrearTicketAdminModal({
 
         {/* Paso 5: Fotografías y Evidencias Visuales */}
         <div>
-          <FormSectionHeader
-            step={5}
-            title="Fotografías y Evidencias Visuales"
-          />
+          <div>
+            <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-400">Paso 5</p>
+            <h4 className="text-sm font-bold text-slate-800 mt-0.5">Fotografías y Evidencias Visuales</h4>
+          </div>
           <p className="text-xs text-slate-500 mt-1">
             Opcional. Adjunta fotos del problema para facilitar el diagnóstico del equipo técnico.
           </p>
@@ -566,19 +565,19 @@ export function CrearTicketAdminModal({
         </div>
 
         {/* Footer */}
-        <div className="pt-2 border-t border-slate-100 flex flex-col-reverse sm:flex-row items-center justify-end gap-2.5">
+        <div className="pt-4 border-t border-slate-100 flex flex-col-reverse sm:flex-row sm:items-center sm:justify-end gap-2.5">
           <button
             type="button"
             onClick={handleCerrar}
             disabled={isBusy}
-            className="w-full sm:w-auto min-w-[110px] h-10 px-4 rounded-xl text-xs font-bold bg-white text-slate-700 border border-slate-200 hover:bg-slate-50 transition-all cursor-pointer shadow-2xs active:translate-y-0.5"
+            className="w-full sm:w-auto sm:min-w-[120px] px-4 py-2.5 rounded-xl border border-slate-200 text-xs sm:text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
           >
             Cancelar
           </button>
           <button
             type="submit"
             disabled={isBusy}
-            className="w-full sm:w-auto min-w-[180px] h-10 px-4 rounded-xl text-xs font-bold bg-gradient-to-r from-[#175E38] to-[#124b2d] text-white border-b-[3px] border-b-[#0e3a23] hover:brightness-105 transition-all flex items-center justify-center gap-2 cursor-pointer shadow-[0_2px_8px_rgba(23,94,56,0.25)] active:translate-y-0.5 disabled:opacity-50"
+            className="w-full sm:w-auto sm:min-w-[180px] inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#175E38] to-[#124b2d] text-white text-xs sm:text-sm font-bold shadow-[0_2px_8px_rgba(23,94,56,0.3)] border-b-[3px] border-b-[#0e3a23] hover:from-[#145231] hover:to-[#0f3d25] active:translate-y-0.5 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isSubmitting ? (
               <>

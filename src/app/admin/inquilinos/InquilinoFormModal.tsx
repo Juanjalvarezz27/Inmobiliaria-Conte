@@ -11,7 +11,6 @@ import {
   Phone,
 } from "lucide-react";
 import { Modal } from "@/components/ui/modal";
-import { FormSectionHeader } from "@/components/ui/form-section-header";
 import { PhoneInput } from "@/components/ui/phone-input";
 import { Select } from "@/components/ui/select";
 import { TipoPersona } from "@prisma/client";
@@ -96,12 +95,15 @@ export function InquilinoFormModal({
       <form onSubmit={handleSubmit} className="space-y-5">
         {/* Paso 1: Datos de Identificación */}
         <div className="space-y-3.5">
-          <FormSectionHeader step={1} title="Identificación del Arrendatario" />
+          <div>
+            <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-400">Paso 1</p>
+            <h4 className="text-sm font-bold text-slate-800 mt-0.5">Identificación del Arrendatario</h4>
+          </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
             {/* Tipo de Persona */}
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+              <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1.5">
                 Tipo de Persona <span className="text-[#CC1A22]">*</span>
               </label>
               <Select
@@ -123,7 +125,7 @@ export function InquilinoFormModal({
 
             {/* Documento de Identidad (Cédula o RIF) */}
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+              <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1.5">
                 {tipoPersona === TipoPersona.NATURAL ? "Cédula de Identidad" : "RIF de la Empresa"}{" "}
                 <span className="text-[#CC1A22]">*</span>
               </label>
@@ -142,7 +144,7 @@ export function InquilinoFormModal({
 
             {/* Nombres o Razón Social */}
             <div className={tipoPersona === TipoPersona.JURIDICA ? "sm:col-span-2" : ""}>
-              <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+              <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1.5">
                 {tipoPersona === TipoPersona.NATURAL ? "Nombres" : "Razón Social / Nombre Comercial"}{" "}
                 <span className="text-[#CC1A22]">*</span>
               </label>
@@ -162,7 +164,7 @@ export function InquilinoFormModal({
             {/* Apellidos (solo persona natural) */}
             {tipoPersona === TipoPersona.NATURAL && (
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1.5">
                   Apellidos
                 </label>
                 <div className="relative">
@@ -181,13 +183,16 @@ export function InquilinoFormModal({
         </div>
 
         {/* Paso 2: Información de Contacto */}
-        <div className="space-y-3.5">
-          <FormSectionHeader step={2} title="Contacto y Ubicación" />
+        <div className="border-t border-slate-100 pt-5 space-y-3.5">
+          <div>
+            <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-400">Paso 2</p>
+            <h4 className="text-sm font-bold text-slate-800 mt-0.5">Contacto y Ubicación</h4>
+          </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
             {/* Teléfono Principal con Selector Internacional */}
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+              <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1.5">
                 Teléfono Principal / WhatsApp <span className="text-[#CC1A22]">*</span>
               </label>
               <PhoneInput
@@ -199,7 +204,7 @@ export function InquilinoFormModal({
 
             {/* Teléfono Secundario */}
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+              <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1.5">
                 Teléfono Secundario / Oficina
               </label>
               <div className="relative">
@@ -216,7 +221,7 @@ export function InquilinoFormModal({
 
             {/* Correo Electrónico */}
             <div className="sm:col-span-2">
-              <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+              <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1.5">
                 Correo Electrónico (para notificaciones y recibos)
               </label>
               <div className="relative">
@@ -233,7 +238,7 @@ export function InquilinoFormModal({
 
             {/* Dirección */}
             <div className="sm:col-span-2">
-              <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+              <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1.5">
                 Dirección Fiscal o de Habitación
               </label>
               <div className="relative">
@@ -251,19 +256,19 @@ export function InquilinoFormModal({
         </div>
 
         {/* Botones de Acción */}
-        <div className="pt-3 border-t border-slate-100 flex flex-col-reverse sm:flex-row sm:items-center sm:justify-end gap-2.5">
+        <div className="pt-4 border-t border-slate-100 flex flex-col-reverse sm:flex-row sm:items-center sm:justify-end gap-2.5">
           <button
             type="button"
             onClick={onClose}
             disabled={isLoading}
-            className="w-full sm:w-auto min-w-[120px] px-4 py-2.5 rounded-xl border border-slate-200 text-xs sm:text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-colors cursor-pointer"
+            className="w-full sm:w-auto sm:min-w-[120px] px-4 py-2.5 rounded-xl border border-slate-200 text-xs sm:text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-colors cursor-pointer"
           >
             Cancelar
           </button>
           <button
             type="submit"
             disabled={isLoading}
-            className="w-full sm:w-auto min-w-[160px] inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#175E38] to-[#124b2d] text-white text-xs sm:text-sm font-bold shadow-[0_2px_8px_rgba(23,94,56,0.3)] border-b-[3px] border-b-[#0e3a23] hover:from-[#145231] hover:to-[#0f3d25] active:translate-y-0.5 transition-all cursor-pointer disabled:opacity-50"
+            className="w-full sm:w-auto sm:min-w-[180px] inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#175E38] to-[#124b2d] text-white text-xs sm:text-sm font-bold shadow-[0_2px_8px_rgba(23,94,56,0.3)] border-b-[3px] border-b-[#0e3a23] hover:from-[#145231] hover:to-[#0f3d25] active:translate-y-0.5 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isLoading ? (
               <>

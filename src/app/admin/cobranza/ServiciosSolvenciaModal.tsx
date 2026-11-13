@@ -200,7 +200,7 @@ export function ServiciosSolvenciaModal({
     >
       <form onSubmit={handleSubmit} className="space-y-4">
         {/* Banner Resumen del Local y Arrendatario */}
-        <div className="bg-slate-50 border border-slate-200/90 rounded-2xl p-3 flex items-center justify-between gap-3 text-xs">
+        <div className="bg-slate-50/50 border border-slate-200/70 rounded-xl p-3 flex items-center justify-between gap-3 text-xs">
           <div>
             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
               Arrendatario Responsable
@@ -223,10 +223,10 @@ export function ServiciosSolvenciaModal({
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
           {/* SECCIÓN 1: Electricidad (Corpoelec) */}
           <div
-            className={`rounded-2xl border p-3.5 space-y-3 transition-all ${
+            className={`rounded-xl border p-3.5 space-y-3 transition-all ${
               luzSolvente
-                ? "bg-emerald-50/40 border-emerald-300 shadow-2xs"
-                : "bg-slate-50/70 border-slate-200/90"
+                ? "bg-emerald-50/50 border-emerald-200/70"
+                : "bg-slate-50/50 border-slate-200/70"
             }`}
           >
             {/* Cabecera del Servicio */}
@@ -277,7 +277,7 @@ export function ServiciosSolvenciaModal({
             <div className="space-y-1">
               <label
                 htmlFor="luzFacturaInput"
-                className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block"
+                className="text-[11px] font-semibold uppercase tracking-wide text-slate-500 block mb-1.5"
               >
                 Cuenta Contrato / Referencia
               </label>
@@ -296,9 +296,9 @@ export function ServiciosSolvenciaModal({
             </div>
 
             {/* Comprobante / Recibo Adjunto */}
-            <div className="space-y-1.5 pt-1 border-t border-slate-200/60">
+            <div className="space-y-1.5 pt-2 border-t border-slate-100">
               <div className="flex items-center justify-between">
-                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
+                <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500 block mb-1.5">
                   Foto del Recibo (Luz)
                 </span>
               </div>
@@ -376,10 +376,10 @@ export function ServiciosSolvenciaModal({
 
           {/* SECCIÓN 2: Agua Potable (Hidroandes / Hidrosuroeste) */}
           <div
-            className={`rounded-2xl border p-3.5 space-y-3 transition-all ${
+            className={`rounded-xl border p-3.5 space-y-3 transition-all ${
               aguaSolvente
-                ? "bg-blue-50/40 border-blue-300 shadow-2xs"
-                : "bg-slate-50/70 border-slate-200/90"
+                ? "bg-blue-50/50 border-blue-200/70"
+                : "bg-slate-50/50 border-slate-200/70"
             }`}
           >
             {/* Cabecera del Servicio */}
@@ -430,7 +430,7 @@ export function ServiciosSolvenciaModal({
             <div className="space-y-1">
               <label
                 htmlFor="aguaFacturaInput"
-                className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block"
+                className="text-[11px] font-semibold uppercase tracking-wide text-slate-500 block mb-1.5"
               >
                 Nº Factura / Contrato
               </label>
@@ -449,9 +449,9 @@ export function ServiciosSolvenciaModal({
             </div>
 
             {/* Comprobante / Recibo Adjunto */}
-            <div className="space-y-1.5 pt-1 border-t border-slate-200/60">
+            <div className="space-y-1.5 pt-2 border-t border-slate-100">
               <div className="flex items-center justify-between">
-                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
+                <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500 block mb-1.5">
                   Foto del Recibo (Agua)
                 </span>
               </div>
@@ -532,7 +532,7 @@ export function ServiciosSolvenciaModal({
         <div className="space-y-1">
           <label
             htmlFor="observacionesServiciosInput"
-            className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block"
+            className="text-[11px] font-semibold uppercase tracking-wide text-slate-500 block mb-1.5"
           >
             Observaciones o Notas de Servicios (Opcional)
           </label>
@@ -547,19 +547,19 @@ export function ServiciosSolvenciaModal({
         </div>
 
         {/* Botones de Acción */}
-        <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-100">
+        <div className="pt-4 border-t border-slate-100 flex flex-col-reverse sm:flex-row sm:items-center sm:justify-end gap-2.5">
           <button
             type="button"
             onClick={onClose}
             disabled={isSubmitting}
-            className="px-4 py-2 text-xs sm:text-sm font-bold text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer"
+            className="w-full sm:w-auto sm:min-w-[120px] px-4 py-2.5 rounded-xl border border-slate-200 text-xs sm:text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-colors cursor-pointer"
           >
             Cancelar
           </button>
           <button
             type="submit"
             disabled={isSubmitting || isUploadingLuz || isUploadingAgua}
-            className="inline-flex items-center gap-1.5 px-5 py-2 rounded-xl text-xs sm:text-sm font-bold bg-[#175E38] hover:bg-[#124b2d] text-white transition-all shadow-[0_2px_8px_rgba(23,94,56,0.3)] cursor-pointer border-b-[3px] border-b-[#0e3a23] active:translate-y-0.5 disabled:opacity-50"
+            className="w-full sm:w-auto sm:min-w-[180px] inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#175E38] to-[#124b2d] text-white text-xs sm:text-sm font-bold shadow-[0_2px_8px_rgba(23,94,56,0.3)] border-b-[3px] border-b-[#0e3a23] hover:from-[#145231] hover:to-[#0f3d25] active:translate-y-0.5 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isSubmitting ? (
               <>
