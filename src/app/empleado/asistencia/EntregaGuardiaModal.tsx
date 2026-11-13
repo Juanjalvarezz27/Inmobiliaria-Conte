@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import { Modal } from "@/components/ui/modal";
-import { ShieldCheck, UserCheck, Clock, FileText, Loader2 } from "lucide-react";
+import { ShieldCheck, UserCheck, Clock, Loader2 } from "lucide-react";
 import { Select } from "@/components/ui/select";
 import type { EntregaGuardiaInput } from "@/lib/actions/personal-portal";
 
@@ -26,7 +26,6 @@ export function EntregaGuardiaModal({
   horasEnCurso,
 }: EntregaGuardiaModalProps) {
   const [relevoSeleccionado, setRelevoSeleccionado] = useState<string>("");
-  const [observaciones, setObservaciones] = useState<string>("");
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 
   const opcionesRelevo = compañerosSeguridad.map((c) => ({
@@ -40,7 +39,6 @@ export function EntregaGuardiaModal({
       setIsSubmitting(true);
       await onConfirm({
         guardiaRelevoNombre: relevoSeleccionado || undefined,
-        observacionesEntrega: observaciones.trim() || undefined,
       });
       onClose();
     } finally {
@@ -58,7 +56,7 @@ export function EntregaGuardiaModal({
     >
       <form onSubmit={handleSubmit} className="space-y-4">
         {/* Banner de resumen de la guardia */}
-        <div className="p-3 sm:p-4 rounded-2xl bg-gradient-to-r from-blue-50/90 via-white to-emerald-50/50 border border-blue-200/80 flex items-center justify-between gap-3 shadow-2xs">
+        <div className="p-3.5 sm:p-4 rounded-2xl bg-gradient-to-r from-blue-50/90 via-white to-emerald-50/50 border border-blue-200/80 flex items-center justify-between gap-3 shadow-2xs">
           <div className="flex items-center gap-2.5">
             <div className="w-9 h-9 rounded-xl bg-blue-100 text-blue-800 flex items-center justify-center shrink-0 border border-blue-200">
               <ShieldCheck className="w-5 h-5" />
@@ -73,8 +71,8 @@ export function EntregaGuardiaModal({
             </div>
           </div>
           <div className="shrink-0 text-right">
-            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-black bg-emerald-100 text-[#175E38] border border-emerald-300">
-              <Clock className="w-3 h-3" />
+            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-black bg-emerald-100 text-[#175E38] border border-emerald-300">
+              <Clock className="w-3.5 h-3.5" />
               <span>24 Horas</span>
             </span>
           </div>
@@ -104,23 +102,8 @@ export function EntregaGuardiaModal({
             />
           )}
           <p className="text-[11px] text-slate-400">
-            Nombre del personal que asume la custodia del centro comercial o inmueble.
+            Nombre del personal que asume la custodia física del centro comercial o inmueble.
           </p>
-        </div>
-
-        {/* Observaciones de Entrega */}
-        <div className="space-y-1.5">
-          <label className="block text-xs font-bold text-slate-800 flex items-center gap-1.5">
-            <FileText className="w-3.5 h-3.5 text-[#175E38]" />
-            <span>Novedades o Estado de Entrega (Opcional)</span>
-          </label>
-          <textarea
-            value={observaciones}
-            onChange={(e) => setObservaciones(e.target.value)}
-            rows={3}
-            placeholder="Ej: Se entregan 2 radios operativos, llaves de acceso y puesto en orden sin novedades."
-            className="w-full p-3 text-xs sm:text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-hidden focus:ring-2 focus:ring-[#175E38]/20 focus:border-[#175E38] resize-none"
-          />
         </div>
 
         {/* Botones de acción 50/50 en móvil */}
