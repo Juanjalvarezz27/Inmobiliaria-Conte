@@ -16,10 +16,11 @@ export async function GET(request: Request) {
 
     const { searchParams } = new URL(request.url);
     const fecha = searchParams.get("fecha");
+    const force = searchParams.get("force") === "true";
 
     const data = fecha && /^\d{4}-\d{2}-\d{2}$/.test(fecha)
       ? await getTasaBcvPorFecha(fecha)
-      : await getTasaBcvOficial();
+      : await getTasaBcvOficial(force);
 
     return NextResponse.json({
       success: true,

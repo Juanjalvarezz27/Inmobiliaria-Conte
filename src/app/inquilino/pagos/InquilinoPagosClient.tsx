@@ -28,6 +28,7 @@ import {
   Droplets,
   ChevronRight,
   Check,
+  RotateCw,
 } from "lucide-react";
 import { PageHeader, StatCard, Badge, ImageViewerModal } from "@/components/ui";
 import { FilterDropdown, type FilterDropdownOption } from "@/components/ui/filter-dropdown";
@@ -59,9 +60,50 @@ export function InquilinoPagosClient({
 }: InquilinoPagosClientProps) {
   const router = useRouter();
   const pagos = initialPagos;
+  const [tasaBcv, setTasaBcv] = useState<TasaBcvResponse | undefined>(tasaBcvActual);
+  const [actualizandoTasa, setActualizandoTasa] = useState<boolean>(false);
   const [filtroEstado, setFiltroEstado] = useState<string>("TODOS");
   const [filtroAno, setFiltroAno] = useState<string>("TODOS");
   const [busqueda, setBusqueda] = useState<string>("");
+
+  // Sincronización proactiva de la tasa oficial BCV al cargar la vista
+  useEffect(() => {
+    let activo = true;
+    async function sincronizarTasa() {
+      try {
+        const res = await fetch("/api/bcv");
+        const json = await res.json();
+        if (activo && json.success && json.data?.tasa) {
+          setTasaBcv(json.data);
+        }
+      } catch {
+        // En caso de fallo de red, se preserva la tasa inicial servida por SSR
+      }
+    }
+    sincronizarTasa();
+    return () => {
+      activo = false;
+    };
+  }, []);
+
+  // Forzar actualización inmediata de la tasa BCV desde la API externa
+  const refrescarTasaBcv = async () => {
+    setActualizandoTasa(true);
+    try {
+      const res = await fetch("/api/bcv?force=true");
+      const json = await res.json();
+      if (json.success && json.data?.tasa) {
+        setTasaBcv(json.data);
+        toast.success(`Tasa BCV actualizada: Bs. ${json.data.tasa.toLocaleString("es-VE", { minimumFractionDigits: 2, maximumFractionDigits: 4 })}`);
+      } else {
+        toast.error("No se pudo obtener la tasa actualizada.");
+      }
+    } catch {
+      toast.error("Error al conectar con el servicio de tasa oficial.");
+    } finally {
+      setActualizandoTasa(false);
+    }
+  };
 
   // Control de Modal Reportar Pago
   const [modalReportarAbierto, setModalReportarAbierto] = useState<boolean>(false);
@@ -405,7 +447,7 @@ export function InquilinoPagosClient({
       />
 
       {/* Banner Oficial de Tasa BCV del Día */}
-      {tasaBcvActual && tasaBcvActual.tasa > 0 && (
+      {tasaBcv && tasaBcv.tasa > 0 && (
         <div className="bg-gradient-to-r from-[#1C2539] via-[#243049] to-[#124b2d] text-white rounded-2xl p-4 sm:p-5 border border-white/10 border-b-[3px] border-b-[#0e3a23] shadow-md flex flex-col sm:flex-row sm:items-center justify-between gap-4 relative overflow-hidden group">
           <div className="absolute -top-10 -right-10 w-36 h-36 bg-emerald-500/15 rounded-full blur-3xl pointer-events-none group-hover:scale-125 transition-transform duration-700" />
           <div className="flex items-center gap-3.5 relative z-10">
@@ -418,7 +460,7 @@ export function InquilinoPagosClient({
                   Tasa Oficial BCV del Día
                 </span>
                 <span className="text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 px-2 py-0.5 rounded-md">
-                  {tasaBcvActual.esFallback ? "Tasa de Referencia" : "Banco Central de Venezuela"}
+                  {tasaBcv.esFallback ? "Tasa de Referencia" : "Banco Central de Venezuela"}
                 </span>
               </div>
               <p className="text-xs text-slate-300 font-medium mt-0.5">
@@ -427,13 +469,24 @@ export function InquilinoPagosClient({
             </div>
           </div>
 
-          <div className="relative z-10 bg-white/10 border border-white/15 rounded-xl px-4 py-2.5 sm:text-right shrink-0 backdrop-blur-xs">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-300 block">
-              1 USD =
-            </span>
-            <span className="text-lg sm:text-xl font-black font-heading text-white">
-              Bs. {tasaBcvActual.tasa.toLocaleString("es-VE", { minimumFractionDigits: 2, maximumFractionDigits: 4 })}
-            </span>
+          <div className="relative z-10 bg-white/10 border border-white/15 rounded-xl px-4 py-2.5 sm:text-right shrink-0 backdrop-blur-xs flex items-center gap-3">
+            <div>
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-300 block">
+                1 USD =
+              </span>
+              <span className="text-lg sm:text-xl font-black font-heading text-white">
+                Bs. {tasaBcv.tasa.toLocaleString("es-VE", { minimumFractionDigits: 2, maximumFractionDigits: 4 })}
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={refrescarTasaBcv}
+              disabled={actualizandoTasa}
+              title="Sincronizar tasa oficial BCV"
+              className="p-2 rounded-lg bg-white/10 hover:bg-white/20 active:scale-95 text-slate-200 hover:text-white transition-all disabled:opacity-50 cursor-pointer"
+            >
+              <RotateCw className={`w-4 h-4 ${actualizandoTasa ? "animate-spin text-emerald-400" : ""}`} />
+            </button>
           </div>
         </div>
       )}
@@ -444,8 +497,8 @@ export function InquilinoPagosClient({
           title="Compromiso Mensual"
           value={formatUSD(resumen.montoCanonTotal)}
           subtitle={
-            tasaBcvActual?.tasa && resumen.montoCanonTotal
-              ? `Equivalente: ${formatBS(resumen.montoCanonTotal * tasaBcvActual.tasa)}`
+            tasaBcv?.tasa && resumen.montoCanonTotal
+              ? `Equivalente: ${formatBS(resumen.montoCanonTotal * tasaBcv.tasa)}`
               : "Canon regular pactado"
           }
           icon={DollarSign}
@@ -679,9 +732,9 @@ export function InquilinoPagosClient({
                         <span className="text-xs font-semibold text-slate-500 flex items-center gap-1">
                           <span>Canon:</span>
                           <strong className="text-slate-800 font-bold">{formatUSD(grupo.canon)}</strong>
-                          {tasaBcvActual?.tasa && (
+                          {tasaBcv?.tasa && (
                             <span className="text-[11px] text-slate-400 font-normal">
-                              ({formatBS(grupo.canon * tasaBcvActual.tasa)})
+                              ({formatBS(grupo.canon * tasaBcv.tasa)})
                             </span>
                           )}
                         </span>
@@ -693,9 +746,9 @@ export function InquilinoPagosClient({
                           <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-black bg-amber-50 text-amber-800 border border-amber-200 shadow-2xs">
                             <Clock className="w-3 h-3 text-amber-600 shrink-0" />
                             <span>Por Pagar: {formatUSD(grupo.totalPendienteUSD)}</span>
-                            {tasaBcvActual?.tasa && (
+                            {tasaBcv?.tasa && (
                               <span className="text-[10px] opacity-85">
-                                ({formatBS(grupo.totalPendienteUSD * tasaBcvActual.tasa)})
+                                ({formatBS(grupo.totalPendienteUSD * tasaBcv.tasa)})
                               </span>
                             )}
                           </span>
@@ -1000,9 +1053,9 @@ export function InquilinoPagosClient({
                                         <span className="text-sm font-extrabold text-slate-900 block">
                                           {formatUSD(pago.montoEsperado)}
                                         </span>
-                                        {tasaBcvActual?.tasa && (
+                                        {tasaBcv?.tasa && (
                                           <span className="text-[10px] font-bold text-slate-500 block mt-0.5">
-                                            {formatBS(pago.montoEsperado * tasaBcvActual.tasa)}
+                                            {formatBS(pago.montoEsperado * tasaBcv.tasa)}
                                           </span>
                                         )}
                                       </div>
@@ -1022,9 +1075,9 @@ export function InquilinoPagosClient({
                                         <span className="text-sm font-extrabold block">
                                           {formatUSD(saldoPendiente)}
                                         </span>
-                                        {tasaBcvActual?.tasa && saldoPendiente > 0 && (
+                                        {tasaBcv?.tasa && saldoPendiente > 0 && (
                                           <span className="text-[10px] font-black text-amber-900 bg-amber-100/90 border border-amber-200 px-1.5 py-0.5 rounded-md inline-flex items-center gap-1 mt-0.5">
-                                            <span>{formatBS(saldoPendiente * tasaBcvActual.tasa)}</span>
+                                            <span>{formatBS(saldoPendiente * tasaBcv.tasa)}</span>
                                             <span className="text-[9px] font-medium text-amber-700">(BCV hoy)</span>
                                           </span>
                                         )}
@@ -1156,7 +1209,7 @@ export function InquilinoPagosClient({
         }}
         pagosPendientes={cuotasParaReportar}
         pagoPreseleccionado={pagoParaReportar}
-        tasaBcvActual={tasaBcvActual}
+        tasaBcvActual={tasaBcv}
         onSuccess={() => {
           router.refresh();
         }}

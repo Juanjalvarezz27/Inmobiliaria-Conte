@@ -8,7 +8,7 @@ export interface TasaBcvResponse {
 }
 
 // Tasa de contingencia fija por si no hay red ni histórico previo
-export const TASA_FALLBACK_DEFAULT = 899.27;
+export const TASA_FALLBACK_DEFAULT = 904.45;
 
 // Variable en memoria para caché local
 let cacheTasa: {
@@ -16,8 +16,8 @@ let cacheTasa: {
   timestamp: number;
 } | null = null;
 
-// Duración del caché: 2 horas (en milisegundos)
-const CACHE_TTL_MS = 2 * 60 * 60 * 1000;
+// Duración del caché en memoria: 10 minutos (balance óptimo entre frescura y no saturar la API)
+const CACHE_TTL_MS = 10 * 60 * 1000;
 
 // Obtener fecha del día de hoy en zona horaria venezolana (YYYY-MM-DD)
 export function obtenerFechaHoyVenezuela(): string {
@@ -31,52 +31,27 @@ export function obtenerFechaHoyVenezuela(): string {
 }
 
 // Consultar y guardar automáticamente la tasa oficial BCV del día en la BD
-export async function getTasaBcvOficial(): Promise<TasaBcvResponse> {
+export async function getTasaBcvOficial(forceRefresh = false): Promise<TasaBcvResponse> {
   const ahora = Date.now();
   const hoyStr = obtenerFechaHoyVenezuela();
 
-  // 1. Verificar si el caché en memoria sigue vigente y corresponde a hoy
+  // 1. Verificar si el caché en memoria sigue vigente (si no se fuerza la recarga)
   if (
+    !forceRefresh &&
     cacheTasa &&
-    ahora - cacheTasa.timestamp < CACHE_TTL_MS &&
-    cacheTasa.data.fechaActualizacion.startsWith(hoyStr)
+    ahora - cacheTasa.timestamp < CACHE_TTL_MS
   ) {
     return cacheTasa.data;
   }
 
-  // 2. Verificar si ya se registró la tasa oficial de hoy en la base de datos
-  try {
-    const registroHoy = await prisma.historialTasaBcv.findUnique({
-      where: { fechaStr: hoyStr },
-    });
-
-    if (registroHoy && registroHoy.tasa > 0) {
-      const resultado: TasaBcvResponse = {
-        tasa: registroHoy.tasa,
-        fechaActualizacion: registroHoy.fechaStr,
-        fuente: registroHoy.fuente,
-        esFallback: false,
-      };
-
-      cacheTasa = {
-        data: resultado,
-        timestamp: ahora,
-      };
-
-      return resultado;
-    }
-  } catch (dbReadErr) {
-    console.warn("No se pudo leer la tasa de hoy en BD, intentando API:", dbReadErr);
-  }
-
-  // 3. Consultar la API oficial externa de DolarApi
+  // 2. Consultar SIEMPRE primero la API oficial de DolarApi en tiempo real
   try {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 3500);
+    const timeoutId = setTimeout(() => controller.abort(), 6000);
 
     const res = await fetch("https://ve.dolarapi.com/v1/dolares/oficial", {
       signal: controller.signal,
-      next: { revalidate: 7200 },
+      cache: "no-store",
     });
 
     clearTimeout(timeoutId);
@@ -94,18 +69,20 @@ export async function getTasaBcvOficial(): Promise<TasaBcvResponse> {
           esFallback: false,
         };
 
-        // Guardar o actualizar automáticamente la tasa del día en la BD
+        // Guardar o actualizar la tasa en la base de datos para hoy
         try {
           await prisma.historialTasaBcv.upsert({
             where: { fechaStr: hoyStr },
             update: {
               tasa: tasaOficial,
               fuente: "Banco Central de Venezuela (DolarApi)",
+              fecha: new Date(),
             },
             create: {
               fechaStr: hoyStr,
               tasa: tasaOficial,
               fuente: "Banco Central de Venezuela (DolarApi)",
+              fecha: new Date(),
             },
           });
         } catch (dbSaveErr) {
@@ -121,7 +98,32 @@ export async function getTasaBcvOficial(): Promise<TasaBcvResponse> {
       }
     }
   } catch (error) {
-    console.warn("No se pudo consultar la API externa, buscando en histórico de BD:", error);
+    console.warn("No se pudo consultar DolarApi en tiempo real, buscando en histórico de BD:", error);
+  }
+
+  // 3. Contingencia Nivel 1: Tasa previamente registrada hoy en la BD (solo si la API externa falló)
+  try {
+    const registroHoy = await prisma.historialTasaBcv.findUnique({
+      where: { fechaStr: hoyStr },
+    });
+
+    if (registroHoy && registroHoy.tasa > 0) {
+      const resultado: TasaBcvResponse = {
+        tasa: registroHoy.tasa,
+        fechaActualizacion: registroHoy.fechaStr,
+        fuente: `Banco Central de Venezuela (Caché local ${registroHoy.fechaStr})`,
+        esFallback: false,
+      };
+
+      cacheTasa = {
+        data: resultado,
+        timestamp: ahora,
+      };
+
+      return resultado;
+    }
+  } catch (dbReadErr) {
+    console.warn("No se pudo leer la tasa de hoy en BD, intentando histórico:", dbReadErr);
   }
 
   // 4. Contingencia Nivel 1: Última tasa histórica registrada en la BD
