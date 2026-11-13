@@ -4,7 +4,7 @@ import { CobranzaClient } from "./CobranzaClient";
 export const dynamic = "force-dynamic";
 
 export const metadata = {
-  title: "Control de Cobranzas y Mensualidades | Inmobiliaria Conté",
+  title: "Control de Cobranzas y Cánones | Inmobiliaria Conté",
   description: "Supervisión de recaudación mensual, pagos y cuotas en mora",
 };
 

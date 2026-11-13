@@ -185,7 +185,7 @@ export function Navbar({ user }: NavbarProps = {}) {
     {
       title: "Cobranza & Finanzas",
       items: [
-        { label: "Panel de Cobranza", href: "/admin/cobranza", description: "Mensualidades y vencimientos" },
+        { label: "Panel de Cobranza", href: "/admin/cobranza", description: "Cánones y vencimientos" },
         { label: "Finanzas & Balance", href: "/admin/finanzas", description: "Ingresos, egresos y cierres de mes" },
       ],
     },
@@ -214,7 +214,7 @@ export function Navbar({ user }: NavbarProps = {}) {
 
   const inquilinoItems: NavItem[] = [
     { label: "Estado de Cuenta", href: "/inquilino/dashboard", description: "Resumen de cuenta y pagos" },
-    { label: "Historial de Pagos", href: "/inquilino/pagos", description: "Mensualidades y recibos oficiales" },
+    { label: "Historial de Pagos", href: "/inquilino/pagos", description: "Cánones y recibos oficiales" },
     { label: "Mi Contrato", href: "/inquilino/contrato", description: "Condiciones de alquiler y copia digital" },
     { label: "Reportar Problema", href: "/inquilino/mantenimiento", description: "Solicitar asistencia por averías" },
   ];

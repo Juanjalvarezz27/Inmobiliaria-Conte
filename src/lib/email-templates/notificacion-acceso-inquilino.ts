@@ -44,7 +44,7 @@ export async function enviarNotificacionAccesoInquilino(
         Estimado(a) ${inquilinoNombre},
       </h2>
       <p style="font-size: 14px; line-height: 1.6; color: #334155; margin-bottom: 20px;">
-        Le informamos que ha sido habilitado su acceso al Portal Digital de Inmobiliaria Conte C.A. A traves de esta plataforma podra consultar sus contratos vigentes, revisar el estado de sus mensualidades, reportar pagos y canalizar solicitudes de mantenimiento de sus espacios arrendados.
+        Le informamos que ha sido habilitado su acceso al Portal Digital de Inmobiliaria Conte C.A. A traves de esta plataforma podra consultar sus contratos vigentes, revisar el estado de sus cánones, reportar pagos y canalizar solicitudes de mantenimiento de sus espacios arrendados.
       </p>
 
       <!-- Ficha de Credenciales (Sin botones) -->

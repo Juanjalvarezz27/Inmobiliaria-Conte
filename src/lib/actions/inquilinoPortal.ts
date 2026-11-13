@@ -36,7 +36,6 @@ export type SemaforoEstado = "AL_DIA" | "POR_PAGAR" | "EN_MORA" | "SIN_CONTRATO"
 export interface ResumenFinancieroInquilino {
   semaforoEstado: SemaforoEstado;
   montoCanonTotal: number;
-  montoMensualidadTotal: number;
   montoDeudaVencida: number;
   cuotasVencidasCount: number;
   periodosVencidos: string[];
@@ -70,7 +69,6 @@ export interface LocalArrendadoResumen {
   piso: string | null;
   areaMt2: number | null;
   canonMensual: number;
-  mensualidad: number;
   contratoCodigo: string;
   contratoId: string;
   diaCobro: number;
@@ -194,7 +192,6 @@ export async function getInquilinoDashboardData(): Promise<{
       resumen: {
         semaforoEstado: "SIN_CONTRATO",
         montoCanonTotal: 0,
-        montoMensualidadTotal: 0,
         montoDeudaVencida: 0,
         cuotasVencidasCount: 0,
         periodosVencidos: [],
@@ -226,7 +223,7 @@ export async function getInquilinoDashboardData(): Promise<{
   const mesActual = ahora.getMonth() + 1;
   const anoActual = ahora.getFullYear();
 
-  let montoMensualidadTotal = 0;
+  let montoCanonTotal = 0;
   let montoDeudaVencida = 0;
   let cuotasVencidasCount = 0;
   let cuotasPagadasCount = 0;
@@ -246,7 +243,7 @@ export async function getInquilinoDashboardData(): Promise<{
   const locales: LocalArrendadoResumen[] = [];
 
   for (const contrato of inquilino.contratos) {
-    montoMensualidadTotal += contrato.montoAlquiler;
+    montoCanonTotal += contrato.montoAlquiler;
     if (proximoDiaCorte === null || contrato.diaCobro < proximoDiaCorte) {
       proximoDiaCorte = contrato.diaCobro;
     }
@@ -260,7 +257,6 @@ export async function getInquilinoDashboardData(): Promise<{
       piso: contrato.unidad.piso,
       areaMt2: contrato.unidad.areaMt2,
       canonMensual: contrato.montoAlquiler,
-      mensualidad: contrato.montoAlquiler,
       contratoCodigo: contrato.codigo,
       contratoId: contrato.id,
       diaCobro: contrato.diaCobro,
@@ -366,8 +362,7 @@ export async function getInquilinoDashboardData(): Promise<{
   return {
     resumen: {
       semaforoEstado,
-      montoCanonTotal: montoMensualidadTotal,
-      montoMensualidadTotal,
+      montoCanonTotal,
       montoDeudaVencida,
       cuotasVencidasCount,
       periodosVencidos,
@@ -833,7 +828,7 @@ export async function reportarPagoInquilinoAction(input: ReportarPagoInput): Pro
     if (montoReportado > saldoPendiente) {
       return {
         success: false,
-        error: `El monto reportado ($${montoReportado.toFixed(2)} USD) no puede superar el saldo pendiente de esta mensualidad ($${saldoPendiente.toFixed(2)} USD).`,
+        error: `El monto reportado ($${montoReportado.toFixed(2)} USD) no puede superar el saldo pendiente de este canon ($${saldoPendiente.toFixed(2)} USD).`,
       };
     }
 
@@ -868,7 +863,7 @@ export async function reportarPagoInquilinoAction(input: ReportarPagoInput): Pro
       const saldoRestante = Math.max(0, cuotaAnteriorImpaga.montoEsperado - cuotaAnteriorImpaga.montoPagado).toFixed(2);
       return {
         success: false,
-        error: `Para mantener la correlatividad contable, debes solventar primero la mensualidad de ${nombreMesAnterior} (Resta: $${saldoRestante} USD) antes de reportar este período.`,
+        error: `Para mantener la correlatividad contable, debes solventar primero el canon de ${nombreMesAnterior} (Resta: $${saldoRestante} USD) antes de reportar este período.`,
       };
     }
 

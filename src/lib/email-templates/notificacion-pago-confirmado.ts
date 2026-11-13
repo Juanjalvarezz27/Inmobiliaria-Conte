@@ -127,8 +127,8 @@ export async function enviarNotificacionPagoConfirmadoInquilino(
               <p style="margin: 0 0 18px 0; color: #475569; font-size: 13.5px; line-height: 1.5;">
                 ${
                   esSolvente
-                    ? "Te confirmamos que hemos verificado tu pago y tu mensualidad ha sido <strong>liquidada satisfactoriamente</strong>. Tu cuenta se encuentra al día."
-                    : "Te confirmamos que hemos recibido tu abono y fue acreditado exitosamente a tu mensualidad correspondiente."
+                    ? "Te confirmamos que hemos verificado tu pago y tu canon ha sido <strong>liquidado satisfactoriamente</strong>. Tu cuenta se encuentra al día."
+                    : "Te confirmamos que hemos recibido tu abono y fue acreditado exitosamente a tu canon correspondiente."
                 }
               </p>
 
@@ -146,7 +146,7 @@ export async function enviarNotificacionPagoConfirmadoInquilino(
                     </td>
                     <td align="right">
                       <span style="font-size: 11px; font-weight: 700; color: #64748B; text-transform: uppercase; letter-spacing: 0.5px;">
-                        Mensualidad
+                        Canon
                       </span>
                       <div style="font-size: 14px; font-weight: 800; color: #0F172A; margin-top: 2px;">
                         ${mesNombre} ${periodoAno}
@@ -188,7 +188,7 @@ export async function enviarNotificacionPagoConfirmadoInquilino(
                     </td>
                   </tr>
                   <tr>
-                    <td class="field-label" style="padding: 5px 0; color: #64748B; font-weight: 600;">💵 Mensualidad Acordada:</td>
+                    <td class="field-label" style="padding: 5px 0; color: #64748B; font-weight: 600;">💵 Canon Acordado:</td>
                     <td class="field-value" style="padding: 5px 0; color: #0F172A; font-weight: 700;">
                       $${montoTotalEsperado.toFixed(2)} USD
                     </td>

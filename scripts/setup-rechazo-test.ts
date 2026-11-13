@@ -43,7 +43,7 @@ async function prepararEscenarioRechazo() {
     throw new Error("No se encontró el contrato N-10.");
   }
 
-  // 4. Configurar la mensualidad de Noviembre 2026 en estado 'Por Confirmar' con capture dudoso
+  // 4. Configurar el canon de Noviembre 2026 en estado 'Por Confirmar' con capture dudoso
   const pagoN10Nov = contratoN10.pagos.find((p) => p.periodoMes === 11 && p.periodoAno === 2026);
 
   // Limpiar transacciones si existían

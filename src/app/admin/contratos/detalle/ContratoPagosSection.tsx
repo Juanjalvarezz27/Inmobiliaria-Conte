@@ -30,7 +30,7 @@ export function ContratoPagosSection({
       <div className="flex items-center justify-between gap-2">
         <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5 min-w-0">
           <CircleDollarSign className="w-3.5 h-3.5 text-slate-500 shrink-0" />
-          <span className="truncate">Cronograma y Mensualidades del Contrato</span>
+          <span className="truncate">Cronograma y Cánones del Contrato</span>
         </h4>
         <Link
           href="/admin/cobranza"
@@ -169,7 +169,7 @@ export function ContratoPagosSection({
         </div>
       ) : (
         <div className="p-3 text-center rounded-xl bg-slate-50 border border-slate-100 text-xs text-slate-400">
-          Aún no hay mensualidades generadas para este contrato.
+          Aún no hay cánones generados para este contrato.
         </div>
       )}
     </div>

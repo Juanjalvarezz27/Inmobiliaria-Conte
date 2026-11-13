@@ -385,7 +385,7 @@ export function InquilinoPagosClient({
       {/* Encabezado Principal */}
       <PageHeader
         title="Mis Pagos y Recibos Digitales"
-        description="Consulta el estado de tus mensualidades, reporta transferencias y descarga recibos contables."
+        description="Consulta el estado de tus cánones, reporta transferencias y descarga recibos contables."
         icon={<Receipt className="w-5 h-5 sm:w-6 sm:h-6 text-white" />}
         actions={
           cuotasParaReportar.length > 0 && (
@@ -442,11 +442,11 @@ export function InquilinoPagosClient({
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
           title="Compromiso Mensual"
-          value={formatUSD(resumen.montoMensualidadTotal || resumen.montoCanonTotal)}
+          value={formatUSD(resumen.montoCanonTotal)}
           subtitle={
-            tasaBcvActual?.tasa && (resumen.montoMensualidadTotal || resumen.montoCanonTotal)
-              ? `Equivalente: ${formatBS((resumen.montoMensualidadTotal || resumen.montoCanonTotal) * tasaBcvActual.tasa)}`
-              : "Mensualidad regular pactada"
+            tasaBcvActual?.tasa && resumen.montoCanonTotal
+              ? `Equivalente: ${formatBS(resumen.montoCanonTotal * tasaBcvActual.tasa)}`
+              : "Canon regular pactado"
           }
           icon={DollarSign}
           color="emerald"
@@ -467,7 +467,7 @@ export function InquilinoPagosClient({
                   ? "Al día en canon · Servicios pendientes"
                   : "Sin compromisos vencidos")
               : resumen.semaforoEstado === "EN_MORA"
-              ? `${resumen.cuotasVencidasCount} mensualidad(es) adeudada(s)`
+              ? `${resumen.cuotasVencidasCount} canon(es) adeudado(s)`
               : resumen.diasParaVencer !== null
               ? `Vence en ${resumen.diasParaVencer} día(s)`
               : "Pendiente por liquidar"
@@ -600,11 +600,11 @@ export function InquilinoPagosClient({
         </div>
       </div>
 
-      {/* Listado de Locales y Mensualidades Agrupadas */}
+      {/* Listado de Locales y Cánones Agrupados */}
       {pagosFiltrados.length === 0 ? (
         <div className="p-12 text-center bg-white rounded-2xl border border-slate-200/80 shadow-2xs space-y-2">
           <FileText className="w-10 h-10 text-slate-300 mx-auto stroke-[1.5]" />
-          <h4 className="text-base font-bold text-slate-800">No se encontraron mensualidades</h4>
+          <h4 className="text-base font-bold text-slate-800">No se encontraron cánones</h4>
           <p className="text-xs text-slate-500 max-w-sm mx-auto">
             {busqueda || filtroEstado !== "TODOS" || filtroAno !== "TODOS"
               ? "Prueba cambiando los filtros o el término de búsqueda ingresado."
@@ -616,7 +616,7 @@ export function InquilinoPagosClient({
           {/* Barra de control y conteo */}
           <div className="flex items-center justify-between px-1 text-xs text-slate-500 font-medium">
             <span>
-              Mostrando <strong>{gruposPorLocal.length}</strong> {gruposPorLocal.length === 1 ? "local arrendado" : "locales arrendados"} · <strong>{pagosFiltrados.length}</strong> mensualidades
+              Mostrando <strong>{gruposPorLocal.length}</strong> {gruposPorLocal.length === 1 ? "local arrendado" : "locales arrendados"} · <strong>{pagosFiltrados.length}</strong> cánones
             </span>
             {gruposPorLocal.length > 1 && (
               <div className="flex items-center gap-2">
@@ -735,7 +735,7 @@ export function InquilinoPagosClient({
 
                     {/* Botón Desplegable con Chevron giratorio */}
                     <div className="h-9 px-3 rounded-xl bg-slate-100 hover:bg-slate-200/80 text-slate-700 font-bold text-xs flex items-center gap-1.5 transition-all">
-                      <span className="hidden sm:inline">{estaAbierto ? "Ocultar" : "Ver mensualidades"}</span>
+                      <span className="hidden sm:inline">{estaAbierto ? "Ocultar" : "Ver cánones"}</span>
                       <ChevronDown
                         className={`w-4 h-4 text-slate-500 transition-transform duration-300 ${
                           estaAbierto ? "rotate-180 text-[#175E38]" : ""
@@ -774,7 +774,7 @@ export function InquilinoPagosClient({
                           const matchRechazo = pago.notas?.match(/Comprobante descartado por administración:\s*([^.\n]+)/i);
                           const motivoRechazo = matchRechazo ? matchRechazo[1].trim() : null;
 
-                          // Imputación Secuencial (Fase 24): Verificar si hay mensualidades anteriores impagas para este contrato
+                          // Imputación Secuencial (Fase 24): Verificar si hay cánones anteriores impagos para este contrato
                           const cuotaAnteriorImpaga = grupo.pagos.find(
                             (p) =>
                               (p.periodoAno < pago.periodoAno ||
@@ -995,7 +995,7 @@ export function InquilinoPagosClient({
                                     <>
                                       <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-200/70">
                                         <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide block">
-                                          Mensualidad Acordada
+                                          Canon Acordado
                                         </span>
                                         <span className="text-sm font-extrabold text-slate-900 block">
                                           {formatUSD(pago.montoEsperado)}
@@ -1117,7 +1117,7 @@ export function InquilinoPagosClient({
                                       <span className="truncate">Mes anterior pendiente</span>
                                     </button>
                                     <div className="hidden group-hover/lock:block absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-64 p-2.5 bg-slate-900 text-white text-[11px] leading-snug rounded-xl shadow-xl text-center z-50 pointer-events-none">
-                                      Para mantener la correlatividad contable, debes solventar primero la mensualidad de{" "}
+                                      Para mantener la correlatividad contable, debes solventar primero el canon de{" "}
                                       <strong className="text-emerald-400">
                                         {MESES[(cuotaAnteriorImpaga?.periodoMes || 1) - 1]} {cuotaAnteriorImpaga?.periodoAno}
                                       </strong>.

@@ -484,7 +484,7 @@ export function EspaciosTab({
           );
         })()}
 
-        {/* Caja destacada de Precio / Mensualidad */}
+        {/* Caja destacada de Precio / Canon */}
         {(() => {
           const contratoActivo = unidad.contratos && unidad.contratos.length > 0 ? unidad.contratos[0] : null;
           const precioMostrar = contratoActivo ? contratoActivo.montoAlquiler : unidad.precioAlquiler;
@@ -502,7 +502,7 @@ export function EspaciosTab({
                   unidad.estado === "INACTIVO" ? "text-rose-700/80" : "text-slate-500"
                 }`}
               >
-                {contratoActivo ? "Mensualidad Acordada" : "Precio Mensual"}
+                {contratoActivo ? "Canon Acordado" : "Precio Mensual"}
               </span>
               <span
                 className={`text-base sm:text-lg font-black font-heading ${

@@ -465,7 +465,7 @@ export async function sincronizarCuotasMes(mes: number, ano: number) {
           estado: esVencido ? EstadoPago.VENCIDO : EstadoPago.PENDIENTE,
         });
       } else if (pagoActual.montoPagado === 0 && pagoActual.estado !== EstadoPago.PAGADO) {
-        // Cuota existente no pagada: mantener sincronizada si la mensualidad o día de cobro cambió
+        // Cuota existente no pagada: mantener sincronizada si el canon o día de cobro cambió
         const esVencido = ahora > fechaVencimiento;
         const requiereActualizacion =
           pagoActual.montoEsperado !== contrato.montoAlquiler ||
@@ -502,7 +502,7 @@ export async function sincronizarCuotasMes(mes: number, ano: number) {
       generados = resCreate.count;
     }
 
-    // Actualización de cuotas pendientes cuya mensualidad o día cambió
+    // Actualización de cuotas pendientes cuyo canon o día cambió
     let actualizados = 0;
     if (pagosParaActualizar.length > 0) {
       await prisma.$transaction(
@@ -1073,7 +1073,7 @@ export async function registrarPago(input: RegistrarPagoInput) {
 
       const totalAbonado = Number((sumaAbonos._sum.monto || 0).toFixed(2));
 
-      // 3. Evaluar estado de la mensualidad según el acumulado de abonos
+      // 3. Evaluar estado del canon según el acumulado de abonos
       let nuevoEstado: EstadoPago = EstadoPago.PENDIENTE;
       if (totalAbonado >= pagoActual.montoEsperado) {
         nuevoEstado = EstadoPago.PAGADO;
@@ -1084,7 +1084,7 @@ export async function registrarPago(input: RegistrarPagoInput) {
         nuevoEstado = ahora > pagoActual.fechaVencimiento ? EstadoPago.VENCIDO : EstadoPago.PENDIENTE;
       }
 
-      // 4. Actualizar el encabezado de la mensualidad con los datos consolidados
+      // 4. Actualizar el encabezado del canon con los datos consolidados
       const pagoActualizadoTx = await tx.pago.update({
         where: { id: pagoId },
         data: {
@@ -1103,7 +1103,7 @@ export async function registrarPago(input: RegistrarPagoInput) {
         select: PAGO_SELECT,
       });
 
-      // 5. Si la cuota quedó liquidada (PAGADO), habilitar automáticamente la siguiente mensualidad correlativa si no excede el tope de 1 mes arriba del mes actual
+      // 5. Si la cuota quedó liquidada (PAGADO), habilitar automáticamente el siguiente canon correlativo si no excede el tope de 1 mes arriba del mes actual
       if (nuevoEstado === EstadoPago.PAGADO) {
         const sigMes = pagoActual.periodoMes === 12 ? 1 : pagoActual.periodoMes + 1;
         const sigAno = pagoActual.periodoMes === 12 ? pagoActual.periodoAno + 1 : pagoActual.periodoAno;
@@ -1190,7 +1190,7 @@ export async function registrarPago(input: RegistrarPagoInput) {
 }
 
 /**
- * Elimina un abono específico del Libro Mayor y recalcula el acumulado de la mensualidad
+ * Elimina un abono específico del Libro Mayor y recalcula el acumulado del canon
  */
 export async function eliminarTransaccionPago(transaccionId: string) {
   const authCheck = await requireAdminSession();
@@ -1277,7 +1277,7 @@ export async function eliminarTransaccionPago(transaccionId: string) {
 }
 
 /**
- * Revierte o anula todos los abonos de una mensualidad registrada previamente
+ * Revierte o anula todos los abonos de un canon registrado previamente
  */
 export async function anularPago(pagoId: string) {
   const authCheck = await requireAdminSession();
@@ -1370,7 +1370,7 @@ export async function getPagoDetalle(pagoId: string) {
       return { success: false, error: "Registro de cobro no encontrado" };
     }
 
-    // Fase 24: Detectar si el contrato tiene mensualidades anteriores pendientes (Imputación correlativa)
+    // Fase 24: Detectar si el contrato tiene cánones anteriores pendientes (Imputación correlativa)
     const cuotaAnteriorImpaga = await prisma.pago.findFirst({
       where: {
         contratoId: pago.contratoId,

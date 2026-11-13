@@ -183,7 +183,7 @@ export function FinalizarContratoModal({
             </span>
           </div>
           <div className="flex items-center justify-between text-xs">
-            <span className="text-slate-400 font-medium">Mensualidad</span>
+            <span className="text-slate-400 font-medium">Canon</span>
             <span className="font-extrabold text-[#175E38]">
               {formatCurrency(contrato.montoAlquiler)} / mes
             </span>

@@ -138,7 +138,7 @@ export async function enviarNotificacionPagoReportadoAdmin(
                 Atención Administración:
               </p>
               <p style="margin: 0 0 18px 0; color: #475569; font-size: 13.5px; line-height: 1.5;">
-                El inquilino <strong>${inquilinoNombre}</strong> ha reportado el pago de su mensualidad y adjuntó su comprobante para conciliación bancaria:
+                El inquilino <strong>${inquilinoNombre}</strong> ha reportado el pago de su canon y adjuntó su comprobante para conciliación bancaria:
               </p>
 
               <!-- Tarjeta de Resumen Financiero -->

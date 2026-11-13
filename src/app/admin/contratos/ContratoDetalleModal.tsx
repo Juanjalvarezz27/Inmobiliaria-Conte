@@ -143,10 +143,10 @@ export function ContratoDetalleModal({
               </p>
             </div>
 
-            {/* Mensualidad destacada */}
+            {/* Canon destacado */}
             <div className="sm:text-right bg-emerald-50/60 sm:bg-transparent p-2.5 sm:p-0 rounded-xl border border-emerald-100 sm:border-0">
               <span className="text-[10px] font-bold text-[#175E38] uppercase tracking-wider block">
-                Mensualidad
+                Canon
               </span>
               <span className="text-xl sm:text-2xl font-black font-heading text-slate-900 block leading-tight">
                 {formatCurrency(contrato.montoAlquiler)}
@@ -291,7 +291,7 @@ export function ContratoDetalleModal({
           onContratoActualizado={onContratoActualizado}
         />
 
-        {/* Historial y Cronograma de Mensualidades (Cobranza) */}
+        {/* Historial y Cronograma de Cánones (Cobranza) */}
         <ContratoPagosSection
           pagosOrdenados={pagosOrdenados}
           isLoadingPagos={isLoadingPagos}

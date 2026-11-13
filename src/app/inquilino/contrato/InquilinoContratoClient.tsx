@@ -315,7 +315,7 @@ export function InquilinoContratoClient({
                         </div>
                         <div className="min-w-0">
                           <span className="text-[10.5px] font-semibold uppercase tracking-wider text-[#175E38] block truncate">
-                            Mensualidad
+                            Canon
                           </span>
                           <h3 className="text-base sm:text-lg font-bold text-slate-900 font-heading whitespace-nowrap">
                             ${contratoActual.montoAlquiler.toFixed(2)} USD

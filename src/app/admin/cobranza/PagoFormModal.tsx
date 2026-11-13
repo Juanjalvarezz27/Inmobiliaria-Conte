@@ -229,7 +229,7 @@ function PagoFormContent({
           </div>
           <div className="min-w-0 flex-1 text-xs leading-relaxed">
             <p className="font-bold text-amber-950 font-heading">
-              Imputación Contable Bloqueada: Mensualidad anterior pendiente
+              Imputación Contable Bloqueada: Canon anterior pendiente
             </p>
             <p className="text-amber-800 text-[11px] mt-0.5 font-medium">
               Este contrato mantiene un saldo pendiente en{" "}
@@ -267,11 +267,11 @@ function PagoFormContent({
           </div>
         </div>
 
-        {/* 3 Cajas de métricas financieras de la mensualidad */}
+        {/* 3 Cajas de métricas financieras del canon */}
         <div className="grid grid-cols-3 gap-2 text-center">
           <div className="p-2 sm:p-2.5 bg-white rounded-xl border border-slate-200/80 shadow-2xs">
             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-              Mensualidad Total
+              Canon Total
             </span>
             <span className="text-xs sm:text-sm font-black text-slate-900 font-heading block mt-0.5">
               ${pago.montoEsperado.toFixed(2)}
@@ -312,7 +312,7 @@ function PagoFormContent({
         )}
       </div>
 
-      {/* Abonos previos registrados en esta mensualidad */}
+      {/* Abonos previos registrados en este canon */}
       {pago.transacciones && pago.transacciones.length > 0 && (
         <div className="bg-slate-50/90 border border-slate-200/90 rounded-2xl p-3 sm:p-3.5 space-y-2">
           <div className="flex items-center justify-between text-xs font-bold text-slate-700">
@@ -776,8 +776,8 @@ export function PagoFormModal({
         esPorConfirmar
           ? "Confirmar y Liquidar Pago"
           : esAbono
-          ? "Registrar Abono a Mensualidad"
-          : "Registrar Pago de Mensualidad"
+          ? "Registrar Abono al Canon"
+          : "Registrar Pago de Canon"
       }
       subtitle={`${pago.contrato.unidad.codigo} • ${pago.contrato.unidad.propiedad.nombre}`}
       icon={DollarSign}

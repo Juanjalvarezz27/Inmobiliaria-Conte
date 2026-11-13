@@ -293,7 +293,7 @@ export function InquilinoDetalleModal({
                       <div className="flex items-center justify-between sm:justify-end gap-3 text-xs border-t sm:border-t-0 pt-2 sm:pt-0 border-slate-100">
                         <div className="text-left sm:text-right">
                           <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-                            Mensualidad
+                            Canon
                           </span>
                           <span className="font-black text-slate-900 text-sm font-heading">
                             {formatCurrency(c.montoAlquiler)}/mes
@@ -330,7 +330,7 @@ export function InquilinoDetalleModal({
                       </div>
                     </div>
 
-                    {/* Resumen de mensualidad / estado de cobranza */}
+                    {/* Resumen de canon / estado de cobranza */}
                     {isLoading ? (
                       <div className="flex items-center gap-1.5 pt-2 border-t border-slate-100 text-[11px] text-slate-400">
                         <RefreshCw className="w-3 h-3 animate-spin text-[#175E38]" />

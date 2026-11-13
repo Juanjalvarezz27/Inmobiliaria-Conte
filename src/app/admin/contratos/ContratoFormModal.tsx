@@ -315,9 +315,9 @@ export function ContratoFormModal({
       return;
     }
 
-    const mensualidadNum = parseFloat(montoAlquiler);
-    if (!montoAlquiler || isNaN(mensualidadNum) || mensualidadNum <= 0) {
-      toast.error("Debes ingresar una mensualidad válida mayor a 0.");
+    const canonNum = parseFloat(montoAlquiler);
+    if (!montoAlquiler || isNaN(canonNum) || canonNum <= 0) {
+      toast.error("Debes ingresar un canon válido mayor a 0.");
       return;
     }
 
@@ -333,7 +333,7 @@ export function ContratoFormModal({
       fechaInicio,
       fechaFin,
       diaCobro: diaNum,
-      montoAlquiler: mensualidadNum,
+      montoAlquiler: canonNum,
       depositoGarantia: depositoGarantia ? parseFloat(depositoGarantia) : null,
       depositoCobradoAlFirmar: !isEditing && depositoCobradoAlFirmar,
       depositoFechaCobro: !isEditing && depositoCobradoAlFirmar ? fechaInicio : null,
@@ -492,10 +492,10 @@ export function ContratoFormModal({
 
           {/* Fila 2: Condiciones Económicas (3 columnas simétricas y limpias) */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
-            {/* Mensualidad (USD) */}
+            {/* Canon (USD) */}
             <div>
               <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-                Mensualidad (USD) <span className="text-[#CC1A22]">*</span>
+                Canon (USD) <span className="text-[#CC1A22]">*</span>
               </label>
               <div className="relative">
                 <DollarSign className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
@@ -673,7 +673,7 @@ export function ContratoFormModal({
                 <span>Preservación Histórica de Pagos Garantizada</span>
               </div>
               <p className="text-emerald-800 leading-relaxed">
-                Todas las mensualidades que ya fueron pagadas mantendrán intacto su valor histórico original (${initialData.montoAlquiler.toFixed(2)} USD). La nueva mensualidad (${parseFloat(montoAlquiler || "0").toFixed(2)} USD) y día de corte (Día {diaCobro || initialData.diaCobro}) se aplicarán automáticamente a las cuotas pendientes y a los períodos futuros por cobrar.
+                Todos los cánones que ya fueron pagados mantendrán intacto su valor histórico original (${initialData.montoAlquiler.toFixed(2)} USD). El nuevo canon (${parseFloat(montoAlquiler || "0").toFixed(2)} USD) y día de corte (Día {diaCobro || initialData.diaCobro}) se aplicarán automáticamente a las cuotas pendientes y a los períodos futuros por cobrar.
               </p>
             </div>
           )}

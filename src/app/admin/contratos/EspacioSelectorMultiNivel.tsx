@@ -334,7 +334,7 @@ export function EspacioSelectorMultiNivel({
                             </span>
                           ) : (
                             <span className="text-[11px] text-slate-400 italic">
-                              Sin mensualidad
+                              Sin canon
                             </span>
                           )}
 

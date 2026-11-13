@@ -8,7 +8,7 @@ import type {
   TipoPersona,
 } from "@prisma/client";
 
-// Tipo de dato para una transacción / abono individual dentro de una mensualidad (Libro Mayor 1:N)
+// Tipo de dato para una transacción / abono individual dentro de un canon (Libro Mayor 1:N)
 export interface TransaccionPagoItem {
   id: string;
   pagoId: string;

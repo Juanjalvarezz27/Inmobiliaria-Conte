@@ -346,7 +346,7 @@ export function CobranzaClient({
     <div className="space-y-6">
       {/* Encabezado con selector de periodo */}
       <PageHeader
-        title="Control de Cobranzas y Mensualidades"
+        title="Control de Cobranzas y Cánones"
         icon={<Receipt className="w-6 h-6 text-white" />}
         actions={
           <div className="w-full sm:w-auto flex items-center justify-between gap-1.5 sm:gap-2 bg-white border border-slate-200/90 rounded-2xl p-1.5 sm:p-2 shadow-2xs">
@@ -616,7 +616,7 @@ export function CobranzaClient({
               const esFuturo = ano > anoActualReal || (ano === anoActualReal && mes > mesActualReal + 1);
 
               if (esFuturo) {
-                return `No hay cuotas habilitadas en ${nombreMesActual} ${ano}. En períodos futuros, las mensualidades se habilitan automáticamente solo cuando el calendario avance y cada contrato haya liquidado sus cuotas previas.`;
+                return `No hay cuotas habilitadas en ${nombreMesActual} ${ano}. En períodos futuros, los cánones se habilitan automáticamente solo cuando el calendario avance y cada contrato haya liquidado sus cuotas previas.`;
               }
               return `No hay registros de cobro en ${nombreMesActual} ${ano} con los filtros aplicados.`;
             })()

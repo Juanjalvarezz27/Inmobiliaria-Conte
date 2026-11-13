@@ -29,7 +29,7 @@ const createContratoSchema = z.object({
     .max(31, "El día de cobro debe estar entre 1 y 31"),
   montoAlquiler: z.coerce
     .number()
-    .min(0.01, "La mensualidad debe ser mayor a 0"),
+    .min(0.01, "El canon debe ser mayor a 0"),
   depositoGarantia: z.coerce.number().min(0).optional().nullable(),
   depositoCobradoAlFirmar: z.boolean().optional(),
   depositoFechaCobro: z.string().optional().nullable(),
@@ -56,7 +56,7 @@ export type UpdateContratoInput = z.infer<typeof updateContratoSchema>;
 
 // Calcula los períodos a pregenerar en base de datos:
 // Devengados (históricos hasta hoy) + como máximo 1 mes de adelanto (mesActual + 1).
-// Las mensualidades futuras más allá de mesActual + 1 se generan bajo demanda vía sincronizarCuotasMes.
+// Los cánones futuros más allá de mesActual + 1 se generan bajo demanda vía sincronizarCuotasMes.
 function obtenerPeriodosParaGenerarContrato(
   fechaInicio: Date,
   fechaFin: Date,

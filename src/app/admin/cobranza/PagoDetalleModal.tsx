@@ -152,13 +152,13 @@ export function PagoDetalleModal({
   const telLimpio = inquilino.telefono.replace(/[^0-9]/g, "");
   let mensajeWp = "";
   if (pago.estado === EstadoPago.PAGADO) {
-    mensajeWp = `Hola ${inquilino.nombre}, le saludamos de Inmobiliaria Conté. Le confirmamos que hemos recibido satisfactoriamente su pago de $${pago.montoPagado.toFixed(2)} USD por concepto de la mensualidad de ${nombreMes} ${pago.periodoAno} del espacio ${unidad.codigo} en ${propiedad.nombre}. ¡Muchas gracias por su puntualidad!`;
+    mensajeWp = `Hola ${inquilino.nombre}, le saludamos de Inmobiliaria Conté. Le confirmamos que hemos recibido satisfactoriamente su pago de $${pago.montoPagado.toFixed(2)} USD por concepto del canon de ${nombreMes} ${pago.periodoAno} del espacio ${unidad.codigo} en ${propiedad.nombre}. ¡Muchas gracias por su puntualidad!`;
   } else if (pago.estado === EstadoPago.VENCIDO) {
-    mensajeWp = `Hola ${inquilino.nombre}, le saludamos de Inmobiliaria Conté. Le escribimos cordialmente para recordarle que la mensualidad de ${nombreMes} ${pago.periodoAno} ($${pago.montoEsperado.toFixed(2)} USD) del espacio ${unidad.codigo} en ${propiedad.nombre} se encuentra vencida desde el ${fechaVence}. Agradecemos gestionar la cancelación a la brevedad y compartir el comprobante.`;
+    mensajeWp = `Hola ${inquilino.nombre}, le saludamos de Inmobiliaria Conté. Le escribimos cordialmente para recordarle que el canon de ${nombreMes} ${pago.periodoAno} ($${pago.montoEsperado.toFixed(2)} USD) del espacio ${unidad.codigo} en ${propiedad.nombre} se encuentra vencido desde el ${fechaVence}. Agradecemos gestionar la cancelación a la brevedad y compartir el comprobante.`;
   } else if (pago.estado === EstadoPago.PARCIAL) {
-    mensajeWp = `Hola ${inquilino.nombre}, le saludamos de Inmobiliaria Conté. Le recordamos que para la mensualidad de ${nombreMes} ${pago.periodoAno} del espacio ${unidad.codigo} en ${propiedad.nombre} mantiene un saldo pendiente de $${saldoPendiente.toFixed(2)} USD. Agradecemos coordinar la cancelación del restante.`;
+    mensajeWp = `Hola ${inquilino.nombre}, le saludamos de Inmobiliaria Conté. Le recordamos que para el canon de ${nombreMes} ${pago.periodoAno} del espacio ${unidad.codigo} en ${propiedad.nombre} mantiene un saldo pendiente de $${saldoPendiente.toFixed(2)} USD. Agradecemos coordinar la cancelación del restante.`;
   } else {
-    mensajeWp = `Hola ${inquilino.nombre}, le saludamos de Inmobiliaria Conté. Le recordamos que la mensualidad de ${nombreMes} ${pago.periodoAno} ($${pago.montoEsperado.toFixed(2)} USD) del espacio ${unidad.codigo} en ${propiedad.nombre} tiene como fecha de cobro el ${fechaVence}. Quedamos atentos para recibir el comprobante.`;
+    mensajeWp = `Hola ${inquilino.nombre}, le saludamos de Inmobiliaria Conté. Le recordamos que el canon de ${nombreMes} ${pago.periodoAno} ($${pago.montoEsperado.toFixed(2)} USD) del espacio ${unidad.codigo} en ${propiedad.nombre} tiene como fecha de cobro el ${fechaVence}. Quedamos atentos para recibir el comprobante.`;
   }
   const urlWhatsapp = `https://wa.me/${telLimpio}?text=${encodeURIComponent(mensajeWp)}`;
 
@@ -217,7 +217,7 @@ export function PagoDetalleModal({
             </div>
             <div className="min-w-0 flex-1 text-xs leading-relaxed">
               <p className="font-bold text-amber-950 font-heading">
-                Imputación Contable Bloqueada: Mensualidad anterior pendiente
+                Imputación Contable Bloqueada: Canon anterior pendiente
               </p>
               <p className="text-amber-800 text-[11px] mt-0.5 font-medium">
                 Este contrato mantiene un saldo pendiente en{" "}
@@ -820,7 +820,7 @@ export function PagoDetalleModal({
                       <span className="truncate">Mes anterior pendiente</span>
                     </button>
                     <div className="hidden group-hover/lock:block absolute bottom-full right-0 mb-2 w-64 p-2.5 bg-slate-900 text-white text-[11px] leading-snug rounded-xl shadow-xl text-center z-50 pointer-events-none">
-                      Por imputación contable secuencial, debes liquidar primero la mensualidad de{" "}
+                      Por imputación contable secuencial, debes liquidar primero el canon de{" "}
                       <strong className="text-emerald-400">
                         {MESES[(pago.anteriorImpago.mes || 1) - 1]} {pago.anteriorImpago.ano}
                       </strong>{" "}
@@ -1103,7 +1103,7 @@ export function PagoDetalleModal({
                         <span className="truncate">Mes anterior pendiente</span>
                       </button>
                       <div className="hidden group-hover/lock:block absolute bottom-full right-0 mb-2 w-72 p-2.5 bg-slate-900 text-white text-[11px] leading-snug rounded-xl shadow-xl text-center z-50 pointer-events-none">
-                        Por imputación contable correlativa, debes liquidar primero la mensualidad de{" "}
+                        Por imputación contable correlativa, debes liquidar primero el canon de{" "}
                         <strong className="text-emerald-400">
                           {MESES[(pago.anteriorImpago.mes || 1) - 1]} {pago.anteriorImpago.ano}
                         </strong>{" "}

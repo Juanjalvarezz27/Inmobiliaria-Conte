@@ -167,7 +167,7 @@ export function ReportarPagoModal({
 
   const ahora = useMemo(() => new Date(), []);
 
-  // Opciones con máxima notoriedad del LOCAL y la mensualidad en el selector
+  // Opciones con máxima notoriedad del LOCAL y el canon en el selector
   const opcionesCuotas = useMemo((): SelectOption[] => {
     const mesActual = ahora.getUTCMonth() + 1;
     const anoActual = ahora.getUTCFullYear();
@@ -252,7 +252,7 @@ export function ReportarPagoModal({
     }
     if (saldoMaximo > 0 && montoReportado > saldoMaximo) {
       toast.error(
-        `El monto reportado ($${montoReportado.toFixed(2)} USD) no puede superar el saldo pendiente de esta mensualidad ($${saldoMaximo.toFixed(2)} USD).`
+        `El monto reportado ($${montoReportado.toFixed(2)} USD) no puede superar el saldo pendiente de este canon ($${saldoMaximo.toFixed(2)} USD).`
       );
       return;
     }
@@ -325,7 +325,7 @@ export function ReportarPagoModal({
           <div className="space-y-2">
             <div className="flex items-center justify-between flex-wrap gap-1">
               <label className="block text-xs font-bold text-slate-700 uppercase tracking-wide">
-                Espacio y Mensualidad a Solventar <span className="text-emerald-700">*</span>
+                Espacio y Canon a Solventar <span className="text-emerald-700">*</span>
               </label>
               {opcionesCuotas.length > 1 && (
                 <span className="text-[11px] font-semibold text-slate-500">
@@ -339,7 +339,7 @@ export function ReportarPagoModal({
               onChange={handleCambioCuota}
               options={opcionesCuotas}
               disabled={isSubmitting}
-              placeholder="Seleccionar local y mensualidad..."
+              placeholder="Seleccionar local y canon..."
             />
           </div>
 

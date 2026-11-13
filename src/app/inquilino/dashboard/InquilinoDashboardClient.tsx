@@ -109,7 +109,7 @@ export function InquilinoDashboardClient({
                     CUOTA EN MORA
                   </span>
                   <span className="text-xs font-bold text-rose-700">
-                    {resumen.periodoVencidoTexto || `${resumen.cuotasVencidasCount} mensualidad(es) adeudada(s)`}
+                    {resumen.periodoVencidoTexto || `${resumen.cuotasVencidasCount} canon(es) adeudado(s)`}
                   </span>
                 </div>
                 <p className="text-xs text-rose-800 font-medium mt-1">
@@ -148,7 +148,7 @@ export function InquilinoDashboardClient({
                   </span>
                 </div>
                 <p className="text-xs text-amber-900 font-medium mt-1">
-                  Mensualidad de <strong className="text-slate-900 font-bold">{resumen.periodoProximoVencimiento}</strong> (${resumen.montoPorPagar.toFixed(2)} USD) con corte el día {resumen.proximoDiaCorte || 10} del mes.
+                  Canon de <strong className="text-slate-900 font-bold">{resumen.periodoProximoVencimiento}</strong> (${resumen.montoPorPagar.toFixed(2)} USD) con corte el día {resumen.proximoDiaCorte || 10} del mes.
                 </p>
               </div>
             </div>
@@ -217,10 +217,10 @@ export function InquilinoDashboardClient({
 
       {/* 4. Métricas Clave de la Cuenta (2x2 en Móvil, 4 en Desktop) */}
       <section className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4">
-        {/* Card 1: Mensualidad Regular */}
+        {/* Card 1: Canon Regular */}
         <StatCard
-          title="Mensualidad"
-          value={`$${resumen.montoMensualidadTotal.toFixed(2)} USD`}
+          title="Canon"
+          value={`$${resumen.montoCanonTotal.toFixed(2)} USD`}
           subtitle="Compromiso mensual regular"
           icon={DollarSign}
           color="emerald"
@@ -355,9 +355,9 @@ export function InquilinoDashboardClient({
                   </span>
                 </div>
                 <div className="bg-slate-50/70 rounded-xl px-3 py-2.5 border border-slate-200/70 flex items-center justify-between">
-                  <span className="text-xs text-slate-500 font-medium">Mensualidad</span>
+                  <span className="text-xs text-slate-500 font-medium">Canon</span>
                   <span className="font-bold text-[#175E38] text-xs sm:text-sm">
-                    ${locales[0].mensualidad.toFixed(2)} USD
+                    ${locales[0].canonMensual.toFixed(2)} USD
                   </span>
                 </div>
                 <div className="bg-slate-50/70 rounded-xl px-3 py-2.5 border border-slate-200/70 flex items-center justify-between">
@@ -462,7 +462,7 @@ export function InquilinoDashboardClient({
                         Cuotas Pendientes
                       </span>
                       <span className="font-semibold text-slate-800 text-xs sm:text-sm">
-                        {resumen.cuotasVencidasCount} mensualidad(es)
+                        {resumen.cuotasVencidasCount} canon(es)
                       </span>
                     </div>
 
@@ -539,7 +539,7 @@ export function InquilinoDashboardClient({
                           Próxima Cuota
                         </span>
                         <span className="font-semibold text-slate-800 text-xs sm:text-sm">
-                          {resumen.periodoProximoVencimiento} (${resumen.montoMensualidadTotal.toFixed(2)} USD)
+                          {resumen.periodoProximoVencimiento} (${resumen.montoCanonTotal.toFixed(2)} USD)
                         </span>
                       </div>
                     )}
@@ -664,8 +664,8 @@ export function InquilinoDashboardClient({
                         </span>
                       </div>
                       <div className="bg-slate-50 rounded-xl p-2 border border-slate-200/70">
-                        <span className="text-[10px] text-slate-600 uppercase font-bold tracking-wider block">Mensualidad</span>
-                        <span className="font-bold text-[#175E38]">${local.mensualidad.toFixed(2)} USD</span>
+                        <span className="text-[10px] text-slate-600 uppercase font-bold tracking-wider block">Canon</span>
+                        <span className="font-bold text-[#175E38]">${local.canonMensual.toFixed(2)} USD</span>
                       </div>
                     </div>
                   </div>

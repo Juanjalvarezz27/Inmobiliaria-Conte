@@ -524,7 +524,7 @@ export function ReciboModal({ isOpen, onClose, pago }: ReciboModalProps) {
                         {unidad.codigo}
                       </span>
                       <span className="text-[11px] font-bold text-slate-700 truncate">
-                        Mensualidad de Alquiler
+                        Canon de Arrendamiento
                       </span>
                     </div>
                     <span className="text-[10px] font-semibold text-slate-500 bg-white px-1.5 py-0.5 rounded border border-slate-200/70">
@@ -650,7 +650,7 @@ export function ReciboModal({ isOpen, onClose, pago }: ReciboModalProps) {
                       </div>
                       <div className="space-y-1.5 sm:space-y-2 text-xs">
                         <div className="flex justify-between items-center">
-                          <span className="text-slate-500 font-medium">Subtotal / Mensualidad:</span>
+                          <span className="text-slate-500 font-medium">Subtotal / Canon:</span>
                           <span className="font-bold text-slate-900 text-xs sm:text-sm">
                             ${pago.montoEsperado.toFixed(2)} USD
                           </span>

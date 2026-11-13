@@ -101,9 +101,9 @@ export function PagoCard({
   if (pago.estado === EstadoPago.PAGADO) {
     mensajeWp = `Hola ${inquilino.nombre}, le saludamos de Inmobiliaria Conté. Le confirmamos que hemos recibido satisfactoriamente su pago de $${pago.montoPagado.toFixed(2)} USD por concepto de arrendamiento del espacio ${unidad.codigo} (${nombreMesActual} ${ano}). ¡Muchas gracias por su puntualidad!`;
   } else if (pago.estado === EstadoPago.VENCIDO) {
-    mensajeWp = `Hola ${inquilino.nombre}, le saludamos de Inmobiliaria Conté. Le escribimos para recordarle que el pago de la mensualidad ($${pago.montoEsperado.toFixed(2)} USD) del espacio ${unidad.codigo} se encuentra vencido desde el día de corte. Agradecemos coordinar la cancelación a la brevedad.`;
+    mensajeWp = `Hola ${inquilino.nombre}, le saludamos de Inmobiliaria Conté. Le escribimos para recordarle que el pago del canon ($${pago.montoEsperado.toFixed(2)} USD) del espacio ${unidad.codigo} se encuentra vencido desde el día de corte. Agradecemos coordinar la cancelación a la brevedad.`;
   } else {
-    mensajeWp = `Hola ${inquilino.nombre}, le saludamos de Inmobiliaria Conté. Le recordamos que la mensualidad ($${pago.montoEsperado.toFixed(2)} USD) del espacio ${unidad.codigo} vence próximamente. Quedamos a su orden para recibir el comprobante.`;
+    mensajeWp = `Hola ${inquilino.nombre}, le saludamos de Inmobiliaria Conté. Le recordamos que el canon ($${pago.montoEsperado.toFixed(2)} USD) del espacio ${unidad.codigo} vence próximamente. Quedamos a su orden para recibir el comprobante.`;
   }
   const urlWhatsapp = `https://wa.me/${telLimpio}?text=${encodeURIComponent(mensajeWp)}`;
   const esPorConfirmar = Boolean(pago.comprobanteUrl) && pago.estado !== EstadoPago.PAGADO;
@@ -302,7 +302,7 @@ export function PagoCard({
 
         {/* Fila 4: Bloque Financiero en 2 Cajas Métricas Estructuradas */}
         <div className="grid grid-cols-2 gap-2 pt-0.5">
-          {/* Caja 1: Monto de la Mensualidad o Abonado */}
+          {/* Caja 1: Monto del Canon o Abonado */}
           <div
             className={`${compact ? "p-2.5" : "p-3 sm:p-3.5"} rounded-xl border flex flex-col justify-between ${
               pago.estado === EstadoPago.PAGADO
@@ -322,10 +322,10 @@ export function PagoCard({
               }`}
             >
               {pago.estado === EstadoPago.PAGADO
-                ? "Mensualidad Pagada"
+                ? "Canon Pagado"
                 : pago.estado === EstadoPago.PARCIAL
                 ? "Ya Abonado"
-                : "Mensualidad"}
+                : "Canon"}
             </span>
             <div className="mt-1 flex items-baseline truncate">
               <span
@@ -435,7 +435,7 @@ export function PagoCard({
               <span className="truncate">Mes anterior pendiente</span>
             </button>
             <div className="hidden group-hover/lock:block absolute bottom-full right-0 mb-2 w-64 p-2.5 bg-slate-900 text-white text-[11px] leading-snug rounded-xl shadow-xl text-center z-50 pointer-events-none">
-              Por imputación contable secuencial, debes liquidar primero la mensualidad de{" "}
+              Por imputación contable secuencial, debes liquidar primero el canon de{" "}
               <strong className="text-emerald-400">
                 {MESES[(pago.anteriorImpago.mes || 1) - 1]} {pago.anteriorImpago.ano}
               </strong>{" "}

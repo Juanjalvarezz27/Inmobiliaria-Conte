@@ -62,7 +62,7 @@ export function MorososHistoricosModal({
       isOpen={isOpen}
       onClose={onClose}
       title="Deudas de Meses Anteriores"
-      subtitle={`${pagos.length} mensualidad(es) impaga(s) acumulada(s)`}
+      subtitle={`${pagos.length} canon(es) impago(s) acumulado(s)`}
       icon={AlertTriangle}
       headerVariant="red"
       maxWidth="7xl"
@@ -111,11 +111,11 @@ export function MorososHistoricosModal({
           {isLoading ? (
             <div className="py-16 text-center text-slate-500 flex flex-col items-center justify-center gap-2">
               <RotateCw className="w-6 h-6 animate-spin text-[#CC1A22]" />
-              <p className="text-xs font-bold">Cargando mensualidades adeudadas...</p>
+              <p className="text-xs font-bold">Cargando cánones adeudados...</p>
             </div>
           ) : pagosFiltrados.length === 0 ? (
             <div className="py-16 text-center text-slate-400 text-xs sm:text-sm bg-slate-50 border border-dashed border-slate-200 rounded-2xl p-6">
-              {filtro ? "No se encontraron coincidencias para tu búsqueda." : "No hay mensualidades atrasadas en el historial."}
+              {filtro ? "No se encontraron coincidencias para tu búsqueda." : "No hay cánones atrasados en el historial."}
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-3.5 pb-2">
@@ -147,7 +147,7 @@ export function MorososHistoricosModal({
         {/* Footer */}
         <div className="pt-2 border-t border-slate-100 flex items-center justify-between">
           <span className="text-xs text-slate-500 font-medium">
-            Mostrando <strong>{pagosFiltrados.length}</strong> de <strong>{pagos.length}</strong> mensualidad(es) atrasada(s)
+            Mostrando <strong>{pagosFiltrados.length}</strong> de <strong>{pagos.length}</strong> canon(es) atrasado(s)
           </span>
           <button
             type="button"

@@ -14,7 +14,7 @@ import type {
 
 export const metadata = {
   title: "Gestión de Contratos | Inmobiliaria Conté",
-  description: "Control de contratos de arrendamiento, vigencias y mensualidades",
+  description: "Control de contratos de arrendamiento, vigencias y cánones",
 };
 
 interface ContratosPageProps {

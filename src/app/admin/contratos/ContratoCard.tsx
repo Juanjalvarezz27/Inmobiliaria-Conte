@@ -239,7 +239,7 @@ export function ContratoCard({
             </div>
           </div>
 
-          {/* Vigencia y Mensualidad */}
+          {/* Vigencia y Canon */}
           <div className="grid grid-cols-2 gap-2.5 pt-1">
             {/* Vencimiento */}
             <div className="bg-slate-50/90 border border-slate-200/80 rounded-xl p-2.5 flex flex-col justify-between">
@@ -252,10 +252,10 @@ export function ContratoCard({
               </div>
             </div>
 
-            {/* Mensualidad Destacada */}
+            {/* Canon Destacado */}
             <div className="bg-emerald-50/70 border border-emerald-200/90 rounded-xl p-2.5 flex flex-col justify-between text-right">
               <span className="text-[10px] font-extrabold text-emerald-800 uppercase tracking-wider block">
-                Mensualidad
+                Canon
               </span>
               <div className="mt-0.5">
                 <span className="text-base sm:text-lg font-black text-[#175E38] font-heading tracking-tight">
