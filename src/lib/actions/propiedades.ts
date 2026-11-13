@@ -1,6 +1,7 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
+import { requireAdminSession } from "@/lib/auth-guard";
 import { revalidatePath, revalidateTag, unstable_cache } from "next/cache";
 import { Prisma, TipoPropiedad, TipoUnidad, EstadoContrato, EstadoUnidad } from "@prisma/client";
 import { eliminarArchivosUploadThing } from "@/lib/uploadthing-server";
@@ -99,6 +100,9 @@ export async function getPropiedadById(id: string) {
 
 // Crear una nueva propiedad
 export async function createPropiedad(data: CreatePropiedadInput) {
+  const authCheck = await requireAdminSession();
+  if (!authCheck.ok) return { success: false, error: authCheck.error };
+
   try {
     const tiposIndividuales: TipoPropiedad[] = [
       TipoPropiedad.CASA,
@@ -176,6 +180,9 @@ export async function createPropiedad(data: CreatePropiedadInput) {
 
 // Actualizar datos de una propiedad
 export async function updatePropiedad(id: string, data: UpdatePropiedadInput) {
+  const authCheck = await requireAdminSession();
+  if (!authCheck.ok) return { success: false, error: authCheck.error };
+
   try {
     const actualizada = await prisma.propiedad.update({
       where: { id },
@@ -204,6 +211,9 @@ export async function updatePropiedad(id: string, data: UpdatePropiedadInput) {
 
 // Eliminar o archivar una propiedad protegiendo claves foráneas y contratos en sus unidades
 export async function deletePropiedad(id: string) {
+  const authCheck = await requireAdminSession();
+  if (!authCheck.ok) return { success: false, error: authCheck.error };
+
   try {
     const propiedad = await prisma.propiedad.findUnique({
       where: { id },
@@ -295,6 +305,9 @@ export async function deletePropiedad(id: string) {
 
 // Reactivar o restaurar una propiedad archivada
 export async function reactivarPropiedad(id: string) {
+  const authCheck = await requireAdminSession();
+  if (!authCheck.ok) return { success: false, error: authCheck.error };
+
   try {
     await prisma.propiedad.update({
       where: { id },

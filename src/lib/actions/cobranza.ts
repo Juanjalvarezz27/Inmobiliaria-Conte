@@ -1,6 +1,8 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
+import { auth } from "@/auth";
+import { requireAdminSession } from "@/lib/auth-guard";
 import { revalidatePath } from "next/cache";
 import { after } from "next/server";
 import { z } from "zod";
@@ -579,6 +581,32 @@ export async function getPagosCobranza({
   forzarSincronizacion?: boolean;
   modoMorososHistoricos?: boolean;
 }) {
+  const authCheck = await requireAdminSession();
+  if (!authCheck.ok) {
+    return {
+      success: false,
+      error: authCheck.error,
+      pagos: [],
+      totalRegistros: 0,
+      totalPaginas: 1,
+      paginaActual: 1,
+      estadisticas: {
+        totalFacturado: 0,
+        totalRecaudado: 0,
+        totalPorCobrar: 0,
+        totalEnMora: 0,
+        cantidadTotal: 0,
+        cantidadPagados: 0,
+        cantidadPendientes: 0,
+        cantidadVencidos: 0,
+        cantidadParciales: 0,
+        cantidadPorConfirmar: 0,
+        cantidadPorConfirmarGlobal: 0,
+        porcentajeRecaudado: 0,
+      },
+    };
+  }
+
   try {
     const ahora = new Date();
     const mesActualCal = ahora.getUTCMonth() + 1;
@@ -918,6 +946,9 @@ export async function getPagosCobranza({
  * Obtiene el detalle actualizado de una cuota mensual con su libro mayor completo
  */
 export async function getDetallePago(id: string) {
+  const authCheck = await requireAdminSession();
+  if (!authCheck.ok) return { success: false, error: authCheck.error };
+
   try {
     const pago = await prisma.pago.findUnique({
       where: { id },
@@ -939,6 +970,9 @@ export async function getDetallePago(id: string) {
  * Registra un abono o pago en el Libro Mayor de Transacciones (1:N)
  */
 export async function registrarPago(input: RegistrarPagoInput) {
+  const authCheck = await requireAdminSession();
+  if (!authCheck.ok) return { success: false, error: authCheck.error };
+
   try {
     const validado = registrarPagoSchema.safeParse(input);
     if (!validado.success) {
@@ -1173,6 +1207,9 @@ export async function registrarPago(input: RegistrarPagoInput) {
  * Elimina un abono específico del Libro Mayor y recalcula el acumulado de la mensualidad
  */
 export async function eliminarTransaccionPago(transaccionId: string) {
+  const authCheck = await requireAdminSession();
+  if (!authCheck.ok) return { success: false, error: authCheck.error };
+
   try {
     const transaccion = await prisma.transaccionPago.findUnique({
       where: { id: transaccionId },
@@ -1257,6 +1294,9 @@ export async function eliminarTransaccionPago(transaccionId: string) {
  * Revierte o anula todos los abonos de una mensualidad registrada previamente
  */
 export async function anularPago(pagoId: string) {
+  const authCheck = await requireAdminSession();
+  if (!authCheck.ok) return { success: false, error: authCheck.error };
+
   try {
     const pagoActual = await prisma.pago.findUnique({
       where: { id: pagoId },
@@ -1331,6 +1371,9 @@ export async function getPropiedadesCobranzaOpciones() {
  * Carga los datos completos de un pago para el modal de ficha detallada (lazy loading)
  */
 export async function getPagoDetalle(pagoId: string) {
+  const authCheck = await requireAdminSession();
+  if (!authCheck.ok) return { success: false, error: authCheck.error };
+
   try {
     const pago = await prisma.pago.findUnique({
       where: { id: pagoId },
@@ -1383,6 +1426,9 @@ export async function getPagoDetalle(pagoId: string) {
  * Rechaza o descarta un comprobante bancario reportado por el inquilino notificándole el motivo
  */
 export async function rechazarComprobanteReportadoAction(pagoId: string, motivo?: string) {
+  const authCheck = await requireAdminSession();
+  if (!authCheck.ok) return { success: false, error: authCheck.error };
+
   try {
     const pago = await prisma.pago.findUnique({
       where: { id: pagoId },
@@ -1456,6 +1502,9 @@ export async function rechazarComprobanteReportadoAction(pagoId: string, motivo?
  * Obtiene la lista completa de cuotas morosas de periodos anteriores al mes actual (Fase 25)
  */
 export async function getMorososHistoricosAction() {
+  const authCheck = await requireAdminSession();
+  if (!authCheck.ok) return { success: false, error: authCheck.error, pagos: [] };
+
   try {
     const ahora = new Date();
     const mesActualCal = ahora.getUTCMonth() + 1;
@@ -1541,6 +1590,17 @@ export async function actualizarSolvenciaServiciosAction(input: ActualizarSolven
 
     if (!pago) {
       return { success: false, error: "Registro de cuota no encontrado" };
+    }
+
+    const session = await auth();
+    if (!session?.user?.id) {
+      return { success: false, error: "No autenticado. Por favor inicia sesión." };
+    }
+
+    const esAdmin = session.user.rol === "ADMIN";
+    const esInquilinoAsociado = pago.contrato.inquilino.usuarioId === session.user.id;
+    if (!esAdmin && !esInquilinoAsociado) {
+      return { success: false, error: "No autorizado para modificar la solvencia de este inmueble." };
     }
 
     const pagoActualizado = await prisma.pago.update({

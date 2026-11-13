@@ -1,6 +1,7 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
+import { requireAdminSession } from "@/lib/auth-guard";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { TipoPersona, EstadoContrato, EstadoUnidad, EstadoPago, Prisma } from "@prisma/client";
@@ -124,6 +125,9 @@ const INQUILINO_SELECT = {
 
 // Obtener detalle completo de un inquilino para la ficha técnica (carga bajo demanda)
 export async function getInquilinoDetalle(id: string) {
+  const authCheck = await requireAdminSession();
+  if (!authCheck.ok) return { success: false, error: authCheck.error };
+
   try {
     const inquilino = await prisma.inquilino.findUnique({
       where: { id },
@@ -141,6 +145,9 @@ export async function getInquilinoDetalle(id: string) {
 
 // Obtener listado de inquilinos con proyección ligera
 export async function getInquilinos(busqueda?: string) {
+  const authCheck = await requireAdminSession();
+  if (!authCheck.ok) return { success: false, error: authCheck.error, data: [] };
+
   try {
     const q = busqueda?.trim().toLowerCase();
 
@@ -170,6 +177,15 @@ export async function getInquilinos(busqueda?: string) {
 
 // Obtener estadísticas de inquilinos
 export async function getInquilinosStats() {
+  const authCheck = await requireAdminSession();
+  if (!authCheck.ok) {
+    return {
+      success: false,
+      data: { total: 0, activos: 0, archivados: 0, conContratosActivos: 0, sinContrato: 0 },
+      error: authCheck.error,
+    };
+  }
+
   try {
     const [total, activos, conContratosActivos] = await Promise.all([
       prisma.inquilino.count(),
@@ -207,6 +223,9 @@ export async function getInquilinosStats() {
 
 // Registrar un nuevo inquilino
 export async function createInquilino(data: CreateInquilinoInput) {
+  const authCheck = await requireAdminSession();
+  if (!authCheck.ok) return { success: false, error: authCheck.error };
+
   try {
     const parsed = createInquilinoSchema.parse(data);
 
@@ -251,6 +270,9 @@ export async function createInquilino(data: CreateInquilinoInput) {
 
 // Actualizar información de un inquilino
 export async function updateInquilino(id: string, data: UpdateInquilinoInput) {
+  const authCheck = await requireAdminSession();
+  if (!authCheck.ok) return { success: false, error: authCheck.error };
+
   try {
     const parsed = updateInquilinoSchema.parse(data);
 
@@ -297,6 +319,9 @@ export async function archivarInquilino(
   id: string,
   opciones?: { rescindirContratos?: boolean }
 ) {
+  const authCheck = await requireAdminSession();
+  if (!authCheck.ok) return { success: false, error: authCheck.error };
+
   try {
     const actualizado = await prisma.$transaction(async (tx) => {
       // Comprobar si tiene contratos vigentes activos
@@ -371,6 +396,9 @@ export async function archivarInquilino(
 
 // Reactivar o restaurar un inquilino archivado
 export async function reactivarInquilino(id: string) {
+  const authCheck = await requireAdminSession();
+  if (!authCheck.ok) return { success: false, error: authCheck.error };
+
   try {
     const actualizado = await prisma.inquilino.update({
       where: { id },

@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import bcrypt from "bcryptjs";
 import { auth } from "@/auth";
+import { requireAdminSession, assertAdminSession } from "@/lib/auth-guard";
 import {
   CargoEmpleado,
   EstadoAsistencia,
@@ -304,6 +305,7 @@ export async function sincronizarInasistenciasPasadas(): Promise<{ sincronizadas
 
 // Obtención integral de datos para el módulo de personal
 export async function getPersonalData(): Promise<PersonalDashboardData> {
+  await assertAdminSession();
   const hoy = new Date();
   const inicioDia = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate(), 0, 0, 0);
   const finDia = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate(), 23, 59, 59);
@@ -575,6 +577,9 @@ export async function getPersonalData(): Promise<PersonalDashboardData> {
 
 // Acción para registrar un nuevo empleado con opción de crear credenciales
 export async function crearEmpleadoAction(rawInput: CreateEmpleadoInput) {
+  const authResult = await requireAdminSession();
+  if (!authResult.ok) return { success: false, error: authResult.error };
+
   try {
     const validated = createEmpleadoSchema.parse(rawInput);
 
@@ -602,7 +607,14 @@ export async function crearEmpleadoAction(rawInput: CreateEmpleadoInput) {
         };
       }
 
-      const pass = validated.passwordTemporal?.trim() || "Conte2026*";
+      if (!validated.passwordTemporal || validated.passwordTemporal.trim().length < 6) {
+        return {
+          success: false,
+          error: "Debes asignar una contraseña de acceso temporal (mínimo 6 caracteres) para el nuevo usuario.",
+        };
+      }
+
+      const pass = validated.passwordTemporal.trim();
       const passwordHash = await bcrypt.hash(pass, 10);
 
       const nuevoUsuario = await prisma.usuario.create({
@@ -667,6 +679,9 @@ export async function crearEmpleadoAction(rawInput: CreateEmpleadoInput) {
 
 // Acción para actualizar datos de un empleado
 export async function actualizarEmpleadoAction(id: string, rawInput: UpdateEmpleadoInput) {
+  const authResult = await requireAdminSession();
+  if (!authResult.ok) return { success: false, error: authResult.error };
+
   try {
     const validated = updateEmpleadoSchema.parse(rawInput);
 
@@ -730,7 +745,14 @@ export async function actualizarEmpleadoAction(id: string, rawInput: UpdateEmple
         };
       }
 
-      const pass = validated.passwordTemporal?.trim() || "Conte2026*";
+      if (!validated.passwordTemporal || validated.passwordTemporal.trim().length < 6) {
+        return {
+          success: false,
+          error: "Debes asignar una contraseña de acceso temporal (mínimo 6 caracteres) para crear la cuenta del colaborador.",
+        };
+      }
+
+      const pass = validated.passwordTemporal.trim();
       const passwordHash = await bcrypt.hash(pass, 10);
 
       const nuevoUsuario = await prisma.usuario.create({
@@ -799,6 +821,9 @@ export async function actualizarEmpleadoAction(id: string, rawInput: UpdateEmple
 
 // Acción para activar / suspender un empleado (soft-delete)
 export async function toggleEstadoEmpleadoAction(id: string, activo: boolean) {
+  const authResult = await requireAdminSession();
+  if (!authResult.ok) return { success: false, error: authResult.error };
+
   try {
     const empleado = await prisma.empleado.findUnique({
       where: { id },
@@ -849,6 +874,9 @@ export type RegistrarAsistenciaInput = z.infer<typeof registrarAsistenciaSchema>
 
 // Registrar asistencia diaria
 export async function registrarAsistenciaAction(rawInput: RegistrarAsistenciaInput) {
+  const authResult = await requireAdminSession();
+  if (!authResult.ok) return { success: false, error: authResult.error };
+
   try {
     const validated = registrarAsistenciaSchema.parse(rawInput);
 
@@ -932,6 +960,9 @@ export async function marcarSalidaAction(
   horaSalidaStr?: string,
   ubicacionSalida?: string
 ) {
+  const authResult = await requireAdminSession();
+  if (!authResult.ok) return { success: false, error: authResult.error };
+
   try {
     const horaSalida = horaSalidaStr ? new Date(horaSalidaStr) : new Date();
 
@@ -967,6 +998,9 @@ export type CreateTareaInput = z.infer<typeof createTareaSchema>;
 
 // Crear nueva tarea
 export async function crearTareaAction(rawInput: CreateTareaInput) {
+  const authResult = await requireAdminSession();
+  if (!authResult.ok) return { success: false, error: authResult.error };
+
   try {
     const validated = createTareaSchema.parse(rawInput);
 
@@ -1070,6 +1104,9 @@ export async function actualizarEstadoTareaAction(
   notasResolucion?: string | null,
   nuevasEvidencias?: string[]
 ) {
+  const authResult = await requireAdminSession();
+  if (!authResult.ok) return { success: false, error: authResult.error };
+
   try {
     const tareaExistente = await prisma.tareaEmpleado.findUnique({
       where: { id: tareaId },
@@ -1108,6 +1145,9 @@ export async function actualizarEstadoTareaAction(
 
 // Eliminar tarea
 export async function eliminarTareaAction(tareaId: string) {
+  const authResult = await requireAdminSession();
+  if (!authResult.ok) return { success: false, error: authResult.error };
+
   try {
     await prisma.tareaEmpleado.delete({
       where: { id: tareaId },
@@ -1127,6 +1167,11 @@ export async function obtenerHistorialAsistenciaEmpleadoAction(
   empleadoId: string,
   params?: PaginationParams
 ) {
+  const authResult = await requireAdminSession();
+  if (!authResult.ok) {
+    return { success: false, error: authResult.error, data: [], total: 0, page: 1, pageSize: 50, totalPages: 1 };
+  }
+
   try {
     const { page, pageSize, skip, take } = resolvePagination(params, 50);
 
@@ -1216,6 +1261,9 @@ export async function obtenerHistorialAsistenciaEmpleadoAction(
 
 // Acción invocable desde el cliente para forzar sincronización de inasistencias
 export async function sincronizarInasistenciasAction() {
+  const authResult = await requireAdminSession();
+  if (!authResult.ok) return { success: false, error: authResult.error };
+
   try {
     const res = await sincronizarInasistenciasPasadas();
     revalidatePath("/admin/personal");
@@ -1238,8 +1286,7 @@ export interface FiltrosAsistenciaPersonal extends PaginationParams {
 export async function getAsistenciasPaginadasAction(
   filtros: FiltrosAsistenciaPersonal = {}
 ): Promise<PaginatedResult<RegistroAsistenciaItem>> {
-  const session = await auth();
-  if (!session?.user?.id) throw new Error("No autenticado");
+  await assertAdminSession();
 
   const { page, pageSize, skip, take } = resolvePagination(filtros, 15);
   const where: Prisma.RegistroAsistenciaWhereInput = {};
@@ -1321,8 +1368,7 @@ export interface FiltrosTareasPersonal extends PaginationParams {
 export async function getTareasPaginadasAction(
   filtros: FiltrosTareasPersonal = {}
 ): Promise<PaginatedResult<TareaEmpleadoItem>> {
-  const session = await auth();
-  if (!session?.user?.id) throw new Error("No autenticado");
+  await assertAdminSession();
 
   const { page, pageSize, skip, take } = resolvePagination(filtros, 15);
   const where: Prisma.TareaEmpleadoWhereInput = {};

@@ -1,6 +1,7 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
+import { requireAdminSession, assertAdminSession } from "@/lib/auth-guard";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import {
@@ -50,6 +51,7 @@ export type TransaccionInput = z.infer<typeof transaccionSchema>;
 export async function getFinanzasData(
   filtros: FiltrosFinanzas
 ): Promise<FinanzasDataResponse> {
+  await assertAdminSession();
   const {
     mes,
     ano,
@@ -258,6 +260,7 @@ export async function getFinanzasData(
 export async function getPropiedadesFinanzasOpciones(): Promise<
   PropiedadFinanzasOpcion[]
 > {
+  await assertAdminSession();
   const propiedades = await prisma.propiedad.findMany({
     where: { activo: true },
     select: {
@@ -297,6 +300,9 @@ function safeRevalidateFinanzas() {
 }
 
 export async function crearTransaccionFinanciera(data: TransaccionInput) {
+  const authCheck = await requireAdminSession();
+  if (!authCheck.ok) return { success: false, error: authCheck.error };
+
   try {
     const validated = transaccionSchema.parse(data);
     const fechaObj = new Date(validated.fecha);
@@ -369,6 +375,9 @@ export async function actualizarTransaccionFinanciera(
   id: string,
   data: TransaccionInput
 ) {
+  const authCheck = await requireAdminSession();
+  if (!authCheck.ok) return { success: false, error: authCheck.error };
+
   try {
     const validated = transaccionSchema.parse(data);
     const fechaObj = new Date(validated.fecha);
@@ -439,6 +448,9 @@ export async function actualizarTransaccionFinanciera(
 }
 
 export async function eliminarTransaccionFinanciera(id: string) {
+  const authCheck = await requireAdminSession();
+  if (!authCheck.ok) return { success: false, error: authCheck.error };
+
   try {
     const existente = await prisma.transaccionFinanciera.findUnique({
       where: { id },
@@ -467,6 +479,9 @@ export async function eliminarTransaccionFinanciera(id: string) {
 }
 
 export async function getCierreMesData(mes: number, ano: number) {
+  const authCheck = await requireAdminSession();
+  if (!authCheck.ok) return { success: false, error: authCheck.error };
+
   try {
     // 1. Ingresos por alquileres agrupados por propiedad
     const pagosMes = await prisma.pago.findMany({
@@ -738,6 +753,7 @@ export async function getMovimientosDetalladosPeriodo(params: {
   ano: number;
   propiedadId?: string;
 }): Promise<MovimientosPeriodoResponse> {
+  await assertAdminSession();
   const { mes, ano, propiedadId = "TODAS" } = params;
   const tienePropiedad = propiedadId && propiedadId !== "TODAS";
 

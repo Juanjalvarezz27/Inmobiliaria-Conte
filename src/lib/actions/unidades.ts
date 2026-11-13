@@ -1,6 +1,7 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
+import { requireAdminSession } from "@/lib/auth-guard";
 import { revalidatePath } from "next/cache";
 import { Prisma, EstadoUnidad, TipoUnidad, EstadoContrato } from "@prisma/client";
 import { eliminarArchivosUploadThing } from "@/lib/uploadthing-server";
@@ -190,6 +191,9 @@ export async function getEstadisticasPropiedades() {
 
 // Crear una nueva unidad optimizado
 export async function createUnidad(data: CreateUnidadInput) {
+  const authCheck = await requireAdminSession();
+  if (!authCheck.ok) return { success: false, error: authCheck.error };
+
   try {
     const nuevaUnidad = await prisma.unidad.create({
       data: {
@@ -216,6 +220,9 @@ export async function createUnidad(data: CreateUnidadInput) {
 
 // Actualizar datos de una unidad optimizado con limpieza de imágenes huérfanas
 export async function updateUnidad(id: string, data: UpdateUnidadInput) {
+  const authCheck = await requireAdminSession();
+  if (!authCheck.ok) return { success: false, error: authCheck.error };
+
   try {
     // Si se modifican imágenes, identificar cuáles se eliminaron para borrarlas de UploadThing
     let fotosAEliminar: string[] = [];
@@ -306,6 +313,9 @@ export async function updateUnidad(id: string, data: UpdateUnidadInput) {
 
 // Eliminar o inactivar una unidad protegiendo claves foráneas e integridad contable
 export async function deleteUnidad(id: string) {
+  const authCheck = await requireAdminSession();
+  if (!authCheck.ok) return { success: false, error: authCheck.error };
+
   try {
     const unidad = await prisma.unidad.findUnique({
       where: { id },
@@ -376,6 +386,9 @@ export async function deleteUnidad(id: string) {
 
 // Acción del servidor para eliminar una imagen individual de UploadThing (ej. al quitarla en formulario)
 export async function eliminarImagenUploadThingAction(url: string) {
+  const authCheck = await requireAdminSession();
+  if (!authCheck.ok) return { success: false };
+
   try {
     await eliminarArchivosUploadThing(url);
     return { success: true };
@@ -634,6 +647,14 @@ export async function getHistorialInquilinosUnidadAction(unidadId: string) {
   }
 }
 
+export interface OperacionMatrizResponse {
+  success: boolean;
+  data?: unknown;
+  subunidadesAfectadas?: string[];
+  message?: string;
+  error?: string;
+}
+
 export interface ExpandirInquilinoInput {
   unidadMatrizId: string;
   contratoId: string;
@@ -646,7 +667,12 @@ export interface ExpandirInquilinoInput {
  * - Actualiza la unidad matriz a estado OCUPADO
  * - Inactiva todas las subunidades para no ofertarlas por duplicado
  */
-export async function expandirInquilinoALocalCompletoAction(input: ExpandirInquilinoInput) {
+export async function expandirInquilinoALocalCompletoAction(
+  input: ExpandirInquilinoInput
+): Promise<OperacionMatrizResponse> {
+  const authCheck = await requireAdminSession();
+  if (!authCheck.ok) return { success: false, error: authCheck.error };
+
   try {
     return await prisma.$transaction(async (tx) => {
       const matriz = await tx.unidad.findUnique({
@@ -754,7 +780,12 @@ export async function expandirInquilinoALocalCompletoAction(input: ExpandirInqui
  * - Pone la matriz en DISPONIBLE
  * - Inactiva las subunidades para que no se arrienden duplicadas
  */
-export async function reunificarYReactivarMatrizAction(unidadMatrizId: string) {
+export async function reunificarYReactivarMatrizAction(
+  unidadMatrizId: string
+): Promise<OperacionMatrizResponse> {
+  const authCheck = await requireAdminSession();
+  if (!authCheck.ok) return { success: false, error: authCheck.error };
+
   try {
     return await prisma.$transaction(async (tx) => {
       const matriz = await tx.unidad.findUnique({

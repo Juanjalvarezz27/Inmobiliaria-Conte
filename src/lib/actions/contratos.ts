@@ -1,6 +1,7 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
+import { requireAdminSession, assertAdminSession } from "@/lib/auth-guard";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import {
@@ -191,6 +192,9 @@ const CONTRATO_SELECT = {
 
 // Obtener detalle completo de un contrato para el modal (carga bajo demanda)
 export async function getContratoDetalle(id: string) {
+  const authCheck = await requireAdminSession();
+  if (!authCheck.ok) return { success: false, error: authCheck.error };
+
   try {
     const contrato = await prisma.contrato.findUnique({
       where: { id },
@@ -215,6 +219,7 @@ export interface FiltrosContratos extends PaginationParams {
 export async function getContratosPaginadosAction(
   filtros: FiltrosContratos = {}
 ): Promise<PaginatedResult<any>> {
+  await assertAdminSession();
   const { page, pageSize, skip, take } = resolvePagination(filtros, 15);
   const estado = filtros.estado && filtros.estado !== "TODOS" ? filtros.estado : undefined;
   const q = filtros.search?.trim().toLowerCase();
@@ -256,6 +261,9 @@ export async function getContratos(filtros?: {
   page?: number;
   pageSize?: number;
 }) {
+  const authCheck = await requireAdminSession();
+  if (!authCheck.ok) return { success: false, error: authCheck.error };
+
   try {
     const estado = filtros?.estado && filtros.estado !== "TODOS" ? filtros.estado : undefined;
     const q = filtros?.search?.trim().toLowerCase();
@@ -306,6 +314,15 @@ export async function getContratos(filtros?: {
 
 // Obtener estadísticas de contratos
 export async function getContratosStats() {
+  const authCheck = await requireAdminSession();
+  if (!authCheck.ok) {
+    return {
+      success: false,
+      data: { total: 0, activos: 0, porVencer: 0, finalizados: 0 },
+      error: authCheck.error,
+    };
+  }
+
   try {
     const ahora = new Date();
     const en30Dias = new Date();
@@ -350,6 +367,9 @@ export async function getContratosStats() {
 
 // Obtener espacios disponibles (no ocupados) para el selector del contrato
 export async function getUnidadesDisponiblesParaContrato() {
+  const authCheck = await requireAdminSession();
+  if (!authCheck.ok) return { success: false, error: authCheck.error, data: [] };
+
   try {
     const unidades = await prisma.unidad.findMany({
       where: {
@@ -390,6 +410,9 @@ export async function getUnidadesDisponiblesParaContrato() {
 
 // Obtener inquilinos activos para el selector de contrato
 export async function getInquilinosParaSelector() {
+  const authCheck = await requireAdminSession();
+  if (!authCheck.ok) return { success: false, error: authCheck.error, data: [] };
+
   try {
     const inquilinos = await prisma.inquilino.findMany({
       where: { activo: true },
@@ -414,6 +437,9 @@ export async function getInquilinosParaSelector() {
 
 // Crear contrato con transacción atómica (actualiza la unidad a OCUPADO)
 export async function createContrato(data: CreateContratoInput) {
+  const authCheck = await requireAdminSession();
+  if (!authCheck.ok) return { success: false, error: authCheck.error };
+
   try {
     const parsed = createContratoSchema.parse(data);
 
@@ -549,6 +575,9 @@ export async function createContrato(data: CreateContratoInput) {
 
 // Cambiar estado del contrato (si finaliza o rescinde, libera la unidad a DISPONIBLE)
 export async function updateEstadoContrato(id: string, nuevoEstado: EstadoContrato) {
+  const authCheck = await requireAdminSession();
+  if (!authCheck.ok) return { success: false, error: authCheck.error };
+
   try {
     const resultado = await prisma.$transaction(async (tx) => {
       const contrato = await tx.contrato.findUnique({
@@ -654,6 +683,9 @@ export async function updateEstadoContrato(id: string, nuevoEstado: EstadoContra
 
 // Actualizar datos del contrato y sincronizar cuotas con preservación histórica
 export async function updateContrato(id: string, data: UpdateContratoInput) {
+  const authCheck = await requireAdminSession();
+  if (!authCheck.ok) return { success: false, error: authCheck.error };
+
   try {
     const parsed = updateContratoSchema.parse(data);
 
@@ -846,6 +878,9 @@ export async function updateContrato(id: string, data: UpdateContratoInput) {
 
 // Eliminar un contrato si no tiene historial contable registrado, liberar la unidad si estaba activo y borrar el PDF físico de UploadThing
 export async function deleteContrato(id: string) {
+  const authCheck = await requireAdminSession();
+  if (!authCheck.ok) return { success: false, error: authCheck.error };
+
   try {
     let docAEliminar: string | null = null;
 
@@ -918,6 +953,9 @@ export async function deleteContrato(id: string) {
 
 // Acción del servidor para eliminar un documento PDF individual de UploadThing (ej. al quitarlo en el formulario)
 export async function eliminarDocumentoContratoAction(url: string) {
+  const authCheck = await requireAdminSession();
+  if (!authCheck.ok) return { success: false, error: authCheck.error };
+
   try {
     await eliminarDocumentosUploadThing(url);
     return { success: true };
@@ -940,6 +978,9 @@ const registrarCobroDepositoSchema = z.object({
 export type RegistrarCobroDepositoInput = z.infer<typeof registrarCobroDepositoSchema>;
 
 export async function registrarCobroDeposito(input: RegistrarCobroDepositoInput) {
+  const authCheck = await requireAdminSession();
+  if (!authCheck.ok) return { success: false, error: authCheck.error };
+
   try {
     const parsed = registrarCobroDepositoSchema.parse(input);
 
@@ -1000,6 +1041,9 @@ const cerrarContratoSchema = z.object({
 export type CerrarContratoInput = z.infer<typeof cerrarContratoSchema>;
 
 export async function cerrarContratoAction(input: CerrarContratoInput) {
+  const authCheck = await requireAdminSession();
+  if (!authCheck.ok) return { success: false, error: authCheck.error };
+
   try {
     const parsed = cerrarContratoSchema.parse(input);
 
@@ -1103,6 +1147,9 @@ export async function cerrarContratoAction(input: CerrarContratoInput) {
 
 // Revertir liquidación del depósito (regresarlo a estado COBRADO en custodia)
 export async function revertirLiquidacionDeposito(contratoId: string) {
+  const authCheck = await requireAdminSession();
+  if (!authCheck.ok) return { success: false, error: authCheck.error };
+
   try {
     const contrato = await prisma.contrato.findUnique({
       where: { id: contratoId },
@@ -1158,6 +1205,9 @@ export async function revertirLiquidacionDeposito(contratoId: string) {
 
 // Revertir cobro del depósito (regresarlo a estado PENDIENTE)
 export async function revertirCobroDeposito(contratoId: string) {
+  const authCheck = await requireAdminSession();
+  if (!authCheck.ok) return { success: false, error: authCheck.error };
+
   try {
     const contrato = await prisma.contrato.findUnique({
       where: { id: contratoId },
