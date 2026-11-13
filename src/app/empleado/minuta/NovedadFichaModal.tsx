@@ -29,6 +29,7 @@ interface NovedadFichaModalProps {
   onEliminar?: (novedad: IncidenciaItem) => void;
   onEditar?: (novedad: IncidenciaItem) => void;
   esAdmin?: boolean;
+  adminTelefono?: string;
 }
 
 // Modal de Ficha Detallada de Incidencia / Novedad con visor cinematográfico oficial
@@ -39,6 +40,7 @@ export function NovedadFichaModal({
   onEliminar,
   onEditar,
   esAdmin = false,
+  adminTelefono,
 }: NovedadFichaModalProps) {
   const [fotoActivaIndex, setFotoActivaIndex] = useState<number>(0);
   const [prevNovedadId, setPrevNovedadId] = useState(novedad?.id);
@@ -56,12 +58,26 @@ export function NovedadFichaModal({
   const { badgeLabel, tituloLimpio } = parseNovedadTitulo(novedad.categoria, novedad.titulo);
   const tieneFotos = Boolean(novedad.fotos && novedad.fotos.length > 0);
 
-  const whatsappUrl = novedad.empleadoTelefono
-    ? getWhatsAppUrl(
-        novedad.empleadoTelefono,
-        `Hola ${novedad.empleadoNombre}, te contacto respecto al reporte de seguridad "${tituloLimpio}" de ${novedad.propiedadNombre}.`
-      )
-    : null;
+  // Si es Admin, contacta al vigilante reportante; si es Vigilante, notifica al Administrador con el parte
+  const whatsappUrl = esAdmin
+    ? (novedad.empleadoTelefono
+        ? getWhatsAppUrl(
+            novedad.empleadoTelefono,
+            `Hola ${novedad.empleadoNombre}, te contacto respecto al reporte de seguridad "${tituloLimpio}" de ${novedad.propiedadNombre}.`
+          )
+        : null)
+    : getWhatsAppUrl(
+        adminTelefono || "+584121234567",
+        [
+          "*NOVEDAD DE SEGURIDAD — INMOBILIARIA CONTÉ*",
+          `*Inmueble:* ${novedad.propiedadNombre}`,
+          `*Hora:* ${novedad.horaFormateada}`,
+          `*Guardia:* ${novedad.empleadoNombre}`,
+          `*Categoría:* ${badgeLabel}`,
+          `*Asunto:* ${tituloLimpio}`,
+          `*Detalle:* ${novedad.descripcion}`,
+        ].join("\n")
+      );
 
   return (
     <>
@@ -251,7 +267,7 @@ export function NovedadFichaModal({
                   className="w-full sm:w-auto h-11 sm:h-9 px-3.5 rounded-xl bg-emerald-50 text-emerald-800 hover:bg-emerald-100 border border-emerald-200/90 text-xs font-bold transition-all cursor-pointer shadow-2xs flex items-center justify-center gap-2 active:scale-95"
                 >
                   <WhatsAppIcon className="w-4 h-4 text-[#25D366]" />
-                  <span>Contactar al Vigilante</span>
+                  <span>{esAdmin ? "Contactar al Vigilante" : "Notificar al Administrador por WhatsApp"}</span>
                 </a>
               )}
 

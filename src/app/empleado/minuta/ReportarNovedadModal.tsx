@@ -17,7 +17,10 @@ import {
   Plus,
   Building2,
   Pencil,
+  Copy,
+  CheckCircle2,
 } from "lucide-react";
+import { WhatsAppIcon } from "@/components/icons/whatsapp-icon";
 import {
   CategoriaNovedad,
   type IncidenciaItem,
@@ -94,9 +97,29 @@ export function ReportarNovedadModal({
   const [isCompressing, setIsCompressing] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
+
+  // Estados para el flujo guiado de notificación por WhatsApp
+  const [novedadExitosa, setNovedadExitosa] = useState<{
+    url: string;
+    telefono: string;
+    texto: string;
+    inmuebleNombre: string;
+    guardiaNombre: string;
+    hora: string;
+    categoria: string;
+    titulo: string;
+    descripcion: string;
+  } | null>(null);
+  const [yaNotificadoWhatsApp, setYaNotificadoWhatsApp] = useState(false);
+  const [copiadoPortapapeles, setCopiadoPortapapeles] = useState(false);
 
   // Inicializar o limpiar campos al abrir o al cambiar la incidencia a editar
   useEffect(() => {
+    setNovedadExitosa(null);
+    setYaNotificadoWhatsApp(false);
+    setCopiadoPortapapeles(false);
+
     if (incidenciaAEditar) {
       setTargetPropiedadId(incidenciaAEditar.propiedadId);
       setCategoria(incidenciaAEditar.categoria);
@@ -182,6 +205,9 @@ export function ReportarNovedadModal({
       if (fileInputRef.current) {
         fileInputRef.current.value = "";
       }
+      if (cameraInputRef.current) {
+        cameraInputRef.current.value = "";
+      }
     }
   };
 
@@ -195,6 +221,9 @@ export function ReportarNovedadModal({
     setOtroDetalle("");
     setFotos([]);
     setCategoria(CategoriaNovedad.RONDA_DE_RUTINA);
+    setNovedadExitosa(null);
+    setYaNotificadoWhatsApp(false);
+    setCopiadoPortapapeles(false);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -253,9 +282,14 @@ export function ReportarNovedadModal({
 
         if (res.success) {
           toast.success(res.message);
-          resetForm();
           onNovedadRegistrada();
-          onClose();
+          // Desplegar flujo guiado de notificación para WhatsApp
+          if (res.whatsAppData) {
+            setNovedadExitosa(res.whatsAppData);
+          } else {
+            resetForm();
+            onClose();
+          }
         } else {
           toast.error(res.error || "No se pudo registrar la incidencia.");
         }
@@ -270,6 +304,107 @@ export function ReportarNovedadModal({
 
   const nombrePropiedad =
     propiedades.find((p) => p.id === targetPropiedadId)?.nombre || "Inmueble de Guardia";
+
+  // Si la novedad se registró exitosamente, renderizar el flujo guiado de notificación para WhatsApp
+  if (novedadExitosa) {
+    return (
+      <Modal
+        isOpen={isOpen}
+        onClose={() => {
+          resetForm();
+          onClose();
+        }}
+        title="Novedad Asentada en Bitácora"
+        subtitle="Notificación obligatoria de seguridad"
+        icon={ShieldCheck}
+        headerVariant="green"
+        maxWidth="lg"
+      >
+        <div className="p-4 sm:p-6 space-y-4 sm:space-y-5 animate-fadeIn">
+          {/* Banner de Éxito */}
+          <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200/90 text-center space-y-2 relative overflow-hidden">
+            <div className="w-12 h-12 rounded-2xl bg-emerald-100 text-[#175E38] border border-emerald-200 flex items-center justify-center mx-auto shadow-2xs">
+              <CheckCircle2 className="w-6 h-6 stroke-[2.5]" />
+            </div>
+            <div>
+              <h3 className="font-heading font-black text-slate-900 text-base sm:text-lg">
+                ¡Reporte Registrado con Éxito!
+              </h3>
+              <p className="text-xs text-slate-600 mt-1 max-w-sm mx-auto leading-relaxed">
+                El suceso ha sido asentado en el libro de novedades. Notifica de inmediato al Administrador por WhatsApp con el parte oficial.
+              </p>
+            </div>
+          </div>
+
+          {/* Ficha Resumen del Parte */}
+          <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200/80 space-y-2 text-xs">
+            <div className="flex items-center justify-between border-b border-slate-200/60 pb-2">
+              <span className="text-[10px] uppercase font-bold text-slate-400">Inmueble</span>
+              <span className="font-bold text-slate-800">{novedadExitosa.inmuebleNombre}</span>
+            </div>
+            <div className="flex items-center justify-between border-b border-slate-200/60 pb-2">
+              <span className="text-[10px] uppercase font-bold text-slate-400">Hora</span>
+              <span className="font-semibold text-slate-700">{novedadExitosa.hora}</span>
+            </div>
+            <div className="flex items-center justify-between border-b border-slate-200/60 pb-2">
+              <span className="text-[10px] uppercase font-bold text-slate-400">Categoría</span>
+              <span className="font-semibold text-emerald-800">{novedadExitosa.categoria}</span>
+            </div>
+            <div className="pt-0.5">
+              <span className="text-[10px] uppercase font-bold text-slate-400 block mb-1">Asunto</span>
+              <p className="font-medium text-slate-800 leading-snug line-clamp-2">
+                {novedadExitosa.titulo}
+              </p>
+            </div>
+          </div>
+
+          {/* Acciones de WhatsApp y Cierre */}
+          <div className="space-y-2.5 pt-1">
+            <button
+              type="button"
+              onClick={() => {
+                window.open(novedadExitosa.url, "_blank", "noopener,noreferrer");
+                setYaNotificadoWhatsApp(true);
+              }}
+              className="w-full h-12 rounded-xl bg-[#25D366] hover:bg-[#20ba59] active:scale-98 text-white font-bold text-xs sm:text-sm shadow-md shadow-[#25D366]/25 border-b-[3px] border-b-[#128C7E] flex items-center justify-center gap-2 transition-all cursor-pointer"
+            >
+              <WhatsAppIcon className="w-4 h-4 sm:w-5 sm:h-5 fill-current" />
+              <span>
+                {yaNotificadoWhatsApp ? "Reabrir WhatsApp del Administrador" : "Notificar al Administrador por WhatsApp"}
+              </span>
+            </button>
+
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  navigator.clipboard.writeText(novedadExitosa.texto);
+                  setCopiadoPortapapeles(true);
+                  toast.success("Parte oficial copiado al portapapeles.");
+                  setTimeout(() => setCopiadoPortapapeles(false), 2500);
+                }}
+                className="h-10 px-3 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-semibold flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+              >
+                <Copy className="w-3.5 h-3.5 text-slate-400" />
+                <span>{copiadoPortapapeles ? "¡Copiado!" : "Copiar Texto"}</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  resetForm();
+                  onClose();
+                }}
+                className="h-10 px-3 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold transition-all cursor-pointer flex items-center justify-center"
+              >
+                Volver a la Bitácora
+              </button>
+            </div>
+          </div>
+        </div>
+      </Modal>
+    );
+  }
 
   return (
     <Modal
@@ -393,11 +528,22 @@ export function ReportarNovedadModal({
             <h4 className="text-sm font-bold text-slate-800 mt-0.5">Evidencia Fotográfica (Opcional)</h4>
           </div>
           <div className="mt-3">
+            {/* Input para galería o explorador de archivos */}
             <input
               ref={fileInputRef}
               type="file"
               accept="image/*"
               multiple
+              onChange={handleFileChange}
+              className="hidden"
+            />
+
+            {/* Input directo para disparar la cámara trasera del dispositivo móvil */}
+            <input
+              ref={cameraInputRef}
+              type="file"
+              accept="image/*"
+              capture="environment"
               onChange={handleFileChange}
               className="hidden"
             />
@@ -427,26 +573,36 @@ export function ReportarNovedadModal({
               </div>
             )}
 
-            {/* Botón / Dropzone de carga */}
+            {/* Botones táctiles duales: Cámara directa y Galería */}
             {fotos.length < MAX_FOTOS && (
-              <button
-                type="button"
-                onClick={() => fileInputRef.current?.click()}
-                disabled={isCompressing || isUploading}
-                className="w-full h-16 rounded-xl border-2 border-dashed border-slate-300 hover:border-[#175E38] bg-slate-50/70 hover:bg-slate-100/80 flex items-center justify-center gap-2 text-xs font-semibold text-slate-600 transition-all cursor-pointer"
-              >
-                {isCompressing || isUploading ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin text-emerald-700" />
-                    <span>Cargando fotografía...</span>
-                  </>
-                ) : (
-                  <>
-                    <Camera className="w-4 h-4 text-slate-500" />
-                    <span>Tomar foto o subir captura ({fotos.length}/{MAX_FOTOS})</span>
-                  </>
-                )}
-              </button>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => cameraInputRef.current?.click()}
+                  disabled={isCompressing || isUploading}
+                  className="h-12 px-3 rounded-xl border border-emerald-300/80 bg-emerald-50/70 hover:bg-emerald-100/80 text-emerald-900 flex items-center justify-center gap-2 text-xs font-bold transition-all cursor-pointer shadow-2xs hover:scale-[1.01] active:scale-98 disabled:opacity-50"
+                >
+                  <Camera className="w-4 h-4 text-[#175E38]" />
+                  <span>Tomar Foto con Cámara</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={isCompressing || isUploading}
+                  className="h-12 px-3 rounded-xl border border-slate-300/80 bg-slate-50/80 hover:bg-slate-100 text-slate-700 flex items-center justify-center gap-2 text-xs font-semibold transition-all cursor-pointer shadow-2xs hover:scale-[1.01] active:scale-98 disabled:opacity-50"
+                >
+                  <Plus className="w-4 h-4 text-slate-500" />
+                  <span>Elegir de Galería ({fotos.length}/{MAX_FOTOS})</span>
+                </button>
+              </div>
+            )}
+
+            {(isCompressing || isUploading) && (
+              <div className="mt-2.5 p-3 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center justify-center gap-2 text-xs font-semibold text-[#175E38] animate-pulse">
+                <Loader2 className="w-4 h-4 animate-spin text-[#175E38]" />
+                <span>Optimizando y subiendo evidencia fotográfica...</span>
+              </div>
             )}
           </div>
         </div>

@@ -613,8 +613,6 @@ export function MinutaGuardiaClient({ initialData }: Props) {
         esAdmin={data.esAdmin}
         incidenciaAEditar={incidenciaAEditar}
         onNovedadRegistrada={() => {
-          setIsReportModalOpen(false);
-          setIncidenciaAEditar(null);
           refrescarDatos();
         }}
       />
@@ -633,6 +631,7 @@ export function MinutaGuardiaClient({ initialData }: Props) {
             : undefined
         }
         esAdmin={data.esAdmin}
+        adminTelefono={data.adminTelefono}
       />
 
     </div>

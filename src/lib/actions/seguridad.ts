@@ -6,11 +6,13 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import {
   CategoriaNovedad,
+  CATEGORIA_NOVEDAD_CONFIG,
   type GuardiaDiarioData,
   type IncidenciaItem,
   type SeguridadDashboardData,
 } from "@/lib/types/seguridad";
 import { formatearHora12, formatearFechaCorta } from "@/lib/date-utils";
+import { getWhatsAppUrl } from "@/lib/formatters";
 import { PaginationParams, PaginatedResult } from "@/types/pagination";
 import { resolvePagination, createPaginatedResponse } from "@/lib/pagination-helper";
 import { Prisma } from "@prisma/client";
@@ -95,6 +97,7 @@ export async function getGuardiaDiarioDataAction(
         incidenciasHoy: [],
         fechaHoy: inicioHoy.toISOString(),
         esAdmin: false,
+        adminTelefono: process.env.ADMIN_WHATSAPP_PHONE || "+584121234567",
       };
     }
 
@@ -157,6 +160,15 @@ export async function getGuardiaDiarioDataAction(
     return t >= inicioHoy.getTime() && t <= finHoy.getTime();
   });
 
+  // Consultar teléfono del administrador para despacho rápido desde la bitácora
+  const adminUsuario = await prisma.usuario.findFirst({
+    where: { rol: "ADMIN", activo: true },
+    select: { telefono: true },
+    orderBy: { createdAt: "asc" },
+  });
+  const adminTelefono =
+    adminUsuario?.telefono || process.env.ADMIN_WHATSAPP_PHONE || "+584121234567";
+
   return {
     propiedadAsignada,
     propiedades,
@@ -164,19 +176,35 @@ export async function getGuardiaDiarioDataAction(
     incidenciasHoy,
     fechaHoy: inicioHoy.toISOString(),
     esAdmin,
+    adminTelefono,
   };
 }
 
-// 2. Registrar una nueva novedad en la Bitácora de Seguridad
+// 2. Registrar una nueva novedad en la Bitácora de Seguridad con payload oficial para WhatsApp
 export async function registrarIncidenciaAction(formData: {
   propiedadId: string;
   categoria: CategoriaNovedad;
   titulo: string;
   descripcion: string;
   fotos?: string[];
-}): Promise<{ success: boolean; message?: string; error?: string }> {
+}): Promise<{
+  success: boolean;
+  message?: string;
+  error?: string;
+  whatsAppData?: {
+    url: string;
+    telefono: string;
+    texto: string;
+    inmuebleNombre: string;
+    guardiaNombre: string;
+    hora: string;
+    categoria: string;
+    titulo: string;
+    descripcion: string;
+  };
+}> {
   try {
-    const { empleado, esAdmin } = await getEmpleadoAutenticado();
+    const { usuario, empleado, esAdmin } = await getEmpleadoAutenticado();
 
     const parsed = registrarIncidenciaSchema.safeParse(formData);
     if (!parsed.success) {
@@ -186,7 +214,8 @@ export async function registrarIncidenciaAction(formData: {
       };
     }
 
-    let { propiedadId, categoria, titulo, descripcion, fotos } = parsed.data;
+    let propiedadId = parsed.data.propiedadId;
+    const { categoria, titulo, descripcion, fotos } = parsed.data;
 
     // Autorización estricta: El personal solo puede asentar novedades en su inmueble asignado
     if (!esAdmin) {
@@ -258,12 +287,55 @@ export async function registrarIncidenciaAction(formData: {
       },
     });
 
+    // Obtener datos del inmueble para el parte
+    const prop = await prisma.propiedad.findUnique({
+      where: { id: propiedadId },
+      select: { nombre: true },
+    });
+    const nombreInmueble = prop?.nombre || empleado?.propiedad?.nombre || "Inmueble Conté";
+    const nombreGuardia = `${usuario.nombre} ${usuario.apellido || ""}`.trim();
+    const horaFormateada = formatearHora12(ahora.toISOString());
+    const categoriaLabel = CATEGORIA_NOVEDAD_CONFIG[categoria]?.label || categoria;
+
+    // Buscar teléfono del administrador oficial para el despacho
+    const adminUsuario = await prisma.usuario.findFirst({
+      where: { rol: "ADMIN", activo: true },
+      select: { telefono: true, nombre: true },
+      orderBy: { createdAt: "asc" },
+    });
+    const adminTelefono =
+      adminUsuario?.telefono || process.env.ADMIN_WHATSAPP_PHONE || "+584121234567";
+
+    // Formatear texto oficial para WhatsApp con tono corporativo sobrio (sin emojis)
+    const textoParte = [
+      "*NOVEDAD DE SEGURIDAD — INMOBILIARIA CONTÉ*",
+      `*Inmueble:* ${nombreInmueble}`,
+      `*Hora:* ${horaFormateada}`,
+      `*Guardia:* ${nombreGuardia}`,
+      `*Categoría:* ${categoriaLabel}`,
+      `*Asunto:* ${titulo}`,
+      `*Detalle:* ${descripcion}`,
+    ].join("\n");
+
+    const whatsAppUrl = getWhatsAppUrl(adminTelefono, textoParte);
+
     revalidatePath("/empleado/minuta");
     revalidatePath("/admin/seguridad");
 
     return {
       success: true,
       message: "Novedad registrada correctamente en la Bitácora de Seguridad.",
+      whatsAppData: {
+        url: whatsAppUrl,
+        telefono: adminTelefono,
+        texto: textoParte,
+        inmuebleNombre: nombreInmueble,
+        guardiaNombre: nombreGuardia,
+        hora: horaFormateada,
+        categoria: categoriaLabel,
+        titulo,
+        descripcion,
+      },
     };
   } catch (error) {
     return {

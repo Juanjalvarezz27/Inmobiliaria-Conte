@@ -93,6 +93,7 @@ export interface GuardiaDiarioData {
   incidenciasHoy: IncidenciaItem[];
   fechaHoy: string;
   esAdmin: boolean;
+  adminTelefono?: string;
 }
 
 // Vista ejecutiva de auditoría (Admin)

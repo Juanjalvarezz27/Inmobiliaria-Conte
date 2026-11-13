@@ -800,8 +800,6 @@ export function SeguridadClient({ initialData }: SeguridadClientProps) {
         esAdmin={true}
         incidenciaAEditar={incidenciaAEditar}
         onNovedadRegistrada={() => {
-          setIsReportModalOpen(false);
-          setIncidenciaAEditar(null);
           router.refresh();
         }}
       />
