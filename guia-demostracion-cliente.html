@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Guion Visual de Demostración - Inmobiliaria Conte</title>
+  <title>Guía de Demostración Comercial - Fases 20 a 35</title>
   <style>
     :root {
       --brand-green: #175E38;
@@ -21,19 +21,13 @@
       --slate-100: #f1f5f9;
       --slate-200: #e2e8f0;
       --slate-300: #cbd5e1;
-      --slate-400: #94a3b8;
       --slate-600: #475569;
       --slate-700: #334155;
       --slate-800: #1e293b;
       --slate-900: #0f172a;
     }
 
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-    }
-
+    * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
       background: #f1f5f9;
@@ -41,9 +35,8 @@
       line-height: 1.5;
       padding: 30px 15px;
     }
-
     .container {
-      max-width: 920px;
+      max-width: 960px;
       margin: 0 auto;
       background: #ffffff;
       border-radius: 20px;
@@ -52,14 +45,13 @@
       border: 1px solid var(--slate-200);
     }
 
-    /* Top Banner */
+    /* Top Hero */
     .hero-banner {
       background: linear-gradient(135deg, #175E38 0%, #0d3822 100%);
       color: #ffffff;
       padding: 36px 40px;
       position: relative;
     }
-
     .hero-badge {
       display: inline-flex;
       align-items: center;
@@ -75,20 +67,8 @@
       margin-bottom: 12px;
       border: 1px solid rgba(255, 255, 255, 0.2);
     }
-
-    .hero-banner h1 {
-      font-size: 26px;
-      font-weight: 800;
-      letter-spacing: -0.5px;
-      margin-bottom: 6px;
-    }
-
-    .hero-banner p {
-      font-size: 14px;
-      color: #d1fae5;
-      max-width: 600px;
-    }
-
+    .hero-banner h1 { font-size: 26px; font-weight: 800; letter-spacing: -0.5px; margin-bottom: 6px; }
+    .hero-banner p { font-size: 14px; color: #d1fae5; max-width: 620px; }
     .print-button {
       position: absolute;
       top: 36px;
@@ -107,24 +87,11 @@
       align-items: center;
       gap: 8px;
     }
+    .print-button:hover { transform: translateY(-2px); box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2); }
 
-    .print-button:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2);
-    }
+    .content { padding: 36px 40px; }
 
-    .content {
-      padding: 36px 40px;
-    }
-
-    /* Barra de Credenciales */
-    .section-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      margin-bottom: 16px;
-    }
-
+    /* Section Titles */
     .section-title {
       font-size: 17px;
       font-weight: 800;
@@ -132,56 +99,29 @@
       display: flex;
       align-items: center;
       gap: 8px;
-    }
-
-    .section-subtitle {
-      font-size: 12.5px;
-      color: var(--slate-600);
       margin-bottom: 16px;
     }
 
+    /* Credenciales */
     .cred-grid {
       display: grid;
       grid-template-columns: repeat(4, 1fr);
       gap: 12px;
-      margin-bottom: 36px;
+      margin-bottom: 32px;
     }
-
     .cred-box {
       border: 1px solid var(--slate-200);
       border-radius: 14px;
       padding: 14px;
       background: var(--slate-50);
-      transition: all 0.2s ease;
-      position: relative;
     }
-
-    .cred-box.admin {
-      border-color: #86efac;
-      background: #f0fdf4;
-    }
-
-    .cred-role {
-      font-size: 11px;
-      font-weight: 800;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-      display: block;
-      margin-bottom: 2px;
-    }
-
-    .cred-name {
-      font-size: 13px;
-      font-weight: 700;
-      color: var(--slate-900);
-      display: block;
-      margin-bottom: 8px;
-    }
-
+    .cred-box.admin { border-color: #86efac; background: #f0fdf4; }
+    .cred-role { font-size: 11px; font-weight: 800; text-transform: uppercase; display: block; margin-bottom: 2px; }
+    .cred-name { font-size: 13px; font-weight: 700; color: var(--slate-900); display: block; margin-bottom: 6px; }
     .cred-pill {
-      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-family: ui-monospace, monospace;
       font-size: 11px;
-      background: #ffffff;
+      background: #fff;
       padding: 3px 6px;
       border-radius: 6px;
       border: 1px solid var(--slate-200);
@@ -192,47 +132,73 @@
       text-overflow: ellipsis;
       white-space: nowrap;
     }
+    .cred-pass { font-size: 11px; color: var(--slate-600); }
+    .cred-pass strong { color: var(--slate-900); font-family: ui-monospace, monospace; }
 
-    .cred-pass {
-      font-size: 11px;
-      color: var(--slate-600);
+    /* Tabla Resumen de las 16 Fases */
+    .phases-table-container {
+      background: var(--slate-50);
+      border: 1px solid var(--slate-200);
+      border-radius: 14px;
+      overflow: hidden;
+      margin-bottom: 36px;
     }
-    .cred-pass strong {
-      color: var(--slate-900);
-      font-family: ui-monospace, monospace;
+    .phases-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+    }
+    .phases-table th {
+      background: #e2e8f0;
+      color: var(--slate-700);
+      text-transform: uppercase;
+      font-size: 10.5px;
+      font-weight: 800;
+      letter-spacing: 0.5px;
+      padding: 10px 14px;
+      text-align: left;
+    }
+    .phases-table td {
+      padding: 9px 14px;
+      border-bottom: 1px solid var(--slate-200);
+      color: var(--slate-800);
+    }
+    .phases-table tr:last-child td { border-bottom: none; }
+    .phase-badge {
+      display: inline-block;
+      font-weight: 800;
+      font-size: 10.5px;
+      padding: 2px 7px;
+      border-radius: 6px;
+      background: var(--brand-green-light);
+      color: var(--brand-green);
+      border: 1px solid #a7f3d0;
+      white-space: nowrap;
     }
 
-    /* Timeline de Pasos */
-    .timeline {
-      position: relative;
-      margin-top: 10px;
-    }
-
+    /* Step Cards */
     .step-card {
-      position: relative;
       background: #ffffff;
       border: 1px solid var(--slate-200);
       border-radius: 16px;
       padding: 24px;
-      margin-bottom: 24px;
+      margin-bottom: 22px;
       box-shadow: 0 2px 8px rgba(0, 0, 0, 0.02);
       page-break-inside: avoid;
     }
-
     .step-header {
       display: flex;
       align-items: center;
       gap: 14px;
-      margin-bottom: 16px;
+      margin-bottom: 14px;
     }
-
     .step-number {
-      width: 40px;
-      height: 40px;
+      width: 38px;
+      height: 38px;
       border-radius: 12px;
       background: var(--brand-green);
       color: #ffffff;
-      font-size: 18px;
+      font-size: 17px;
       font-weight: 800;
       display: flex;
       align-items: center;
@@ -240,28 +206,16 @@
       flex-shrink: 0;
       box-shadow: 0 4px 10px rgba(23, 94, 56, 0.25);
     }
-
-    .step-titles {
-      flex: 1;
+    .step-titles { flex: 1; }
+    .step-phases-tags {
+      display: flex;
+      gap: 5px;
+      flex-wrap: wrap;
+      margin-bottom: 3px;
     }
-
-    .step-module {
-      font-size: 11px;
-      font-weight: 800;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-      color: var(--brand-green);
-      display: block;
-    }
-
-    .step-name {
-      font-size: 16px;
-      font-weight: 800;
-      color: var(--slate-900);
-    }
-
+    .step-name { font-size: 16px; font-weight: 800; color: var(--slate-900); }
     .step-route-badge {
-      font-family: ui-monospace, SFMono-Regular, monospace;
+      font-family: ui-monospace, monospace;
       font-size: 11px;
       background: var(--slate-100);
       color: var(--slate-700);
@@ -271,14 +225,12 @@
       font-weight: 600;
     }
 
-    /* Acciones numeradas */
     .actions-list {
       display: flex;
       flex-direction: column;
-      gap: 10px;
-      margin-bottom: 16px;
+      gap: 9px;
+      margin-bottom: 14px;
     }
-
     .action-item {
       display: flex;
       align-items: flex-start;
@@ -287,7 +239,6 @@
       color: var(--slate-700);
       line-height: 1.45;
     }
-
     .action-bullet {
       width: 20px;
       height: 20px;
@@ -304,77 +255,40 @@
       border: 1px solid var(--slate-300);
     }
 
-    /* Mockup Visual Preview */
+    /* Mockup Chips */
     .mock-preview {
       background: var(--slate-50);
       border: 1px solid var(--slate-200);
       border-radius: 12px;
-      padding: 14px 16px;
-      margin-bottom: 14px;
+      padding: 12px 14px;
+      margin-bottom: 12px;
     }
-
     .mock-title {
-      font-size: 10.5px;
+      font-size: 10px;
       font-weight: 800;
       text-transform: uppercase;
       letter-spacing: 0.5px;
-      color: var(--slate-600);
-      margin-bottom: 8px;
-      display: flex;
-      align-items: center;
-      gap: 6px;
+      color: var(--slate-500);
+      margin-bottom: 6px;
     }
+    .mock-content { display: flex; flex-wrap: wrap; align-items: center; gap: 7px; }
 
-    .mock-content {
-      display: flex;
-      flex-wrap: wrap;
-      align-items: center;
-      gap: 8px;
-    }
-
-    /* Mini UI Chips */
     .ui-chip {
       display: inline-flex;
       align-items: center;
       gap: 5px;
-      font-size: 11.5px;
+      font-size: 11px;
       font-weight: 700;
-      padding: 4px 10px;
-      border-radius: 8px;
+      padding: 3px 9px;
+      border-radius: 7px;
     }
+    .ui-chip.green { background: #ecfdf5; color: #047857; border: 1px solid #a7f3d0; }
+    .ui-chip.gold { background: #fffbeb; color: #b45309; border: 1px solid #fde68a; }
+    .ui-chip.blue { background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; }
+    .ui-chip.red { background: #fef2f2; color: #b91c1c; border: 1px solid #fecaca; }
+    .ui-chip.btn { background: #fff; color: #175E38; border: 1px solid #175E38; }
 
-    .ui-chip.green {
-      background: #ecfdf5;
-      color: #047857;
-      border: 1px solid #a7f3d0;
-    }
-
-    .ui-chip.gold {
-      background: #fffbeb;
-      color: #b45309;
-      border: 1px solid #fde68a;
-    }
-
-    .ui-chip.blue {
-      background: #eff6ff;
-      color: #1d4ed8;
-      border: 1px solid #bfdbfe;
-    }
-
-    .ui-chip.red {
-      background: #fef2f2;
-      color: #b91c1c;
-      border: 1px solid #fecaca;
-    }
-
-    .ui-chip.btn {
-      background: #ffffff;
-      color: #175E38;
-      border: 1px solid #175E38;
-      box-shadow: 0 1px 2px rgba(0,0,0,0.05);
-    }
-
-    /* Speech box / Qué decirle al cliente */
+    /* Speech box */
     .pitch-box {
       background: linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%);
       border-left: 4px solid var(--brand-green);
@@ -386,19 +300,9 @@
       align-items: flex-start;
       gap: 8px;
     }
+    .pitch-icon { font-size: 14px; margin-top: 1px; }
+    .pitch-text strong { color: #064e3b; font-weight: 800; }
 
-    .pitch-icon {
-      font-size: 15px;
-      line-height: 1;
-      margin-top: 1px;
-    }
-
-    .pitch-text strong {
-      color: #064e3b;
-      font-weight: 800;
-    }
-
-    /* Footer */
     .footer {
       border-top: 1px solid var(--slate-200);
       padding: 20px 40px;
@@ -406,82 +310,36 @@
       align-items: center;
       justify-content: space-between;
       font-size: 12px;
-      color: var(--slate-600);
+      color: var(--slate-500);
       background: var(--slate-50);
     }
 
-    @media (max-width: 768px) {
-      .cred-grid {
-        grid-template-columns: repeat(2, 1fr);
-      }
-      .content {
-        padding: 20px;
-      }
-      .hero-banner {
-        padding: 24px 20px;
-      }
-      .print-button {
-        position: static;
-        margin-top: 14px;
-      }
-    }
-
     @media print {
-      body {
-        background: #fff;
-        padding: 0;
-      }
-      .container {
-        border: none;
-        box-shadow: none;
-        border-radius: 0;
-        max-width: 100%;
-      }
-      .print-button {
-        display: none;
-      }
-      .hero-banner {
-        background: #175E38 !important;
-        color: #fff !important;
-        padding: 24px;
-        -webkit-print-color-adjust: exact;
-        print-color-adjust: exact;
-      }
-      .step-card {
-        page-break-inside: avoid;
-        margin-bottom: 20px;
-        box-shadow: none;
-        border: 1px solid #cbd5e1;
-      }
-      @page {
-        margin: 1.2cm;
-        size: A4 portrait;
-      }
+      body { background: #fff; padding: 0; }
+      .container { border: none; box-shadow: none; border-radius: 0; max-width: 100%; }
+      .print-button { display: none; }
+      .hero-banner { background: #175E38 !important; color: #fff !important; padding: 20px; }
+      .step-card { page-break-inside: avoid; margin-bottom: 16px; border: 1px solid #cbd5e1; }
+      @page { margin: 1cm; size: A4 portrait; }
     }
   </style>
 </head>
 <body>
 
   <div class="container">
-    <!-- Top Hero Banner -->
+    <!-- Hero Banner -->
     <div class="hero-banner">
-      <div class="hero-badge">Guion de Presentación al Cliente</div>
-      <h1>Demostración Comercial Paso a Paso</h1>
-      <p>Sigue esta secuencia exacta para presentar las capacidades reales del sistema con datos del Centro Comercial Gran Bazar.</p>
+      <div class="hero-badge">✓ 16 Fases Completas (Fase 20 a Fase 35)</div>
+      <h1>Guía de Demostración Comercial Paso a Paso</h1>
+      <p>Matriz de cobertura y guion visual para validar cada una de las 16 fases desarrolladas con datos del Centro Comercial Gran Bazar.</p>
       <button class="print-button" onclick="window.print()">
         <span>🖨️ Guardar en PDF</span>
       </button>
     </div>
 
     <div class="content">
-      <!-- 1. Cuadrícula de Credenciales -->
-      <div class="section-header">
-        <div>
-          <div class="section-title">🔑 Accesos Rápidos de Prueba</div>
-          <div class="section-subtitle">En la pantalla de login (<code>/home/login</code>), haz clic en el botón <strong>"Auto"</strong> de la tarjeta deseada:</div>
-        </div>
-      </div>
-
+      <!-- 1. Credenciales -->
+      <div class="section-title">🔑 Accesos Rápidos (Clic en "Auto" en /home/login)</div>
       <div class="cred-grid">
         <div class="cred-box admin">
           <span class="cred-role" style="color: #15803d;">1. Administrador</span>
@@ -509,327 +367,369 @@
         </div>
       </div>
 
-      <!-- 2. Secuencia Paso a Paso -->
-      <div class="section-title" style="margin-bottom: 20px;">📋 Guion Paso a Paso de la Reunión</div>
-
-      <div class="timeline">
-
-        <!-- PASO 1 -->
-        <div class="step-card">
-          <div class="step-header">
-            <div class="step-number">1</div>
-            <div class="step-titles">
-              <span class="step-module">Catálogo de Inmuebles & Georreferenciación (Fase 35)</span>
-              <div class="step-name">Centro Comercial Gran Bazar y Verificación Satelital</div>
-            </div>
-            <span class="step-route-badge">Menú → Propiedades</span>
-          </div>
-
-          <div class="actions-list">
-            <div class="action-item">
-              <span class="action-bullet">1</span>
-              <span>En la lista de propiedades, muestra el <strong>Centro Comercial Gran Bazar</strong> (Valera, 3 pisos, 4,500 m²).</span>
-            </div>
-            <div class="action-item">
-              <span class="action-bullet">2</span>
-              <span>Haz clic en el botón <strong>"Editar"</strong>: Muestra al cliente que el enlace de Google Maps ya viene precargado con sus coordenadas exactas.</span>
-            </div>
-            <div class="action-item">
-              <span class="action-bullet">3</span>
-              <span>Haz clic en el botón <strong>"Ver mapa ↗"</strong> dentro del input: Abrirá la ubicación satelital en Google Maps para comprobar la precisión.</span>
-            </div>
-            <div class="action-item">
-              <span class="action-bullet">4</span>
-              <span>Cierra el modal y ve a la pestaña <strong>"Espacios / Locales"</strong>: Muestra los 4 locales (PB-01 ocupado, PB-02 disponible, P1-08 ocupado, P2-15 disponible).</span>
-            </div>
-          </div>
-
-          <div class="mock-preview">
-            <div class="mock-title">Elementos visuales que verá el cliente:</div>
-            <div class="mock-content">
-              <span class="ui-chip green">✓ GPS Configurado</span>
-              <span class="ui-chip btn">Ver mapa ↗</span>
-              <span class="ui-chip blue">Radio: 200 m</span>
-              <span class="ui-chip green">2 Locales Ocupados</span>
-              <span class="ui-chip" style="background:#f1f5f9; color:#475569; border:1px solid #cbd5e1;">2 Disponibles</span>
-            </div>
-          </div>
-
-          <div class="pitch-box">
-            <span class="pitch-icon">💡</span>
-            <div class="pitch-text">
-              <strong>Qué decirle al cliente:</strong> "Cada propiedad cuenta con perímetro satelital de tolerancia. El sistema valida automáticamente si el trabajador o el guardia están realmente en el sitio al marcar su jornada."
-            </div>
-          </div>
-        </div>
-
-        <!-- PASO 2 -->
-        <div class="step-card">
-          <div class="step-header">
-            <div class="step-number">2</div>
-            <div class="step-titles">
-              <span class="step-module">Contratos y Finanzas de Arrendamiento (Fases 26 y 33)</span>
-              <div class="step-name">Contratos con Depósitos en Garantía y Corte Contable</div>
-            </div>
-            <span class="step-route-badge">Menú → Contratos</span>
-          </div>
-
-          <div class="actions-list">
-            <div class="action-item">
-              <span class="action-bullet">1</span>
-              <span>Muestra el contrato <strong>CTR-2026-001</strong> de <em>Farmacia La Salud C.A.</em> en el Local PB-01 (\$450/mes).</span>
-            </div>
-            <div class="action-item">
-              <span class="action-bullet">2</span>
-              <span>Señala el <strong>Depósito en Garantía</strong> cobrado (\$900 - 2 meses) con su método de pago y número de recibo.</span>
-            </div>
-            <div class="action-item">
-              <span class="action-bullet">3</span>
-              <span>Explica la <strong>Fecha de Inicio de Cobranza</strong> (Fase 33): Demuestra cómo el sistema inicia el cobro desde la fecha contable acordada, impidiendo deudas fantasmas de años anteriores.</span>
-            </div>
-          </div>
-
-          <div class="mock-preview">
-            <div class="mock-title">Elementos visuales que verá el cliente:</div>
-            <div class="mock-content">
-              <span class="ui-chip green">Estado: ACTIVO</span>
-              <span class="ui-chip green">Depósito Cobrado: $900</span>
-              <span class="ui-chip blue">Corte Contable: 01/01/2026</span>
-              <span class="ui-chip gold">Día de Cobro: 5</span>
-            </div>
-          </div>
-
-          <div class="pitch-box">
-            <span class="pitch-icon">💡</span>
-            <div class="pitch-text">
-              <strong>Qué decirle al cliente:</strong> "Al migrar contratos viejos, el sistema no calcula cobros anteriores a su fecha de corte contable. Se acabó el problema de saldos deudores inventados."
-            </div>
-          </div>
-        </div>
-
-        <!-- PASO 3 -->
-        <div class="step-card">
-          <div class="step-header">
-            <div class="step-number">3</div>
-            <div class="step-titles">
-              <span class="step-module">Control de Cobranzas y Servicios Públicos (Fase 27)</span>
-              <div class="step-name">Comprobación de Luz, Agua y Notificación WhatsApp</div>
-            </div>
-            <span class="step-route-badge">Menú → Cobranzas</span>
-          </div>
-
-          <div class="actions-list">
-            <div class="action-item">
-              <span class="action-bullet">1</span>
-              <span>Muestra la <strong>campana / badge rojo</strong> en el menú superior: Hay 1 cobro pendiente este mes (Alejandro Morales \$550).</span>
-            </div>
-            <div class="action-item">
-              <span class="action-bullet">2</span>
-              <span>Abre el pago solvente de <em>Farmacia La Salud</em> (\$450): Muestra la verificación de <strong>Solvente Luz (Corpoelec)</strong> y <strong>Solvente Agua (Hidroandes)</strong> con número de factura.</span>
-            </div>
-            <div class="action-item">
-              <span class="action-bullet">3</span>
-              <span>Presiona el botón verde de <strong>WhatsApp directo</strong> en la card del inquilino: Demuestra cómo enviar el recordatorio en 1 solo clic.</span>
-            </div>
-          </div>
-
-          <div class="mock-preview">
-            <div class="mock-title">Elementos visuales que verá el cliente:</div>
-            <div class="mock-content">
-              <span class="ui-chip green">✓ Luz Solvente (CORPOELEC)</span>
-              <span class="ui-chip green">✓ Agua Solvente (HIDROANDES)</span>
-              <span class="ui-chip red">1 Cobro Pendiente</span>
-              <span class="ui-chip green" style="background:#25d366; color:#fff; border:none;">💬 WhatsApp Directo</span>
-            </div>
-          </div>
-
-          <div class="pitch-box">
-            <span class="pitch-icon">💡</span>
-            <div class="pitch-text">
-              <strong>Qué decirle al cliente:</strong> "El sistema exige que el inquilino demuestre que pagó los recibos de Corpoelec e Hidroandes antes de considerarlo solvente. Protege al propietario de multas y cortes."
-            </div>
-          </div>
-        </div>
-
-        <!-- PASO 4 -->
-        <div class="step-card">
-          <div class="step-header">
-            <div class="step-number">4</div>
-            <div class="step-titles">
-              <span class="step-module">Asistencia y Auditoría de Marcaje Externo (Fase 35)</span>
-              <div class="step-name">Presencia en Sede vs. Diligencia en la Calle</div>
-            </div>
-            <span class="step-route-badge">Menú → Personal → Ficha Empleado</span>
-          </div>
-
-          <div class="actions-list">
-            <div class="action-item">
-              <span class="action-bullet">1</span>
-              <span>En el directorio de colaboradores, haz clic en <strong>"Ver Ficha"</strong> de <em>Carlos Mendoza</em> (Técnico).</span>
-            </div>
-            <div class="action-item">
-              <span class="action-bullet">2</span>
-              <span>En la pestaña <strong>Historial de Asistencia</strong>, muestra las dos jornadas:</span>
-            </div>
-            <div class="action-item" style="padding-left: 20px;">
-              <span>• <strong>Jornada de Hoy:</strong> Marcaje regular a las 08:15 a. m. a solo <code>18 metros</code> de distancia del Centro Comercial Gran Bazar (en verde).</span>
-            </div>
-            <div class="action-item" style="padding-left: 20px;">
-              <span>• <strong>Jornada de Ayer:</strong> Badge dorado <code>📍 Externo (2.1 km)</code> con el motivo justificado: <em>"Compra de repuestos de tubería y válvulas de bronce en ferretería"</em>.</span>
-            </div>
-          </div>
-
-          <div class="mock-preview">
-            <div class="mock-title">Elementos visuales que verá el cliente:</div>
-            <div class="mock-content">
-              <span class="ui-chip green">● Presente (18 m de sede)</span>
-              <span class="ui-chip gold">📍 Externo (2.1 km)</span>
-              <span class="ui-chip" style="background:#fef3c7; color:#92400e; border:1px solid #fde68a;">Motivo: Compra en ferretería</span>
-            </div>
-          </div>
-
-          <div class="pitch-box">
-            <span class="pitch-icon">💡</span>
-            <div class="pitch-text">
-              <strong>Qué decirle al cliente:</strong> "Si un empleado sale a comprar insumos o hacer un trámite, el sistema no le impide marcar, pero registra los kilómetros de distancia y le exige el motivo para auditoría del administrador."
-            </div>
-          </div>
-        </div>
-
-        <!-- PASO 5 -->
-        <div class="step-card">
-          <div class="step-header">
-            <div class="step-number">5</div>
-            <div class="step-titles">
-              <span class="step-module">Órdenes Técnicas de Mantenimiento (Fases 24 y 29)</span>
-              <div class="step-name">Gestión de Averías y Cierre Técnico con Informe</div>
-            </div>
-            <span class="step-route-badge">Menú → Mantenimiento</span>
-          </div>
-
-          <div class="actions-list">
-            <div class="action-item">
-              <span class="action-bullet">1</span>
-              <span>Muestra el ticket <strong>TCK-2026-001</strong> (Luminarias LED en pasillo central): Estado <strong>Resuelto</strong>.</span>
-            </div>
-            <div class="action-item">
-              <span class="action-bullet">2</span>
-              <span>Abre el ticket y muestra el <strong>Informe de Cierre</strong> del técnico: <em>"Se instalaron 4 tubos LED de 18W y se balanceó la línea de breakers sin anomalías."</em></span>
-            </div>
-            <div class="action-item">
-              <span class="action-bullet">3</span>
-              <span>Muestra el ticket <strong>TCK-2026-002</strong> (Brazo hidráulico de puerta este): Estado <strong>En Proceso</strong>.</span>
-            </div>
-          </div>
-
-          <div class="mock-preview">
-            <div class="mock-title">Elementos visuales que verá el cliente:</div>
-            <div class="mock-content">
-              <span class="ui-chip green">✓ TCK-2026-001: RESUELTO</span>
-              <span class="ui-chip blue">● TCK-2026-002: EN PROCESO</span>
-              <span class="ui-chip gold">Prioridad: MEDIA</span>
-            </div>
-          </div>
-
-          <div class="pitch-box">
-            <span class="pitch-icon">💡</span>
-            <div class="pitch-text">
-              <strong>Qué decirle al cliente:</strong> "Las averías no se quedan en palabras. Tienen código, responsable asignado, fecha de inicio y reporte técnico de finiquito."
-            </div>
-          </div>
-        </div>
-
-        <!-- PASO 6 -->
-        <div class="step-card">
-          <div class="step-header">
-            <div class="step-number">6</div>
-            <div class="step-titles">
-              <span class="step-module">Vigilancia y Minuta Digital (Fases 30 y 31)</span>
-              <div class="step-name">Libro de Novedades y Custodia de Inventario</div>
-            </div>
-            <span class="step-route-badge">Menú → Seguridad (o Ficha de Personal)</span>
-          </div>
-
-          <div class="actions-list">
-            <div class="action-item">
-              <span class="action-bullet">1</span>
-              <span>Muestra la <strong>Minuta de Guardia Activa</strong> de <em>Héctor Paredes</em> (Turno Diurno).</span>
-            </div>
-            <div class="action-item">
-              <span class="action-bullet">2</span>
-              <span>Señala el <strong>Inventario en Custodia</strong> recibido: <em>1 Radio Motorola, llaves de accesos comerciales, linterna y monitor CCTV de 8 canales</em>.</span>
-            </div>
-            <div class="action-item">
-              <span class="action-bullet">3</span>
-              <span>Muestra las 2 novedades registradas hoy: Ronda de apertura de accesos (07:12 AM) e ingreso de camión de suministros (08:45 AM).</span>
-            </div>
-          </div>
-
-          <div class="mock-preview">
-            <div class="mock-title">Elementos visuales que verá el cliente:</div>
-            <div class="mock-content">
-              <span class="ui-chip green">Turno: DIURNO (En curso)</span>
-              <span class="ui-chip blue">4 Equipos en Custodia</span>
-              <span class="ui-chip" style="background:#f1f5f9; color:#334155;">2 Novedades de Guardia</span>
-              <span class="ui-chip green" style="background:#25d366; color:#fff; border:none;">Compartir Minuta WhatsApp</span>
-            </div>
-          </div>
-
-          <div class="pitch-box">
-            <span class="pitch-icon">💡</span>
-            <div class="pitch-text">
-              <strong>Qué decirle al cliente:</strong> "Reemplaza el cuaderno físico de los vigilantes. Todo queda registrado digitalmente y el administrador recibe el reporte en WhatsApp al instante."
-            </div>
-          </div>
-        </div>
-
-        <!-- PASO 7 -->
-        <div class="step-card">
-          <div class="step-header">
-            <div class="step-number">7</div>
-            <div class="step-titles">
-              <span class="step-module">Portal Móvil de Empleado e Inquilino (1 Minuto en Vivo)</span>
-              <div class="step-name">Demostración Multiusuario sin Salir de la Reunión</div>
-            </div>
-            <span class="step-route-badge">Ventana Privada (Incógnito)</span>
-          </div>
-
-          <div class="actions-list">
-            <div class="action-item">
-              <span class="action-bullet">1</span>
-              <span>Abre una ventana de incógnito en tu navegador (<code>Ctrl + Shift + N</code>) y ve a <code>http://localhost:3000/home/login</code>.</span>
-            </div>
-            <div class="action-item">
-              <span class="action-bullet">2</span>
-              <span>En el panel flotante <strong>"Accesos Demo"</strong>, haz clic en <strong>Auto</strong> en <em>Mantenimiento (Carlos Mendoza)</em> y presiona <strong>Ingresar</strong>.</span>
-            </div>
-            <div class="action-item">
-              <span class="action-bullet">3</span>
-              <span>Muestra al cliente el <strong>Portal del Empleado</strong>:</span>
-            </div>
-            <div class="action-item" style="padding-left: 20px;">
-              <span>• Widget de asistencia con botón nativo de geolocalización satelital.</span>
-            </div>
-            <div class="action-item" style="padding-left: 20px;">
-              <span>• Lista de tareas asignadas del Centro Comercial Gran Bazar.</span>
-            </div>
-          </div>
-
-          <div class="pitch-box">
-            <span class="pitch-icon">💡</span>
-            <div class="pitch-text">
-              <strong>Qué decirle al cliente:</strong> "Cada rol entra a una interfaz diseñada a su medida: el empleado no ve contratos ni dinero, solo sus órdenes de trabajo y su asistencia."
-            </div>
-          </div>
-        </div>
-
+      <!-- 2. Matriz de Cobertura de las 16 Fases -->
+      <div class="section-title">📊 Matriz de Validación de las 16 Fases (20 a 35)</div>
+      <div class="phases-table-container">
+        <table class="phases-table">
+          <thead>
+            <tr>
+              <th style="width: 80px;">Fase</th>
+              <th>Módulo / Capacidad Implementada</th>
+              <th>Dónde se demuestra en la reunión</th>
+              <th style="width: 110px; text-align: center;">Estado</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><span class="phase-badge">Fase 20</span></td>
+              <td><strong>Clave Inicial por Cédula / RIF:</strong> Acceso inmediato sin bloqueos de cambio forzado de contraseña.</td>
+              <td>Widget Login y perfiles de Inquilinos y Empleados</td>
+              <td style="text-align: center;"><span class="ui-chip green">✓ Probado</span></td>
+            </tr>
+            <tr>
+              <td><span class="phase-badge">Fase 21</span></td>
+              <td><strong>Seguridad y Resiliencia en Claves:</strong> Validación Zod robusta y encriptación con bcrypt.</td>
+              <td>Login y Perfil de Usuario</td>
+              <td style="text-align: center;"><span class="ui-chip green">✓ Probado</span></td>
+            </tr>
+            <tr>
+              <td><span class="phase-badge">Fase 22</span></td>
+              <td><strong>Tasa Oficial BCV y Multimoneda:</strong> Conversión oficial automática Bs/USD congelada en la fecha.</td>
+              <td>Cobranzas y Finanzas</td>
+              <td style="text-align: center;"><span class="ui-chip green">✓ Probado</span></td>
+            </tr>
+            <tr>
+              <td><span class="phase-badge">Fase 23</span></td>
+              <td><strong>Cánones en Bolívares en Vivo:</strong> Snapshot histórico inmutable en BD y vista en Portal Inquilino.</td>
+              <td>Portal Inquilino y Recibos</td>
+              <td style="text-align: center;"><span class="ui-chip green">✓ Probado</span></td>
+            </tr>
+            <tr>
+              <td><span class="phase-badge">Fase 24</span></td>
+              <td><strong>Límite de Cuotas y Pago Secuencial:</strong> Evita 72 cuotas fantasmas; solo cuotas devengadas + 1.</td>
+              <td>Panel de Cobranza del Administrador</td>
+              <td style="text-align: center;"><span class="ui-chip green">✓ Probado</span></td>
+            </tr>
+            <tr>
+              <td><span class="phase-badge">Fase 25</span></td>
+              <td><strong>Banner de Morosidad Histórica:</strong> Alerta fija de inquilinos con meses de atraso sin navegar mes a mes.</td>
+              <td>Encabezado del Módulo de Cobranzas</td>
+              <td style="text-align: center;"><span class="ui-chip green">✓ Probado</span></td>
+            </tr>
+            <tr>
+              <td><span class="phase-badge">Fase 26</span></td>
+              <td><strong>Historial de Local y Subdivisión:</strong> Diagnóstico jerárquico y trazabilidad de inquilinos por local.</td>
+              <td>Propiedades → Pestaña Espacios</td>
+              <td style="text-align: center;"><span class="ui-chip green">✓ Probado</span></td>
+            </tr>
+            <tr>
+              <td><span class="phase-badge">Fase 27</span></td>
+              <td><strong>Solvencia de Servicios Públicos:</strong> Checklist mensual de Luz (Corpoelec) y Agua (Hidroandes).</td>
+              <td>Detalle de Pago en Cobranzas</td>
+              <td style="text-align: center;"><span class="ui-chip green">✓ Probado</span></td>
+            </tr>
+            <tr>
+              <td><span class="phase-badge">Fase 28</span></td>
+              <td><strong>Jornadas de Seguridad 24 Horas:</strong> Turnos continuos (8 AM a 8 AM D+1) con traspaso de guardia.</td>
+              <td>Personal → Minutas de Guardia</td>
+              <td style="text-align: center;"><span class="ui-chip green">✓ Probado</span></td>
+            </tr>
+            <tr>
+              <td><span class="phase-badge">Fase 29</span></td>
+              <td><strong>Expediente Digital Laboral:</strong> Contrato de trabajo firmado y notas en ficha del empleado.</td>
+              <td>Personal → Ver Ficha del Colaborador</td>
+              <td style="text-align: center;"><span class="ui-chip green">✓ Probado</span></td>
+            </tr>
+            <tr>
+              <td><span class="phase-badge">Fase 30</span></td>
+              <td><strong>Novedades de Seguridad a WhatsApp:</strong> Formato oficial listo para enviar al WhatsApp del Admin.</td>
+              <td>Minuta de Guardia → Compartir</td>
+              <td style="text-align: center;"><span class="ui-chip green">✓ Probado</span></td>
+            </tr>
+            <tr>
+              <td><span class="phase-badge">Fase 31</span></td>
+              <td><strong>Cámara Móvil Directa con WebP:</strong> Captura táctil instantánea sin navegar galerías pesadas.</td>
+              <td>Cargadores de fotos y evidencias móviles</td>
+              <td style="text-align: center;"><span class="ui-chip green">✓ Probado</span></td>
+            </tr>
+            <tr>
+              <td><span class="phase-badge">Fase 32</span></td>
+              <td><strong>WhatsApp Directo en Cards Ejecutivas:</strong> Botón verde para abrir chat directo con inquilino o empleado.</td>
+              <td>Cards de Inquilinos, Cobranzas y Personal</td>
+              <td style="text-align: center;"><span class="ui-chip green">✓ Probado</span></td>
+            </tr>
+            <tr>
+              <td><span class="phase-badge">Fase 33</span></td>
+              <td><strong>Badges Numéricos en Menú & Corte Contable:</strong> Alertas rojas de pendientes y <code>fechaInicioCobranza</code>.</td>
+              <td>Navbar superior y Modal de Contratos</td>
+              <td style="text-align: center;"><span class="ui-chip green">✓ Probado</span></td>
+            </tr>
+            <tr>
+              <td><span class="phase-badge">Fase 34</span></td>
+              <td><strong>Alertas Contextuales Integradas:</strong> Notificaciones directas en cobros/vencimientos (reemplaza agenda huérfana).</td>
+              <td>Cobranzas y Campana Superior</td>
+              <td style="text-align: center;"><span class="ui-chip green">✓ Probado</span></td>
+            </tr>
+            <tr>
+              <td><span class="phase-badge">Fase 35</span></td>
+              <td><strong>Geolocalización Satelital GPS:</strong> Radio de 200m, auto-relleno de links Google Maps y marcaje externo.</td>
+              <td>Propiedades (GPS) y Personal (Auditoría)</td>
+              <td style="text-align: center;"><span class="ui-chip green">✓ Probado</span></td>
+            </tr>
+          </tbody>
+        </table>
       </div>
+
+      <!-- 3. Pasos de Demostración Detallados -->
+      <div class="section-title">🚀 Recorrido de Demostración en 7 Pasos</div>
+
+      <!-- PASO 1 -->
+      <div class="step-card">
+        <div class="step-header">
+          <div class="step-number">1</div>
+          <div class="step-titles">
+            <div class="step-phases-tags">
+              <span class="phase-badge">Fase 26</span>
+              <span class="phase-badge">Fase 35</span>
+            </div>
+            <div class="step-name">Centro Comercial, Locales y Ubicación Satelital GPS</div>
+          </div>
+          <span class="step-route-badge">Menú → Propiedades</span>
+        </div>
+        <div class="actions-list">
+          <div class="action-item"><span class="action-bullet">1</span><span>Abre <strong>Centro Comercial Gran Bazar</strong> (Valera, 3 pisos, 4,500 m²).</span></div>
+          <div class="action-item"><span class="action-bullet">2</span><span>Haz clic en <strong>"Editar"</strong>: Muestra el campo de Google Maps precargado (<code>9.313387, -70.607134</code>) y el badge <code>✓ GPS Configurado</code>.</span></div>
+          <div class="action-item"><span class="action-bullet">3</span><span>Haz clic en el botón interno <strong>"Ver mapa ↗"</strong>: Abre el pin en Google Maps comprobando el radio de 200m.</span></div>
+          <div class="action-item"><span class="action-bullet">4</span><span>Pestaña <strong>Espacios</strong>: Muestra la subdivisión de los 4 locales (PB-01 ocupado, PB-02 disponible, P1-08 ocupado, P2-15 disponible).</span></div>
+        </div>
+        <div class="mock-preview">
+          <div class="mock-title">Visual en pantalla:</div>
+          <div class="mock-content">
+            <span class="ui-chip green">✓ GPS Configurado</span>
+            <span class="ui-chip btn">Ver mapa ↗</span>
+            <span class="ui-chip blue">Radio: 200 m</span>
+            <span class="ui-chip green">2 Ocupados</span>
+            <span class="ui-chip" style="background:#f1f5f9; color:#475569; border:1px solid #cbd5e1;">2 Disponibles</span>
+          </div>
+        </div>
+        <div class="pitch-box">
+          <span class="pitch-icon">💡</span>
+          <div class="pitch-text"><strong>Qué decirle al cliente:</strong> "El sistema georreferencia cada inmueble satelitalmente con un radio de 200m para auditar de forma automática la presencia del personal."</div>
+        </div>
+      </div>
+
+      <!-- PASO 2 -->
+      <div class="step-card">
+        <div class="step-header">
+          <div class="step-number">2</div>
+          <div class="step-titles">
+            <div class="step-phases-tags">
+              <span class="phase-badge">Fase 20</span>
+              <span class="phase-badge">Fase 26</span>
+              <span class="phase-badge">Fase 32</span>
+              <span class="phase-badge">Fase 33</span>
+            </div>
+            <div class="step-name">Contratos con Depósitos en Garantía y Corte Contable</div>
+          </div>
+          <span class="step-route-badge">Menú → Inquilinos & Contratos</span>
+        </div>
+        <div class="actions-list">
+          <div class="action-item"><span class="action-bullet">1</span><span>Muestra a <em>Farmacia La Salud C.A.</em> en el Local PB-01 y a <em>Alejandro Morales</em> en el P1-08.</span></div>
+          <div class="action-item"><span class="action-bullet">2</span><span>Muestra el botón táctil de <strong>WhatsApp directo</strong> en la card del inquilino (Fase 32) para chatear de inmediato.</span></div>
+          <div class="action-item"><span class="action-bullet">3</span><span>Abre el contrato <strong>CTR-2026-001</strong>: Muestra los \$900 de depósito cobrado (2 meses) y el campo <code>fechaInicioCobranza</code> (Fase 33) que evita deudas fantasmas de años previos.</span></div>
+        </div>
+        <div class="mock-preview">
+          <div class="mock-title">Visual en pantalla:</div>
+          <div class="mock-content">
+            <span class="ui-chip green">Estado: ACTIVO</span>
+            <span class="ui-chip green">Depósito Cobrado: $900</span>
+            <span class="ui-chip blue">Corte Contable: 01/01/2026</span>
+            <span class="ui-chip green" style="background:#25d366; color:#fff; border:none;">💬 WhatsApp Directo</span>
+          </div>
+        </div>
+        <div class="pitch-box">
+          <span class="pitch-icon">💡</span>
+          <div class="pitch-text"><strong>Qué decirle al cliente:</strong> "Los contratos antiguos se registran con su fecha de corte contable exacta, garantizando que el sistema no arrastre cobros ni deudas ficticias anteriores."</div>
+        </div>
+      </div>
+
+      <!-- PASO 3 -->
+      <div class="step-card">
+        <div class="step-header">
+          <div class="step-number">3</div>
+          <div class="step-titles">
+            <div class="step-phases-tags">
+              <span class="phase-badge">Fase 22</span>
+              <span class="phase-badge">Fase 24</span>
+              <span class="phase-badge">Fase 25</span>
+              <span class="phase-badge">Fase 27</span>
+              <span class="phase-badge">Fase 33</span>
+            </div>
+            <div class="step-name">Cobranza, Morosidad, Tasa BCV y Solvencia de Servicios</div>
+          </div>
+          <span class="step-route-badge">Menú → Cobranzas</span>
+        </div>
+        <div class="actions-list">
+          <div class="action-item"><span class="action-bullet">1</span><span>Señala el <strong>badge rojo</strong> en el menú superior (Fase 33) que avisa del cobro pendiente de Alejandro Morales (\$550).</span></div>
+          <div class="action-item"><span class="action-bullet">2</span><span>Muestra el <strong>Banner de Morosidad Histórica</strong> (Fase 25) que audita saldos deudores sin navegar mes a mes.</span></div>
+          <div class="action-item"><span class="action-bullet">3</span><span>Abre el pago solvente de <em>Farmacia La Salud</em> (\$450): Muestra los sellos <strong>Solvente Luz (Corpoelec)</strong> y <strong>Solvente Agua (Hidroandes)</strong> (Fase 27) con número de factura.</span></div>
+          <div class="action-item"><span class="action-bullet">4</span><span>Muestra la <strong>Tasa Oficial BCV</strong> (Fase 22) congelada automáticamente en el cálculo de Bolívares.</span></div>
+        </div>
+        <div class="mock-preview">
+          <div class="mock-title">Visual en pantalla:</div>
+          <div class="mock-content">
+            <span class="ui-chip green">✓ Luz Solvente (CORPOELEC)</span>
+            <span class="ui-chip green">✓ Agua Solvente (HIDROANDES)</span>
+            <span class="ui-chip red">1 Pendiente (Badge Menú)</span>
+            <span class="ui-chip blue">Tasa BCV del Día</span>
+          </div>
+        </div>
+        <div class="pitch-box">
+          <span class="pitch-icon">💡</span>
+          <div class="pitch-text"><strong>Qué decirle al cliente:</strong> "Para considerar solvente al inquilino, el sistema le exige demostrar que pagó los recibos de Corpoelec e Hidroandes, protegiendo al centro comercial de deudas acumuladas."</div>
+        </div>
+      </div>
+
+      <!-- PASO 4 -->
+      <div class="step-card">
+        <div class="step-header">
+          <div class="step-number">4</div>
+          <div class="step-titles">
+            <div class="step-phases-tags">
+              <span class="phase-badge">Fase 29</span>
+              <span class="phase-badge">Fase 35</span>
+            </div>
+            <div class="step-name">Control de Personal y Auditoría Satelital de Asistencia</div>
+          </div>
+          <span class="step-route-badge">Menú → Personal → Ficha Empleado</span>
+        </div>
+        <div class="actions-list">
+          <div class="action-item"><span class="action-bullet">1</span><span>Abre la ficha de <em>Carlos Mendoza</em> (Técnico de Mantenimiento). Muestra su expediente y cargo (Fase 29).</span></div>
+          <div class="action-item"><span class="action-bullet">2</span><span>Pestaña <strong>Historial de Asistencia</strong>:</span></div>
+          <div class="action-item" style="padding-left: 20px;"><span>• <strong>Hoy:</strong> Marcaje a las 08:15 AM a solo <code>18 metros</code> del Centro Comercial (en verde dentro de sede).</span></div>
+          <div class="action-item" style="padding-left: 20px;"><span>• <strong>Ayer:</strong> Badge dorado <code>📍 Externo (2.1 km)</code> con el motivo justificado: <em>"Compra de repuestos de tubería y válvulas de bronce en ferretería"</em>.</span></div>
+        </div>
+        <div class="mock-preview">
+          <div class="mock-title">Visual en pantalla:</div>
+          <div class="mock-content">
+            <span class="ui-chip green">● Presente (18 m de sede)</span>
+            <span class="ui-chip gold">📍 Externo (2.1 km)</span>
+            <span class="ui-chip" style="background:#fef3c7; color:#92400e; border:1px solid #fde68a;">Motivo: Ferretería Central</span>
+          </div>
+        </div>
+        <div class="pitch-box">
+          <span class="pitch-icon">💡</span>
+          <div class="pitch-text"><strong>Qué decirle al cliente:</strong> "Si el empleado sale a la calle por una compra autorizada, el sistema no lo bloquea, pero calcula la distancia exacta en kilómetros y le pide el motivo para auditoría del jefe."</div>
+        </div>
+      </div>
+
+      <!-- PASO 5 -->
+      <div class="step-card">
+        <div class="step-header">
+          <div class="step-number">5</div>
+          <div class="step-titles">
+            <div class="step-phases-tags">
+              <span class="phase-badge">Fase 28</span>
+              <span class="phase-badge">Fase 30</span>
+              <span class="phase-badge">Fase 31</span>
+            </div>
+            <div class="step-name">Vigilancia, Jornadas 24h y Reporte a WhatsApp</div>
+          </div>
+          <span class="step-route-badge">Menú → Seguridad (o Ficha de Personal)</span>
+        </div>
+        <div class="actions-list">
+          <div class="action-item"><span class="action-bullet">1</span><span>Muestra la <strong>Minuta de Guardia</strong> de <em>Héctor Paredes</em> con soporte para turnos de 24 horas (Fase 28).</span></div>
+          <div class="action-item"><span class="action-bullet">2</span><span>Muestra el <strong>Inventario en Custodia</strong> (1 Radio Motorola, llaves maestras, linterna, monitor CCTV).</span></div>
+          <div class="action-item"><span class="action-bullet">3</span><span>Muestra las 2 novedades registradas y el botón <strong>"Compartir por WhatsApp"</strong> (Fase 30) para enviar el parte al teléfono de la directiva.</span></div>
+        </div>
+        <div class="mock-preview">
+          <div class="mock-title">Visual en pantalla:</div>
+          <div class="mock-content">
+            <span class="ui-chip green">Turno: DIURNO (En curso)</span>
+            <span class="ui-chip blue">4 Equipos en Custodia</span>
+            <span class="ui-chip" style="background:#f1f5f9; color:#334155;">2 Novedades de Guardia</span>
+            <span class="ui-chip green" style="background:#25d366; color:#fff; border:none;">Compartir Minuta WhatsApp</span>
+          </div>
+        </div>
+        <div class="pitch-box">
+          <span class="pitch-icon">💡</span>
+          <div class="pitch-text"><strong>Qué decirle al cliente:</strong> "Reemplaza el cuaderno físico de vigilancia. Las novedades se registran digitalmente con opción de fotos tomadas con la cámara del móvil y reporte instantáneo a WhatsApp."</div>
+        </div>
+      </div>
+
+      <!-- PASO 6 -->
+      <div class="step-card">
+        <div class="step-header">
+          <div class="step-number">6</div>
+          <div class="step-titles">
+            <div class="step-phases-tags">
+              <span class="phase-badge">Fase 31</span>
+              <span class="phase-badge">Fase 32</span>
+            </div>
+            <div class="step-name">Órdenes Técnicas de Mantenimiento con Finiquito</div>
+          </div>
+          <span class="step-route-badge">Menú → Mantenimiento</span>
+        </div>
+        <div class="actions-list">
+          <div class="action-item"><span class="action-bullet">1</span><span>Muestra el ticket <strong>TCK-2026-001</strong> (Luminarias LED en pasillo central): Estado <strong>Resuelto</strong>.</span></div>
+          <div class="action-item"><span class="action-bullet">2</span><span>Abre el ticket y muestra el informe técnico de finiquito de Carlos Mendoza con verificación de breakers.</span></div>
+          <div class="action-item"><span class="action-bullet">3</span><span>Muestra el ticket <strong>TCK-2026-002</strong> (Brazo hidráulico de puerta este): Estado <strong>En Proceso</strong>.</span></div>
+        </div>
+        <div class="mock-preview">
+          <div class="mock-title">Visual en pantalla:</div>
+          <div class="mock-content">
+            <span class="ui-chip green">✓ TCK-2026-001: RESUELTO</span>
+            <span class="ui-chip blue">● TCK-2026-002: EN PROCESO</span>
+            <span class="ui-chip gold">Prioridad: MEDIA</span>
+          </div>
+        </div>
+        <div class="pitch-box">
+          <span class="pitch-icon">💡</span>
+          <div class="pitch-text"><strong>Qué decirle al cliente:</strong> "Ninguna avería queda en el aire. Tienen responsable asignado, trazabilidad de repuestos y solo se cierran cuando el técnico entrega el informe de reparación."</div>
+        </div>
+      </div>
+
+      <!-- PASO 7 -->
+      <div class="step-card">
+        <div class="step-header">
+          <div class="step-number">7</div>
+          <div class="step-titles">
+            <div class="step-phases-tags">
+              <span class="phase-badge">Fase 21</span>
+              <span class="phase-badge">Fase 23</span>
+              <span class="phase-badge">Fase 31</span>
+              <span class="phase-badge">Fase 35</span>
+            </div>
+            <div class="step-name">Portales Móviles en Vivo (Inquilino y Empleado)</div>
+          </div>
+          <span class="step-route-badge">Ventana Incógnito (Ctrl + Shift + N)</span>
+        </div>
+        <div class="actions-list">
+          <div class="action-item"><span class="action-bullet">1</span><span>Abre una ventana de incógnito en <code>http://localhost:3000/home/login</code>.</span></div>
+          <div class="action-item"><span class="action-bullet">2</span><span><strong>Probar Portal Empleado:</strong> Clic en Auto en <em>Mantenimiento (Carlos Mendoza)</em> → Muestra el botón de marcaje satelital de 1-toque y sus tareas del día.</span></div>
+          <div class="action-item"><span class="action-bullet">3</span><span><strong>Probar Portal Inquilino:</strong> Clic en Auto en <em>Inquilino (Farmacia La Salud)</em> → Muestra el semáforo financiero al día, su canon en Bolívares y dólares, y su centro de pagos.</span></div>
+        </div>
+        <div class="mock-preview">
+          <div class="mock-title">Visual en pantalla:</div>
+          <div class="mock-content">
+            <span class="ui-chip green">● Marcaje GPS Satelital</span>
+            <span class="ui-chip green">Semáforo: AL DÍA</span>
+            <span class="ui-chip blue">Canon Dual: $450 / Bs</span>
+            <span class="ui-chip btn">Reportar Pago en 1 Clic</span>
+          </div>
+        </div>
+        <div class="pitch-box">
+          <span class="pitch-icon">💡</span>
+          <div class="pitch-text"><strong>Qué decirle al cliente:</strong> "Cada usuario tiene su propia experiencia móvil simplificada: el inquilino ve sus recibos y el empleado solo ve sus tareas y su asistencia sin poder ver dinero ni contratos."</div>
+        </div>
+      </div>
+
     </div>
 
     <!-- Footer -->
     <div class="footer">
-      <span>Inmobiliaria Conte C.A. • Guía Oficial para Presentación Comercial</span>
-      <span>Actualizado: 14 de Noviembre de 2026</span>
+      <span>Inmobiliaria Conte C.A. • Sistema de Gestión Inmobiliaria y Control Operativo</span>
+      <span>Documento de Validación Comercial • 14 de Noviembre de 2026</span>
     </div>
   </div>
 
