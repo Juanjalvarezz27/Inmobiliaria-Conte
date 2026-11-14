@@ -44,6 +44,7 @@ export function TareaFinalizarModal({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isDragOver, setIsDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
 
   // Inicializar estado al abrir el modal con una nueva tarea
   useEffect(() => {
@@ -273,11 +274,10 @@ export function TareaFinalizarModal({
             </span>
           </div>
 
-          {/* Input oculto gestionado vía ref */}
+          {/* Inputs ocultos gestionados vía ref (cámara directa y galería) */}
           <input
-            ref={fileInputRef}
+            ref={cameraInputRef}
             type="file"
-            multiple
             accept="image/*"
             capture="environment"
             className="hidden"
@@ -289,8 +289,22 @@ export function TareaFinalizarModal({
               }
             }}
           />
+          <input
+            ref={fileInputRef}
+            type="file"
+            multiple
+            accept="image/*"
+            className="hidden"
+            disabled={isUploading || isCompressing || evidencias.length >= MAX_FOTOS}
+            onChange={(e) => {
+              if (e.target.files) {
+                handleFileSelect(e.target.files);
+                e.target.value = "";
+              }
+            }}
+          />
 
-          {/* Si no hay fotos todavía: Dropzone amplia y estilizada */}
+          {/* Si no hay fotos todavía: Selector táctil dual (Cámara vs Galería) */}
           {evidencias.length === 0 && (
             <div
               onDragOver={(e) => {
@@ -305,17 +319,16 @@ export function TareaFinalizarModal({
                   handleFileSelect(e.dataTransfer.files);
                 }
               }}
-              onClick={() => !isUploading && !isCompressing && fileInputRef.current?.click()}
-              className={`border-2 border-dashed rounded-2xl p-5 sm:p-6 transition-all flex flex-col items-center justify-center gap-2.5 text-center cursor-pointer ${
+              className={`border-2 border-dashed rounded-2xl p-5 sm:p-6 transition-all flex flex-col items-center justify-center gap-2.5 text-center ${
                 isDragOver
                   ? "border-[#175E38] bg-emerald-50/40"
-                  : "border-slate-200/90 bg-slate-50/50 hover:bg-emerald-50/20 hover:border-[#175E38]/50"
+                  : "border-slate-200/90 bg-slate-50/50"
               } ${isUploading || isCompressing ? "opacity-60 cursor-not-allowed" : ""}`}
             >
               {isCompressing ? (
                 <div className="flex flex-col items-center gap-2 text-amber-600 py-2">
                   <Loader2 className="w-6 h-6 animate-spin" />
-                  <span className="text-xs font-bold">Comprimiendo imagen...</span>
+                  <span className="text-xs font-bold">Comprimiendo imagen a WebP...</span>
                   <span className="text-[11px] text-amber-500/80">Optimizando peso antes de subir</span>
                 </div>
               ) : isUploading ? (
@@ -325,24 +338,27 @@ export function TareaFinalizarModal({
                 </div>
               ) : (
                 <>
-                  <div className="w-12 h-12 rounded-xl bg-white border border-slate-200/80 text-[#175E38] flex items-center justify-center shadow-2xs">
-                    <UploadCloud className="w-6 h-6" />
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 w-full max-w-sm">
+                    <button
+                      type="button"
+                      onClick={() => cameraInputRef.current?.click()}
+                      className="flex items-center justify-center gap-2 px-3.5 py-2.5 rounded-xl bg-[#175E38] text-white hover:bg-[#124b2d] text-xs font-bold transition-all shadow-2xs active:scale-98 cursor-pointer"
+                    >
+                      <Camera className="w-4 h-4 shrink-0" />
+                      <span>Tomar Foto con Cámara</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      className="flex items-center justify-center gap-2 px-3.5 py-2.5 rounded-xl bg-white border border-slate-300 text-slate-700 hover:bg-slate-100 text-xs font-bold transition-all shadow-2xs active:scale-98 cursor-pointer"
+                    >
+                      <UploadCloud className="w-4 h-4 text-[#175E38] shrink-0" />
+                      <span>Elegir de Galería</span>
+                    </button>
                   </div>
-                  <div>
-                    <p className="text-xs sm:text-sm font-bold text-slate-800">
-                      Tomar foto con la cámara o seleccionar de la galería
-                    </p>
-                    <p className="text-[11px] text-slate-400 mt-0.5">
-                      Máximo {MAX_FOTOS} fotografías en JPG, PNG o WebP (hasta 4MB)
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    className="mt-1 px-4 py-2 rounded-xl text-xs font-bold bg-[#175E38] text-white hover:bg-[#124b2d] shadow-2xs active:translate-y-0.5 transition-all flex items-center gap-1.5 cursor-pointer"
-                  >
-                    <Camera className="w-3.5 h-3.5" />
-                    <span>Seleccionar Foto</span>
-                  </button>
+                  <p className="text-[11px] text-slate-400">
+                    Máximo {MAX_FOTOS} fotografías en JPG, PNG o WebP (compresión automática)
+                  </p>
                 </>
               )}
             </div>
@@ -388,21 +404,35 @@ export function TareaFinalizarModal({
                   </div>
                 ))}
 
-                {/* Botón para añadir la segunda foto si solo hay 1 */}
+                {/* Selector táctil dual para añadir la segunda foto si solo hay 1 */}
                 {evidencias.length < MAX_FOTOS && (
-                  <div
-                    onClick={() => !isUploading && !isCompressing && fileInputRef.current?.click()}
-                    className="border-2 border-dashed border-slate-300 hover:border-[#175E38]/60 hover:bg-emerald-50/20 rounded-xl aspect-[4/3] flex flex-col items-center justify-center gap-1.5 text-center cursor-pointer p-3 transition-all"
-                  >
+                  <div className="border-2 border-dashed border-slate-300 rounded-xl aspect-[4/3] flex flex-col items-center justify-center gap-2 p-3 bg-slate-50/50">
                     {isCompressing || isUploading ? (
-                      <Loader2 className="w-5 h-5 animate-spin text-[#175E38]" />
+                      <div className="flex flex-col items-center gap-1">
+                        <Loader2 className="w-5 h-5 animate-spin text-[#175E38]" />
+                        <span className="text-[11px] font-bold text-slate-600">Optimizando...</span>
+                      </div>
                     ) : (
                       <>
-                        <div className="w-9 h-9 rounded-lg bg-slate-100 text-slate-500 flex items-center justify-center">
-                          <ImagePlus className="w-4 h-4 text-[#175E38]" />
+                        <span className="text-[11px] font-bold text-slate-700">Agregar Foto 2</span>
+                        <div className="grid grid-cols-2 gap-1.5 w-full">
+                          <button
+                            type="button"
+                            onClick={() => cameraInputRef.current?.click()}
+                            className="flex flex-col items-center justify-center gap-1 p-2 rounded-lg bg-[#175E38] text-white hover:bg-[#124b2d] text-[10px] font-bold transition-all shadow-2xs active:scale-95 cursor-pointer"
+                          >
+                            <Camera className="w-3.5 h-3.5" />
+                            <span>Cámara</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => fileInputRef.current?.click()}
+                            className="flex flex-col items-center justify-center gap-1 p-2 rounded-lg bg-white border border-slate-300 text-slate-700 hover:bg-slate-100 text-[10px] font-bold transition-all shadow-2xs active:scale-95 cursor-pointer"
+                          >
+                            <UploadCloud className="w-3.5 h-3.5 text-[#175E38]" />
+                            <span>Galería</span>
+                          </button>
                         </div>
-                        <span className="text-xs font-bold text-slate-700">Agregar foto 2</span>
-                        <span className="text-[10px] text-slate-400">PNG, JPG o WebP</span>
                       </>
                     )}
                   </div>

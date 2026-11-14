@@ -2,6 +2,7 @@
 
 import { signIn, signOut } from "@/auth";
 import { AuthError } from "next-auth";
+import { redirect } from "next/navigation";
 
 export type LoginState = {
   error?: string;
@@ -20,13 +21,12 @@ export async function loginAction(
   }
 
   try {
-    // Redirige al dashboard en caso de éxito
+    // Autenticar credenciales y asentar cookies de sesión de forma segura
     await signIn("credentials", {
       email: String(email).trim().toLowerCase(),
       password: String(password),
-      redirectTo: "/home/dashboard",
+      redirect: false,
     });
-    return { success: true };
   } catch (error) {
     if (error instanceof AuthError) {
       switch (error.type) {
@@ -36,11 +36,15 @@ export async function loginAction(
           return { error: "Error en el servidor de autenticación. Intenta nuevamente." };
       }
     }
-    // Re-lanzar error para permitir la redirección nativa de Next.js
+    // Propagar errores no capturados
     throw error;
   }
+
+  // Redirección relativa nativa de Next.js para preservar el host actual (IP móvil, local o dominio)
+  redirect("/home/dashboard");
 }
 
 export async function logoutAction() {
-  await signOut({ redirectTo: "/home/login" });
+  await signOut({ redirect: false });
+  redirect("/home/login");
 }

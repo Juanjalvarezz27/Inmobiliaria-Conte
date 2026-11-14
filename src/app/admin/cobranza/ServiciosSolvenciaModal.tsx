@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Modal } from "@/components/ui/modal";
 import {
   Zap,
@@ -9,6 +9,7 @@ import {
   AlertCircle,
   FileText,
   Upload,
+  Camera,
   Trash2,
   ExternalLink,
   RotateCw,
@@ -49,6 +50,12 @@ export function ServiciosSolvenciaModal({
 
   const [serviciosObservaciones, setServiciosObservaciones] = useState<string>("");
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+
+  // Referencias para disparador táctil dual (Cámara vs Galería)
+  const cameraLuzRef = useRef<HTMLInputElement>(null);
+  const fileLuzRef = useRef<HTMLInputElement>(null);
+  const cameraAguaRef = useRef<HTMLInputElement>(null);
+  const fileAguaRef = useRef<HTMLInputElement>(null);
 
   // Inicializar estados con la información del pago seleccionado
   useEffect(() => {
@@ -102,19 +109,16 @@ export function ServiciosSolvenciaModal({
   const propiedadNombre = pago.contrato.unidad.propiedad.nombre;
   const inquilinoNombre = `${pago.contrato.inquilino.nombre} ${pago.contrato.inquilino.apellido || ""}`.trim();
 
-  const handleSubirFoto = async (tipo: "luz" | "agua", e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
+  const handleProcesarRecibo = async (tipo: "luz" | "agua", file: File) => {
     if (!file) return;
 
     if (!file.type.startsWith("image/")) {
       toast.error("Solo se permiten fotos o capturas (JPG, PNG o WEBP). No se admiten archivos PDF.");
-      e.target.value = "";
       return;
     }
 
     if (file.size > 10 * 1024 * 1024) {
       toast.error("La foto supera el límite máximo de 10 MB antes de optimizar.");
-      e.target.value = "";
       return;
     }
 
@@ -135,7 +139,6 @@ export function ServiciosSolvenciaModal({
         await startUploadLuz([file]);
       } finally {
         setIsCompressingLuz(false);
-        e.target.value = "";
       }
     } else {
       setIsCompressingAgua(true);
@@ -154,7 +157,6 @@ export function ServiciosSolvenciaModal({
         await startUploadAgua([file]);
       } finally {
         setIsCompressingAgua(false);
-        e.target.value = "";
       }
     }
   };
@@ -302,6 +304,34 @@ export function ServiciosSolvenciaModal({
                   Foto del Recibo (Luz)
                 </span>
               </div>
+
+              {/* Inputs ocultos diferenciados para Cámara directa y Galería */}
+              <input
+                ref={cameraLuzRef}
+                type="file"
+                accept="image/*"
+                capture="environment"
+                disabled={isUploadingLuz || isCompressingLuz}
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  if (f) handleProcesarRecibo("luz", f);
+                  e.target.value = "";
+                }}
+                className="hidden"
+              />
+              <input
+                ref={fileLuzRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                disabled={isUploadingLuz || isCompressingLuz}
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  if (f) handleProcesarRecibo("luz", f);
+                  e.target.value = "";
+                }}
+                className="hidden"
+              />
+
               {luzComprobanteUrl ? (
                 <div className="flex items-center justify-between bg-white border border-emerald-200/90 rounded-xl p-2.5 shadow-2xs">
                   <div className="flex items-center gap-2.5 min-w-0">
@@ -344,32 +374,35 @@ export function ServiciosSolvenciaModal({
                     <Trash2 className="w-4 h-4" />
                   </button>
                 </div>
+              ) : isCompressingLuz ? (
+                <div className="flex items-center justify-center gap-2 w-full py-2.5 bg-amber-50/70 border border-amber-200 rounded-xl text-xs font-bold text-amber-700">
+                  <RotateCw className="w-4 h-4 animate-spin text-amber-600" />
+                  <span>Optimizando foto a WebP...</span>
+                </div>
+              ) : isUploadingLuz ? (
+                <div className="flex items-center justify-center gap-2 w-full py-2.5 bg-emerald-50/70 border border-emerald-200 rounded-xl text-xs font-bold text-[#175E38]">
+                  <RotateCw className="w-4 h-4 animate-spin text-[#175E38]" />
+                  <span>Subiendo foto...</span>
+                </div>
               ) : (
-                <label className="flex items-center justify-center gap-2 w-full py-2.5 bg-white hover:bg-slate-50 border border-dashed border-slate-300 hover:border-[#175E38] rounded-xl text-xs font-bold text-slate-600 cursor-pointer transition-colors active:scale-98">
-                  {isCompressingLuz ? (
-                    <>
-                      <RotateCw className="w-4 h-4 animate-spin text-amber-600" />
-                      <span>Optimizando foto...</span>
-                    </>
-                  ) : isUploadingLuz ? (
-                    <>
-                      <RotateCw className="w-4 h-4 animate-spin text-[#175E38]" />
-                      <span>Subiendo foto...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Upload className="w-4 h-4 text-slate-400" />
-                      <span>Adjuntar Foto del Recibo</span>
-                    </>
-                  )}
-                  <input
-                    type="file"
-                    accept="image/jpeg,image/png,image/webp"
-                    disabled={isUploadingLuz || isCompressingLuz}
-                    onChange={(e) => handleSubirFoto("luz", e)}
-                    className="hidden"
-                  />
-                </label>
+                <div className="grid grid-cols-2 gap-2 w-full">
+                  <button
+                    type="button"
+                    onClick={() => cameraLuzRef.current?.click()}
+                    className="flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-xl bg-[#175E38] text-white hover:bg-[#124b2d] text-xs font-bold transition-all shadow-2xs active:scale-95 cursor-pointer"
+                  >
+                    <Camera className="w-3.5 h-3.5 shrink-0" />
+                    <span>Cámara</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => fileLuzRef.current?.click()}
+                    className="flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-xl bg-white border border-slate-300 text-slate-700 hover:bg-slate-100 text-xs font-bold transition-all shadow-2xs active:scale-95 cursor-pointer"
+                  >
+                    <Upload className="w-3.5 h-3.5 text-[#175E38] shrink-0" />
+                    <span>Galería</span>
+                  </button>
+                </div>
               )}
             </div>
           </div>
@@ -455,6 +488,34 @@ export function ServiciosSolvenciaModal({
                   Foto del Recibo (Agua)
                 </span>
               </div>
+
+              {/* Inputs ocultos diferenciados para Cámara directa y Galería */}
+              <input
+                ref={cameraAguaRef}
+                type="file"
+                accept="image/*"
+                capture="environment"
+                disabled={isUploadingAgua || isCompressingAgua}
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  if (f) handleProcesarRecibo("agua", f);
+                  e.target.value = "";
+                }}
+                className="hidden"
+              />
+              <input
+                ref={fileAguaRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                disabled={isUploadingAgua || isCompressingAgua}
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  if (f) handleProcesarRecibo("agua", f);
+                  e.target.value = "";
+                }}
+                className="hidden"
+              />
+
               {aguaComprobanteUrl ? (
                 <div className="flex items-center justify-between bg-white border border-blue-200/90 rounded-xl p-2.5 shadow-2xs">
                   <div className="flex items-center gap-2.5 min-w-0">
@@ -497,32 +558,35 @@ export function ServiciosSolvenciaModal({
                     <Trash2 className="w-4 h-4" />
                   </button>
                 </div>
+              ) : isCompressingAgua ? (
+                <div className="flex items-center justify-center gap-2 w-full py-2.5 bg-sky-50/70 border border-sky-200 rounded-xl text-xs font-bold text-sky-700">
+                  <RotateCw className="w-4 h-4 animate-spin text-sky-600" />
+                  <span>Optimizando foto a WebP...</span>
+                </div>
+              ) : isUploadingAgua ? (
+                <div className="flex items-center justify-center gap-2 w-full py-2.5 bg-blue-50/70 border border-blue-200 rounded-xl text-xs font-bold text-blue-600">
+                  <RotateCw className="w-4 h-4 animate-spin text-blue-600" />
+                  <span>Subiendo foto...</span>
+                </div>
               ) : (
-                <label className="flex items-center justify-center gap-2 w-full py-2.5 bg-white hover:bg-slate-50 border border-dashed border-slate-300 hover:border-blue-500 rounded-xl text-xs font-bold text-slate-600 cursor-pointer transition-colors active:scale-98">
-                  {isCompressingAgua ? (
-                    <>
-                      <RotateCw className="w-4 h-4 animate-spin text-sky-600" />
-                      <span>Optimizando foto...</span>
-                    </>
-                  ) : isUploadingAgua ? (
-                    <>
-                      <RotateCw className="w-4 h-4 animate-spin text-blue-600" />
-                      <span>Subiendo foto...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Upload className="w-4 h-4 text-slate-400" />
-                      <span>Adjuntar Foto del Recibo</span>
-                    </>
-                  )}
-                  <input
-                    type="file"
-                    accept="image/jpeg,image/png,image/webp"
-                    disabled={isUploadingAgua || isCompressingAgua}
-                    onChange={(e) => handleSubirFoto("agua", e)}
-                    className="hidden"
-                  />
-                </label>
+                <div className="grid grid-cols-2 gap-2 w-full">
+                  <button
+                    type="button"
+                    onClick={() => cameraAguaRef.current?.click()}
+                    className="flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-xl bg-blue-600 text-white hover:bg-blue-700 text-xs font-bold transition-all shadow-2xs active:scale-95 cursor-pointer"
+                  >
+                    <Camera className="w-3.5 h-3.5 shrink-0" />
+                    <span>Cámara</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => fileAguaRef.current?.click()}
+                    className="flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-xl bg-white border border-slate-300 text-slate-700 hover:bg-slate-100 text-xs font-bold transition-all shadow-2xs active:scale-95 cursor-pointer"
+                  >
+                    <Upload className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                    <span>Galería</span>
+                  </button>
+                </div>
               )}
             </div>
           </div>

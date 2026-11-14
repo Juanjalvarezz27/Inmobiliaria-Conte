@@ -149,7 +149,12 @@ export function LoginForm() {
       )}
 
       {/* Formulario */}
-      <form action={formAction} onSubmit={handleFormSubmit} className="space-y-4">
+      <form
+        action={formAction}
+        onSubmit={handleFormSubmit}
+        className="space-y-4"
+        suppressHydrationWarning
+      >
         {/* Campo Correo */}
         <div>
           <label

@@ -13,6 +13,7 @@ import type { PagoItem } from "@/app/admin/cobranza/types";
 import { MESES } from "@/lib/date-utils";
 import {
   Upload,
+  Camera,
   FileText,
   DollarSign,
   Calendar,
@@ -101,6 +102,7 @@ export function ReportarPagoModal({
 
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
 
   // Sincronizar cuota preseleccionada y limpiar campos al abrir el modal
   useEffect(() => {
@@ -550,6 +552,20 @@ export function ReportarPagoModal({
             <h4 className="text-sm font-bold text-slate-800 mt-0.5">Comprobante o Capture</h4>
           </div>
 
+          {/* Inputs ocultos diferenciados para cámara y galería */}
+          <input
+            ref={cameraInputRef}
+            type="file"
+            accept="image/*"
+            capture="environment"
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              if (f) handleProcesarArchivo(f);
+              e.target.value = "";
+            }}
+            className="hidden"
+          />
+
           <input
             ref={fileInputRef}
             type="file"
@@ -557,6 +573,7 @@ export function ReportarPagoModal({
             onChange={(e) => {
               const f = e.target.files?.[0];
               if (f) handleProcesarArchivo(f);
+              e.target.value = "";
             }}
             className="hidden"
           />
@@ -601,6 +618,7 @@ export function ReportarPagoModal({
                   setComprobanteUrl("");
                   setStatsCompresion(null);
                   if (fileInputRef.current) fileInputRef.current.value = "";
+                  if (cameraInputRef.current) cameraInputRef.current.value = "";
                 }}
                 disabled={isSubmitting}
                 className="w-9 h-9 rounded-xl bg-rose-50 text-rose-600 hover:bg-rose-100 border border-rose-200/80 flex items-center justify-center transition-all cursor-pointer shadow-2xs shrink-0 ml-2"
@@ -622,24 +640,19 @@ export function ReportarPagoModal({
                 const f = e.dataTransfer.files?.[0];
                 if (f) handleProcesarArchivo(f);
               }}
-              onClick={() => {
-                if (!isUploading && !isCompressing) {
-                  fileInputRef.current?.click();
-                }
-              }}
-              className={`border-2 border-dashed rounded-2xl p-5 text-center transition-all flex flex-col items-center justify-center gap-2 cursor-pointer ${
+              className={`border-2 border-dashed rounded-2xl p-4 sm:p-5 text-center transition-all flex flex-col items-center justify-center gap-2.5 ${
                 isDragOver
                   ? "border-[#175E38] bg-emerald-50/50"
                   : isUploading || isCompressing
                   ? "cursor-wait bg-slate-50 border-slate-300"
-                  : "border-slate-300 hover:border-[#175E38]/60 bg-slate-50/60 hover:bg-slate-50"
+                  : "border-slate-300 bg-slate-50/60"
               }`}
             >
               {isCompressing ? (
                 <div className="py-2 flex flex-col items-center gap-1.5">
                   <Loader2 className="w-6 h-6 animate-spin text-[#175E38]" />
                   <span className="text-xs font-bold text-slate-800">
-                    Optimizando foto bancaria...
+                    Optimizando comprobante a WebP...
                   </span>
                 </div>
               ) : isUploading ? (
@@ -651,17 +664,27 @@ export function ReportarPagoModal({
                 </div>
               ) : (
                 <>
-                  <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center">
-                    <Upload className="w-5 h-5 stroke-[2.5]" />
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 w-full max-w-sm">
+                    <button
+                      type="button"
+                      onClick={() => cameraInputRef.current?.click()}
+                      className="flex items-center justify-center gap-2 px-3.5 py-2.5 rounded-xl bg-[#175E38] text-white hover:bg-[#124b2d] text-xs font-bold transition-all shadow-2xs active:scale-98 cursor-pointer"
+                    >
+                      <Camera className="w-4 h-4 shrink-0" />
+                      <span>Tomar Foto del Pago</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      className="flex items-center justify-center gap-2 px-3.5 py-2.5 rounded-xl bg-white border border-slate-300 text-slate-700 hover:bg-slate-100 text-xs font-bold transition-all shadow-2xs active:scale-98 cursor-pointer"
+                    >
+                      <Upload className="w-4 h-4 text-[#175E38] shrink-0" />
+                      <span>Elegir de Galería</span>
+                    </button>
                   </div>
-                  <div>
-                    <p className="text-xs font-bold text-slate-800">
-                      Toca para subir tu foto <span className="hidden sm:inline">o arrástrala aquí</span>
-                    </p>
-                    <p className="text-[11px] text-slate-500 mt-0.5">
-                      Foto o captura en JPG, PNG o WEBP (máx. 1 foto optimizada)
-                    </p>
-                  </div>
+                  <p className="text-[11px] text-slate-400">
+                    Foto o captura en JPG, PNG o WebP (optimización automática)
+                  </p>
                 </>
               )}
             </div>

@@ -19,8 +19,12 @@ export default function RootLayout({
     <html
       lang="es"
       className={`${montserrat.variable} ${poppins.variable} h-full antialiased`}
+      suppressHydrationWarning
     >
-      <body className="min-h-screen flex flex-col font-sans bg-slate-100 text-slate-800">
+      <body
+        className="min-h-screen flex flex-col font-sans bg-slate-100 text-slate-800"
+        suppressHydrationWarning
+      >
         <AppToaster />
         <NetworkStatusNotifier />
         <div className="flex-1 flex flex-col relative z-10">{children}</div>

@@ -2,6 +2,8 @@ import type { NextAuthConfig } from "next-auth";
 import { Rol } from "@prisma/client";
 
 export const authConfig: NextAuthConfig = {
+  // Confiar en el Host de la petición (permite acceso vía IP local Wi-Fi y proxies)
+  trustHost: true,
   pages: {
     signIn: "/home/login",
   },

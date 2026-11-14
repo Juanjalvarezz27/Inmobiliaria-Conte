@@ -40,19 +40,37 @@ export interface ProgresoCompresion {
 
 export type CallbackProgreso = (progreso: ProgresoCompresion) => void;
 
-// Presets optimizados por caso de uso — úsalos desde los modales
+// Presets optimizados por caso de uso — calibrados para alta nitidez y peso ultraligero (<180 KB)
 export const PRESETS_COMPRESION = {
-  // Capturas de pantalla de pago, comprobantes bancarios (texto denso)
-  comprobantePago: { maxDimension: 1200, calidad: 0.75, pesoMaximoKB: 220, formatoSalida: "image/webp" } as OpcionesCompresionImagen,
-  // Fotos de avería y mantenimiento (detalle visual importante)
-  fotosAveria: { maxDimension: 1400, calidad: 0.78, pesoMaximoKB: 280, formatoSalida: "image/webp" } as OpcionesCompresionImagen,
-  // Fotos de recibos de servicios públicos (texto impreso)
-  recibosServicios: { maxDimension: 1200, calidad: 0.73, pesoMaximoKB: 200, formatoSalida: "image/webp" } as OpcionesCompresionImagen,
-  // Fotos de inmuebles y unidades (uso general)
-  fotosInmueble: { maxDimension: 1600, calidad: 0.80, pesoMaximoKB: 320, formatoSalida: "image/webp" } as OpcionesCompresionImagen,
-  // Fotos de minutas y novedades
-  fotosNovedad: { maxDimension: 1400, calidad: 0.76, pesoMaximoKB: 250, formatoSalida: "image/webp" } as OpcionesCompresionImagen,
+  // Capturas de pantalla de pago, comprobantes bancarios (texto nítido y legible)
+  comprobantePago: { maxDimension: 1080, calidad: 0.65, pesoMaximoKB: 140, formatoSalida: "image/webp" } as OpcionesCompresionImagen,
+  // Fotos de avería y mantenimiento (reparaciones, filtraciones, fallas)
+  fotosAveria: { maxDimension: 1100, calidad: 0.65, pesoMaximoKB: 160, formatoSalida: "image/webp" } as OpcionesCompresionImagen,
+  // Fotos de recibos de servicios públicos (Corpoelec, Hidroandes)
+  recibosServicios: { maxDimension: 1080, calidad: 0.62, pesoMaximoKB: 130, formatoSalida: "image/webp" } as OpcionesCompresionImagen,
+  // Fotos de inmuebles y unidades (catálogo general)
+  fotosInmueble: { maxDimension: 1280, calidad: 0.70, pesoMaximoKB: 200, formatoSalida: "image/webp" } as OpcionesCompresionImagen,
+  // Fotos de minutas y novedades de seguridad
+  fotosNovedad: { maxDimension: 1100, calidad: 0.65, pesoMaximoKB: 160, formatoSalida: "image/webp" } as OpcionesCompresionImagen,
 } as const;
+
+// Detección en memoria de soporte para exportación de WebP en Canvas
+let soporteWebpCache: boolean | null = null;
+function browserSoportaWebpCanvas(): boolean {
+  if (soporteWebpCache !== null) return soporteWebpCache;
+  if (typeof document === "undefined") return false;
+  try {
+    const c = document.createElement("canvas");
+    c.width = 1;
+    c.height = 1;
+    const uri = c.toDataURL("image/webp");
+    soporteWebpCache = uri.startsWith("data:image/webp");
+    return soporteWebpCache;
+  } catch {
+    soporteWebpCache = false;
+    return false;
+  }
+}
 
 // Formatea tamaños de archivo de bytes a KB o MB
 export function formatearBytes(bytes: number): string {
@@ -65,21 +83,13 @@ export function formatearBytes(bytes: number): string {
 // MOTOR INTERNO DE CANVAS OPTIMIZADO
 // ------------------------------------------------------------
 
-// Decodifica imagen usando createImageBitmap con resize nativo en GPU cuando es posible
+// Decodifica imagen usando createImageBitmap (con aceleración por hardware) o fallback HTMLImageElement
 async function decodificarImagen(
-  fuente: File | Blob,
-  targetWidth?: number,
-  targetHeight?: number
+  fuente: File | Blob
 ): Promise<ImageBitmap | HTMLImageElement> {
   if (typeof createImageBitmap === "function") {
     try {
-      const opts: ImageBitmapOptions = {};
-      if (targetWidth && targetHeight) {
-        opts.resizeWidth = targetWidth;
-        opts.resizeHeight = targetHeight;
-        opts.resizeQuality = "medium";
-      }
-      return await createImageBitmap(fuente, opts);
+      return await createImageBitmap(fuente);
     } catch {
       // Fallback a HTMLImageElement si falla createImageBitmap
     }
@@ -160,9 +170,9 @@ export async function comprimirImagen(
   opciones?: OpcionesCompresionImagen
 ): Promise<ResultadoCompresion> {
   const {
-    maxDimension = 1400,
-    calidad = 0.78,
-    pesoMaximoKB = 280,
+    maxDimension = 1100,
+    calidad = 0.65,
+    pesoMaximoKB = 160,
     formatoSalida = "image/webp",
     fondoBlanco = false,
   } = opciones || {};
@@ -171,26 +181,25 @@ export async function comprimirImagen(
     return { file, pesoOriginal: file.size, pesoFinal: file.size, ahorroPct: 0 };
   }
 
+  // Determinar formato compatible: si se pide WebP pero el navegador no lo soporta en Canvas (ej. iOS Safari), usar JPEG
+  let formatoEfectivo: "image/webp" | "image/jpeg" = formatoSalida;
+  if (formatoSalida === "image/webp" && !browserSoportaWebpCanvas()) {
+    formatoEfectivo = "image/jpeg";
+  }
+
   try {
-    // Primera pasada: detectar dimensiones originales sin redimensionar
-    const fuenteInfo = await decodificarImagen(file);
-    const { width: origW, height: origH } = obtenerDimensionesFuente(fuenteInfo);
-    if ("close" in fuenteInfo) fuenteInfo.close();
+    // Decodificar la imagen original una sola vez
+    const fuente = await decodificarImagen(file);
+    const { width: origW, height: origH } = obtenerDimensionesFuente(fuente);
 
-    const { width, height } = calcularDimensiones(origW, origH, maxDimension);
+    // Calcular las dimensiones escaladas objetivo respetando la relación de aspecto
+    const { width: targetW, height: targetH } = calcularDimensiones(origW, origH, maxDimension);
 
-    // Segunda pasada: decodificar con resize nativo en GPU si el navegador lo soporta
-    const fuente = await decodificarImagen(file, width, height);
-
-    // Si el resize fue nativo, las dimensiones ya son las target
-    const fuenteDims = obtenerDimensionesFuente(fuente);
-    const drawW = fuenteDims.width;
-    const drawH = fuenteDims.height;
-
+    // Forzar el canvas al tamaño escalado objetivo estricto (evita conservar 4000px de la cámara)
     const canvas = document.createElement("canvas");
-    canvas.width = drawW;
-    canvas.height = drawH;
-    const ctx = canvas.getContext("2d", { alpha: !fondoBlanco && formatoSalida === "image/webp" });
+    canvas.width = targetW;
+    canvas.height = targetH;
+    const ctx = canvas.getContext("2d", { alpha: !fondoBlanco && formatoEfectivo === "image/webp" });
 
     if (!ctx) {
       if ("close" in fuente) fuente.close();
@@ -200,41 +209,53 @@ export async function comprimirImagen(
     ctx.imageSmoothingEnabled = true;
     ctx.imageSmoothingQuality = "high";
 
-    if (fondoBlanco || formatoSalida === "image/jpeg") {
+    if (fondoBlanco || formatoEfectivo === "image/jpeg") {
       ctx.fillStyle = "#FFFFFF";
-      ctx.fillRect(0, 0, drawW, drawH);
+      ctx.fillRect(0, 0, targetW, targetH);
     }
 
-    ctx.drawImage(fuente, 0, 0, drawW, drawH);
+    // Dibujar directamente a las dimensiones reducidas del canvas
+    ctx.drawImage(fuente, 0, 0, targetW, targetH);
     if ("close" in fuente) fuente.close();
 
-    // Compresión adaptativa: si supera pesoMaximoKB, reduce calidad y dimensión simultáneamente
+    // Compresión adaptativa con fallback ante navegadores que exporten falsos WebP a PNG
     let calidadActual = calidad;
     let dimActual = maxDimension;
-    let blob = await canvasABlob(canvas, formatoSalida, calidadActual);
+    let blob = await canvasABlob(canvas, formatoEfectivo, calidadActual);
+
+    // Salvaguarda: si el navegador retornó PNG (WebP no soportado), forzar JPEG inmediatamente
+    if (formatoEfectivo === "image/webp" && blob && blob.type === "image/png") {
+      formatoEfectivo = "image/jpeg";
+      ctx.fillStyle = "#FFFFFF";
+      ctx.fillRect(0, 0, targetW, targetH);
+      const fuenteTmp = await decodificarImagen(file);
+      ctx.drawImage(fuenteTmp, 0, 0, targetW, targetH);
+      if ("close" in fuenteTmp) fuenteTmp.close();
+      blob = await canvasABlob(canvas, "image/jpeg", calidadActual);
+    }
+
     const limiteBytes = pesoMaximoKB * 1024;
 
-    while (blob && blob.size > limiteBytes && calidadActual > 0.45) {
-      // Reducir calidad primero, luego dimensión cuando calidad ya es baja
-      calidadActual = Number((calidadActual - 0.08).toFixed(2));
-      if (calidadActual < 0.6 && dimActual > 800) {
-        dimActual = Math.round(dimActual * 0.8);
-        const { width: nW, height: nH } = calcularDimensiones(drawW, drawH, dimActual);
+    while (blob && blob.size > limiteBytes && (calidadActual > 0.35 || dimActual > 600)) {
+      if (calidadActual > 0.45) {
+        calidadActual = Number((calidadActual - 0.08).toFixed(2));
+      } else {
+        dimActual = Math.round(dimActual * 0.80);
+        const { width: nW, height: nH } = calcularDimensiones(origW, origH, dimActual);
         canvas.width = nW;
         canvas.height = nH;
         const nCtx = canvas.getContext("2d", { alpha: false });
         if (nCtx) {
-          if (fondoBlanco || formatoSalida === "image/jpeg") {
-            nCtx.fillStyle = "#FFFFFF";
-            nCtx.fillRect(0, 0, nW, nH);
-          }
-          // Redibujar desde fuente original ya cerrada — usar blob intermedio
-          const fuenteRescale = await decodificarImagen(blob, nW, nH);
-          nCtx.drawImage(fuenteRescale, 0, 0, nW, nH);
-          if ("close" in fuenteRescale) fuenteRescale.close();
+          nCtx.imageSmoothingEnabled = true;
+          nCtx.imageSmoothingQuality = "high";
+          nCtx.fillStyle = "#FFFFFF";
+          nCtx.fillRect(0, 0, nW, nH);
+          const fuenteTemp = await decodificarImagen(blob);
+          nCtx.drawImage(fuenteTemp, 0, 0, nW, nH);
+          if ("close" in fuenteTemp) fuenteTemp.close();
         }
       }
-      blob = await canvasABlob(canvas, formatoSalida, calidadActual);
+      blob = await canvasABlob(canvas, formatoEfectivo, calidadActual);
     }
 
     canvas.width = 0;
@@ -244,7 +265,7 @@ export async function comprimirImagen(
       return { file, pesoOriginal: file.size, pesoFinal: file.size, ahorroPct: 0 };
     }
 
-    const tipoReal = blob.type || formatoSalida;
+    const tipoReal = blob.type || formatoEfectivo;
     const extension = tipoReal.includes("webp") ? "webp" : tipoReal.includes("png") ? "png" : "jpg";
     const nombreBase = file.name.replace(/\.[^.]+$/, "");
     const archivoFinal = new File([blob], `${nombreBase}.${extension}`, { type: tipoReal });
@@ -291,21 +312,16 @@ const UMBRAL_DENSIDAD_ESCANEO = 60 * 1024; // 60 KB/pág — captura más PDFs m
 
 async function comprimirImagenParaPdf(
   fileOBlob: File | Blob,
-  maxDim = 1300,
+  maxDim = 1200,
   quality = PDF_JPEG_QUALITY
 ): Promise<{ blob: Blob; width: number; height: number }> {
-  // Usar resize nativo en GPU cuando está disponible
-  const fuenteInfo = await decodificarImagen(fileOBlob);
-  const { width: origW, height: origH } = obtenerDimensionesFuente(fuenteInfo);
-  if ("close" in fuenteInfo) fuenteInfo.close();
+  const fuente = await decodificarImagen(fileOBlob);
+  const { width: origW, height: origH } = obtenerDimensionesFuente(fuente);
+  const { width: targetW, height: targetH } = calcularDimensiones(origW, origH, maxDim);
 
-  const { width, height } = calcularDimensiones(origW, origH, maxDim);
-  const fuente = await decodificarImagen(fileOBlob, width, height);
-
-  const fDims = obtenerDimensionesFuente(fuente);
   const canvas = document.createElement("canvas");
-  canvas.width = fDims.width;
-  canvas.height = fDims.height;
+  canvas.width = targetW;
+  canvas.height = targetH;
   const ctx = canvas.getContext("2d", { alpha: false });
 
   if (!ctx) {
@@ -314,17 +330,17 @@ async function comprimirImagenParaPdf(
   }
 
   ctx.fillStyle = "#FFFFFF";
-  ctx.fillRect(0, 0, fDims.width, fDims.height);
+  ctx.fillRect(0, 0, targetW, targetH);
   ctx.imageSmoothingEnabled = true;
   ctx.imageSmoothingQuality = "high";
 
   // Mejora de contraste para textos escaneados
   try {
     ctx.filter = "contrast(1.08) saturate(0.15)";
-    ctx.drawImage(fuente, 0, 0, fDims.width, fDims.height);
+    ctx.drawImage(fuente, 0, 0, targetW, targetH);
     ctx.filter = "none";
   } catch {
-    ctx.drawImage(fuente, 0, 0, fDims.width, fDims.height);
+    ctx.drawImage(fuente, 0, 0, targetW, targetH);
   }
 
   if ("close" in fuente) fuente.close();
@@ -333,7 +349,7 @@ async function comprimirImagenParaPdf(
   canvas.width = 0;
   canvas.height = 0;
 
-  return { blob: blob || fileOBlob, width: fDims.width, height: fDims.height };
+  return { blob: blob || fileOBlob, width: targetW, height: targetH };
 }
 
 // Optimización estructural nativa de PDF con pdf-lib (solo streams, no imágenes)

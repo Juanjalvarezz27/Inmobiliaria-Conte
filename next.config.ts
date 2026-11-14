@@ -2,6 +2,8 @@ import type { NextConfig } from "next";
 
 // Recarga de configuración y esquema de base de datos
 const nextConfig: NextConfig = {
+  // Orígenes permitidos en desarrollo para acceso desde red local Wi-Fi
+  allowedDevOrigins: ["192.168.0.101", "192.168.0.101:3000", "localhost:3000"],
   // Habilita compresión Gzip nativa para respuestas del servidor
   compress: true,
   // Elimina encabezado X-Powered-By para reducir bytes transferidos

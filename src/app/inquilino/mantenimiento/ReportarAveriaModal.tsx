@@ -93,6 +93,7 @@ export function ReportarAveriaModal({
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [isDragOver, setIsDragOver] = useState<boolean>(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
 
   // Hook UploadThing
   const { startUpload, isUploading } = useOperacionesUploadThing("fotoTicket", {
@@ -387,7 +388,7 @@ export function ReportarAveriaModal({
             Adjunta hasta {MAX_FOTOS} fotografías claras del daño o filtración.
           </p>
           <div className="mt-3 space-y-3">
-            {/* Dropzone */}
+            {/* Dropzone con selector dual táctil */}
             {fotos.length < MAX_FOTOS && (
               <div
                 onDragOver={(e) => {
@@ -402,43 +403,76 @@ export function ReportarAveriaModal({
                     handleArchivosSeleccionados(e.dataTransfer.files);
                   }
                 }}
-                onClick={() => !isBusy && fileInputRef.current?.click()}
-                className={`border-2 border-dashed rounded-2xl p-4 sm:p-5 text-center cursor-pointer transition-all ${
+                className={`border-2 border-dashed rounded-2xl p-4 sm:p-5 text-center transition-all ${
                   isDragOver
                     ? "border-[#175E38] bg-emerald-50/60"
-                    : "border-slate-300 bg-slate-50/70 hover:bg-slate-100/80 hover:border-slate-400"
+                    : "border-slate-300 bg-slate-50/70"
                 } ${isBusy ? "opacity-60 pointer-events-none" : ""}`}
               >
+                {/* Inputs ocultos diferenciados: cámara directa y galería */}
+                <input
+                  ref={cameraInputRef}
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  className="hidden"
+                  disabled={isBusy}
+                  onChange={(e) => {
+                    if (e.target.files) {
+                      handleArchivosSeleccionados(e.target.files);
+                      e.target.value = "";
+                    }
+                  }}
+                />
                 <input
                   ref={fileInputRef}
                   type="file"
                   accept="image/*"
                   multiple
                   className="hidden"
+                  disabled={isBusy}
                   onChange={(e) => {
                     if (e.target.files) {
                       handleArchivosSeleccionados(e.target.files);
+                      e.target.value = "";
                     }
                   }}
                 />
-                <div className="flex flex-col items-center justify-center gap-1.5">
-                  <div className="w-10 h-10 rounded-xl bg-white border border-slate-200 flex items-center justify-center text-[#175E38] shadow-2xs">
-                    {isCompressing || isUploading ? (
-                      <Loader2 className="w-5 h-5 animate-spin" />
-                    ) : (
-                      <Camera className="w-5 h-5" />
-                    )}
-                  </div>
-                  <div className="text-xs font-semibold text-slate-700">
-                    {isCompressing
-                      ? "Comprimiendo y optimizando fotos..."
-                      : isUploading
-                      ? "Cargando fotografías..."
-                      : "Haz clic para subir o arrastra tus fotos aquí"}
-                  </div>
-                  <p className="text-[11px] text-slate-400">
-                    Formato JPG, PNG o WebP (hasta {MAX_FOTOS - fotos.length} fotos restantes)
-                  </p>
+                <div className="flex flex-col items-center justify-center gap-2.5">
+                  {isCompressing || isUploading ? (
+                    <div className="flex flex-col items-center gap-1.5 py-2">
+                      <Loader2 className="w-6 h-6 animate-spin text-[#175E38]" />
+                      <div className="text-xs font-semibold text-slate-700">
+                        {isCompressing
+                          ? "Comprimiendo y optimizando fotos a WebP..."
+                          : "Cargando fotografías..."}
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 w-full max-w-sm">
+                        <button
+                          type="button"
+                          onClick={() => cameraInputRef.current?.click()}
+                          className="flex items-center justify-center gap-2 px-3.5 py-2.5 rounded-xl bg-[#175E38] text-white hover:bg-[#124b2d] text-xs font-bold transition-all shadow-2xs active:scale-98 cursor-pointer"
+                        >
+                          <Camera className="w-4 h-4 shrink-0" />
+                          <span>Tomar Foto con Cámara</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => fileInputRef.current?.click()}
+                          className="flex items-center justify-center gap-2 px-3.5 py-2.5 rounded-xl bg-white border border-slate-300 text-slate-700 hover:bg-slate-100 text-xs font-bold transition-all shadow-2xs active:scale-98 cursor-pointer"
+                        >
+                          <UploadCloud className="w-4 h-4 text-[#175E38] shrink-0" />
+                          <span>Elegir de Galería</span>
+                        </button>
+                      </div>
+                      <p className="text-[11px] text-slate-400">
+                        Formato JPG, PNG o WebP (hasta {MAX_FOTOS - fotos.length} fotos restantes)
+                      </p>
+                    </>
+                  )}
                 </div>
               </div>
             )}
