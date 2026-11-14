@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Guía Ejecutiva de Demostración - Inmobiliaria Conte</title>
+  <style>
+    :root {
+      --brand-green: #175E38;
+      --brand-green-dark: #0f3e25;
+      --brand-green-light: #ecfdf5;
+      --brand-red: #CC1A22;
+      --slate-50: #f8fafc;
+      --slate-100: #f1f5f9;
+      --slate-200: #e2e8f0;
+      --slate-300: #cbd5e1;
+      --slate-600: #475569;
+      --slate-700: #334155;
+      --slate-800: #1e293b;
+      --slate-900: #0f172a;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      color: var(--slate-800);
+      background-color: var(--slate-50);
+      line-height: 1.5;
+      padding: 30px 20px;
+    }
+
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+      background: #ffffff;
+      border: 1px solid var(--slate-200);
+      border-radius: 16px;
+      padding: 40px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04);
+    }
+
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      border-bottom: 2px solid var(--slate-100);
+      padding-bottom: 24px;
+      margin-bottom: 28px;
+    }
+
+    .header-info h1 {
+      font-size: 24px;
+      font-weight: 800;
+      color: var(--brand-green-dark);
+      letter-spacing: -0.5px;
+    }
+
+    .header-info p {
+      font-size: 13px;
+      color: var(--slate-600);
+      margin-top: 4px;
+    }
+
+    .badge-status {
+      display: inline-block;
+      padding: 4px 10px;
+      background: var(--brand-green-light);
+      color: var(--brand-green);
+      border: 1px solid #a7f3d0;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .print-btn {
+      background: var(--brand-green);
+      color: #fff;
+      border: none;
+      padding: 10px 18px;
+      border-radius: 10px;
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: background 0.2s;
+    }
+
+    .print-btn:hover {
+      background: var(--brand-green-dark);
+    }
+
+    .section-title {
+      font-size: 16px;
+      font-weight: 800;
+      color: var(--slate-900);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 14px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .section-title::before {
+      content: "";
+      width: 4px;
+      height: 16px;
+      background: var(--brand-green);
+      border-radius: 2px;
+    }
+
+    /* Tabla de credenciales */
+    .cred-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 12px;
+      margin-bottom: 30px;
+    }
+
+    .cred-card {
+      background: var(--slate-50);
+      border: 1px solid var(--slate-200);
+      border-radius: 12px;
+      padding: 14px 16px;
+    }
+
+    .cred-card.admin {
+      border-color: #86efac;
+      background: #f0fdf4;
+    }
+
+    .cred-badge {
+      font-size: 10px;
+      font-weight: 800;
+      text-transform: uppercase;
+      display: inline-block;
+      margin-bottom: 6px;
+      color: var(--brand-green);
+    }
+
+    .cred-item {
+      font-size: 12px;
+      color: var(--slate-600);
+      display: flex;
+      justify-content: space-between;
+      margin-top: 3px;
+    }
+
+    .cred-item strong {
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      color: var(--slate-900);
+      font-weight: 700;
+    }
+
+    /* Steps */
+    .step-card {
+      border: 1px solid var(--slate-200);
+      border-radius: 12px;
+      padding: 18px 20px;
+      margin-bottom: 16px;
+      background: #ffffff;
+      page-break-inside: avoid;
+    }
+
+    .step-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+
+    .step-tag {
+      font-size: 11px;
+      font-weight: 800;
+      color: var(--brand-green);
+      background: var(--brand-green-light);
+      padding: 2px 8px;
+      border-radius: 6px;
+      border: 1px solid #bbf7d0;
+    }
+
+    .step-route {
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 11.5px;
+      color: var(--slate-600);
+      background: var(--slate-100);
+      padding: 3px 8px;
+      border-radius: 6px;
+    }
+
+    .step-title {
+      font-size: 14.5px;
+      font-weight: 700;
+      color: var(--slate-900);
+      margin-bottom: 8px;
+    }
+
+    .step-list {
+      list-style: none;
+    }
+
+    .step-list li {
+      position: relative;
+      padding-left: 20px;
+      font-size: 12.5px;
+      color: var(--slate-700);
+      margin-bottom: 6px;
+    }
+
+    .step-list li::before {
+      content: "✓";
+      position: absolute;
+      left: 0;
+      color: var(--brand-green);
+      font-weight: 900;
+      font-size: 12px;
+    }
+
+    .highlight-box {
+      background: #eff6ff;
+      border-left: 3px solid #3b82f6;
+      padding: 8px 12px;
+      border-radius: 0 8px 8px 0;
+      font-size: 11.5px;
+      color: #1e40af;
+      margin-top: 8px;
+    }
+
+    .footer {
+      border-top: 1px solid var(--slate-200);
+      padding-top: 20px;
+      margin-top: 30px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 11.5px;
+      color: var(--slate-600);
+    }
+
+    @media print {
+      body {
+        background: #fff;
+        padding: 0;
+      }
+      .container {
+        border: none;
+        box-shadow: none;
+        padding: 0;
+        max-width: 100%;
+      }
+      .print-btn {
+        display: none;
+      }
+      @page {
+        margin: 1.5cm;
+        size: A4 portrait;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <!-- Header -->
+    <div class="header">
+      <div class="header-info">
+        <span class="badge-status">Protocolo de Prueba Ejecutivo</span>
+        <h1 style="margin-top: 6px;">Guía de Demostración Comercial</h1>
+        <p>Inmobiliaria Conte C.A. • Verificación Integral de Fases 20 a 35</p>
+      </div>
+      <button class="print-btn" onclick="window.print()">
+        <span>Imprimir / Guardar en PDF</span>
+      </button>
+    </div>
+
+    <!-- Credenciales -->
+    <div class="section-title">1. Credenciales de Demostración</div>
+    <div class="cred-grid">
+      <div class="cred-card admin">
+        <span class="cred-badge">★ Administrador Principal</span>
+        <div class="cred-item"><span>Correo:</span> <strong>jjsa610@gmail.com</strong></div>
+        <div class="cred-item"><span>Clave:</span> <strong>123456</strong></div>
+        <div class="cred-item"><span>Acceso:</span> <strong>/admin/dashboard</strong></div>
+      </div>
+      <div class="cred-card">
+        <span class="cred-badge" style="color: #0284c7;">Portal Técnico</span>
+        <div class="cred-item"><span>Correo:</span> <strong>carlos.mendoza@inmobiliariaconte.com</strong></div>
+        <div class="cred-item"><span>Clave:</span> <strong>123456</strong></div>
+        <div class="cred-item"><span>Acceso:</span> <strong>/empleado/dashboard</strong></div>
+      </div>
+      <div class="cred-card">
+        <span class="cred-badge" style="color: #7c3aed;">Portal Vigilancia</span>
+        <div class="cred-item"><span>Correo:</span> <strong>hector.seguridad@inmobiliariaconte.com</strong></div>
+        <div class="cred-item"><span>Clave:</span> <strong>123456</strong></div>
+        <div class="cred-item"><span>Acceso:</span> <strong>/empleado/dashboard</strong></div>
+      </div>
+    </div>
+
+    <!-- Pasos de Demostración -->
+    <div class="section-title">2. Secuencia de Validación al Cliente</div>
+
+    <!-- Paso 1 -->
+    <div class="step-card">
+      <div class="step-header">
+        <span class="step-tag">Fase 20 a 23 & Fase 35</span>
+        <span class="step-route">/admin/propiedades</span>
+      </div>
+      <div class="step-title">Inmuebles, Locales y Ubicación Satelital GPS</div>
+      <ul class="step-list">
+        <li>Abre <strong>Centro Comercial Gran Bazar</strong> (Valera): Complejo de 3 pisos y 4,500 m².</li>
+        <li>Haz clic en <strong>Editar</strong>: Comprueba que el campo <em>Enlace de Google Maps</em> ya viene precargado con sus coordenadas exactas (<code>9.313387, -70.607134</code>) y el badge <code>✓ GPS Configurado</code>.</li>
+        <li>Haz clic en el botón interno <strong>Ver mapa ↗</strong>: Abre directamente el pin satelital en Google Maps.</li>
+        <li>Prueba en vivo: Pega cualquier enlace de Google Maps o coordenadas directas para mostrar la auto-extracción instantánea.</li>
+        <li>Pestaña <strong>Espacios / Locales</strong>: Muestra las 4 unidades cargadas (<code>PB-01</code> ocupado, <code>PB-02</code> disponible, <code>P1-08</code> ocupado, <code>P2-15</code> disponible).</li>
+      </ul>
+    </div>
+
+    <!-- Paso 2 -->
+    <div class="step-card">
+      <div class="step-header">
+        <span class="step-tag">Fase 25, 26 & Fase 33</span>
+        <span class="step-route">/admin/inquilinos & /admin/contratos</span>
+      </div>
+      <div class="step-title">Inquilinos, Contratos con Depósitos y Corte Contable</div>
+      <ul class="step-list">
+        <li><strong>Inquilinos:</strong> Muestra los perfiles creados: <em>Farmacia & Variedades La Salud C.A.</em> (Persona Jurídica) y <em>Alejandro Morales</em> (Persona Natural).</li>
+        <li><strong>WhatsApp directo:</strong> Presiona el botón verde de WhatsApp en la tarjeta del inquilino para mostrar la mensajería instantánea directa.</li>
+        <li><strong>Contrato CTR-2026-001 (Farmacia):</strong> Muestra el canon mensual de \$450, los \$900 de depósito en garantía cobrado y el campo de corte <code>fechaInicioCobranza</code> que protege contra cobros retroactivos fantasmas.</li>
+      </ul>
+    </div>
+
+    <!-- Paso 3 -->
+    <div class="step-card">
+      <div class="step-header">
+        <span class="step-tag">Fase 27, 28 & Fase 33</span>
+        <span class="step-route">/admin/cobranzas (o menú Pagos)</span>
+      </div>
+      <div class="step-title">Cobranza, Solvencia de Servicios y Tasa BCV</div>
+      <ul class="step-list">
+        <li><strong>Badge de alertas:</strong> Muestra en la barra superior el indicador rojo con cobros pendientes.</li>
+        <li><strong>Comprobación de Luz y Agua:</strong> Abre el pago de Noviembre de la Farmacia (\$450): Muestra los checkmarks verdes de <em>Solvente Luz (Corpoelec)</em> y <em>Solvente Agua (Hidroandes)</em> con sus respectivos números de factura.</li>
+        <li><strong>Cobro Pendiente:</strong> Muestra el canon de Alejandro Morales (\$550) en estado <em>Pendiente</em> listo para emitir recibo o registrar pago.</li>
+        <li><strong>Tasa Oficial BCV:</strong> Verifica que los cálculos equivalentes en Bolívares se congelan con la tasa oficial del día.</li>
+      </ul>
+    </div>
+
+    <!-- Paso 4 -->
+    <div class="step-card">
+      <div class="step-header">
+        <span class="step-tag">Fase 24 & Fase 29</span>
+        <span class="step-route">/admin/mantenimiento (o tickets)</span>
+      </div>
+      <div class="step-title">Órdenes Técnicas de Mantenimiento y Tareas</div>
+      <ul class="step-list">
+        <li><strong>Ticket Resuelto TCK-2026-001:</strong> Sustitución de tubos LED por Carlos Mendoza con informe técnico de cierre.</li>
+        <li><strong>Ticket En Proceso TCK-2026-002:</strong> Ajuste de cerradura y bisagra en puerta de acceso este.</li>
+        <li>Muestra cómo cada ticket se vincula directamente al Centro Comercial y al local afectado.</li>
+      </ul>
+    </div>
+
+    <!-- Paso 5 -->
+    <div class="step-card">
+      <div class="step-header">
+        <span class="step-tag">Fase 30 & Fase 31</span>
+        <span class="step-route">/admin/personal (o login Vigilancia)</span>
+      </div>
+      <div class="step-title">Libro de Novedades y Guardias de Seguridad</div>
+      <ul class="step-list">
+        <li><strong>Minuta de Guardia Activa:</strong> Muestra el turno diurno de Héctor Paredes con inventario recibido (1 Radio Motorola, llaves de accesos, monitor CCTV de 8 canales).</li>
+        <li><strong>Novedades Registradas:</strong> Ronda de apertura de portones a las 07:12 AM y recepción de camión NPR de insumos médicos a las 08:45 AM.</li>
+        <li><strong>Difusión de Seguridad:</strong> Muestra la opción de exportar el parte de novedades directamente hacia WhatsApp de la directiva.</li>
+      </ul>
+    </div>
+
+    <!-- Paso 6 -->
+    <div class="step-card">
+      <div class="step-header">
+        <span class="step-tag">Fase 34 & Fase 35</span>
+        <span class="step-route">/admin/personal & /empleado/asistencia</span>
+      </div>
+      <div class="step-title">Control Horario y Auditoría Satelital GPS</div>
+      <ul class="step-list">
+        <li><strong>Desde la vista Admin (/admin/personal):</strong> Abre la <em>Ficha Integral</em> de Carlos Mendoza.</li>
+        <li><strong>Auditoría de Jornada de Hoy:</strong> Marcaje regular en verde a las 08:15 a. m. con distancia de <code>18 metros</code> respecto al Centro Comercial Gran Bazar.</li>
+        <li><strong>Auditoría de Marcaje Externo (Ayer):</strong> Badge dorado <code>📍 Externo (2.1 km)</code> con justificación visible: <em>"Compra de repuestos de tubería y válvulas de bronce en ferretería"</em>.</li>
+        <li><strong>Demostración en Portal del Trabajador:</strong> Inicia sesión en una ventana privada con <code>carlos.mendoza@inmobiliariaconte.com</code> (Clave: <code>123456</code>). Muestra el widget de marcaje de 1-toque con captura satelital y el modal estilizado verde para justificar salidas a la calle.</li>
+      </ul>
+    </div>
+
+    <!-- Paso 7 -->
+    <div class="step-card">
+      <div class="step-header">
+        <span class="step-tag">Fase 32</span>
+        <span class="step-route">/admin/finanzas</span>
+      </div>
+      <div class="step-title">Transacciones Financieras y Gastos Operativos</div>
+      <ul class="step-list">
+        <li>Egresos cargados: Pago eléctrico de áreas comunes a Corpoelec (\$185) y servicio de vigilancia y custodia diurna (\$420).</li>
+        <li>Muestra el balance operativo del mes y la asignación contable por inmueble.</li>
+      </ul>
+    </div>
+
+    <!-- Footer -->
+    <div class="footer">
+      <span>Inmobiliaria Conte • Sistema de Gestión Inmobiliaria y Control Operativo</span>
+      <span>Generado: 14 de Noviembre de 2026</span>
+    </div>
+  </div>
+
+</body>
+</html>
