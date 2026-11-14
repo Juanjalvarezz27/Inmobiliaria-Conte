@@ -20,7 +20,7 @@ import {
   Building2,
   LogOut,
 } from "lucide-react";
-import { WhatsAppIcon } from "@/components/icons/whatsapp-icon";
+import { WhatsAppIcon, getWhatsAppUrl } from "@/lib/formatters";
 import { CargoEmpleado, EstadoAsistencia } from "@prisma/client";
 import { formatearHora12 } from "@/lib/date-utils";
 import {
@@ -155,9 +155,11 @@ export function EmpleadoCard({
   const sunColors = getCargoSunColors(emp.cargo);
   const nombreCompleto = `${emp.nombre} ${emp.apellido || ""}`.trim();
 
-  // Limpieza del número para enlace de WhatsApp
-  const cleanPhone = emp.telefono.replace(/[^\d+]/g, "");
-  const waUrl = cleanPhone ? `https://wa.me/${cleanPhone.replace("+", "")}` : null;
+  // Enlace directo a WhatsApp con mensaje institucional y normalización internacional
+  const waUrl = getWhatsAppUrl(
+    emp.telefono,
+    `Hola ${emp.nombre}, le saludamos desde la Administracion de Inmobiliaria Conte.`
+  );
 
   return (
     <div className="group/empcard relative overflow-hidden bg-gradient-to-b from-white via-white to-slate-50/60 rounded-2xl border border-slate-200/90 border-b-[3px] border-b-slate-300/90 shadow-[0_4px_20px_-2px_rgba(28,37,57,0.07),0_2px_6px_-1px_rgba(28,37,57,0.04)] hover:shadow-[0_16px_36px_-4px_rgba(28,37,57,0.13),0_6px_12px_-2px_rgba(28,37,57,0.06)] hover:-translate-y-1.5 transition-all duration-300 flex flex-col justify-between">
@@ -269,13 +271,13 @@ export function EmpleadoCard({
                 <Phone className="w-3.5 h-3.5 text-slate-400 shrink-0" />
                 <span className="truncate">{emp.telefono}</span>
               </div>
-              {waUrl && (
+              {waUrl && waUrl !== "#" && (
                 <a
                   href={waUrl}
                   target="_blank"
                   rel="noopener noreferrer"
                   title="Contactar vía WhatsApp"
-                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-[#25D366]/10 text-[#128C7E] hover:bg-[#25D366]/20 font-bold text-[11px] hover:scale-105 active:scale-95 transition-all shrink-0"
+                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-[#25D366]/10 text-[#128C7E] hover:bg-[#25D366]/20 font-bold text-[11px] hover:scale-105 active:scale-95 transition-all shrink-0 border border-emerald-300/40"
                 >
                   <WhatsAppIcon className="w-3.5 h-3.5 text-[#25D366]" />
                   <span>WhatsApp</span>

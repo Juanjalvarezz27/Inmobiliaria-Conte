@@ -241,7 +241,10 @@ export function InquilinoCard({
             {/* WhatsApp */}
             <div className="flex items-center gap-2">
               <a
-                href={getWhatsAppUrl(inq.telefono)}
+                href={getWhatsAppUrl(
+                  inq.telefono,
+                  `Hola ${inq.nombre}, le saludamos desde la Administracion de Inmobiliaria Conte.`
+                )}
                 target="_blank"
                 rel="noopener noreferrer"
                 title="Enviar WhatsApp"

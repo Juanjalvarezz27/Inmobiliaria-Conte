@@ -26,6 +26,7 @@ import { EstadoTarea } from "@prisma/client";
 import { useOperacionesUploadThing } from "@/lib/uploadthing";
 import { eliminarImagenUploadThingAction } from "@/lib/actions/unidades";
 import { comprimirImagenes, formatearBytes, PRESETS_COMPRESION } from "@/lib/file-compressor";
+import { WhatsAppIcon, getWhatsAppUrl } from "@/lib/formatters";
 import {
   ESTADO_TAREA_CONFIG,
   PRIORIDAD_TAREA_CONFIG,
@@ -297,6 +298,23 @@ export function TareaDetalleModal({
               <p className="text-xs text-slate-600 truncate">
                 {cargoConfig.label}
               </p>
+              {tarea.empleadoTelefono && (
+                <div className="pt-1">
+                  <a
+                    href={getWhatsAppUrl(
+                      tarea.empleadoTelefono,
+                      `Hola ${tarea.empleadoNombre}, te contactamos desde Administracion respecto a la tarea #${tarea.id.slice(-6).toUpperCase()}: ${tarea.titulo}${tarea.propiedadNombre ? ` en ${tarea.propiedadNombre}` : ""}.`
+                    )}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    title="Contactar al colaborador vía WhatsApp"
+                    className="inline-flex items-center gap-1.5 px-2 py-1 rounded-lg bg-[#25D366]/10 text-[#128C7E] hover:bg-[#25D366]/20 font-bold text-xs hover:scale-105 active:scale-95 transition-all border border-emerald-300/40"
+                  >
+                    <WhatsAppIcon className="w-3.5 h-3.5 text-[#25D366]" />
+                    <span>WhatsApp</span>
+                  </a>
+                </div>
+              )}
             </div>
 
             {/* 2. Inmueble / Ubicación */}

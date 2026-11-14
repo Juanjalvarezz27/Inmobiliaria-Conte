@@ -57,6 +57,7 @@ import type {
   TecnicoDisponible,
 } from "@/lib/actions/mantenimiento";
 import { formatearFechaNumerica } from "@/lib/date-utils";
+import { WhatsAppIcon, getWhatsAppUrl } from "@/lib/formatters";
 
 interface PropiedadSimple {
   id: string;
@@ -586,13 +587,17 @@ export function AdminMantenimientoClient({
                         </div>
                         {ticket.inquilino.telefono && (
                           <a
-                            href={`https://wa.me/${ticket.inquilino.telefono.replace(/[^0-9]/g, "")}`}
+                            href={getWhatsAppUrl(
+                              ticket.inquilino.telefono,
+                              `Hola ${ticket.inquilino.nombre}, le contactamos desde la Administracion de Inmobiliaria Conte respecto a su reporte de mantenimiento ${ticket.codigo}: ${ticket.titulo} en ${ticket.propiedad.nombre}${ticket.unidad ? `, Local ${ticket.unidad.codigo}` : ""}.`
+                            )}
                             target="_blank"
-                            rel="noreferrer"
-                            title="Contactar al inquilino"
-                            className="w-7 h-7 rounded-lg bg-emerald-50 text-[#25D366] border border-emerald-200 flex items-center justify-center hover:bg-emerald-100 transition-colors shrink-0"
+                            rel="noopener noreferrer"
+                            title="Contactar al inquilino vía WhatsApp"
+                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-[#25D366]/10 text-[#128C7E] hover:bg-[#25D366]/20 font-bold text-[11px] hover:scale-105 active:scale-95 transition-all shrink-0 border border-emerald-300/40"
                           >
-                            <MessageCircle className="w-3.5 h-3.5" />
+                            <WhatsAppIcon className="w-3.5 h-3.5 text-[#25D366]" />
+                            <span>WhatsApp</span>
                           </a>
                         )}
                       </div>
@@ -603,8 +608,8 @@ export function AdminMantenimientoClient({
                     )}
 
                     {/* Técnico Asignado */}
-                    <div className="flex items-center justify-between text-xs pt-0.5">
-                      <div className="flex items-center gap-1.5 truncate">
+                    <div className="flex items-center justify-between text-xs pt-0.5 gap-2">
+                      <div className="flex items-center gap-1.5 truncate min-w-0">
                         <UserCheck className="w-3.5 h-3.5 text-slate-400 shrink-0" />
                         <span className="truncate text-slate-600">
                           {ticket.empleado
@@ -612,18 +617,35 @@ export function AdminMantenimientoClient({
                             : "Sin técnico asignado"}
                         </span>
                       </div>
-                      {ticket.fotosAveria.length > 0 && (
-                        <button
-                          type="button"
-                          onClick={() =>
-                            abrirVisor(ticket.fotosAveria, 0, `Evidencias — ${ticket.codigo}`)
-                          }
-                          className="text-[11px] font-bold text-[#175E38] flex items-center gap-1 hover:underline"
-                        >
-                          <Camera className="w-3 h-3" />
-                          <span>{ticket.fotosAveria.length} fotos</span>
-                        </button>
-                      )}
+                      <div className="flex items-center gap-2 shrink-0">
+                        {ticket.empleado?.telefono && (
+                          <a
+                            href={getWhatsAppUrl(
+                              ticket.empleado.telefono,
+                              `Hola ${ticket.empleado.nombre}, te contactamos desde Administracion respecto a la orden de mantenimiento asignada ${ticket.codigo}: ${ticket.titulo} en ${ticket.propiedad.nombre}${ticket.unidad ? `, Local ${ticket.unidad.codigo}` : ""}.`
+                            )}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            title="Contactar al técnico vía WhatsApp"
+                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-[#25D366]/10 text-[#128C7E] hover:bg-[#25D366]/20 font-bold text-[11px] hover:scale-105 active:scale-95 transition-all border border-emerald-300/40"
+                          >
+                            <WhatsAppIcon className="w-3.5 h-3.5 text-[#25D366]" />
+                            <span>WhatsApp</span>
+                          </a>
+                        )}
+                        {ticket.fotosAveria.length > 0 && (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              abrirVisor(ticket.fotosAveria, 0, `Evidencias — ${ticket.codigo}`)
+                            }
+                            className="text-[11px] font-bold text-[#175E38] flex items-center gap-1 hover:underline"
+                          >
+                            <Camera className="w-3 h-3" />
+                            <span>{ticket.fotosAveria.length} fotos</span>
+                          </button>
+                        )}
+                      </div>
                     </div>
                   </div>
 

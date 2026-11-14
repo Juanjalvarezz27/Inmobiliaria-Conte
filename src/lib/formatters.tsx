@@ -27,10 +27,17 @@ export function formatCurrencyDecimals(val: number | null | undefined): string {
   }).format(val);
 }
 
-// Generador de enlace directo a WhatsApp (limpia caracteres no numéricos)
+// Generador de enlace directo a WhatsApp con normalización de prefijo internacional
 export function getWhatsAppUrl(phone: string | null | undefined, text?: string): string {
   if (!phone) return "#";
-  const clean = phone.replace(/\D/g, "");
+  let clean = phone.replace(/\D/g, "");
+  if (!clean) return "#";
+  // Normalización para números locales de Venezuela (0414..., 0424..., etc.)
+  if (clean.startsWith("0") && clean.length === 11) {
+    clean = "58" + clean.slice(1);
+  } else if (!clean.startsWith("58") && clean.length === 10) {
+    clean = "58" + clean;
+  }
   const base = `https://wa.me/${clean}`;
   if (text) {
     return `${base}?text=${encodeURIComponent(text)}`;

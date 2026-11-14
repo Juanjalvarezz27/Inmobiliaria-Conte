@@ -60,6 +60,7 @@ export interface TareaEmpleadoItem {
   empleadoId: string;
   empleadoNombre: string;
   empleadoCargo: CargoEmpleado;
+  empleadoTelefono: string | null;
   propiedadId: string | null;
   propiedadNombre: string | null;
   prioridad: PrioridadTarea;

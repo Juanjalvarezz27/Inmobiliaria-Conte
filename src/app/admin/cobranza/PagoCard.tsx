@@ -19,7 +19,7 @@ import {
   Check,
   Clock,
 } from "lucide-react";
-import { WhatsAppIcon } from "@/components/icons/whatsapp-icon";
+import { WhatsAppIcon, getWhatsAppUrl } from "@/lib/formatters";
 import { EstadoPago } from "@prisma/client";
 import { MESES } from "@/lib/date-utils";
 import type { PagoItem } from "./types";
@@ -105,7 +105,7 @@ export function PagoCard({
   } else {
     mensajeWp = `Hola ${inquilino.nombre}, le saludamos de Inmobiliaria Conté. Le recordamos que el canon ($${pago.montoEsperado.toFixed(2)} USD) del espacio ${unidad.codigo} vence próximamente. Quedamos a su orden para recibir el comprobante.`;
   }
-  const urlWhatsapp = `https://wa.me/${telLimpio}?text=${encodeURIComponent(mensajeWp)}`;
+  const urlWhatsapp = getWhatsAppUrl(inquilino.telefono, mensajeWp);
   const esPorConfirmar = Boolean(pago.comprobanteUrl) && pago.estado !== EstadoPago.PAGADO;
   const matchMontoReportado = pago.notas?.match(/\(\$([0-9]+(?:\.[0-9]{1,2})?)\)/);
   const montoReportadoParsed = matchMontoReportado ? parseFloat(matchMontoReportado[1]) : null;
@@ -213,7 +213,7 @@ export function PagoCard({
           <a
             href={urlWhatsapp}
             target="_blank"
-            rel="noreferrer"
+            rel="noopener noreferrer"
             className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 hover:text-emerald-800 transition-colors shrink-0 hover:scale-105 active:scale-95"
             title="Enviar recordatorio por WhatsApp"
           >

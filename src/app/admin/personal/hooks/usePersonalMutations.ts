@@ -312,6 +312,7 @@ export function usePersonalMutations({
             empleadoId: res.data.empleadoId,
             empleadoNombre: emp ? `${emp.nombre} ${emp.apellido || ""}`.trim() : "Trabajador",
             empleadoCargo: emp ? emp.cargo : CargoEmpleado.CONSERJE,
+            empleadoTelefono: emp?.telefono || null,
             propiedadId: res.data.propiedadId,
             propiedadNombre: prop ? prop.nombre : null,
             prioridad: res.data.prioridad,

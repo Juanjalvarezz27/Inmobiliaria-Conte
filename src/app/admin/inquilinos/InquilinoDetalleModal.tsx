@@ -160,7 +160,10 @@ export function InquilinoDetalleModal({
             <div className="flex items-center gap-2">
               <span className="text-slate-400 font-medium">Teléfono:</span>
               <a
-                href={getWhatsAppUrl(inquilino.telefono)}
+                href={getWhatsAppUrl(
+                  inquilino.telefono,
+                  `Hola ${inquilino.nombre}, le saludamos desde la Administracion de Inmobiliaria Conte.`
+                )}
                 target="_blank"
                 rel="noopener noreferrer"
                 title="Abrir chat en WhatsApp"

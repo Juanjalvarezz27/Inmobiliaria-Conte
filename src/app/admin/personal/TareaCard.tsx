@@ -13,6 +13,7 @@ import {
   Building2,
 } from "lucide-react";
 import { EstadoTarea, CargoEmpleado } from "@prisma/client";
+import { WhatsAppIcon, getWhatsAppUrl } from "@/lib/formatters";
 import {
   ESTADO_TAREA_CONFIG,
   CARGO_CONFIG,
@@ -193,10 +194,25 @@ export function TareaCard({
                 <p className="font-heading font-black text-slate-900 text-sm truncate leading-tight">
                   {t.empleadoNombre}
                 </p>
-                <div className="flex items-center gap-1.5 mt-1">
+                <div className="flex items-center justify-between gap-1.5 mt-1">
                   <span className="inline-flex items-center text-[10px] font-bold text-slate-600 bg-white px-2 py-0.5 rounded-md border border-slate-200/80 shadow-2xs">
                     {cargoConfig.label}
                   </span>
+                  {t.empleadoTelefono && (
+                    <a
+                      href={getWhatsAppUrl(
+                        t.empleadoTelefono,
+                        `Hola ${t.empleadoNombre}, te contactamos desde Administracion respecto a la tarea asignada: ${t.titulo}${t.propiedadNombre ? ` en ${t.propiedadNombre}` : ""}.`
+                      )}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      title="Contactar al colaborador vía WhatsApp"
+                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-[#25D366]/10 text-[#128C7E] hover:bg-[#25D366]/20 font-bold text-[10px] hover:scale-105 active:scale-95 transition-all shrink-0 border border-emerald-300/40"
+                    >
+                      <WhatsAppIcon className="w-3 h-3 text-[#25D366]" />
+                      <span>WhatsApp</span>
+                    </a>
+                  )}
                 </div>
               </div>
             </div>
