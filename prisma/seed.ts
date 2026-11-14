@@ -56,8 +56,8 @@ async function main() {
     data: {
       email: "jjsa610@gmail.com",
       passwordHash: passwordHash,
-      nombre: "Fabián",
-      apellido: "Conte",
+      nombre: "Juan",
+      apellido: "Álvarez",
       cedula: "V-10203040",
       telefono: "+58 412 1234567",
       direccion: "Oficina Administrativa Central, Valera",
@@ -68,7 +68,41 @@ async function main() {
     },
   });
 
-  // Usuario Empleado para demostración del Portal del Trabajador (opcional para el cliente)
+  // Usuario Inquilino para demostración del Portal del Inquilino
+  const usuarioInquilino = await prisma.usuario.create({
+    data: {
+      email: "inquilino@conte.com",
+      passwordHash: passwordHash,
+      nombre: "Farmacia & Variedades",
+      apellido: "La Salud C.A.",
+      cedula: "J-30987654-1",
+      telefono: "+58 414 7654321",
+      direccion: "Local PB-01, CC Gran Bazar, Valera",
+      ubicacion: "CC Gran Bazar",
+      rol: Rol.INQUILINO,
+      activo: true,
+      mustChangePassword: false,
+    },
+  });
+
+  // Usuario Vigilante para demostración de Guardias y Novedades de Seguridad
+  const usuarioSeguridad = await prisma.usuario.create({
+    data: {
+      email: "seguridad@conte.com",
+      passwordHash: passwordHash,
+      nombre: "Héctor",
+      apellido: "Paredes",
+      cedula: "V-20112233",
+      telefono: "+58 414 5556677",
+      direccion: "Sector Morón",
+      ubicacion: "Valera",
+      rol: Rol.EMPLEADO,
+      activo: true,
+      mustChangePassword: false,
+    },
+  });
+
+  // Usuario Empleado para demostración del Portal del Trabajador y Asistencia GPS
   const usuarioTecnico = await prisma.usuario.create({
     data: {
       email: "carlos.mendoza@inmobiliariaconte.com",
@@ -78,23 +112,6 @@ async function main() {
       cedula: "V-18304050",
       telefono: "+58 414 7654321",
       direccion: "Sector La Beatriz, Calle 5",
-      ubicacion: "Valera",
-      rol: Rol.EMPLEADO,
-      activo: true,
-      mustChangePassword: false,
-    },
-  });
-
-  // Usuario Vigilante para demostración de Guardias y Novedades de Seguridad
-  const usuarioSeguridad = await prisma.usuario.create({
-    data: {
-      email: "hector.seguridad@inmobiliariaconte.com",
-      passwordHash: passwordHash,
-      nombre: "Héctor",
-      apellido: "Paredes",
-      cedula: "V-20112233",
-      telefono: "+58 414 5556677",
-      direccion: "Sector Morón",
       ubicacion: "Valera",
       rol: Rol.EMPLEADO,
       activo: true,
@@ -184,8 +201,9 @@ async function main() {
       tipoPersona: TipoPersona.JURIDICA,
       documentoIdentidad: "J-30987654-1",
       telefono: "+58 414 7654321",
-      email: "gerencia@farmacialasalud.com",
+      email: "inquilino@conte.com",
       direccion: "Local PB-01, CC Gran Bazar, Valera",
+      usuarioId: usuarioInquilino.id,
       activo: true,
     },
   });
@@ -317,7 +335,7 @@ async function main() {
       apellido: "Paredes",
       cedula: "V-20112233",
       telefono: "+58 414 5556677",
-      email: "hector.seguridad@inmobiliariaconte.com",
+      email: "seguridad@conte.com",
       cargo: CargoEmpleado.SEGURIDAD,
       salarioMensual: 420,
       propiedadId: ccGranBazar.id,

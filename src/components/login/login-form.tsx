@@ -299,7 +299,7 @@ export function LoginForm() {
           {/* 1. Administrador */}
           <button
             type="button"
-            onClick={() => fillCredentials("jjsa610@gmail.com", "admin123", "Administrador")}
+            onClick={() => fillCredentials("jjsa610@gmail.com", "123456", "Administrador (Juan Álvarez)")}
             className="w-full flex items-center justify-between px-3 py-2 rounded-xl bg-white/5 hover:bg-[#253758] border border-white/10 hover:border-[#3C588A]/60 transition-all text-left cursor-pointer group"
           >
             <div>
@@ -315,15 +315,15 @@ export function LoginForm() {
           {/* 2. Inquilino */}
           <button
             type="button"
-            onClick={() => fillCredentials("jjsa6109+inquilino@gmail.com", "inquilino123", "Inquilino (LEYMA C.A)")}
+            onClick={() => fillCredentials("inquilino@conte.com", "123456", "Inquilino (Farmacia La Salud)")}
             className="w-full flex items-center justify-between px-3 py-2 rounded-xl bg-white/5 hover:bg-[#253758] border border-white/10 hover:border-[#3C588A]/60 transition-all text-left cursor-pointer group"
           >
             <div>
               <div className="flex items-center gap-1.5">
                 <span className="block text-xs font-bold text-emerald-300">Inquilino</span>
-                <span className="text-[10px] text-emerald-200/80 font-medium">(LEYMA C.A)</span>
+                <span className="text-[10px] text-emerald-200/80 font-medium">(Farmacia La Salud C.A.)</span>
               </div>
-              <span className="block text-[11px] text-slate-400 font-mono truncate max-w-[190px]">jjsa6109+inquilino@gmail.com</span>
+              <span className="block text-[11px] text-slate-400 font-mono">inquilino@conte.com</span>
             </div>
             <span className="text-[10px] bg-emerald-400/10 text-emerald-300 px-2 py-0.5 rounded border border-emerald-400/30 font-semibold shrink-0">Auto</span>
           </button>
@@ -331,7 +331,7 @@ export function LoginForm() {
           {/* 3. Personal de Seguridad */}
           <button
             type="button"
-            onClick={() => fillCredentials("seguridad@conte.com", "seguridad123", "Seguridad / Vigilante")}
+            onClick={() => fillCredentials("seguridad@conte.com", "123456", "Seguridad (Héctor Paredes)")}
             className="w-full flex items-center justify-between px-3 py-2 rounded-xl bg-white/5 hover:bg-[#253758] border border-white/10 hover:border-[#3C588A]/60 transition-all text-left cursor-pointer group"
           >
             <div>
@@ -344,18 +344,18 @@ export function LoginForm() {
             <span className="text-[10px] bg-teal-400/10 text-teal-300 px-2 py-0.5 rounded border border-teal-400/30 font-semibold">Auto</span>
           </button>
 
-          {/* 4. Personal en General */}
+          {/* 4. Técnico de Mantenimiento */}
           <button
             type="button"
-            onClick={() => fillCredentials("jjsa6109@gmail.com", "123456", "Personal General (Alonso Menifield)")}
+            onClick={() => fillCredentials("carlos.mendoza@inmobiliariaconte.com", "123456", "Mantenimiento (Carlos Mendoza)")}
             className="w-full flex items-center justify-between px-3 py-2 rounded-xl bg-white/5 hover:bg-[#253758] border border-white/10 hover:border-[#3C588A]/60 transition-all text-left cursor-pointer group"
           >
             <div>
               <div className="flex items-center gap-1.5">
-                <span className="block text-xs font-bold text-sky-300">Personal General</span>
-                <span className="text-[10px] text-sky-200/80 font-medium">(Alonso Menifield)</span>
+                <span className="block text-xs font-bold text-sky-300">Mantenimiento</span>
+                <span className="text-[10px] text-sky-200/80 font-medium">(Carlos Mendoza)</span>
               </div>
-              <span className="block text-[11px] text-slate-400 font-mono">jjsa6109@gmail.com</span>
+              <span className="block text-[11px] text-slate-400 font-mono truncate max-w-[190px]">carlos.mendoza@inmobiliariaconte.com</span>
             </div>
             <span className="text-[10px] bg-sky-400/10 text-sky-300 px-2 py-0.5 rounded border border-sky-400/30 font-semibold">Auto</span>
           </button>
