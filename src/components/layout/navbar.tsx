@@ -8,6 +8,7 @@ import { usePathname } from "next/navigation";
 import { Rol } from "@prisma/client";
 import { LogoutButton } from "@/components/auth/logout-button";
 import { notify } from "@/lib/notifications";
+import { getNavbarBadgesAction, type NavbarBadges } from "@/lib/actions/navbar-badges";
 
 const emptySubscribe = () => () => {};
 const useIsMounted = () => useSyncExternalStore(emptySubscribe, () => true, () => false);
@@ -30,6 +31,7 @@ interface NavItem {
   label: string;
   href: string;
   description?: string;
+  badge?: number;
 }
 
 interface NavGroup {
@@ -42,6 +44,7 @@ export function Navbar({ user }: NavbarProps = {}) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
   const [isVisible, setIsVisible] = useState(true);
+  const [badges, setBadges] = useState<NavbarBadges>({});
   const lastScrollY = useRef(0);
   const isMounted = useIsMounted();
 
@@ -53,6 +56,20 @@ export function Navbar({ user }: NavbarProps = {}) {
       : "/inquilino/perfil";
 
   const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // Consulta reactiva de badges de pendientes operativos al montar y al navegar
+  useEffect(() => {
+    if (!user) return;
+    let isSubscribed = true;
+    getNavbarBadgesAction().then((data) => {
+      if (isSubscribed) {
+        setBadges(data);
+      }
+    });
+    return () => {
+      isSubscribed = false;
+    };
+  }, [user?.id, pathname]);
 
   // Notificación de bienvenida al iniciar sesión exitosamente
   useEffect(() => {
@@ -172,7 +189,7 @@ export function Navbar({ user }: NavbarProps = {}) {
     setActiveDropdown(null);
   }
 
-  // Grupos de navegación de Administrador
+  // Grupos de navegación de Administrador con badges de pendientes
   const adminGroups: NavGroup[] = [
     {
       title: "Inmuebles & Contratos",
@@ -185,14 +202,24 @@ export function Navbar({ user }: NavbarProps = {}) {
     {
       title: "Cobranza & Finanzas",
       items: [
-        { label: "Panel de Cobranza", href: "/admin/cobranza", description: "Cánones y vencimientos" },
+        {
+          label: "Panel de Cobranza",
+          href: "/admin/cobranza",
+          description: "Cánones y vencimientos",
+          badge: badges.cobranza,
+        },
         { label: "Finanzas & Balance", href: "/admin/finanzas", description: "Ingresos, egresos y cierres de mes" },
       ],
     },
     {
       title: "Operaciones",
       items: [
-        { label: "Mantenimiento", href: "/admin/mantenimiento", description: "Averías y reparaciones técnicas" },
+        {
+          label: "Mantenimiento",
+          href: "/admin/mantenimiento",
+          description: "Averías y reparaciones técnicas",
+          badge: badges.mantenimiento,
+        },
         { label: "Personal & Asistencia", href: "/admin/personal", description: "Control de equipo y jornada" },
         { label: "Bitácora de Seguridad", href: "/admin/seguridad", description: "Rondas y novedades" },
         { label: "Agenda & Alertas", href: "/admin/agenda", description: "Citas y recordatorios automáticos" },
@@ -204,9 +231,19 @@ export function Navbar({ user }: NavbarProps = {}) {
 
   const empleadoItems: NavItem[] = [
     { label: "Panel Principal", href: "/empleado/dashboard", description: "Resumen de jornada y marcaje" },
-    { label: "Mis Tareas", href: "/empleado/tareas", description: "Pendientes operativos asignados" },
+    {
+      label: "Mis Tareas",
+      href: "/empleado/tareas",
+      description: "Pendientes operativos asignados",
+      badge: badges.tareas,
+    },
     { label: "Marcaje de Asistencia", href: "/empleado/asistencia", description: "Registro diario de entrada y salida" },
-    { label: "Mantenimiento", href: "/empleado/mantenimiento", description: "Averías asignadas para reparar" },
+    {
+      label: "Mantenimiento",
+      href: "/empleado/mantenimiento",
+      description: "Averías asignadas para reparar",
+      badge: badges.mantenimiento,
+    },
     ...(isSeguridad
       ? [{ label: "Bitácora de Seguridad", href: "/empleado/minuta", description: "Rondas y novedades" }]
       : []),
@@ -214,10 +251,18 @@ export function Navbar({ user }: NavbarProps = {}) {
 
   const inquilinoItems: NavItem[] = [
     { label: "Estado de Cuenta", href: "/inquilino/dashboard", description: "Resumen de cuenta y pagos" },
-    { label: "Historial de Pagos", href: "/inquilino/pagos", description: "Cánones y recibos oficiales" },
+    {
+      label: "Historial de Pagos",
+      href: "/inquilino/pagos",
+      description: "Cánones y recibos oficiales",
+      badge: badges.pagos,
+    },
     { label: "Mi Contrato", href: "/inquilino/contrato", description: "Condiciones de alquiler y copia digital" },
     { label: "Reportar Problema", href: "/inquilino/mantenimiento", description: "Solicitar asistencia por averías" },
   ];
+
+  // Total de badges pendientes para alertar en vista móvil y tablet
+  const totalBadges = Object.values(badges).reduce((sum, n) => sum + (n || 0), 0);
 
   // Insignias y colores por rol
   const roleBadges: Record<Rol, { label: string; bg: string; border: string; text: string }> = {
@@ -309,6 +354,9 @@ export function Navbar({ user }: NavbarProps = {}) {
                         }`}
                       >
                         <span>{group.title}</span>
+                        {group.items.some((it) => Boolean(it.badge && it.badge > 0)) && (
+                          <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
+                        )}
                         <svg
                           className={`w-4 h-4 transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`}
                           fill="none"
@@ -335,7 +383,14 @@ export function Navbar({ user }: NavbarProps = {}) {
                                     : "text-slate-200 hover:bg-[#202E4A]/80 hover:text-white"
                                 }`}
                               >
-                                <div className="text-sm font-semibold text-white">{item.label}</div>
+                                <div className="flex items-center justify-between gap-2">
+                                  <span className="text-sm font-semibold text-white">{item.label}</span>
+                                  {Boolean(item.badge && item.badge > 0) && (
+                                    <span className="inline-flex items-center justify-center px-1.5 py-0.5 rounded-full text-[10px] font-black bg-amber-500/20 text-amber-300 border border-amber-400/40 shrink-0">
+                                      {item.badge! > 9 ? "9+" : item.badge}
+                                    </span>
+                                  )}
+                                </div>
                                 {item.description && (
                                   <div className="text-xs text-slate-300 mt-0.5 truncate">
                                     {item.description}
@@ -361,11 +416,16 @@ export function Navbar({ user }: NavbarProps = {}) {
                     <Link
                       key={item.href}
                       href={item.href}
-                      className={`px-4 py-2 rounded-xl text-sm transition-all duration-150 ${
+                      className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm transition-all duration-150 ${
                         active ? activeRouteClasses : inactiveRouteClasses
                       }`}
                     >
-                      {item.label}
+                      <span>{item.label}</span>
+                      {Boolean(item.badge && item.badge > 0) && (
+                        <span className="inline-flex items-center justify-center px-1.5 py-0.5 rounded-full text-[10px] font-black bg-amber-500/20 text-amber-300 border border-amber-400/40 shrink-0">
+                          {item.badge! > 9 ? "9+" : item.badge}
+                        </span>
+                      )}
                     </Link>
                   );
                 })}
@@ -381,11 +441,16 @@ export function Navbar({ user }: NavbarProps = {}) {
                     <Link
                       key={item.href}
                       href={item.href}
-                      className={`px-4 py-2 rounded-xl text-sm transition-all duration-150 ${
+                      className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm transition-all duration-150 ${
                         active ? activeRouteClasses : inactiveRouteClasses
                       }`}
                     >
-                      {item.label}
+                      <span>{item.label}</span>
+                      {Boolean(item.badge && item.badge > 0) && (
+                        <span className="inline-flex items-center justify-center px-1.5 py-0.5 rounded-full text-[10px] font-black bg-amber-500/20 text-amber-300 border border-amber-400/40 shrink-0">
+                          {item.badge! > 9 ? "9+" : item.badge}
+                        </span>
+                      )}
                     </Link>
                   );
                 })}
@@ -423,15 +488,21 @@ export function Navbar({ user }: NavbarProps = {}) {
             </div>
           )}
 
-          {/* 4. Botón Hamburger Móvil */}
+          {/* 4. Botón Hamburger Móvil y Tablet */}
           {user && (
             <div className="flex lg:hidden items-center gap-2">
               <button
                 type="button"
                 onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                className="p-2.5 rounded-xl text-slate-300 hover:text-white hover:bg-white/10 focus:outline-none cursor-pointer border border-white/10"
+                className="relative p-2.5 rounded-xl text-slate-300 hover:text-white hover:bg-white/10 focus:outline-none cursor-pointer border border-white/10"
                 aria-label="Abrir menú"
               >
+                {/* Indicador de pendientes en vista móvil y tablet */}
+                {totalBadges > 0 && !mobileMenuOpen && (
+                  <span className="absolute -top-1 -right-1 flex h-4 min-w-4 px-1 items-center justify-center rounded-full bg-amber-500 text-[10px] font-black text-white shadow-xs border border-[#1C2539] animate-pulse">
+                    {totalBadges > 9 ? "9+" : totalBadges}
+                  </span>
+                )}
                 {mobileMenuOpen ? (
                   <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -516,6 +587,9 @@ export function Navbar({ user }: NavbarProps = {}) {
                   <div key={group.title} className="space-y-2">
                     <div className="px-1 text-[11px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2.5">
                       <span>{group.title}</span>
+                      {group.items.some((it) => Boolean(it.badge && it.badge > 0)) && (
+                        <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
+                      )}
                       <div className="flex-1 h-0.5 bg-emerald-500/70 rounded-full" />
                     </div>
                     <div className="space-y-1 bg-white/[0.02] border border-white/5 rounded-2xl p-1.5">
@@ -533,7 +607,14 @@ export function Navbar({ user }: NavbarProps = {}) {
                             }`}
                           >
                             <div className="flex flex-col min-w-0 pr-2">
-                              <span className="text-sm font-semibold leading-tight">{item.label}</span>
+                              <div className="flex items-center gap-2">
+                                <span className="text-sm font-semibold leading-tight">{item.label}</span>
+                                {Boolean(item.badge && item.badge > 0) && (
+                                  <span className="inline-flex items-center justify-center px-1.5 py-0.5 rounded-full text-[10px] font-black bg-amber-500/20 text-amber-300 border border-amber-400/40">
+                                    {item.badge! > 9 ? "9+" : item.badge}
+                                  </span>
+                                )}
+                              </div>
                               {item.description && (
                                 <span className="text-xs text-slate-400 mt-0.5 leading-snug truncate">
                                   {item.description}
@@ -573,7 +654,14 @@ export function Navbar({ user }: NavbarProps = {}) {
                       }`}
                     >
                       <div className="flex flex-col min-w-0 pr-2">
-                        <span className="text-sm font-semibold leading-tight">{item.label}</span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-semibold leading-tight">{item.label}</span>
+                          {Boolean(item.badge && item.badge > 0) && (
+                            <span className="inline-flex items-center justify-center px-1.5 py-0.5 rounded-full text-[10px] font-black bg-amber-500/20 text-amber-300 border border-amber-400/40">
+                              {item.badge! > 9 ? "9+" : item.badge}
+                            </span>
+                          )}
+                        </div>
                         {item.description && (
                           <span className="text-xs text-slate-400 mt-0.5 leading-snug truncate">
                             {item.description}
@@ -610,7 +698,14 @@ export function Navbar({ user }: NavbarProps = {}) {
                       }`}
                     >
                       <div className="flex flex-col min-w-0 pr-2">
-                        <span className="text-sm font-semibold leading-tight">{item.label}</span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-semibold leading-tight">{item.label}</span>
+                          {Boolean(item.badge && item.badge > 0) && (
+                            <span className="inline-flex items-center justify-center px-1.5 py-0.5 rounded-full text-[10px] font-black bg-amber-500/20 text-amber-300 border border-amber-400/40">
+                              {item.badge! > 9 ? "9+" : item.badge}
+                            </span>
+                          )}
+                        </div>
                         {item.description && (
                           <span className="text-xs text-slate-400 mt-0.5 leading-snug truncate">
                             {item.description}
