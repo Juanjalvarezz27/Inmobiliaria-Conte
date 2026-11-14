@@ -356,6 +356,20 @@ export function EmpleadoAsistenciasSection({
                       >
                         {esAutomaticaInasistencia ? "Sin marcar" : cfg.label}
                       </span>
+                      {/* Badge e indicador sutil de marcaje externo en historial */}
+                      {item.esMarcajeExterno && (
+                        <span
+                          className="inline-flex items-center gap-1 text-[10px] font-black bg-amber-50 text-amber-800 border border-amber-300 px-2 py-0.5 rounded-md shadow-2xs"
+                          title={item.observaciones || item.motivoExterno || "Marcaje realizado fuera del perímetro del inmueble"}
+                        >
+                          <span>📍 Marcaje Externo</span>
+                          {item.distanciaMetros && (
+                            <span className="font-mono opacity-85">
+                              ({item.distanciaMetros < 1000 ? `${item.distanciaMetros}m` : `${(item.distanciaMetros / 1000).toFixed(1)}km`})
+                            </span>
+                          )}
+                        </span>
+                      )}
                       {esOlvido && (
                         <span className="inline-flex items-center gap-1 text-[10px] font-extrabold bg-amber-100 text-amber-900 border border-amber-300 px-2 py-0.5 rounded-md">
                           <AlertTriangle className="w-3 h-3 text-amber-600 shrink-0" />
@@ -382,6 +396,15 @@ export function EmpleadoAsistenciasSection({
                           <span className="text-slate-500">
                             {item.horaSalida ? `Salida: ${formatearHora(item.horaSalida)}` : "En curso"}
                           </span>
+                        )}
+                        {/* Motivo de justificación sutil para el administrador */}
+                        {item.motivoExterno && (
+                          <>
+                            <span className="text-slate-300">•</span>
+                            <span className="text-[11px] text-amber-800/90 italic truncate max-w-[280px]" title={item.motivoExterno}>
+                              &ldquo;{item.motivoExterno}&rdquo;
+                            </span>
+                          </>
                         )}
                       </div>
                     ) : (

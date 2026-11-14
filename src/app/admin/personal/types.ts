@@ -49,6 +49,11 @@ export interface RegistroAsistenciaItem {
   estado: EstadoAsistencia;
   ubicacionEntrada: string | null;
   ubicacionSalida: string | null;
+  latitudEntrada?: number | null;
+  longitudEntrada?: number | null;
+  distanciaMetros?: number | null;
+  esMarcajeExterno?: boolean;
+  motivoExterno?: string | null;
   observaciones: string | null;
   createdAt: string;
 }

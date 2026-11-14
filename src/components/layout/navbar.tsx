@@ -222,7 +222,6 @@ export function Navbar({ user }: NavbarProps = {}) {
         },
         { label: "Personal & Asistencia", href: "/admin/personal", description: "Control de equipo y jornada" },
         { label: "Bitácora de Seguridad", href: "/admin/seguridad", description: "Rondas y novedades" },
-        { label: "Agenda & Alertas", href: "/admin/agenda", description: "Citas y recordatorios automáticos" },
       ],
     },
   ];

@@ -20,6 +20,7 @@ import { PageHeader } from "@/components/ui/page-header";
 import { PaginacionLocal } from "@/components/ui/paginacion-local";
 import { EmpleadoJornadaCard } from "./EmpleadoJornadaCard";
 import { EntregaGuardiaModal } from "./EntregaGuardiaModal";
+import { MarcajeExternoModal } from "./MarcajeExternoModal";
 import {
   marcarEntradaSalidaEmpleadoAction,
   type PortalEmpleadoData,
@@ -28,12 +29,16 @@ import {
 import type { RegistroAsistenciaItem } from "@/app/admin/personal/types";
 import { EstadoAsistencia, CargoEmpleado } from "@prisma/client";
 import { formatearHora12 } from "@/lib/date-utils";
+import { calcularDistanciaMetros, formatearDistancia } from "@/lib/geo-utils";
 
 interface Props {
   initialAsistenciaHoy: PortalEmpleadoData["asistenciaHoy"];
   initialHistorial: RegistroAsistenciaItem[];
   empleadoNombre: string;
   propiedadNombre: string | null;
+  propiedadLatitud?: number | null;
+  propiedadLongitud?: number | null;
+  propiedadRadioMetros?: number;
   compañerosSeguridad?: Array<{
     id: string;
     nombre: string;
@@ -46,6 +51,9 @@ export function EmpleadoAsistenciaClient({
   initialAsistenciaHoy,
   initialHistorial,
   propiedadNombre,
+  propiedadLatitud,
+  propiedadLongitud,
+  propiedadRadioMetros = 200,
   compañerosSeguridad = [],
   cargo,
 }: Props) {
@@ -53,6 +61,8 @@ export function EmpleadoAsistenciaClient({
   const [historial, setHistorial] = useState(initialHistorial);
   const [isPunching, setIsPunching] = useState(false);
   const [modalRelevoAbierto, setModalRelevoAbierto] = useState(false);
+  const [modalExternoAbierto, setModalExternoAbierto] = useState(false);
+  const [posicionPendiente, setPosicionPendiente] = useState<{ lat: number; lon: number; dist: number } | null>(null);
   const [isHistorialAbierto, setIsHistorialAbierto] = useState(false);
   const [paginaActual, setPaginaActual] = useState(1);
   const ITEMS_POR_PAGINA = 6;
@@ -165,6 +175,54 @@ export function EmpleadoAsistenciaClient({
     }
   };
 
+  // Disparador de marcaje de entrada con comprobación rápida de proximidad GPS
+  const handleBotonEntradaClick = () => {
+    // Si la propiedad no tiene coordenadas geográficas configuradas, marca directo sin GPS
+    const tieneCoords = typeof propiedadLatitud === "number" && typeof propiedadLongitud === "number";
+    if (!tieneCoords || !navigator.geolocation) {
+      handleMarcaje();
+      return;
+    }
+
+    setIsPunching(true);
+    toast.info("Validando ubicación con satélite GPS...");
+
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const lat = pos.coords.latitude;
+        const lon = pos.coords.longitude;
+        const dist = calcularDistanciaMetros(lat, lon, propiedadLatitud!, propiedadLongitud!);
+
+        if (dist <= propiedadRadioMetros) {
+          // Dentro del Centro Comercial -> Entrada directa
+          handleMarcaje({ latitud: lat, longitud: lon });
+        } else {
+          // Fuera de sede -> Abre modal de justificación rápida
+          setIsPunching(false);
+          setPosicionPendiente({ lat, lon, dist });
+          setModalExternoAbierto(true);
+        }
+      },
+      (error) => {
+        // En caso de permiso denegado o falla de GPS, permite continuar registrando la entrada sin paralizar la operación
+        console.warn("Falla de geolocalización:", error.message);
+        toast.warning("No se pudo obtener señal GPS satelital. Registrando marcación estándar...");
+        handleMarcaje();
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+    );
+  };
+
+  const handleConfirmarMarcajeExterno = (motivo: string) => {
+    setModalExternoAbierto(false);
+    handleMarcaje({
+      latitud: posicionPendiente?.lat,
+      longitud: posicionPendiente?.lon,
+      motivoExterno: motivo,
+    });
+    setPosicionPendiente(null);
+  };
+
   const handleBotonSalidaClick = () => {
     if (esSeguridad) {
       setModalRelevoAbierto(true);
@@ -237,7 +295,7 @@ export function EmpleadoAsistenciaClient({
             {!asistenciaHoy ? (
               <button
                 type="button"
-                onClick={() => handleMarcaje()}
+                onClick={handleBotonEntradaClick}
                 disabled={isPunching}
                 className="w-full md:min-w-[240px] h-14 px-6 rounded-2xl font-heading font-black text-sm text-white bg-gradient-to-r from-[#175E38] to-[#124b2d] hover:from-[#124b2d] hover:to-[#0e3a23] border-b-[3px] border-b-[#0e3a23] active:translate-y-0.5 transition-all shadow-[0_4px_16px_rgba(23,94,56,0.35)] flex items-center justify-center gap-2.5 cursor-pointer disabled:opacity-50"
               >
@@ -294,6 +352,19 @@ export function EmpleadoAsistenciaClient({
         onConfirm={handleMarcaje}
         compañerosSeguridad={compañerosSeguridad}
         horasEnCurso={asistenciaHoy?.horasEnCurso || 24}
+      />
+
+      {/* Modal de Justificación de Marcaje Fuera de Sede */}
+      <MarcajeExternoModal
+        isOpen={modalExternoAbierto}
+        onClose={() => {
+          setModalExternoAbierto(false);
+          setPosicionPendiente(null);
+        }}
+        onConfirm={handleConfirmarMarcajeExterno}
+        distanciaMetros={posicionPendiente?.dist || null}
+        propiedadNombre={propiedadNombre}
+        isSubmitting={isPunching}
       />
 
       {/* MÉTRICAS DE ASISTENCIA */}

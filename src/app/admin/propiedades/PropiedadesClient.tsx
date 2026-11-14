@@ -793,6 +793,7 @@ export function PropiedadesClient({
         maxWidth="3xl"
       >
         <PropiedadForm
+          key={propiedadSeleccionada?.id ?? "nueva-propiedad"}
           initialData={propiedadSeleccionada ?? undefined}
           defaultTipo={tipoModalPreseleccionado}
           onSubmit={propiedadModal === "crear" ? handleCrearPropiedad : handleEditarPropiedad}

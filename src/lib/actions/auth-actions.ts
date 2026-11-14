@@ -3,6 +3,7 @@
 import { signIn, signOut } from "@/auth";
 import { AuthError } from "next-auth";
 import { redirect } from "next/navigation";
+import { prisma } from "@/lib/prisma";
 
 export type LoginState = {
   error?: string;
@@ -36,12 +37,26 @@ export async function loginAction(
           return { error: "Error en el servidor de autenticación. Intenta nuevamente." };
       }
     }
-    // Propagar errores no capturados
+    // Propagar errores nativos de Next.js (como NEXT_REDIRECT lanzado por redirect)
     throw error;
   }
 
-  // Redirección relativa nativa de Next.js para preservar el host actual (IP móvil, local o dominio)
-  redirect("/home/dashboard");
+  // Redirigir directamente al dashboard según el rol del usuario autenticado
+  const usuario = await prisma.usuario.findUnique({
+    where: { email: String(email).trim().toLowerCase() },
+    select: { rol: true },
+  });
+
+  const destino =
+    usuario?.rol === "ADMIN"
+      ? "/admin/dashboard"
+      : usuario?.rol === "EMPLEADO"
+      ? "/empleado/dashboard"
+      : usuario?.rol === "INQUILINO"
+      ? "/inquilino/dashboard"
+      : "/home/dashboard";
+
+  redirect(destino);
 }
 
 export async function logoutAction() {

@@ -16,6 +16,7 @@ import {
 } from "@prisma/client";
 import { RegistroAsistenciaItem } from "@/app/admin/personal/types";
 import { cerrarJornadasIncompletasEmpleado } from "./personal";
+import { calcularDistanciaMetros, formatearDistancia } from "@/lib/geo-utils";
 
 // Helper interno para resolver el empleado autenticado de forma estricta en el servidor
 async function getEmpleadoAutenticado() {
@@ -27,14 +28,34 @@ async function getEmpleadoAutenticado() {
   // Buscar por usuarioId vinculado
   let empleado = await prisma.empleado.findFirst({
     where: { usuarioId: session.user.id },
-    include: { propiedad: { select: { id: true, nombre: true } } },
+    include: {
+      propiedad: {
+        select: {
+          id: true,
+          nombre: true,
+          latitud: true,
+          longitud: true,
+          radioMetros: true,
+        },
+      },
+    },
   });
 
   // Si no se encuentra por usuarioId, buscar por email
   if (!empleado && session.user.email) {
     empleado = await prisma.empleado.findFirst({
       where: { email: session.user.email },
-      include: { propiedad: { select: { id: true, nombre: true } } },
+      include: {
+        propiedad: {
+          select: {
+            id: true,
+            nombre: true,
+            latitud: true,
+            longitud: true,
+            radioMetros: true,
+          },
+        },
+      },
     });
   }
 
@@ -42,7 +63,17 @@ async function getEmpleadoAutenticado() {
   if (!empleado && session.user.rol === Rol.ADMIN) {
     empleado = await prisma.empleado.findFirst({
       where: { activo: true },
-      include: { propiedad: { select: { id: true, nombre: true } } },
+      include: {
+        propiedad: {
+          select: {
+            id: true,
+            nombre: true,
+            latitud: true,
+            longitud: true,
+            radioMetros: true,
+          },
+        },
+      },
     });
   }
 
@@ -77,6 +108,9 @@ export interface PortalEmpleadoData {
     cargoPersonalizado: string | null;
     propiedadId: string | null;
     propiedadNombre: string | null;
+    propiedadLatitud?: number | null;
+    propiedadLongitud?: number | null;
+    propiedadRadioMetros?: number;
     fechaIngreso: string;
   };
   asistenciaHoy: {
@@ -87,6 +121,11 @@ export interface PortalEmpleadoData {
     estado: EstadoAsistencia;
     ubicacionEntrada: string | null;
     ubicacionSalida: string | null;
+    latitudEntrada?: number | null;
+    longitudEntrada?: number | null;
+    distanciaMetros?: number | null;
+    esMarcajeExterno?: boolean;
+    motivoExterno?: string | null;
     observaciones: string | null;
     esGuardia24h?: boolean;
     horasEnCurso?: number;
@@ -260,6 +299,9 @@ export async function getPortalEmpleadoData(): Promise<{ success: boolean; data?
           cargoPersonalizado: empleado.cargoPersonalizado,
           propiedadId: empleado.propiedadId,
           propiedadNombre: empleado.propiedad?.nombre || null,
+          propiedadLatitud: empleado.propiedad?.latitud || null,
+          propiedadLongitud: empleado.propiedad?.longitud || null,
+          propiedadRadioMetros: empleado.propiedad?.radioMetros || 200,
           fechaIngreso: empleado.fechaIngreso.toISOString(),
         },
         asistenciaHoy: registroAsistenciaActivo
@@ -271,6 +313,11 @@ export async function getPortalEmpleadoData(): Promise<{ success: boolean; data?
               estado: registroAsistenciaActivo.estado,
               ubicacionEntrada: registroAsistenciaActivo.ubicacionEntrada,
               ubicacionSalida: registroAsistenciaActivo.ubicacionSalida,
+              latitudEntrada: registroAsistenciaActivo.latitudEntrada,
+              longitudEntrada: registroAsistenciaActivo.longitudEntrada,
+              distanciaMetros: registroAsistenciaActivo.distanciaMetros,
+              esMarcajeExterno: registroAsistenciaActivo.esMarcajeExterno,
+              motivoExterno: registroAsistenciaActivo.motivoExterno,
               observaciones: registroAsistenciaActivo.observaciones,
               esGuardia24h: esGuardia24hActiva,
               horasEnCurso,
@@ -329,6 +376,9 @@ export interface EntregaGuardiaInput {
   guardiaRelevoNombre?: string;
   sinRelevo?: boolean;
   observacionesEntrega?: string;
+  latitud?: number;
+  longitud?: number;
+  motivoExterno?: string;
 }
 
 // Marcaje de jornada de 1 toque o entrega de guardia 24h
@@ -405,6 +455,34 @@ export async function marcarEntradaSalidaEmpleadoAction(input?: string | Entrega
         }
       }
 
+      // Validación de presencia física por GPS si el inmueble tiene coordenadas configuradas
+      let distanciaCalculada: number | null = null;
+      let esExterno = false;
+      const tieneCoordsPropiedad =
+        typeof empleado.propiedad?.latitud === "number" &&
+        typeof empleado.propiedad?.longitud === "number";
+
+      if (tieneCoordsPropiedad && payload.latitud && payload.longitud) {
+        distanciaCalculada = calcularDistanciaMetros(
+          payload.latitud,
+          payload.longitud,
+          empleado.propiedad!.latitud!,
+          empleado.propiedad!.longitud!
+        );
+        const radioMaximo = empleado.propiedad!.radioMetros || 200;
+        if (distanciaCalculada > radioMaximo) {
+          esExterno = true;
+        }
+      }
+
+      let notasEntrada = esSeguridad ? "Inicio de Guardia de Seguridad (24 Horas)" : null;
+      if (esExterno && payload.motivoExterno) {
+        const distanciaTxt = distanciaCalculada ? ` (${formatearDistancia(distanciaCalculada)})` : "";
+        notasEntrada = notasEntrada
+          ? `${notasEntrada} | Marcaje Externo${distanciaTxt}: ${payload.motivoExterno}`
+          : `Marcaje Externo${distanciaTxt}: ${payload.motivoExterno}`;
+      }
+
       await prisma.registroAsistencia.create({
         data: {
           empleadoId: empleado.id,
@@ -412,7 +490,12 @@ export async function marcarEntradaSalidaEmpleadoAction(input?: string | Entrega
           horaEntrada: ahora,
           estado: EstadoAsistencia.PRESENTE,
           ubicacionEntrada: nombreLugar,
-          observaciones: esSeguridad ? "Inicio de Guardia de Seguridad (24 Horas)" : null,
+          latitudEntrada: payload.latitud || null,
+          longitudEntrada: payload.longitud || null,
+          distanciaMetros: distanciaCalculada,
+          esMarcajeExterno: esExterno,
+          motivoExterno: esExterno ? payload.motivoExterno || "Fuera de sede" : null,
+          observaciones: notasEntrada,
         },
       });
 
@@ -420,12 +503,16 @@ export async function marcarEntradaSalidaEmpleadoAction(input?: string | Entrega
       revalidatePath("/empleado/asistencia");
       revalidatePath("/admin/personal");
 
+      const avisoDistancia = esExterno && distanciaCalculada
+        ? ` (Marcaje externo a ${formatearDistancia(distanciaCalculada)})`
+        : "";
+
       return {
         success: true,
         tipo: "ENTRADA",
         message: esSeguridad
-          ? `Guardia iniciada con éxito a las ${ahora.toLocaleTimeString("es-VE", { hour: "2-digit", minute: "2-digit" })}.`
-          : `Entrada registrada con éxito a las ${ahora.toLocaleTimeString("es-VE", { hour: "2-digit", minute: "2-digit" })}.`,
+          ? `Guardia iniciada con éxito a las ${ahora.toLocaleTimeString("es-VE", { hour: "2-digit", minute: "2-digit" })}${avisoDistancia}.`
+          : `Entrada registrada con éxito a las ${ahora.toLocaleTimeString("es-VE", { hour: "2-digit", minute: "2-digit" })}${avisoDistancia}.`,
       };
     }
 
@@ -654,6 +741,11 @@ export async function getHistorialAsistenciaEmpleadoAction(): Promise<{
       estado: r.estado,
       ubicacionEntrada: r.ubicacionEntrada,
       ubicacionSalida: r.ubicacionSalida,
+      latitudEntrada: r.latitudEntrada,
+      longitudEntrada: r.longitudEntrada,
+      distanciaMetros: r.distanciaMetros,
+      esMarcajeExterno: r.esMarcajeExterno,
+      motivoExterno: r.motivoExterno,
       observaciones: r.observaciones,
       createdAt: r.createdAt.toISOString(),
     }));

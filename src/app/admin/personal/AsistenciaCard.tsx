@@ -195,6 +195,14 @@ export function AsistenciaCard({
                     <span>🛡️ Guardia 24h</span>
                   </span>
                 )}
+                {asist.esMarcajeExterno && (
+                  <span
+                    className="inline-flex items-center gap-1 font-black text-[10px] px-2 py-0.5 rounded-lg bg-amber-50 text-amber-800 border border-amber-300 shadow-2xs"
+                    title={asist.motivoExterno || "Marcaje fuera del perímetro del Centro Comercial"}
+                  >
+                    <span>📍 Fuera de Sede</span>
+                  </span>
+                )}
                 <span
                   className={`inline-flex items-center gap-1 font-bold text-[11px] px-2 py-0.5 rounded-lg border shadow-2xs ${estadoConfig.badgeClass}`}
                 >

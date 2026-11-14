@@ -22,6 +22,7 @@ import {
 import { toast } from "sonner";
 import { StatCard } from "@/components/ui/stat-card";
 import { EntregaGuardiaModal } from "@/app/empleado/asistencia/EntregaGuardiaModal";
+import { MarcajeExternoModal } from "@/app/empleado/asistencia/MarcajeExternoModal";
 import {
   marcarEntradaSalidaEmpleadoAction,
   type PortalEmpleadoData,
@@ -31,6 +32,7 @@ import { CARGO_CONFIG } from "@/app/admin/personal/types";
 import { EstadoTarea, EstadoTicket, CargoEmpleado } from "@prisma/client";
 import { CATEGORIAS_TICKET } from "@/lib/constants/mantenimiento";
 import { formatearHora12 } from "@/lib/date-utils";
+import { calcularDistanciaMetros } from "@/lib/geo-utils";
 
 interface Props {
   initialData: PortalEmpleadoData;
@@ -40,6 +42,8 @@ export function EmpleadoDashboardClient({ initialData }: Props) {
   const [data, setData] = useState<PortalEmpleadoData>(initialData);
   const [isPunching, setIsPunching] = useState(false);
   const [modalRelevoAbierto, setModalRelevoAbierto] = useState(false);
+  const [modalExternoAbierto, setModalExternoAbierto] = useState(false);
+  const [posicionPendiente, setPosicionPendiente] = useState<{ lat: number; lon: number; dist: number } | null>(null);
 
   const { empleado, asistenciaHoy, tareas, metricas, compañerosSeguridad } = data;
   const esSeguridad = empleado.cargo === CargoEmpleado.SEGURIDAD || asistenciaHoy?.esGuardia24h;
@@ -129,6 +133,59 @@ export function EmpleadoDashboardClient({ initialData }: Props) {
     } finally {
       setIsPunching(false);
     }
+  };
+
+  // Disparador de marcaje de entrada con comprobación GPS satelital
+  const handleBotonEntradaClick = () => {
+    const tieneCoords =
+      typeof empleado.propiedadLatitud === "number" &&
+      typeof empleado.propiedadLongitud === "number";
+
+    if (!tieneCoords || !navigator.geolocation) {
+      handleMarcaje();
+      return;
+    }
+
+    setIsPunching(true);
+    toast.info("Validando ubicación con satélite GPS...");
+
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const lat = pos.coords.latitude;
+        const lon = pos.coords.longitude;
+        const dist = calcularDistanciaMetros(
+          lat,
+          lon,
+          empleado.propiedadLatitud!,
+          empleado.propiedadLongitud!
+        );
+        const radioMaximo = empleado.propiedadRadioMetros || 200;
+
+        if (dist <= radioMaximo) {
+          handleMarcaje({ latitud: lat, longitud: lon });
+        } else {
+          setIsPunching(false);
+          setPosicionPendiente({ lat, lon, dist });
+          setModalExternoAbierto(true);
+        }
+      },
+      (error) => {
+        console.warn("Falla de geolocalización:", error.message);
+        toast.warning("No se pudo obtener señal GPS. Registrando marcación estándar...");
+        handleMarcaje();
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+    );
+  };
+
+  const handleConfirmarMarcajeExterno = (motivo: string) => {
+    setModalExternoAbierto(false);
+    handleMarcaje({
+      latitud: posicionPendiente?.lat,
+      longitud: posicionPendiente?.lon,
+      motivoExterno: motivo,
+    });
+    setPosicionPendiente(null);
   };
 
   const handleBotonSalidaClick = () => {
@@ -341,7 +398,7 @@ export function EmpleadoDashboardClient({ initialData }: Props) {
 
               <button
                 type="button"
-                onClick={() => handleMarcaje()}
+                onClick={handleBotonEntradaClick}
                 disabled={isPunching}
                 className="h-11 px-6 rounded-xl font-heading font-black text-xs text-white bg-gradient-to-r from-[#175E38] to-[#124b2d] hover:from-[#124b2d] hover:to-[#0e3a23] border-b-[3px] border-b-[#0e3a23] active:translate-y-0.5 transition-all shadow-[0_2px_8px_rgba(23,94,56,0.25)] flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 shrink-0"
               >
@@ -481,6 +538,19 @@ export function EmpleadoDashboardClient({ initialData }: Props) {
         onConfirm={handleMarcaje}
         compañerosSeguridad={compañerosSeguridad || []}
         horasEnCurso={asistenciaHoy?.horasEnCurso || 24}
+      />
+
+      {/* Modal de Justificación de Marcaje Fuera de Sede */}
+      <MarcajeExternoModal
+        isOpen={modalExternoAbierto}
+        onClose={() => {
+          setModalExternoAbierto(false);
+          setPosicionPendiente(null);
+        }}
+        onConfirm={handleConfirmarMarcajeExterno}
+        distanciaMetros={posicionPendiente?.dist || null}
+        propiedadNombre={empleado.propiedadNombre}
+        isSubmitting={isPunching}
       />
 
       {/* 4. ASIGNACIONES DE TRABAJO (2 COLUMNAS PARALELAS 50/50 CON ALTURAS IDÉNTICAS) */}

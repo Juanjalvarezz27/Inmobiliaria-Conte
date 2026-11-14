@@ -42,6 +42,9 @@ export default async function EmpleadoAsistenciaPage() {
       initialHistorial={historialRes.data || []}
       empleadoNombre={portalRes.data.empleado.nombre}
       propiedadNombre={portalRes.data.empleado.propiedadNombre}
+      propiedadLatitud={portalRes.data.empleado.propiedadLatitud || null}
+      propiedadLongitud={portalRes.data.empleado.propiedadLongitud || null}
+      propiedadRadioMetros={portalRes.data.empleado.propiedadRadioMetros || 200}
       compañerosSeguridad={portalRes.data.compañerosSeguridad || []}
       cargo={portalRes.data.empleado.cargo}
     />

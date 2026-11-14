@@ -5,6 +5,7 @@ import { requireAdminSession } from "@/lib/auth-guard";
 import { revalidatePath, revalidateTag, unstable_cache } from "next/cache";
 import { Prisma, TipoPropiedad, TipoUnidad, EstadoContrato, EstadoUnidad } from "@prisma/client";
 import { eliminarArchivosUploadThing } from "@/lib/uploadthing-server";
+import { extraerCoordenadasDeTexto } from "@/lib/geo-utils";
 
 export interface CreatePropiedadInput {
   nombre: string;
@@ -16,6 +17,9 @@ export interface CreatePropiedadInput {
   areaTotalM2?: number;
   propietario?: string;
   telefonoContacto?: string;
+  latitud?: number | null;
+  longitud?: number | null;
+  radioMetros?: number;
   // Campos opcionales para autogenerar la unidad si es una propiedad independiente
   unidadInicial?: {
     areaMt2?: number;
@@ -34,6 +38,9 @@ export interface UpdatePropiedadInput {
   areaTotalM2?: number | null;
   propietario?: string | null;
   telefonoContacto?: string | null;
+  latitud?: number | null;
+  longitud?: number | null;
+  radioMetros?: number;
 }
 
 // Proyección mínima y optimizada: solo trae los campos necesarios para la UI y la gestión
@@ -48,6 +55,9 @@ const PROPIEDAD_SELECT = {
   areaTotalM2: true,
   propietario: true,
   telefonoContacto: true,
+  latitud: true,
+  longitud: true,
+  radioMetros: true,
   activo: true,
 } as const;
 
@@ -126,6 +136,9 @@ export async function createPropiedad(data: CreatePropiedadInput) {
             areaTotalM2: data.areaTotalM2 ?? null,
             propietario: data.propietario?.trim() || null,
             telefonoContacto: data.telefonoContacto?.trim() || null,
+            latitud: data.latitud ?? null,
+            longitud: data.longitud ?? null,
+            radioMetros: data.radioMetros ?? 200,
           },
           select: PROPIEDAD_SELECT,
         });
@@ -165,6 +178,9 @@ export async function createPropiedad(data: CreatePropiedadInput) {
         areaTotalM2: data.areaTotalM2 ?? null,
         propietario: data.propietario?.trim() || null,
         telefonoContacto: data.telefonoContacto?.trim() || null,
+        latitud: data.latitud ?? null,
+        longitud: data.longitud ?? null,
+        radioMetros: data.radioMetros ?? 200,
       },
       select: PROPIEDAD_SELECT,
     });
@@ -196,6 +212,9 @@ export async function updatePropiedad(id: string, data: UpdatePropiedadInput) {
         ...(data.areaTotalM2 !== undefined && { areaTotalM2: data.areaTotalM2 }),
         ...(data.propietario !== undefined && { propietario: data.propietario?.trim() || null }),
         ...(data.telefonoContacto !== undefined && { telefonoContacto: data.telefonoContacto?.trim() || null }),
+        ...(data.latitud !== undefined && { latitud: data.latitud }),
+        ...(data.longitud !== undefined && { longitud: data.longitud }),
+        ...(data.radioMetros !== undefined && { radioMetros: data.radioMetros }),
       },
       select: PROPIEDAD_SELECT,
     });
@@ -357,4 +376,57 @@ export async function getPropiedadesOpciones() {
     console.error("Error al obtener opciones de propiedades:", error);
     return [];
   }
+}
+
+// Resuelve URLs acortadas o indirectas de Google Maps en el servidor
+export async function resolverCoordenadasUrl(input: string): Promise<{
+  success: boolean;
+  lat?: number;
+  lon?: number;
+  finalUrl?: string;
+  error?: string;
+}> {
+  if (!input || !input.trim()) {
+    return { success: false, error: "El enlace o texto está vacío." };
+  }
+
+  // 1. Probar extracción directa primero
+  const directas = extraerCoordenadasDeTexto(input);
+  if (directas) {
+    return { success: true, lat: directas.lat, lon: directas.lon };
+  }
+
+  // 2. Si es una URL http/https, seguir la redirección en el servidor
+  const urlTrim = input.trim();
+  if (/^https?:\/\//i.test(urlTrim)) {
+    try {
+      const response = await fetch(urlTrim, {
+        method: "GET",
+        headers: {
+          "User-Agent":
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+          Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        },
+        redirect: "follow",
+      });
+
+      const finalUrl = response.url;
+      const coordsFromUrl = extraerCoordenadasDeTexto(finalUrl);
+      if (coordsFromUrl) {
+        return { success: true, lat: coordsFromUrl.lat, lon: coordsFromUrl.lon, finalUrl };
+      }
+
+      // 3. Inspeccionar el HTML de respuesta para buscar coordenadas en meta tags
+      const html = await response.text();
+      const coordsFromHtml = extraerCoordenadasDeTexto(html);
+      if (coordsFromHtml) {
+        return { success: true, lat: coordsFromHtml.lat, lon: coordsFromHtml.lon, finalUrl };
+      }
+    } catch (err) {
+      console.error("Error al resolver URL de Google Maps:", err);
+      return { success: false, error: "No se pudo conectar con el enlace de Google Maps." };
+    }
+  }
+
+  return { success: false, error: "No se detectaron coordenadas numéricas en el enlace." };
 }

@@ -13,6 +13,9 @@ export type PropiedadConConteo = {
   areaTotalM2: number | null;
   propietario: string | null;
   telefonoContacto: string | null;
+  latitud?: number | null;
+  longitud?: number | null;
+  radioMetros?: number;
   activo?: boolean;
   createdAt?: Date;
   updatedAt?: Date;

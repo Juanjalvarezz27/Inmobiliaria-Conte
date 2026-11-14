@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Loader2,
   Building2,
@@ -19,10 +19,14 @@ import {
   Layers3,
   Trees,
   UserCheck,
+  Navigation,
+  Link2,
+  ExternalLink,
 } from "lucide-react";
 import { TipoPropiedad } from "@prisma/client";
-import type { CreatePropiedadInput, UpdatePropiedadInput } from "@/lib/actions/propiedades";
+import { type CreatePropiedadInput, type UpdatePropiedadInput, resolverCoordenadasUrl } from "@/lib/actions/propiedades";
 import { PhoneInput } from "@/components/ui";
+import { extraerCoordenadasDeTexto } from "@/lib/geo-utils";
 import { toast } from "sonner";
 
 interface Props {
@@ -37,6 +41,9 @@ interface Props {
     areaTotalM2: number | null;
     propietario: string | null;
     telefonoContacto: string | null;
+    latitud?: number | null;
+    longitud?: number | null;
+    radioMetros?: number;
   };
   defaultTipo?: TipoPropiedad;
   onSubmit: (data: CreatePropiedadInput | UpdatePropiedadInput) => void;
@@ -198,6 +205,84 @@ export function PropiedadForm({ initialData, defaultTipo, onSubmit, onCancel, is
     initialData?.areaTotalM2?.toString() ?? ""
   );
 
+  // Coordenadas geográficas para validación GPS de asistencia (Fase 35)
+  const [latitud, setLatitud] = useState<string>(
+    initialData?.latitud !== null && initialData?.latitud !== undefined
+      ? initialData.latitud.toString()
+      : ""
+  );
+  const [longitud, setLongitud] = useState<string>(
+    initialData?.longitud !== null && initialData?.longitud !== undefined
+      ? initialData.longitud.toString()
+      : ""
+  );
+  const [radioMetros, setRadioMetros] = useState<string>(
+    initialData?.radioMetros?.toString() ?? "200"
+  );
+  const [googleMapsInput, setGoogleMapsInput] = useState<string>(
+    initialData?.latitud && initialData?.longitud
+      ? `https://www.google.com/maps?q=${initialData.latitud},${initialData.longitud}`
+      : ""
+  );
+  const [isResolviendoUrl, setIsResolviendoUrl] = useState<boolean>(false);
+
+  // Sincronizar estado si initialData cambia o se carga
+  useEffect(() => {
+    if (initialData?.latitud !== null && initialData?.latitud !== undefined) {
+      setLatitud(initialData.latitud.toString());
+    }
+    if (initialData?.longitud !== null && initialData?.longitud !== undefined) {
+      setLongitud(initialData.longitud.toString());
+    }
+    if (initialData?.radioMetros) {
+      setRadioMetros(initialData.radioMetros.toString());
+    }
+    if (initialData?.latitud && initialData?.longitud) {
+      setGoogleMapsInput(`https://www.google.com/maps?q=${initialData.latitud},${initialData.longitud}`);
+    }
+  }, [initialData?.latitud, initialData?.longitud, initialData?.radioMetros]);
+
+  // Helper para procesar texto, coordenadas o enlaces de Google Maps
+  const handlePegarGoogleMaps = async (valor: string) => {
+    setGoogleMapsInput(valor);
+    if (!valor.trim()) {
+      setLatitud("");
+      setLongitud("");
+      return;
+    }
+
+    // 1. Detección instantánea en cliente (coordenadas directas, DMS, parámetros @ y ?q)
+    const coords = extraerCoordenadasDeTexto(valor);
+    if (coords) {
+      setLatitud(coords.lat.toString());
+      setLongitud(coords.lon.toString());
+      toast.success("Coordenadas extraídas y fijadas con éxito.");
+      return;
+    }
+
+    // 2. Si es un enlace acortado o indirecto (ej: maps.app.goo.gl), resolver vía servidor
+    if (/^https?:\/\//i.test(valor.trim())) {
+      setIsResolviendoUrl(true);
+      try {
+        const res = await resolverCoordenadasUrl(valor.trim());
+        if (res.success && res.lat !== undefined && res.lon !== undefined) {
+          setLatitud(res.lat.toString());
+          setLongitud(res.lon.toString());
+          if (res.finalUrl) {
+            setGoogleMapsInput(res.finalUrl);
+          }
+          toast.success("Enlace resuelto y coordenadas fijadas.");
+        } else {
+          toast.error(res.error || "No se detectaron coordenadas en el enlace.");
+        }
+      } catch {
+        toast.error("Error al procesar el enlace de Google Maps.");
+      } finally {
+        setIsResolviendoUrl(false);
+      }
+    }
+  };
+
   // Campos para autogenerar la unidad de propiedades individuales
   const [areaMt2, setAreaMt2] = useState<string>("");
   const [precioAlquiler, setPrecioAlquiler] = useState<string>("");
@@ -232,6 +317,9 @@ export function PropiedadForm({ initialData, defaultTipo, onSubmit, onCancel, is
         areaTotalM2: areaTotalM2 ? parseFloat(areaTotalM2) : null,
         propietario: propietario.trim() || null,
         telefonoContacto: telefonoContacto.trim() || null,
+        latitud: latitud ? parseFloat(latitud) : null,
+        longitud: longitud ? parseFloat(longitud) : null,
+        radioMetros: radioMetros ? parseInt(radioMetros) : 200,
       });
     } else {
       const inputData: CreatePropiedadInput = {
@@ -244,6 +332,9 @@ export function PropiedadForm({ initialData, defaultTipo, onSubmit, onCancel, is
         areaTotalM2: areaTotalM2 ? parseFloat(areaTotalM2) : undefined,
         propietario: propietario.trim() || undefined,
         telefonoContacto: telefonoContacto.trim() || undefined,
+        latitud: latitud ? parseFloat(latitud) : undefined,
+        longitud: longitud ? parseFloat(longitud) : undefined,
+        radioMetros: radioMetros ? parseInt(radioMetros) : 200,
       };
 
       if (esIndividual && (areaMt2 || precioAlquiler)) {
@@ -442,6 +533,124 @@ export function PropiedadForm({ initialData, defaultTipo, onSubmit, onCancel, is
                 onChange={(e) => setPropietario(e.target.value)}
                 placeholder="Ej: Inmobiliaria Conte"
                 className="w-full pl-10 pr-3.5 py-2.5 text-sm bg-white border border-slate-200/90 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#175E38]/20 focus:border-[#175E38] font-medium text-slate-900 transition-all placeholder:text-slate-400"
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Geoposicionamiento GPS para control de asistencia (Opcional) */}
+        <div className="pt-2 border-t border-slate-100 space-y-3">
+          <div>
+            <span className="block text-[11px] font-bold uppercase tracking-wide text-slate-700">
+              Ubicación Satelital GPS (Marcaje de Asistencia)
+            </span>
+            <p className="text-[11px] text-slate-400 mt-0.5">
+              Pega cualquier link copiado de Google Maps o coordenadas directas. El sistema extraerá la latitud y longitud automáticamente.
+            </p>
+          </div>
+
+          {/* Pegar enlace o coordenadas directas de Google Maps */}
+          <div>
+            <div className="flex items-center justify-between mb-1">
+              <label className="block text-[10px] font-semibold uppercase text-slate-500">
+                Enlace o Coordenadas de Google Maps
+              </label>
+              {(latitud && longitud) && (
+                <span className="inline-flex items-center gap-1 text-[10.5px] font-bold text-[#175E38] bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+                  <Check className="w-3 h-3 stroke-[3]" />
+                  <span>GPS Configurado</span>
+                </span>
+              )}
+            </div>
+            <div className="relative">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                {isResolviendoUrl ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin text-[#175E38]" />
+                ) : (
+                  <Link2 className="w-3.5 h-3.5" />
+                )}
+              </div>
+              <input
+                type="text"
+                value={googleMapsInput}
+                onChange={(e) => handlePegarGoogleMaps(e.target.value)}
+                onPaste={(e) => {
+                  const text = e.clipboardData.getData("text");
+                  if (text) {
+                    e.preventDefault();
+                    handlePegarGoogleMaps(text);
+                  }
+                }}
+                disabled={isResolviendoUrl}
+                placeholder="Pega el link de Google Maps (ej: https://maps.app.goo.gl/... o coordenadas 9.3133,-70.6071)"
+                className="w-full pl-9 pr-24 py-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#175E38]/20 focus:border-[#175E38] text-slate-800 placeholder:text-slate-400 font-medium disabled:opacity-60"
+              />
+              {latitud && longitud && (
+                <a
+                  href={`https://www.google.com/maps?q=${latitud},${longitud}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="absolute inset-y-1.5 right-1.5 px-2.5 flex items-center gap-1 text-[11px] font-bold text-[#175E38] bg-white border border-[#175E38]/25 rounded-lg hover:bg-emerald-50 transition-colors shadow-xs"
+                  title="Abrir ubicación en Google Maps"
+                >
+                  <span>Ver mapa</span>
+                  <ExternalLink className="w-3 h-3" />
+                </a>
+              )}
+            </div>
+          </div>
+
+          {/* Cuadrícula de coordenadas confirmadas */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
+            <div>
+              <label className="block text-[10px] font-semibold uppercase text-slate-500 mb-1">
+                Latitud Detectada
+              </label>
+              <input
+                type="number"
+                step="any"
+                value={latitud}
+                onChange={(e) => {
+                  setLatitud(e.target.value);
+                  if (e.target.value && longitud) {
+                    setGoogleMapsInput(`https://www.google.com/maps?q=${e.target.value},${longitud}`);
+                  }
+                }}
+                placeholder="Auto-completada"
+                className="w-full px-3 py-2 text-xs bg-slate-50/70 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#175E38]/20 focus:border-[#175E38] font-mono text-slate-800 font-bold"
+              />
+            </div>
+            <div>
+              <label className="block text-[10px] font-semibold uppercase text-slate-500 mb-1">
+                Longitud Detectada
+              </label>
+              <input
+                type="number"
+                step="any"
+                value={longitud}
+                onChange={(e) => {
+                  setLongitud(e.target.value);
+                  if (latitud && e.target.value) {
+                    setGoogleMapsInput(`https://www.google.com/maps?q=${latitud},${e.target.value}`);
+                  }
+                }}
+                placeholder="Auto-completada"
+                className="w-full px-3 py-2 text-xs bg-slate-50/70 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#175E38]/20 focus:border-[#175E38] font-mono text-slate-800 font-bold"
+              />
+            </div>
+            <div>
+              <label className="block text-[10px] font-semibold uppercase text-slate-500 mb-1">
+                Radio de Tolerancia (m)
+              </label>
+              <input
+                type="number"
+                min="50"
+                max="2000"
+                step="10"
+                value={radioMetros}
+                onChange={(e) => setRadioMetros(e.target.value)}
+                placeholder="200"
+                className="w-full px-3 py-2 text-xs bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#175E38]/20 focus:border-[#175E38] font-mono text-slate-800 font-bold"
               />
             </div>
           </div>

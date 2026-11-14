@@ -75,6 +75,9 @@ model Propiedad {
   areaTotalM2     Float?        // Área total de construcción o terreno en m²
   propietario      String?       // Propietario o empresa dueña (opcional: si es nulo es de la inmobiliaria/Fabián)
   telefonoContacto String?       // Teléfono de contacto o administración del inmueble
+  latitud          Float?        // Latitud geográfica del inmueble para validación de presencia
+  longitud         Float?        // Longitud geográfica del inmueble para validación de presencia
+  radioMetros      Int           @default(200) // Radio de tolerancia de presencia física en metros
   activo          Boolean       @default(true)
 
   unidades                 Unidad[]
@@ -442,6 +445,11 @@ model RegistroAsistencia {
   estado           EstadoAsistencia @default(PRESENTE)
   ubicacionEntrada String?          // Inmueble o referencia de entrada
   ubicacionSalida  String?          // Inmueble o referencia de salida
+  latitudEntrada   Float?           // Latitud capturada al marcar entrada
+  longitudEntrada  Float?           // Longitud capturada al marcar entrada
+  distanciaMetros  Float?           // Distancia calculada en metros respecto al inmueble asignado
+  esMarcajeExterno Boolean          @default(false) // Indica si se marcó fuera del rango del inmueble
+  motivoExterno    String?          // Justificación de marcaje externo o fuera de sede
   observaciones    String?
 
   createdAt        DateTime         @default(now())

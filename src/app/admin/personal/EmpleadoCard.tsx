@@ -343,25 +343,14 @@ export function EmpleadoCard({
                         {ESTADO_ASISTENCIA_CONFIG[emp.asistenciaHoy.estado]?.label || "Presente"}
                       </span>
 
-                      {/* Botón rápido para marcar salida si la jornada sigue abierta */}
-                      {!emp.asistenciaHoy.horaSalida && onMarcarSalida && (
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onMarcarSalida({
-                              id: emp.asistenciaHoy!.id,
-                              empleadoNombre: nombreCompleto,
-                              empleadoCargo: emp.cargo,
-                              horaEntrada: emp.asistenciaHoy!.horaEntrada,
-                            });
-                          }}
-                          className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-500 hover:bg-amber-600 text-white flex items-center gap-0.5 transition-colors cursor-pointer shadow-2xs active:scale-95"
-                          title="Registrar salida ahora"
+                      {/* Badge sutil de marcaje externo en la card de Directorio */}
+                      {emp.asistenciaHoy.esMarcajeExterno && (
+                        <span
+                          className="inline-flex items-center gap-0.5 text-[9.5px] font-black px-1.5 py-0.5 rounded bg-amber-50 text-amber-800 border border-amber-300"
+                          title={emp.asistenciaHoy.observaciones || emp.asistenciaHoy.motivoExterno || "Marcaje fuera de sede"}
                         >
-                          <LogOut className="w-2.5 h-2.5" />
-                          <span>Salida</span>
-                        </button>
+                          <span>📍 Externo</span>
+                        </span>
                       )}
                     </div>
 

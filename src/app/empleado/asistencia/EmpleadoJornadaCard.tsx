@@ -144,6 +144,11 @@ export function EmpleadoJornadaCard({
                     <span>🛡️ Guardia 24h</span>
                   </span>
                 )}
+                {registro.esMarcajeExterno && (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-black bg-amber-50 text-amber-800 border border-amber-300 shadow-2xs">
+                    <span>📍 Externo</span>
+                  </span>
+                )}
                 {esOlvido && (
                   <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-extrabold bg-amber-50 text-amber-800 border border-amber-300 shadow-2xs">
                     <AlertTriangle className="w-3 h-3 text-amber-600 shrink-0" />
