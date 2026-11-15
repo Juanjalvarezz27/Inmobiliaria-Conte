@@ -14,6 +14,8 @@ import {
 import { enviarNotificacionTicketReportadoAdmin } from "@/lib/email-templates/notificacion-ticket-reportado";
 import { enviarNotificacionTicketAsignado } from "@/lib/email-templates/notificacion-ticket-asignado";
 import { enviarNotificacionTicketResuelto } from "@/lib/email-templates/notificacion-ticket-resuelto";
+import { enviarNotificacionTicketFiniquitadoAdmin } from "@/lib/email-templates/notificacion-ticket-finiquitado-admin";
+import { enviarNotificacionTicketCanceladoReasignado } from "@/lib/email-templates/notificacion-ticket-cancelado-reasignado";
 import { CATEGORIAS_TICKET } from "@/lib/constants/mantenimiento";
 
 /**
@@ -887,6 +889,24 @@ export async function asignarTecnicoAction(
       });
     }
 
+    // Si el ticket ya tenia otro colaborador asignado, notificarle la reasignacion
+    if (ticket.empleadoId && ticket.empleadoId !== empleadoId) {
+      const empleadoPrevio = await prisma.empleado.findUnique({ where: { id: ticket.empleadoId } });
+      if (empleadoPrevio?.email && empleadoPrevio.email.includes("@")) {
+        ejecutarEnSegundoPlano(async () => {
+          await enviarNotificacionTicketCanceladoReasignado({
+            empleadoNombre: `${empleadoPrevio.nombre} ${empleadoPrevio.apellido || ""}`.trim(),
+            empleadoEmail: empleadoPrevio.email!,
+            ticketCodigo: ticket.codigo,
+            ticketTitulo: ticket.titulo,
+            propiedadNombre: ticket.propiedad.nombre,
+            tipoActualizacion: "REASIGNADO",
+            nuevoTecnicoNombre: `${empleado.nombre} ${empleado.apellido || ""}`.trim(),
+          });
+        });
+      }
+    }
+
     revalidatePath("/admin/mantenimiento");
     revalidatePath("/empleado/mantenimiento");
     revalidatePath("/inquilino/mantenimiento");
@@ -999,6 +1019,22 @@ export async function resolverTicketAction(input: ResolverTicketInput) {
       });
     }
 
+    // Notificar al administrador que el ticket tecnico fue finiquitado
+    ejecutarEnSegundoPlano(async () => {
+      await enviarNotificacionTicketFiniquitadoAdmin({
+        ticketCodigo: ticketActual.codigo,
+        ticketTitulo: ticketActual.titulo,
+        propiedadNombre: ticketActual.propiedad.nombre,
+        unidadCodigo: ticketActual.unidad?.codigo || "Área Común",
+        tecnicoNombre: ticketActual.empleado
+          ? `${ticketActual.empleado.nombre} ${ticketActual.empleado.apellido || ""}`.trim()
+          : "Personal de Mantenimiento",
+        tecnicoCargo: ticketActual.empleado?.cargo || null,
+        notasCierre,
+        fotosFiniquitoCount: fotosFiniquito.length,
+      });
+    });
+
     revalidatePath("/admin/mantenimiento");
     revalidatePath("/empleado/mantenimiento");
     revalidatePath("/inquilino/mantenimiento");
@@ -1027,6 +1063,15 @@ export async function cancelarTicketAction(ticketId: string, motivo: string) {
       return { success: false, error: "Debes indicar el motivo de la cancelación." };
     }
 
+    const ticket = await prisma.ticketMantenimiento.findUnique({
+      where: { id: ticketId },
+      include: { empleado: true, propiedad: true },
+    });
+
+    if (!ticket) {
+      return { success: false, error: "El ticket no existe." };
+    }
+
     await prisma.ticketMantenimiento.update({
       where: { id: ticketId },
       data: {
@@ -1034,6 +1079,21 @@ export async function cancelarTicketAction(ticketId: string, motivo: string) {
         motivoCancelacion: motivo.trim(),
       },
     });
+
+    // Notificar al empleado asignado que su orden de trabajo fue cancelada
+    if (ticket.empleado?.email && ticket.empleado.email.includes("@")) {
+      ejecutarEnSegundoPlano(async () => {
+        await enviarNotificacionTicketCanceladoReasignado({
+          empleadoNombre: `${ticket.empleado!.nombre} ${ticket.empleado!.apellido || ""}`.trim(),
+          empleadoEmail: ticket.empleado!.email!,
+          ticketCodigo: ticket.codigo,
+          ticketTitulo: ticket.titulo,
+          propiedadNombre: ticket.propiedad.nombre,
+          tipoActualizacion: "CANCELADO",
+          motivo: motivo.trim(),
+        });
+      });
+    }
 
     revalidatePath("/admin/mantenimiento");
     revalidatePath("/empleado/mantenimiento");

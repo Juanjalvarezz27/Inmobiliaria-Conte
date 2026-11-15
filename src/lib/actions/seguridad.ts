@@ -3,7 +3,23 @@
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
 import { z } from "zod";
+import { enviarNotificacionIncidenciaCriticaAdmin } from "@/lib/email-templates/notificacion-incidencia-critica";
+
+function ejecutarEnSegundoPlano(tarea: () => Promise<unknown>) {
+  try {
+    after(async () => {
+      try {
+        await tarea();
+      } catch (err) {
+        console.error("Error en tarea de segundo plano (seguridad):", err);
+      }
+    });
+  } catch {
+    tarea().catch((err) => console.error("Error en tarea asincrona:", err));
+  }
+}
 import {
   CategoriaNovedad,
   CATEGORIA_NOVEDAD_CONFIG,
@@ -318,6 +334,24 @@ export async function registrarIncidenciaAction(formData: {
     ].join("\n");
 
     const whatsAppUrl = getWhatsAppUrl(adminTelefono, textoParte);
+
+    // Si la novedad es una incidencia de seguridad o falla grave, notificar inmediatamente al administrador por correo
+    if (
+      categoria === CategoriaNovedad.INCIDENCIA_SEGURIDAD ||
+      categoria === CategoriaNovedad.FALLA_INFRAESTRUCTURA
+    ) {
+      ejecutarEnSegundoPlano(async () => {
+        await enviarNotificacionIncidenciaCriticaAdmin({
+          propiedadNombre: nombreInmueble,
+          guardiaNombre: nombreGuardia,
+          categoriaLabel,
+          titulo,
+          descripcion,
+          hora: horaFormateada,
+          fotosCount: fotos?.length || 0,
+        });
+      });
+    }
 
     revalidatePath("/empleado/minuta");
     revalidatePath("/admin/seguridad");

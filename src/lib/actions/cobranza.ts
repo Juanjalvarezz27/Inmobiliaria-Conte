@@ -13,6 +13,8 @@ import { obtenerFechaHoyVenezuela } from "@/lib/bcv";
 import type { PagoItem, EstadisticasCobranza } from "@/app/admin/cobranza/types";
 import { enviarNotificacionPagoConfirmadoInquilino } from "@/lib/email-templates/notificacion-pago-confirmado";
 import { enviarNotificacionPagoRechazadoInquilino } from "@/lib/email-templates/notificacion-pago-rechazado";
+import { enviarNotificacionAvisoMora } from "@/lib/email-templates/notificacion-aviso-mora";
+import { enviarNotificacionServiciosImpagos } from "@/lib/email-templates/notificacion-servicios-impagos";
 
 /**
  * Ejecuta tareas asíncronas no críticas (como envío de correos SMTP) en segundo plano
@@ -633,7 +635,7 @@ export async function getPagosCobranza({
       ],
     };
 
-    // Filtro base: o bien modo morosos históricos global, o bien periodo mes/ano regular
+    // Filtro base: o bien modo morosos historicos global, o bien periodo mes/ano regular
     const whereAnd: Prisma.PagoWhereInput[] = [];
 
     if (modoMorososHistoricos || estado === "MOROSOS_HISTORICOS") {
@@ -641,16 +643,17 @@ export async function getPagosCobranza({
         estado: { not: EstadoPago.PAGADO },
         ...condicionPeriodoPasado,
       });
+    } else if (estado === "POR_CONFIRMAR") {
+      // Al filtrar por confirmar, traer todos los comprobantes pendientes sin restringir por mes/ano
+      whereAnd.push({
+        estado: { not: EstadoPago.PAGADO },
+        comprobanteUrl: { not: null },
+      });
     } else {
       whereAnd.push({ periodoMes: mes }, { periodoAno: ano });
 
       // Filtro por estado en modo mensual normal
-      if (estado === "POR_CONFIRMAR") {
-        whereAnd.push({
-          estado: { not: EstadoPago.PAGADO },
-          comprobanteUrl: { not: null },
-        });
-      } else if (estado && estado !== "TODOS") {
+      if (estado && estado !== "TODOS") {
         whereAnd.push({
           estado: estado as EstadoPago,
         });
@@ -707,10 +710,10 @@ export async function getPagosCobranza({
       prisma.pago.findMany({
         where,
         select: PAGO_LIST_SELECT,
-        orderBy: (modoMorososHistoricos || estado === "MOROSOS_HISTORICOS")
+        orderBy: (modoMorososHistoricos || estado === "MOROSOS_HISTORICOS" || estado === "POR_CONFIRMAR")
           ? [
-              { periodoAno: "asc" },
-              { periodoMes: "asc" },
+              { periodoAno: "desc" },
+              { periodoMes: "desc" },
               { estado: "asc" },
             ]
           : [
@@ -1575,7 +1578,11 @@ export async function actualizarSolvenciaServiciosAction(input: ActualizarSolven
       include: {
         contrato: {
           include: {
-            unidad: true,
+            unidad: {
+              include: {
+                propiedad: true,
+              },
+            },
             inquilino: true,
           },
         },
@@ -1615,6 +1622,28 @@ export async function actualizarSolvenciaServiciosAction(input: ActualizarSolven
     revalidatePath("/admin/cobranza");
     revalidatePath("/inquilino/pagos");
 
+    // Si la administracion detecta un servicio insolvente, notificar al inquilino por correo
+    if (esAdmin && (!luzFinalSolvente || !aguaFinalSolvente) && pago.contrato.inquilino.email) {
+      const emailInquilino = pago.contrato.inquilino.email;
+      const nombreInquilino = `${pago.contrato.inquilino.nombre} ${pago.contrato.inquilino.apellido || ""}`.trim();
+      const codigoUnidad = pago.contrato.unidad.codigo;
+      const nombrePropiedad = pago.contrato.unidad.propiedad.nombre;
+
+      ejecutarEnSegundoPlano(async () => {
+        await enviarNotificacionServiciosImpagos({
+          inquilinoNombre: nombreInquilino,
+          inquilinoEmail: emailInquilino,
+          unidadCodigo: codigoUnidad,
+          propiedadNombre: nombrePropiedad,
+          periodoMes: pago.periodoMes,
+          periodoAno: pago.periodoAno,
+          luzSolvente: luzFinalSolvente,
+          aguaSolvente: aguaFinalSolvente,
+          serviciosObservaciones: serviciosObservaciones?.trim() || null,
+        });
+      });
+    }
+
     return {
       success: true,
       data: serializePagoItem(pagoActualizado),
@@ -1623,5 +1652,70 @@ export async function actualizarSolvenciaServiciosAction(input: ActualizarSolven
   } catch (error) {
     console.error("Error al actualizar solvencia de servicios:", error);
     return { success: false, error: "No se pudo actualizar el registro de solvencia de servicios." };
+  }
+}
+
+/**
+ * Envia un correo formal de aviso de vencimiento y estado de mora al inquilino
+ */
+export async function enviarAvisoMoraAction(pagoId: string) {
+  try {
+    const authCheck = await requireAdminSession();
+    if (!authCheck.ok) return { success: false, error: authCheck.error };
+
+    const pago = await prisma.pago.findUnique({
+      where: { id: pagoId },
+      include: {
+        contrato: {
+          include: {
+            inquilino: true,
+            unidad: {
+              include: {
+                propiedad: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!pago) {
+      return { success: false, error: "Registro de cobro no encontrado." };
+    }
+
+    if (!pago.contrato.inquilino.email || !pago.contrato.inquilino.email.includes("@")) {
+      return { success: false, error: "El inquilino no tiene un correo electronico registrado." };
+    }
+
+    const saldoRestante = Math.max(0, Number((pago.montoEsperado - pago.montoPagado).toFixed(2)));
+    if (saldoRestante <= 0 || pago.estado === EstadoPago.PAGADO) {
+      return { success: false, error: "Esta cuota ya se encuentra solventada y liquidada." };
+    }
+
+    const resEmail = await enviarNotificacionAvisoMora({
+      inquilinoNombre: `${pago.contrato.inquilino.nombre} ${pago.contrato.inquilino.apellido || ""}`.trim(),
+      inquilinoEmail: pago.contrato.inquilino.email,
+      unidadCodigo: pago.contrato.unidad.codigo,
+      propiedadNombre: pago.contrato.unidad.propiedad.nombre,
+      periodoMes: pago.periodoMes,
+      periodoAno: pago.periodoAno,
+      montoTotalEsperado: pago.montoEsperado,
+      montoPagado: pago.montoPagado,
+      saldoRestante,
+      tasaBcv: pago.tasaBcv,
+      fechaVencimiento: pago.fechaVencimiento,
+    });
+
+    if (!resEmail.success) {
+      return { success: false, error: resEmail.error || "No se pudo despachar el correo de mora." };
+    }
+
+    return {
+      success: true,
+      message: `Aviso de mora enviado exitosamente a ${pago.contrato.inquilino.email}.`,
+    };
+  } catch (error) {
+    console.error("Error al enviar aviso de mora:", error);
+    return { success: false, error: "Error al despachar el aviso de mora." };
   }
 }

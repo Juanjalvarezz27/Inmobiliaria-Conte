@@ -21,16 +21,19 @@ import {
   Maximize2,
   Layers,
   AlertCircle,
+  Scissors,
 } from "lucide-react";
 import { Modal } from "@/components/ui/modal";
 import { ConfirmActionModal } from "@/components/ui/confirm-action-modal";
 import { ExpandirInquilinoModal } from "./ExpandirInquilinoModal";
+import { SubdividirUnidadModal } from "./SubdividirUnidadModal";
 import { Badge } from "@/components/ui/badge";
 import { formatCurrency, TIPO_UNIDAD_LABEL, WhatsAppIcon, getWhatsAppUrl } from "./constants";
 import type { UnidadConPropiedad } from "./types";
 import {
   getHistorialInquilinosUnidadAction,
   type DiagnosticoSubdivision,
+  type SubunidadParteInput,
 } from "@/lib/actions/unidades";
 import { EstadoUnidad } from "@prisma/client";
 
@@ -49,6 +52,10 @@ interface UnidadDetalleModalProps {
     nuevoCanon: number
   ) => Promise<boolean | void> | void;
   onReunificarMatriz?: (matrizId: string) => Promise<boolean | void> | void;
+  onSubdividirUnidad?: (
+    matrizId: string,
+    partes: SubunidadParteInput[]
+  ) => Promise<boolean | void> | void;
 }
 
 interface ContratoHistorialItem {
@@ -84,6 +91,7 @@ export function UnidadDetalleModal({
   onCambiarEstado,
   onExpandirInquilino,
   onReunificarMatriz,
+  onSubdividirUnidad,
 }: UnidadDetalleModalProps) {
   const [tabActiva, setTabActiva] = useState<"info" | "historial">("info");
   const [fotoActivaIndex, setFotoActivaIndex] = useState<number>(0);
@@ -99,6 +107,7 @@ export function UnidadDetalleModal({
   const [confirmEstadoModal, setConfirmEstadoModal] = useState<EstadoUnidad | null>(null);
   const [openExpandirModal, setOpenExpandirModal] = useState<boolean>(false);
   const [openReunificarModal, setOpenReunificarModal] = useState<boolean>(false);
+  const [openSubdividirModal, setOpenSubdividirModal] = useState<boolean>(false);
   const [isProcessingAccion, setIsProcessingAccion] = useState<boolean>(false);
 
   // Resetear al cambiar de unidad
@@ -109,6 +118,7 @@ export function UnidadDetalleModal({
     setConfirmEstadoModal(null);
     setOpenExpandirModal(false);
     setOpenReunificarModal(false);
+    setOpenSubdividirModal(false);
   }
 
   // Carga automática del historial de contratos y diagnóstico de subdivisión
@@ -143,50 +153,91 @@ export function UnidadDetalleModal({
         maxWidth="4xl"
       >
         <div className="space-y-4">
-          {/* Selector de Pestañas Institucional */}
-          <div className="flex items-center gap-2 border-b border-slate-200 pb-2">
-            <button
-              type="button"
-              onClick={() => setTabActiva("info")}
-              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
-                tabActiva === "info"
-                  ? "bg-[#175E38] text-white shadow-xs"
-                  : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-              }`}
-            >
-              <Store className="w-3.5 h-3.5" />
-              <span>Información General</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setTabActiva("historial")}
-              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
-                tabActiva === "historial"
-                  ? "bg-[#175E38] text-white shadow-xs"
-                  : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-              }`}
-            >
-              <History className="w-3.5 h-3.5" />
-              <span>Historial de Ocupación</span>
-              <span
-                className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold ${
-                  tabActiva === "historial" ? "bg-white/20 text-white" : "bg-slate-200 text-slate-700"
+          {/* Selector de Pestañas Institucional y Acceso Rápido a Subdivisión */}
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 pb-2">
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setTabActiva("info")}
+                className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                  tabActiva === "info"
+                    ? "bg-[#175E38] text-white shadow-xs"
+                    : "bg-slate-100 text-slate-600 hover:bg-slate-200"
                 }`}
               >
-                {historialCargadoPara === unidad.id ? historial.length : (unidad._count?.contratos ?? 0)}
+                <Store className="w-3.5 h-3.5" />
+                <span>Información General</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setTabActiva("historial")}
+                className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                  tabActiva === "historial"
+                    ? "bg-[#175E38] text-white shadow-xs"
+                    : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                }`}
+              >
+                <History className="w-3.5 h-3.5" />
+                <span>Historial de Ocupación</span>
+                <span
+                  className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold ${
+                    tabActiva === "historial" ? "bg-white/20 text-white" : "bg-slate-200 text-slate-700"
+                  }`}
+                >
+                  {historialCargadoPara === unidad.id ? historial.length : (unidad._count?.contratos ?? 0)}
+                </span>
+              </button>
+            </div>
+
+            {/* BOTÓN INMEDIATO EN LA CABECERA: Visible siempre en primer plano sin necesidad de scroll */}
+            {!isLoadingHistorial &&
+              onSubdividirUnidad &&
+              diagnostico &&
+              !diagnostico.esSubunidad &&
+              (!diagnostico.subunidades || diagnostico.subunidades.length === 0) && (
+                <button
+                  type="button"
+                  onClick={() => setOpenSubdividirModal(true)}
+                  className="px-3.5 py-1.5 rounded-xl text-xs font-black bg-indigo-600 hover:bg-indigo-700 text-white flex items-center gap-1.5 cursor-pointer shadow-xs active:translate-y-0.5 border-b-[2px] border-b-indigo-900 transition-all shrink-0"
+                  title="Dividir este local en 2 subunidades comerciales independientes (A y B)"
+                >
+                  <Scissors className="w-3.5 h-3.5 stroke-[2.5]" />
+                  <span>Subdividir en 2 (A / B)</span>
+                </button>
+              )}
+
+            {/* Badge visual si el local YA ESTÁ SUBDIVIDIDO */}
+            {!isLoadingHistorial && diagnostico?.esMatriz && diagnostico.subunidades.length > 0 && (
+              <span
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-indigo-50 text-indigo-700 border border-indigo-200 shrink-0"
+                title="Este local ya se encuentra subdividido. No puede volver a dividirse."
+              >
+                <Layers className="w-3.5 h-3.5 text-indigo-600" />
+                <span>Subdividido ({diagnostico.subunidades.map((s) => s.codigo).join(" y ")})</span>
               </span>
-            </button>
+            )}
+
+            {/* Badge visual si este espacio ES UNA SUBUNIDAD */}
+            {!isLoadingHistorial && diagnostico?.esSubunidad && (
+              <span
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-amber-50 text-amber-800 border border-amber-200 shrink-0"
+                title="Esta es una subunidad derivada. Una subunidad no admite nuevas divisiones."
+              >
+                <Layers className="w-3.5 h-3.5 text-amber-600" />
+                <span>Subunidad de {diagnostico.matriz?.codigo || "Matriz"}</span>
+              </span>
+            )}
           </div>
 
           {/* CONTENIDO TAB 1: Información General */}
           {tabActiva === "info" && (
             <div className="space-y-4 animate-in fade-in-50 duration-150">
-              {/* Sección Galería de Fotos */}
+              {/* Sección Galería de Fotos Optimizada en Altura */}
               {unidad.imagenes && unidad.imagenes.length > 0 ? (
                 <div className="space-y-2.5">
                   {/* Foto Principal */}
-                  <div className="relative aspect-[16/9] w-full rounded-2xl overflow-hidden bg-slate-950 border border-slate-200 shadow-inner flex items-center justify-center">
+                  <div className="relative h-48 sm:h-56 w-full rounded-2xl overflow-hidden bg-slate-950 border border-slate-200 shadow-inner flex items-center justify-center">
                     <Image
                       src={unidad.imagenes[fotoActivaIndex] || unidad.imagenes[0]}
                       alt={`Foto ${fotoActivaIndex + 1} de ${unidad.codigo}`}
@@ -307,7 +358,7 @@ export function UnidadDetalleModal({
               </div>
 
               {/* SECCIÓN ESPECIAL: Diagnóstico de Subdivisión y Opciones de Expansión / Reunificación */}
-              {unidad.estado === "INACTIVO" && diagnostico?.esMatriz && (
+              {diagnostico?.esMatriz && (
                 <>
                   {/* CASO 1: Subunidad ocupada con opción de expansión */}
                   {diagnostico.puedeExpandir && diagnostico.inquilinoParaExpandir && (
@@ -402,6 +453,48 @@ export function UnidadDetalleModal({
                   )}
                 </>
               )}
+
+              {/* Oportunidad de Subdivisión Comercial en 2 Partes (A / B) */}
+              {onSubdividirUnidad &&
+                !diagnostico?.esSubunidad &&
+                (!diagnostico?.subunidades || diagnostico.subunidades.length === 0) && (
+                  <div className="rounded-2xl border border-indigo-200/90 bg-gradient-to-br from-indigo-50/70 via-white to-slate-50 p-4 shadow-2xs">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                      <div className="flex items-start gap-3">
+                        <div className="w-9 h-9 rounded-xl bg-indigo-600 text-white flex items-center justify-center shrink-0 shadow-xs mt-0.5 sm:mt-0">
+                          <Scissors className="w-4 h-4 stroke-[2.5]" />
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-[10px] font-black uppercase tracking-wider text-indigo-700 bg-indigo-100/90 px-2 py-0.5 rounded-full border border-indigo-200">
+                              Subdivisión en 2 Partes
+                            </span>
+                            <span className="text-xs text-slate-500 font-medium">
+                              Fraccionamiento comercial (A y B)
+                            </span>
+                          </div>
+                          <h4 className="text-sm font-black text-slate-900 mt-1 font-heading">
+                            ¿Deseas dividir este local en dos mitades?
+                          </h4>
+                          <p className="text-xs text-slate-600 mt-0.5">
+                            {unidad.estado === "OCUPADO"
+                              ? `Este local cuenta con contrato activo. Puedes dividirlo en ${unidad.codigo}-A (reasignado al inquilino) y ${unidad.codigo}-B (disponible para nuevo arrendamiento).`
+                              : `Puedes dividir ${unidad.codigo} (${unidad.areaMt2 ? `${unidad.areaMt2} m²` : "área total"}) en dos subunidades independientes (${unidad.codigo}-A y ${unidad.codigo}-B) con cánones y metrajes individuales.`}
+                          </p>
+                        </div>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => setOpenSubdividirModal(true)}
+                        className="px-4 py-2 rounded-xl text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white shadow-xs flex items-center justify-center gap-1.5 cursor-pointer active:translate-y-0.5 border-b-[3px] border-b-indigo-800 transition-all shrink-0 self-end sm:self-center"
+                      >
+                        <Scissors className="w-3.5 h-3.5" />
+                        <span>Subdividir en 2</span>
+                      </button>
+                    </div>
+                  </div>
+                )}
 
               {/* Sección Arrendatario Actual */}
               {(() => {
@@ -728,6 +821,21 @@ export function UnidadDetalleModal({
                 </button>
               )}
 
+              {/* Botón de Subdivisión en Barra de Acciones */}
+              {onSubdividirUnidad &&
+                !diagnostico?.esSubunidad &&
+                (!diagnostico?.subunidades || diagnostico.subunidades.length === 0) && (
+                  <button
+                    type="button"
+                    onClick={() => setOpenSubdividirModal(true)}
+                    className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 rounded-xl transition-all cursor-pointer shadow-2xs"
+                    title="Dividir este local en 2 subunidades independientes (A y B)"
+                  >
+                    <Scissors className="w-3.5 h-3.5 text-indigo-600" />
+                    <span>Subdividir en 2</span>
+                  </button>
+                )}
+
               <button
                 type="button"
                 onClick={onEditar}
@@ -841,6 +949,27 @@ export function UnidadDetalleModal({
         ]}
         confirmButtonText="Sí, Reunificar y Reactivar"
         cancelButtonText="Cancelar"
+        isLoading={isProcessingAccion}
+      />
+
+      {/* Modal Institucional de Subdivisión de Local */}
+      <SubdividirUnidadModal
+        isOpen={openSubdividirModal}
+        onClose={() => setOpenSubdividirModal(false)}
+        unidad={unidad}
+        onConfirm={async (partes) => {
+          if (!onSubdividirUnidad || !unidad) return;
+          setIsProcessingAccion(true);
+          try {
+            const ok = await onSubdividirUnidad(unidad.id, partes);
+            if (ok !== false) {
+              setOpenSubdividirModal(false);
+              onClose();
+            }
+          } finally {
+            setIsProcessingAccion(false);
+          }
+        }}
         isLoading={isProcessingAccion}
       />
     </>

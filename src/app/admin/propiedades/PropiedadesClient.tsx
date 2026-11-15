@@ -38,8 +38,10 @@ import {
   getUnidades,
   expandirInquilinoALocalCompletoAction,
   reunificarYReactivarMatrizAction,
+  subdividirUnidadAction,
   type CreateUnidadInput,
   type UpdateUnidadInput,
+  type SubunidadParteInput,
 } from "@/lib/actions/unidades";
 import { TipoPropiedad, TipoUnidad, EstadoUnidad } from "@prisma/client";
 import {
@@ -632,6 +634,47 @@ export function PropiedadesClient({
     }
   };
 
+  const handleSubdividirUnidad = async (
+    matrizId: string,
+    partes: SubunidadParteInput[]
+  ): Promise<boolean> => {
+    try {
+      const res = await subdividirUnidadAction({
+        unidadMatrizId: matrizId,
+        partes,
+      });
+
+      if (res.success && res.data) {
+        const matrizActualizada = res.data.matriz as UnidadConPropiedad;
+        const nuevasSubunidades = res.data.subunidades as UnidadConPropiedad[];
+
+        const updatedUnidades = [
+          ...unidades.map((u) => (u.id === matrizId ? matrizActualizada : u)),
+          ...nuevasSubunidades,
+        ];
+
+        const updatedProps = propiedades.map((p) =>
+          p.id === matrizActualizada.propiedadId
+            ? { ...p, _count: { ...p._count, unidades: p._count.unidades + nuevasSubunidades.length } }
+            : p
+        );
+
+        setPropiedades(updatedProps);
+        setUnidades(updatedUnidades);
+        recalcStats(updatedUnidades, updatedProps);
+        setUnidadSeleccionada(matrizActualizada);
+        toast.success(res.message || "Local subdividido con éxito.");
+        return true;
+      } else {
+        toast.error(res.error || "No se pudo realizar la subdivisión.");
+        return false;
+      }
+    } catch {
+      toast.error("Error al procesar la subdivisión del espacio.");
+      return false;
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Encabezado Principal */}
@@ -893,6 +936,7 @@ export function PropiedadesClient({
         }}
         onExpandirInquilino={handleExpandirInquilino}
         onReunificarMatriz={handleReunificarMatriz}
+        onSubdividirUnidad={handleSubdividirUnidad}
       />
     </div>
   );

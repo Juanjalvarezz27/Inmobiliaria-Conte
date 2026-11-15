@@ -220,8 +220,18 @@ export function Navbar({ user }: NavbarProps = {}) {
           description: "Averías y reparaciones técnicas",
           badge: badges.mantenimiento,
         },
-        { label: "Personal & Asistencia", href: "/admin/personal", description: "Control de equipo y jornada" },
-        { label: "Bitácora de Seguridad", href: "/admin/seguridad", description: "Rondas y novedades" },
+        {
+          label: "Personal & Asistencia",
+          href: "/admin/personal",
+          description: "Control de equipo y jornada",
+          badge: badges.tareas,
+        },
+        {
+          label: "Bitácora de Seguridad",
+          href: "/admin/seguridad",
+          description: "Rondas y novedades",
+          badge: badges.seguridad,
+        },
       ],
     },
   ];
@@ -261,7 +271,12 @@ export function Navbar({ user }: NavbarProps = {}) {
   ];
 
   // Total de badges pendientes para alertar en vista móvil y tablet
-  const totalBadges = Object.values(badges).reduce((sum, n) => sum + (n || 0), 0);
+  const totalBadges =
+    badges.alertasAdmin?.totalAlertas ??
+    Object.values(badges).reduce(
+      (sum, n) => (typeof n === "number" ? sum + n : sum),
+      0
+    );
 
   // Insignias y colores por rol
   const roleBadges: Record<Rol, { label: string; bg: string; border: string; text: string }> = {

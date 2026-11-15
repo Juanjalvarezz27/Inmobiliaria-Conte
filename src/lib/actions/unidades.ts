@@ -852,7 +852,234 @@ export async function reunificarYReactivarMatrizAction(
   }
 }
 
+export interface SubunidadParteInput {
+  codigo: string;
+  areaMt2?: number | null;
+  precioAlquiler?: number | null;
+  descripcion?: string | null;
+}
 
+export interface SubdividirUnidadInput {
+  unidadMatrizId: string;
+  partes: SubunidadParteInput[];
+}
 
+export interface SubdividirUnidadResponse {
+  success: boolean;
+  data?: {
+    matriz: unknown;
+    subunidades: unknown[];
+  };
+  message?: string;
+  error?: string;
+}
 
+// Subdivide un espacio matriz estrictamente en dos subunidades comerciales independientes (A y B)
+export async function subdividirUnidadAction(
+  input: SubdividirUnidadInput
+): Promise<SubdividirUnidadResponse> {
+  const authCheck = await requireAdminSession();
+  if (!authCheck.ok) return { success: false, error: authCheck.error };
+
+  if (!input.unidadMatrizId) {
+    return { success: false, error: "Debes especificar la unidad a subdividir." };
+  }
+
+  if (!input.partes || input.partes.length !== 2) {
+    return { success: false, error: "La división comercial debe realizarse en un máximo de dos partes (Subunidad A y Subunidad B)." };
+  }
+
+  const codigos = input.partes.map((p) => (p.codigo || "").trim());
+  if (!codigos[0] || !codigos[1]) {
+    return { success: false, error: "Ambas subunidades deben tener un código asignado." };
+  }
+
+  if (codigos[0].toUpperCase() === codigos[1].toUpperCase()) {
+    return { success: false, error: "Los códigos de las subunidades no pueden ser idénticos." };
+  }
+
+  try {
+    return await prisma.$transaction(async (tx) => {
+      const matriz = await tx.unidad.findUnique({
+        where: { id: input.unidadMatrizId },
+        include: {
+          contratos: {
+            where: { estado: { in: [EstadoContrato.ACTIVO, EstadoContrato.POR_VENCER] } },
+            include: { inquilino: true },
+            orderBy: { createdAt: "desc" },
+            take: 1,
+          },
+        },
+      });
+
+      if (!matriz) {
+        return { success: false, error: "El espacio matriz seleccionado no existe." };
+      }
+
+      // Validar que la unidad no sea en sí misma una subunidad derivada de otro local
+      const matchSub = matriz.codigo.match(/^(.+?)[-\s]+([A-Za-z0-9]+)$/);
+      if (matchSub) {
+        const candidatePadreCodigo = matchSub[1].trim();
+        const matrizPadre = await tx.unidad.findFirst({
+          where: {
+            propiedadId: matriz.propiedadId,
+            codigo: candidatePadreCodigo,
+          },
+          select: { id: true, codigo: true },
+        });
+
+        if (matrizPadre) {
+          return {
+            success: false,
+            error: `El espacio "${matriz.codigo}" es una subunidad de "${matrizPadre.codigo}". Una subunidad no puede volver a subdividirse.`,
+          };
+        }
+      }
+
+      // Validar que el local no haya sido ya subdividido previamente
+      const subunidadesExistentes = await tx.unidad.findMany({
+        where: {
+          propiedadId: matriz.propiedadId,
+          OR: [
+            { codigo: { startsWith: `${matriz.codigo}-` } },
+            { codigo: { startsWith: `${matriz.codigo} -` } },
+            { codigo: { startsWith: `${matriz.codigo} ` } },
+          ],
+          id: { not: matriz.id },
+        },
+        select: { id: true, codigo: true },
+      });
+
+      if (subunidadesExistentes.length > 0) {
+        const hijosStr = subunidadesExistentes.map((s) => s.codigo).join(", ");
+        return {
+          success: false,
+          error: `El local "${matriz.codigo}" ya se encuentra subdividido en: ${hijosStr}. Un local ya subdividido no puede volver a ser dividido.`,
+        };
+      }
+
+      const existentes = await tx.unidad.findMany({
+        where: {
+          propiedadId: matriz.propiedadId,
+          codigo: { in: codigos },
+        },
+        select: { codigo: true },
+      });
+
+      if (existentes.length > 0) {
+        return {
+          success: false,
+          error: `Ya existe(n) unidad(es) con el código: ${existentes.map((e) => e.codigo).join(", ")} en esta propiedad.`,
+        };
+      }
+
+      const contratoActivo = matriz.contratos.length > 0 ? matriz.contratos[0] : null;
+      const subunidadesCreadas = [];
+
+      // 1. Crear Subunidad A (hereda contrato activo si existía en la matriz)
+      const parteA = input.partes[0];
+      const nuevaSubunidadA = await tx.unidad.create({
+        data: {
+          codigo: parteA.codigo.trim(),
+          tipo: matriz.tipo,
+          piso: matriz.piso,
+          areaMt2: typeof parteA.areaMt2 === "number" && !isNaN(parteA.areaMt2) ? parteA.areaMt2 : null,
+          precioAlquiler:
+            typeof parteA.precioAlquiler === "number" && !isNaN(parteA.precioAlquiler)
+              ? parteA.precioAlquiler
+              : null,
+          descripcion:
+            parteA.descripcion?.trim() ||
+            `Subunidad A creada a partir de la división del espacio matriz ${matriz.codigo}.`,
+          estado: contratoActivo ? EstadoUnidad.OCUPADO : EstadoUnidad.DISPONIBLE,
+          imagenes: matriz.imagenes || [],
+          propiedadId: matriz.propiedadId,
+        },
+        select: UNIDAD_SELECT,
+      });
+      subunidadesCreadas.push(nuevaSubunidadA);
+
+      // Si la matriz tenía arrendatario, reasignar su contrato a la Subunidad A
+      if (contratoActivo) {
+        const canonAjustado =
+          parteA.precioAlquiler && parteA.precioAlquiler > 0
+            ? parteA.precioAlquiler
+            : contratoActivo.montoAlquiler / 2;
+
+        const hoy = new Date().toLocaleDateString("es-VE");
+        const inqNombre = contratoActivo.inquilino.apellido
+          ? `${contratoActivo.inquilino.nombre} ${contratoActivo.inquilino.apellido}`
+          : contratoActivo.inquilino.nombre;
+
+        const notaTransferencia = `[${hoy}] SUBDIVISIÓN: Arrendatario "${inqNombre}" reasignado a Subunidad A (${nuevaSubunidadA.codigo}) tras la división del local ${matriz.codigo}. Canon mensual ajustado a $${canonAjustado} USD.`;
+
+        await tx.contrato.update({
+          where: { id: contratoActivo.id },
+          data: {
+            unidadId: nuevaSubunidadA.id,
+            montoAlquiler: canonAjustado,
+            notas: contratoActivo.notas
+              ? `${contratoActivo.notas}\n\n${notaTransferencia}`
+              : notaTransferencia,
+          },
+        });
+      }
+
+      // 2. Crear Subunidad B (siempre DISPONIBLE)
+      const parteB = input.partes[1];
+      const nuevaSubunidadB = await tx.unidad.create({
+        data: {
+          codigo: parteB.codigo.trim(),
+          tipo: matriz.tipo,
+          piso: matriz.piso,
+          areaMt2: typeof parteB.areaMt2 === "number" && !isNaN(parteB.areaMt2) ? parteB.areaMt2 : null,
+          precioAlquiler:
+            typeof parteB.precioAlquiler === "number" && !isNaN(parteB.precioAlquiler)
+              ? parteB.precioAlquiler
+              : null,
+          descripcion:
+            parteB.descripcion?.trim() ||
+            `Subunidad B creada a partir de la división del espacio matriz ${matriz.codigo}.`,
+          estado: EstadoUnidad.DISPONIBLE,
+          imagenes: matriz.imagenes || [],
+          propiedadId: matriz.propiedadId,
+        },
+        select: UNIDAD_SELECT,
+      });
+      subunidadesCreadas.push(nuevaSubunidadB);
+
+      // 3. Inactivar la unidad matriz original con nota de trazabilidad
+      const hoyStr = new Date().toLocaleDateString("es-VE");
+      const notaAuditoria = `[${hoyStr}] SUBDIVISIÓN: Local dividido en 2 subunidades (${nuevaSubunidadA.codigo} y ${nuevaSubunidadB.codigo}). Inactivado para prevenir duplicidad.`;
+
+      const descFinal = matriz.descripcion
+        ? `${matriz.descripcion}\n\n${notaAuditoria}`
+        : notaAuditoria;
+
+      const matrizActualizada = await tx.unidad.update({
+        where: { id: matriz.id },
+        data: {
+          estado: EstadoUnidad.INACTIVO,
+          descripcion: descFinal,
+        },
+        select: UNIDAD_SELECT,
+      });
+
+      revalidatePath("/admin/propiedades");
+      revalidatePath("/admin/contratos");
+
+      return {
+        success: true,
+        data: {
+          matriz: matrizActualizada,
+          subunidades: subunidadesCreadas,
+        },
+        message: `¡Espacio "${matriz.codigo}" dividido con éxito en 2 subunidades (${nuevaSubunidadA.codigo} y ${nuevaSubunidadB.codigo})!`,
+      };
+    });
+  } catch (error) {
+    console.error("Error al subdividir unidad:", error);
+    return { success: false, error: "Ocurrió un error inesperado al procesar la división del local." };
+  }
+}
 

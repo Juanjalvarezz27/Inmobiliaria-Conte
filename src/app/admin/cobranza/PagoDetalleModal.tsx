@@ -44,7 +44,7 @@ import {
 import { EstadoPago, MetodoPago, TipoPersona } from "@prisma/client";
 import type { PagoItem } from "./types";
 import { toast } from "sonner";
-import { rechazarComprobanteReportadoAction } from "@/lib/actions/cobranza";
+import { rechazarComprobanteReportadoAction, enviarAvisoMoraAction } from "@/lib/actions/cobranza";
 
 interface PagoDetalleModalProps {
   isOpen: boolean;
@@ -92,6 +92,25 @@ export function PagoDetalleModal({
     images: [],
     initialIndex: 0,
   });
+
+  const [isEnviandoAvisoMora, setIsEnviandoAvisoMora] = useState(false);
+
+  const handleEnviarAvisoMora = async () => {
+    if (!pago) return;
+    setIsEnviandoAvisoMora(true);
+    try {
+      const res = await enviarAvisoMoraAction(pago.id);
+      if (res.success) {
+        toast.success(res.message || "Aviso de mora enviado exitosamente.");
+      } else {
+        toast.error(res.error || "No se pudo enviar el aviso de mora.");
+      }
+    } catch {
+      toast.error("Error al procesar el envio del aviso de mora.");
+    } finally {
+      setIsEnviandoAvisoMora(false);
+    }
+  };
 
   if (!pago) return null;
 
@@ -523,8 +542,8 @@ export function PagoDetalleModal({
               </div>
             </div>
 
-            {/* Botón WhatsApp */}
-            <div className="pt-2">
+            {/* Botón WhatsApp y Aviso de Mora por Correo */}
+            <div className="pt-2 space-y-2">
               <a
                 href={urlWhatsapp}
                 target="_blank"
@@ -534,6 +553,19 @@ export function PagoDetalleModal({
                 <WhatsAppIcon className="w-4 h-4 text-[#25D366]" />
                 <span>Contactar por WhatsApp</span>
               </a>
+
+              {inquilino.email && saldoPendiente > 0 && pago.estado !== EstadoPago.PAGADO && (
+                <button
+                  type="button"
+                  onClick={handleEnviarAvisoMora}
+                  disabled={isEnviandoAvisoMora}
+                  className="w-full h-10 inline-flex items-center justify-center gap-2 text-xs font-bold text-[#CC1A22] hover:text-white hover:bg-[#CC1A22] bg-rose-50 px-3.5 rounded-xl border border-rose-300 shadow-2xs transition-all active:scale-[0.99] cursor-pointer disabled:opacity-50"
+                  title="Enviar correo formal de recordatorio y estado de mora al inquilino"
+                >
+                  <Mail className="w-3.5 h-3.5" />
+                  <span>{isEnviandoAvisoMora ? "Enviando aviso de mora..." : "Enviar Aviso de Mora por Correo"}</span>
+                </button>
+              )}
             </div>
           </div>
 

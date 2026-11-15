@@ -174,14 +174,14 @@ export function CobranzaClient({
       },
       {
         value: "POR_CONFIRMAR",
-        label: "Por Confirmar (Capture)",
+        label: "Por Confirmar",
         icon: Receipt,
         iconClassName: "text-blue-600",
-        count: estadisticas.cantidadPorConfirmar ?? 0,
+        count: (estadisticas.cantidadPorConfirmarGlobal ?? estadisticas.cantidadPorConfirmar) ?? 0,
       },
       {
         value: EstadoPago.PENDIENTE,
-        label: "Por Cobrar (Pendiente)",
+        label: "Por Cobrar",
         icon: Clock,
         count: estadisticas.cantidadPendientes,
       },
@@ -194,7 +194,7 @@ export function CobranzaClient({
       },
       {
         value: EstadoPago.PAGADO,
-        label: "Liquidado (Pagado)",
+        label: "Liquidado",
         icon: CheckCircle2,
         iconClassName: "text-emerald-600",
         count: estadisticas.cantidadPagados,
@@ -584,8 +584,22 @@ export function CobranzaClient({
         {/* Indicador de resultados activos */}
         <div className="flex items-center justify-between text-xs text-slate-500 pt-1 border-t border-slate-100">
           <span>
-            Periodo: <strong className="text-slate-800">{nombreMesActual} {ano}</strong> • Total cuotas encontradas:{" "}
-            <strong className="text-slate-800">{totalRegistros}</strong>
+            {estadoFiltro === "POR_CONFIRMAR" ? (
+              <>
+                Modo: <strong className="text-blue-700">Por Confirmar · Todos los periodos</strong> • Total encontrados:{" "}
+                <strong className="text-slate-800">{totalRegistros}</strong>
+              </>
+            ) : estadoFiltro === "MOROSOS_HISTORICOS" ? (
+              <>
+                Modo: <strong className="text-rose-700">Morosos Históricos · Todos los periodos</strong> • Total encontrados:{" "}
+                <strong className="text-slate-800">{totalRegistros}</strong>
+              </>
+            ) : (
+              <>
+                Periodo: <strong className="text-slate-800">{nombreMesActual} {ano}</strong> • Total cuotas encontradas:{" "}
+                <strong className="text-slate-800">{totalRegistros}</strong>
+              </>
+            )}
           </span>
           {(busqueda || propiedadId !== "TODAS" || estadoFiltro !== "TODOS") && (
             <button
@@ -607,9 +621,21 @@ export function CobranzaClient({
       {/* Grid de Tarjetas de Cobranza (Alto impacto visual con efecto sol y bordes 3D) */}
       {pagos.length === 0 ? (
         <EmptyState
-          title="No se encontraron cuotas para este periodo"
+          title={
+            estadoFiltro === "POR_CONFIRMAR"
+              ? "No hay pagos pendientes por confirmar"
+              : estadoFiltro === "MOROSOS_HISTORICOS"
+              ? "No hay morosos históricos registrados"
+              : "No se encontraron cuotas para este periodo"
+          }
           description={
             (() => {
+              if (estadoFiltro === "POR_CONFIRMAR") {
+                return "No hay comprobantes bancarios pendientes de revisión ni conciliación en ningún período.";
+              }
+              if (estadoFiltro === "MOROSOS_HISTORICOS") {
+                return "Todos los contratos anteriores al mes en curso se encuentran al día y sin deuda acumulada.";
+              }
               const d = new Date();
               const mesActualReal = d.getMonth() + 1;
               const anoActualReal = d.getFullYear();

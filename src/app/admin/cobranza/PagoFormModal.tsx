@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import {
   Calendar,
   CreditCard,
@@ -13,6 +13,9 @@ import {
   Loader2,
   Trash2,
   DollarSign,
+  Coins,
+  Pencil,
+  RefreshCw,
   Image as ImageIcon,
   Mail,
   Lock,
@@ -21,11 +24,11 @@ import { Modal } from "@/components/ui/modal";
 import { Select } from "@/components/ui/select";
 import { useOperacionesUploadThing } from "@/lib/uploadthing";
 import { toast } from "sonner";
-import { MetodoPago, EstadoPago } from "@prisma/client";
+import { MetodoPago, EstadoPago, MonedaTransaccion } from "@prisma/client";
 import { comprimirImagen, formatearBytes, PRESETS_COMPRESION } from "@/lib/file-compressor";
 import type { PagoItem } from "./types";
 import { rechazarComprobanteReportadoAction, type RegistrarPagoInput } from "@/lib/actions/cobranza";
-import { OPCIONES_METODO_PAGO } from "@/lib/constants/pagos";
+import { METODO_PAGO_CONFIG } from "@/lib/constants/pagos";
 import { MESES } from "@/lib/date-utils";
 
 interface PagoFormModalProps {
@@ -55,24 +58,62 @@ function PagoFormContent({
   const saldoRestante = Math.max(0, Number((pago.montoEsperado - pago.montoPagado).toFixed(2)));
   const esPorConfirmar = Boolean(pago.comprobanteUrl && pago.estado !== EstadoPago.PAGADO);
 
-  // Extraer el monto específico reportado por el inquilino en las notas si existe (Ej: "($10.00)")
+  // Extraer el monto especifico reportado por el inquilino en las notas si existe
   const matchMontoReportado = pago.notas?.match(/\(\$([0-9]+(?:\.[0-9]{1,2})?)\)/);
   const montoReportadoParsed = matchMontoReportado ? parseFloat(matchMontoReportado[1]) : null;
 
-  const montoInicial =
+  // Deteccion inicial de moneda: Por defecto Bolivares (VES), salvo pago reportado expresamente en USD
+  const monedaInicial: MonedaTransaccion =
+    esPorConfirmar &&
+    (pago.metodoPago === MetodoPago.EFECTIVO_USD ||
+      pago.metodoPago === MetodoPago.ZELLE)
+      ? MonedaTransaccion.USD
+      : MonedaTransaccion.VES;
+
+  const [monedaOriginal, setMonedaOriginal] = useState<MonedaTransaccion>(monedaInicial);
+  const monedaRef = useRef(monedaOriginal);
+  monedaRef.current = monedaOriginal;
+
+  const hoyStr = new Date().toISOString().split("T")[0];
+  const [fechaPago, setFechaPago] = useState<string>(
+    pago.fechaPago ? pago.fechaPago.split("T")[0] : hoyStr
+  );
+
+  // Estados para tasa BCV oficial y edicion manual
+  const [tasaBcv, setTasaBcv] = useState<string>(
+    pago.tasaBcv ? pago.tasaBcv.toString() : "914.0218"
+  );
+  const [cargandoTasa, setCargandoTasa] = useState(false);
+  const [editandoTasaManual, setEditandoTasaManual] = useState(false);
+  const [esTasaFallback, setEsTasaFallback] = useState(false);
+
+  // Estados para montos segun moneda
+  const montoInicialUsd =
     esPorConfirmar && montoReportadoParsed && montoReportadoParsed > 0 && montoReportadoParsed <= saldoRestante
       ? montoReportadoParsed.toFixed(2)
       : saldoRestante > 0
       ? saldoRestante.toString()
       : pago.montoEsperado.toString();
 
-  const hoyStr = new Date().toISOString().split("T")[0];
+  const tasaInicialNum = pago.tasaBcv || 914.0218;
+  const montoInicialBs =
+    pago.montoBs
+      ? pago.montoBs.toString()
+      : monedaInicial === MonedaTransaccion.VES && tasaInicialNum > 0 && parseFloat(montoInicialUsd) > 0
+      ? (parseFloat(montoInicialUsd) * tasaInicialNum).toFixed(2)
+      : "";
 
-  const [montoPagado, setMontoPagado] = useState<string>(montoInicial);
-  const [fechaPago, setFechaPago] = useState<string>(
-    pago.fechaPago ? pago.fechaPago.split("T")[0] : hoyStr
+  const [montoUsd, setMontoUsd] = useState<string>(montoInicialUsd);
+  const [montoBs, setMontoBs] = useState<string>(montoInicialBs);
+
+  const [metodoPago, setMetodoPago] = useState<MetodoPago>(
+    esPorConfirmar && pago.metodoPago
+      ? pago.metodoPago
+      : monedaInicial === MonedaTransaccion.VES
+      ? MetodoPago.PAGO_MOVIL
+      : MetodoPago.EFECTIVO_USD
   );
-  const [metodoPago, setMetodoPago] = useState<MetodoPago>(pago.metodoPago || MetodoPago.EFECTIVO_USD);
+
   const [referencia, setReferencia] = useState<string>(pago.referencia || "");
   const [comprobanteUrl, setComprobanteUrl] = useState<string>(pago.comprobanteUrl || "");
   const [notas, setNotas] = useState<string>("");
@@ -84,6 +125,113 @@ function PagoFormContent({
   const [motivoRechazoInput, setMotivoRechazoInput] = useState(
     "El comprobante no coincide con los movimientos bancarios o no es legible."
   );
+
+  // Consultar la tasa BCV oficial para la fecha seleccionada
+  const consultarTasaBcv = async (fechaParam?: string) => {
+    setCargandoTasa(true);
+    try {
+      const fechaAUsar = fechaParam ?? fechaPago;
+      const url = fechaAUsar ? `/api/bcv?fecha=${fechaAUsar}` : "/api/bcv";
+      const res = await fetch(url);
+      const json = await res.json();
+      if (json.success && json.data?.tasa) {
+        setEsTasaFallback(!!json.data.esFallback);
+        const nuevaTasa = json.data.tasa;
+        if (!editandoTasaManual || fechaParam) {
+          setTasaBcv(nuevaTasa.toString());
+          if (monedaRef.current === MonedaTransaccion.VES && !pago.montoBs && montoUsd) {
+            setMontoBs((parseFloat(montoUsd) * nuevaTasa).toFixed(2));
+          }
+        }
+      }
+    } catch (e) {
+      console.warn("No se pudo cargar la tasa BCV:", e);
+    } finally {
+      setCargandoTasa(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!pago.tasaBcv) {
+      consultarTasaBcv(fechaPago);
+    }
+  }, []);
+
+  const handleCambioFecha = (nuevaFecha: string) => {
+    setFechaPago(nuevaFecha);
+    if (!editandoTasaManual) {
+      consultarTasaBcv(nuevaFecha);
+    }
+  };
+
+  // Alternar entre Bolivares y Dolares con conversion de valores
+  const handleCambioMoneda = (nuevaMoneda: MonedaTransaccion) => {
+    setMonedaOriginal(nuevaMoneda);
+    const tasaNum = parseFloat(tasaBcv) || 0;
+
+    if (nuevaMoneda === MonedaTransaccion.VES) {
+      if (metodoPago === MetodoPago.EFECTIVO_USD || metodoPago === MetodoPago.ZELLE) {
+        setMetodoPago(MetodoPago.PAGO_MOVIL);
+      }
+      if (!montoBs && montoUsd && tasaNum > 0) {
+        setMontoBs((parseFloat(montoUsd) * tasaNum).toFixed(2));
+      }
+    } else {
+      if (metodoPago === MetodoPago.PAGO_MOVIL) {
+        setMetodoPago(MetodoPago.EFECTIVO_USD);
+      }
+      if (!montoUsd && montoBs && tasaNum > 0) {
+        setMontoUsd((parseFloat(montoBs) / tasaNum).toFixed(2));
+      }
+    }
+  };
+
+  // Ajustar moneda si el metodo seleccionado pertenece estrictamente a una divisa
+  const handleCambioMetodo = (nuevoMetodo: MetodoPago) => {
+    setMetodoPago(nuevoMetodo);
+    if (nuevoMetodo === MetodoPago.PAGO_MOVIL && monedaOriginal !== MonedaTransaccion.VES) {
+      handleCambioMoneda(MonedaTransaccion.VES);
+    } else if (
+      (nuevoMetodo === MetodoPago.EFECTIVO_USD || nuevoMetodo === MetodoPago.ZELLE) &&
+      monedaOriginal !== MonedaTransaccion.USD
+    ) {
+      handleCambioMoneda(MonedaTransaccion.USD);
+    }
+  };
+
+  const tasaNum = parseFloat(tasaBcv) || 0;
+
+  // Monto numerico imputado en USD al canon
+  const montoNumero =
+    monedaOriginal === MonedaTransaccion.VES
+      ? tasaNum > 0 && parseFloat(montoBs) > 0
+        ? Number((parseFloat(montoBs) / tasaNum).toFixed(2))
+        : 0
+      : parseFloat(montoUsd) || 0;
+
+  // Contravalor referencial en Bolivares cuando se opera en USD
+  const contravalorBs =
+    monedaOriginal === MonedaTransaccion.USD && tasaNum > 0 && montoNumero > 0
+      ? Number((montoNumero * tasaNum).toFixed(2))
+      : 0;
+
+  const nuevoTotalAcumulado = Number(((pago.montoPagado || 0) + montoNumero).toFixed(2));
+  const nuevoSaldoRestante = Math.max(0, Number((pago.montoEsperado - nuevoTotalAcumulado).toFixed(2)));
+  const completaPago = nuevoTotalAcumulado >= pago.montoEsperado;
+  const esExcedente = nuevoTotalAcumulado > pago.montoEsperado;
+
+  // Filtrar metodos de pago disponibles segun la moneda elegida
+  const opcionesMetodoPago = Object.entries(METODO_PAGO_CONFIG)
+    .filter(([key]) => {
+      if (monedaOriginal === MonedaTransaccion.VES) {
+        return key === MetodoPago.PAGO_MOVIL || key === MetodoPago.TRANSFERENCIA || key === MetodoPago.OTRO;
+      }
+      return key === MetodoPago.EFECTIVO_USD || key === MetodoPago.ZELLE || key === MetodoPago.TRANSFERENCIA || key === MetodoPago.OTRO;
+    })
+    .map(([key, config]) => ({
+      value: key,
+      label: config.label,
+    }));
 
   const handleConfirmarRechazo = async () => {
     if (!pago || !motivoRechazoInput.trim()) return;
@@ -102,6 +250,7 @@ function PagoFormContent({
       setIsRechazando(false);
     }
   };
+
   const [statsCompresion, setStatsCompresion] = useState<{
     original: string;
     final: string;
@@ -125,21 +274,15 @@ function PagoFormContent({
     },
   });
 
-  const montoNumero = parseFloat(montoPagado) || 0;
-  const nuevoTotalAcumulado = Number(((pago.montoPagado || 0) + montoNumero).toFixed(2));
-  const nuevoSaldoRestante = Math.max(0, Number((pago.montoEsperado - nuevoTotalAcumulado).toFixed(2)));
-  const completaPago = nuevoTotalAcumulado >= pago.montoEsperado;
-  const esExcedente = nuevoTotalAcumulado > pago.montoEsperado;
-
   const procesarYSubirComprobante = async (file: File) => {
     if (!file) return;
 
     if (!file.type.startsWith("image/")) {
-      toast.error("Solo se permiten imágenes (JPG, PNG o WEBP). No se admiten archivos PDF u otros formatos.");
+      toast.error("Solo se permiten imagenes (JPG, PNG o WEBP). No se admiten archivos PDF u otros formatos.");
       return;
     }
 
-    const LIMITE_MAX_BYTES = 10 * 1024 * 1024; // 10 MB
+    const LIMITE_MAX_BYTES = 10 * 1024 * 1024;
     if (file.size > LIMITE_MAX_BYTES) {
       toast.error("La imagen del comprobante no debe superar los 10 MB.");
       return;
@@ -148,7 +291,6 @@ function PagoFormContent({
     setIsCompressing(true);
 
     try {
-      // Optimización con preset específico para comprobantes bancarios
       const res = await comprimirImagen(file, PRESETS_COMPRESION.comprobantePago);
       setStatsCompresion({
         original: formatearBytes(res.pesoOriginal),
@@ -183,16 +325,26 @@ function PagoFormContent({
     e.preventDefault();
 
     if (montoNumero <= 0) {
-      toast.error("El monto del abono debe ser mayor a 0.");
+      toast.error(
+        monedaOriginal === MonedaTransaccion.VES
+          ? "El monto en Bolivares debe ser mayor a 0 y la tasa BCV debe ser valida."
+          : "El monto del abono debe ser mayor a 0."
+      );
       return;
     }
 
     if (!fechaPago) {
-      toast.error("Por favor indique la fecha en la que se efectuó el pago.");
+      toast.error("Por favor indique la fecha en la que se efectuo el pago.");
       return;
     }
 
-    const esMetodoVES = metodoPago === MetodoPago.PAGO_MOVIL || metodoPago === MetodoPago.TRANSFERENCIA;
+    const montoBsFinal =
+      monedaOriginal === MonedaTransaccion.VES
+        ? parseFloat(montoBs) || null
+        : contravalorBs > 0
+        ? contravalorBs
+        : null;
+
     const payload: RegistrarPagoInput = {
       pagoId: pago.id,
       montoPagado: montoNumero,
@@ -201,10 +353,13 @@ function PagoFormContent({
       referencia: referencia.trim() || undefined,
       comprobanteUrl: comprobanteUrl.trim() || undefined,
       notas: notas.trim() || undefined,
-      monedaOriginal: pago.monedaOriginal || (esMetodoVES ? "VES" : "USD"),
-      montoOriginal: pago.montoOriginal || (pago.montoBs ? pago.montoBs : montoNumero),
-      montoBs: pago.montoBs || null,
-      tasaBcv: pago.tasaBcv || null,
+      monedaOriginal,
+      montoOriginal:
+        monedaOriginal === MonedaTransaccion.VES
+          ? parseFloat(montoBs) || montoNumero
+          : montoNumero,
+      montoBs: montoBsFinal,
+      tasaBcv: tasaNum > 0 ? tasaNum : null,
     };
 
     setIsSubmitting(true);
@@ -221,7 +376,7 @@ function PagoFormContent({
   return (
     <>
       <form onSubmit={handleSubmit} className="space-y-4">
-      {/* Banner de Imputación Contable Bloqueada */}
+      {/* Banner de Imputacion Contable Bloqueada */}
       {pago.anteriorImpago && pago.estado !== EstadoPago.PAGADO && (
         <div className="p-3.5 rounded-xl bg-amber-50/50 border border-amber-200/70 text-amber-900 flex items-start gap-3">
           <div className="w-8 h-8 rounded-xl bg-amber-100 border border-amber-300 flex items-center justify-center shrink-0 text-amber-700 mt-0.5">
@@ -229,7 +384,7 @@ function PagoFormContent({
           </div>
           <div className="min-w-0 flex-1 text-xs leading-relaxed">
             <p className="font-bold text-amber-950 font-heading">
-              Imputación Contable Bloqueada: Canon anterior pendiente
+              Imputacion Contable Bloqueada: Canon anterior pendiente
             </p>
             <p className="text-amber-800 text-[11px] mt-0.5 font-medium">
               Este contrato mantiene un saldo pendiente en{" "}
@@ -237,7 +392,7 @@ function PagoFormContent({
                 {MESES[(pago.anteriorImpago.mes || 1) - 1]} {pago.anteriorImpago.ano}
               </strong>{" "}
               (Resta: <strong>${pago.anteriorImpago.saldo.toFixed(2)} USD</strong>). Por norma contable y correlatividad de pagos,
-              debes liquidar primero dicho período antes de asentar pagos en este mes.
+              debes liquidar primero dicho periodo antes de asentar pagos en este mes.
             </p>
           </div>
         </div>
@@ -259,15 +414,15 @@ function PagoFormContent({
           </div>
           <div className="text-left sm:text-right">
             <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
-              Día de Cobro
+              Dia de Cobro
             </span>
             <span className="text-xs font-bold text-slate-800">
-              Día {pago.contrato.diaCobro} de cada mes
+              Dia {pago.contrato.diaCobro} de cada mes
             </span>
           </div>
         </div>
 
-        {/* 3 Cajas de métricas financieras del canon */}
+        {/* 3 Cajas de metricas financieras del canon */}
         <div className="grid grid-cols-3 gap-2 text-center">
           <div className="p-2 sm:p-2.5 bg-white rounded-xl border border-slate-200/80">
             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
@@ -278,65 +433,53 @@ function PagoFormContent({
             </span>
           </div>
           <div className="p-2 sm:p-2.5 bg-emerald-50/50 rounded-xl border border-emerald-200/70">
-            <span className="text-[10px] font-bold text-emerald-800 uppercase tracking-wider block">
+            <span className="text-[10px] font-bold text-emerald-700 uppercase tracking-wider block">
               Ya Abonado
             </span>
-            <span className="text-xs sm:text-sm font-black text-[#175E38] font-heading block mt-0.5">
-              ${pago.montoPagado.toFixed(2)}
+            <span className="text-xs sm:text-sm font-black text-emerald-800 font-heading block mt-0.5">
+              ${(pago.montoPagado || 0).toFixed(2)}
             </span>
           </div>
-          <div className="p-2 sm:p-2.5 bg-amber-50/50 rounded-xl border border-amber-200/70">
-            <span className="text-[10px] font-bold text-amber-800 uppercase tracking-wider block">
+          <div
+            className={`p-2 sm:p-2.5 rounded-xl border ${
+              saldoRestante === 0
+                ? "bg-slate-100 border-slate-200 text-slate-400"
+                : "bg-amber-50/50 border-amber-200/70 text-amber-900"
+            }`}
+          >
+            <span className="text-[10px] font-bold uppercase tracking-wider block opacity-75">
               Resta
             </span>
-            <span className="text-xs sm:text-sm font-black text-amber-700 font-heading block mt-0.5">
+            <span className="text-xs sm:text-sm font-black font-heading block mt-0.5">
               ${saldoRestante.toFixed(2)}
             </span>
           </div>
         </div>
-
-        {/* Botón rápido para abonar exactamente el resto pendiente */}
-        {saldoRestante > 0 && pago.montoPagado > 0 && (
-          <div className="pt-1 flex items-center justify-between gap-2 border-t border-slate-200/60 text-xs">
-            <span className="text-slate-500 font-medium text-[11px]">
-              Liquidar el saldo completo restante:
-            </span>
-            <button
-              type="button"
-              onClick={() => setMontoPagado(saldoRestante.toFixed(2))}
-              className="px-2.5 py-1 text-[11px] font-bold text-[#175E38] bg-emerald-100/70 hover:bg-emerald-100 rounded-lg border border-emerald-300 transition-all cursor-pointer active:scale-95 shrink-0"
-            >
-              Abonar resto (${saldoRestante.toFixed(2)} USD)
-            </button>
-          </div>
-        )}
       </div>
 
-      {/* Abonos previos registrados en este canon */}
+      {/* Historial previo de abonos si existen */}
       {pago.transacciones && pago.transacciones.length > 0 && (
-        <div className="bg-slate-50/50 border border-slate-200/70 rounded-xl p-3 sm:p-3.5 space-y-2">
-          <div className="flex items-center justify-between text-xs font-bold text-slate-700">
-            <span>Abonos Previos Registrados ({pago.transacciones.length})</span>
-            <span className="text-[#175E38]">Total Abonado: ${pago.montoPagado.toFixed(2)} USD</span>
+        <div className="p-3 bg-slate-50/80 rounded-xl border border-slate-200/70 space-y-2">
+          <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 flex items-center justify-between">
+            <span>Abonos Asentados en este Periodo ({pago.transacciones.length})</span>
+            <span className="font-mono text-slate-600 font-bold">Total: ${(pago.montoPagado || 0).toFixed(2)}</span>
           </div>
-          <div className="space-y-1.5 max-h-32 overflow-y-auto pr-1">
-            {pago.transacciones.map((t, idx) => (
+          <div className="space-y-1.5 max-h-36 overflow-y-auto pr-1">
+            {pago.transacciones.map((t) => (
               <div
                 key={t.id}
-                className="flex items-center justify-between p-2 rounded-xl bg-white border border-slate-200/70 text-xs"
+                className="flex items-center justify-between p-2 rounded-lg bg-white border border-slate-200/60 text-xs"
               >
-                <div className="flex items-center gap-2">
-                  <span className="w-5 h-5 rounded-full bg-emerald-50 text-[#175E38] font-bold text-[10px] flex items-center justify-center border border-emerald-200">
-                    {idx + 1}
-                  </span>
-                  <div>
-                    <span className="font-bold text-slate-800">
-                      +${t.monto.toFixed(2)} USD
+                <div>
+                  <span className="font-bold text-slate-800 font-mono">${t.monto.toFixed(2)} USD</span>
+                  {t.montoBs && t.tasaBcv && (
+                    <span className="text-[10px] text-slate-500 font-mono ml-1.5">
+                      (Bs. {t.montoBs.toLocaleString("es-VE", { minimumFractionDigits: 2 })} @ {t.tasaBcv.toFixed(2)})
                     </span>
-                    <span className="text-slate-400 text-[11px] ml-1.5">
-                      · {new Date(t.fechaPago).toLocaleDateString("es-VE", { day: "2-digit", month: "short" })}
-                      {t.referencia && ` · Ref: ${t.referencia}`}
-                    </span>
+                  )}
+                  <div className="text-[10px] text-slate-400">
+                    {t.fechaPago ? t.fechaPago.split("T")[0] : "Fecha N/D"}
+                    {t.referencia && ` · Ref: ${t.referencia}`}
                   </div>
                 </div>
                 <span className="text-[10px] font-semibold text-slate-600 bg-slate-100 px-2 py-0.5 rounded-md">
@@ -348,7 +491,7 @@ function PagoFormContent({
         </div>
       )}
 
-      {/* Sección 1: Datos de la Transacción */}
+      {/* Seccion 1: Datos de la Transaccion y Multimoneda */}
       <div className="border-t border-slate-100 pt-5 space-y-3">
         <div>
           <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-400">Paso 1</p>
@@ -356,68 +499,258 @@ function PagoFormContent({
             {pago.montoPagado > 0 ? "Detalles del Nuevo Abono" : "Detalles del Pago"}
           </h4>
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 mt-3">
-          {/* Monto pagado */}
-          <div>
-            <div className="flex items-center justify-between mb-1.5 flex-wrap gap-1">
-              <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1.5">
-                {pago.montoPagado > 0 ? "Monto de este Abono (USD)" : "Monto a Registrar (USD)"}{" "}
-                <span className="text-rose-500">*</span>
-              </label>
-              {esPorConfirmar && (
-                <div className="flex items-center gap-1.5 flex-wrap">
-                  {montoReportadoParsed && (
-                    <span className="text-[10px] font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded-md border border-blue-200/80">
-                      Reportado: ${montoReportadoParsed.toFixed(2)} USD
-                    </span>
-                  )}
-                  {pago.montoBs && pago.tasaBcv && (
-                    <span className="text-[10px] font-bold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200/80">
-                      Bs. {pago.montoBs.toLocaleString("es-VE", { minimumFractionDigits: 2 })} ({pago.tasaBcv.toFixed(2)} Bs/$)
-                    </span>
-                  )}
-                </div>
-              )}
-            </div>
-            <div className="relative">
-              <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-sm">
-                $
-              </span>
-              <input
-                type="number"
-                step="0.01"
-                min="0.01"
-                required
-                value={montoPagado}
-                onChange={(e) => setMontoPagado(e.target.value)}
-                placeholder="Ej: 50.00"
-                className="w-full pl-8 pr-3.5 h-11 text-sm bg-white border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#175E38]/20 focus:border-[#175E38] outline-hidden font-semibold text-slate-900"
-              />
-            </div>
 
-            {/* Proyección contable en tiempo real */}
-            {montoNumero > 0 && (
-              <div className="mt-2">
-                {completaPago ? (
-                  <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-emerald-50/70 text-emerald-800 border border-emerald-200/70">
-                    <CheckCircle className="w-3.5 h-3.5 text-[#175E38] shrink-0" />
-                    <span>
-                      {esExcedente
-                        ? `Cubre y excede el total · Acumulará $${nuevoTotalAcumulado.toFixed(2)}`
-                        : `¡Completa el total! · Cuota liquidada ($${nuevoTotalAcumulado.toFixed(2)})`}
-                    </span>
+        {/* Selector de Moneda de Pago (Bs. VES vs $ USD) */}
+        <div>
+          <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1.5">
+            Moneda del Pago <span className="text-rose-500">*</span>
+          </label>
+          <div className="grid grid-cols-2 gap-2 p-1 bg-slate-100 rounded-xl border border-slate-200">
+            <button
+              type="button"
+              onClick={() => handleCambioMoneda(MonedaTransaccion.VES)}
+              className={`h-10 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                monedaOriginal === MonedaTransaccion.VES
+                  ? "bg-[#175E38] text-white shadow-xs"
+                  : "text-slate-600 hover:text-slate-900"
+              }`}
+            >
+              <Coins className="w-3.5 h-3.5" />
+              <span>Bolivares (Bs. VES)</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => handleCambioMoneda(MonedaTransaccion.USD)}
+              className={`h-10 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                monedaOriginal === MonedaTransaccion.USD
+                  ? "bg-[#1C2539] text-white shadow-xs"
+                  : "text-slate-600 hover:text-slate-900"
+              }`}
+            >
+              <DollarSign className="w-3.5 h-3.5" />
+              <span>Dolares ($ USD)</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Campos condicionales segun moneda */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 mt-3">
+          {monedaOriginal === MonedaTransaccion.VES ? (
+            <>
+              {/* Monto en Bolivares */}
+              <div>
+                <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1.5">
+                  Monto en Bolivares (Bs.) <span className="text-rose-500">*</span>
+                </label>
+                <div className="relative">
+                  <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-xs font-mono">
+                    Bs.
+                  </span>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0.01"
+                    required
+                    value={montoBs}
+                    onChange={(e) => setMontoBs(e.target.value)}
+                    placeholder="0.00"
+                    className="w-full pl-10 pr-3.5 h-11 text-sm bg-white border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#175E38]/20 focus:border-[#175E38] outline-hidden font-bold text-slate-900 font-mono"
+                  />
+                </div>
+              </div>
+
+              {/* Tasa BCV Oficial aplicada */}
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                    Tasa Oficial BCV <span className="text-rose-500">*</span>
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setEditandoTasaManual(!editandoTasaManual)}
+                    className="text-[11px] font-bold text-[#175E38] hover:underline flex items-center gap-1 cursor-pointer"
+                  >
+                    <Pencil className="w-3 h-3" />
+                    <span>{editandoTasaManual ? "Automatica" : "Ajustar Tasa"}</span>
+                  </button>
+                </div>
+
+                {editandoTasaManual ? (
+                  <div className="relative">
+                    <input
+                      type="number"
+                      step="0.0001"
+                      min="0.0001"
+                      value={tasaBcv}
+                      onChange={(e) => setTasaBcv(e.target.value)}
+                      placeholder="Tasa en Bs/USD"
+                      required
+                      className="w-full h-11 px-3.5 rounded-xl border border-amber-300 bg-amber-50/50 text-sm font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all font-mono"
+                    />
                   </div>
                 ) : (
-                  <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-blue-50/70 text-blue-800 border border-blue-200/70">
-                    <AlertTriangle className="w-3.5 h-3.5 text-blue-600 shrink-0" />
-                    <span>
-                      Abono parcial · Acumulará ${nuevoTotalAcumulado.toFixed(2)} · Restará ${nuevoSaldoRestante.toFixed(2)} por pagar
-                    </span>
+                  <div className="h-11 px-3.5 bg-emerald-50/50 border border-emerald-200/70 rounded-xl flex items-center justify-between text-xs">
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      {cargandoTasa ? (
+                        <Loader2 className="w-3.5 h-3.5 animate-spin text-[#175E38]" />
+                      ) : (
+                        <Coins className="w-3.5 h-3.5 text-[#175E38] shrink-0" />
+                      )}
+                      <span className="font-mono font-bold text-slate-900 truncate">
+                        {tasaNum > 0
+                          ? `${tasaNum.toLocaleString("es-VE", {
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 4,
+                            })} Bs/$`
+                          : "Consultando..."}
+                      </span>
+                      {esTasaFallback && (
+                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 font-semibold shrink-0">
+                          Cache
+                        </span>
+                      )}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => consultarTasaBcv(fechaPago)}
+                      disabled={cargandoTasa}
+                      title="Sincronizar tasa BCV oficial"
+                      className="text-slate-400 hover:text-[#175E38] transition-colors p-1 cursor-pointer"
+                    >
+                      <RefreshCw className={`w-3.5 h-3.5 ${cargandoTasa ? "animate-spin" : ""}`} />
+                    </button>
                   </div>
                 )}
               </div>
-            )}
-          </div>
+
+              {/* Banner de Contravalor en USD en vivo */}
+              <div className="sm:col-span-2 p-3 bg-slate-50/80 border border-slate-200/80 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
+                <span className="text-slate-600 font-semibold flex items-center gap-1.5">
+                  <AlertCircle className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                  <span>Equivalente Imputado al Canon:</span>
+                </span>
+                <span className="font-heading font-black text-slate-900 text-base">
+                  ${montoNumero.toFixed(2)} USD
+                </span>
+              </div>
+            </>
+          ) : (
+            <>
+              {/* Monto en Dolares */}
+              <div>
+                <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1.5">
+                  {pago.montoPagado > 0 ? "Monto de este Abono (USD)" : "Monto a Registrar (USD)"}{" "}
+                  <span className="text-rose-500">*</span>
+                </label>
+                <div className="relative">
+                  <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-sm">
+                    $
+                  </span>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0.01"
+                    required
+                    value={montoUsd}
+                    onChange={(e) => setMontoUsd(e.target.value)}
+                    placeholder="Ej: 50.00"
+                    className="w-full pl-8 pr-3.5 h-11 text-sm bg-white border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#175E38]/20 focus:border-[#175E38] outline-hidden font-bold text-slate-900"
+                  />
+                </div>
+              </div>
+
+              {/* Tasa BCV Referencial */}
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                    Tasa BCV de Referencia
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setEditandoTasaManual(!editandoTasaManual)}
+                    className="text-[11px] font-bold text-[#175E38] hover:underline flex items-center gap-1 cursor-pointer"
+                  >
+                    <Pencil className="w-3 h-3" />
+                    <span>{editandoTasaManual ? "Automatica" : "Ajustar"}</span>
+                  </button>
+                </div>
+
+                {editandoTasaManual ? (
+                  <div className="relative">
+                    <input
+                      type="number"
+                      step="0.0001"
+                      min="0.0001"
+                      value={tasaBcv}
+                      onChange={(e) => setTasaBcv(e.target.value)}
+                      placeholder="Tasa en Bs/USD"
+                      className="w-full h-11 px-3.5 rounded-xl border border-amber-300 bg-amber-50/50 text-sm font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all font-mono"
+                    />
+                  </div>
+                ) : (
+                  <div className="h-11 px-3.5 bg-slate-50 border border-slate-200 rounded-xl flex items-center justify-between text-xs">
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      {cargandoTasa ? (
+                        <Loader2 className="w-3.5 h-3.5 animate-spin text-slate-400" />
+                      ) : (
+                        <Coins className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                      )}
+                      <span className="font-mono font-medium text-slate-700 truncate">
+                        {tasaNum > 0
+                          ? `${tasaNum.toLocaleString("es-VE", {
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 4,
+                            })} Bs/$`
+                          : "—"}
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => consultarTasaBcv(fechaPago)}
+                      disabled={cargandoTasa}
+                      title="Sincronizar tasa BCV"
+                      className="text-slate-400 hover:text-slate-700 transition-colors p-1 cursor-pointer"
+                    >
+                      <RefreshCw className={`w-3.5 h-3.5 ${cargandoTasa ? "animate-spin" : ""}`} />
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* Referencial en Bolivares */}
+              {contravalorBs > 0 && (
+                <div className="sm:col-span-2 p-2.5 bg-slate-50/60 border border-slate-200/60 rounded-xl flex items-center justify-between text-xs">
+                  <span className="text-slate-500 font-medium">Equivalente de referencia en Bolivares:</span>
+                  <span className="font-bold font-mono text-slate-800">
+                    Bs. {contravalorBs.toLocaleString("es-VE", { minimumFractionDigits: 2 })}
+                  </span>
+                </div>
+              )}
+            </>
+          )}
+
+          {/* Proyeccion contable de cobertura */}
+          {montoNumero > 0 && (
+            <div className="sm:col-span-2">
+              {completaPago ? (
+                <div className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200/80 w-full">
+                  <CheckCircle className="w-4 h-4 text-[#175E38] shrink-0" />
+                  <span>
+                    {esExcedente
+                      ? `Cubre y excede el canon · Acumulara $${nuevoTotalAcumulado.toFixed(2)} USD`
+                      : `¡Completa el total! · Cuota liquidada ($${nuevoTotalAcumulado.toFixed(2)} USD)`}
+                  </span>
+                </div>
+              ) : (
+                <div className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-blue-50 text-blue-800 border border-blue-200/80 w-full">
+                  <AlertTriangle className="w-4 h-4 text-blue-600 shrink-0" />
+                  <span>
+                    Abono parcial · Acumulara ${nuevoTotalAcumulado.toFixed(2)} USD · Restara ${nuevoSaldoRestante.toFixed(2)} USD
+                  </span>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Fecha del pago */}
           <div>
@@ -430,29 +763,29 @@ function PagoFormContent({
                 type="date"
                 required
                 value={fechaPago}
-                onChange={(e) => setFechaPago(e.target.value)}
+                onChange={(e) => handleCambioFecha(e.target.value)}
                 className="w-full pl-10 pr-3.5 h-11 text-sm bg-white border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#175E38]/20 focus:border-[#175E38] outline-hidden font-medium text-slate-900"
               />
             </div>
           </div>
 
-          {/* Método de Pago */}
+          {/* Metodo de Pago */}
           <div>
             <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1.5">
-              Método de Pago <span className="text-rose-500">*</span>
+              Metodo de Pago <span className="text-rose-500">*</span>
             </label>
             <Select
               value={metodoPago}
-              onChange={(val) => setMetodoPago(val as MetodoPago)}
-              options={OPCIONES_METODO_PAGO}
+              onChange={(val) => handleCambioMetodo(val as MetodoPago)}
+              options={opcionesMetodoPago}
               icon={<CreditCard className="w-4 h-4 text-slate-400" />}
             />
           </div>
 
           {/* Referencia Bancaria */}
-          <div>
+          <div className="sm:col-span-2">
             <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1.5">
-              Número de Referencia
+              Numero de Referencia
             </label>
             <div className="relative">
               <Hash className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
@@ -460,7 +793,7 @@ function PagoFormContent({
                 type="text"
                 value={referencia}
                 onChange={(e) => setReferencia(e.target.value)}
-                placeholder="Ej: 984512 o Zelle Fabián"
+                placeholder="Ej: 984512 o Zelle Fabian"
                 className="w-full pl-10 pr-3.5 h-11 text-sm bg-white border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#175E38]/20 focus:border-[#175E38] outline-hidden font-medium text-slate-900"
               />
             </div>
@@ -468,134 +801,134 @@ function PagoFormContent({
         </div>
       </div>
 
-      {/* Sección 2: Comprobante y Notas */}
+      {/* Seccion 2: Comprobante y Notas */}
       <div className="border-t border-slate-100 pt-5 space-y-3">
         <div>
           <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-400">Paso 2</p>
           <h4 className="text-sm font-bold text-slate-800 mt-0.5">Comprobante y Notas</h4>
         </div>
         <div className="space-y-3 mt-3">
-          {/* Carga de Comprobante (Máx 1 imagen, Opcional) */}
+          {/* Carga de Comprobante */}
           <div>
             <div className="flex items-center justify-between mb-1.5">
-                <label className="text-[11px] font-semibold uppercase tracking-wide text-slate-500 flex items-center gap-1.5 mb-1.5">
-                  <ImageIcon className="w-3.5 h-3.5 text-slate-400" />
-                  <span>Foto del Comprobante</span>
-                  <span className="text-[11px] font-normal text-slate-400 bg-slate-100 px-2 py-0.5 rounded-md">
-                    Opcional · Máx. 1 imagen
-                  </span>
-                </label>
-                <span className="text-[10px] text-slate-400 font-medium">
-                  JPG, PNG o WEBP
+              <label className="text-[11px] font-semibold uppercase tracking-wide text-slate-500 flex items-center gap-1.5 mb-1.5">
+                <ImageIcon className="w-3.5 h-3.5 text-slate-400" />
+                <span>Foto del Comprobante</span>
+                <span className="text-[11px] font-normal text-slate-400 bg-slate-100 px-2 py-0.5 rounded-md">
+                  Opcional · Max. 1 imagen
                 </span>
-              </div>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/jpeg,image/png,image/webp"
-                className="hidden"
-                onChange={handleFileChange}
-              />
+              </label>
+              <span className="text-[10px] text-slate-400 font-medium">
+                JPG, PNG o WEBP
+              </span>
+            </div>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              className="hidden"
+              onChange={handleFileChange}
+            />
 
-              {comprobanteUrl ? (
-                <div className="flex items-center justify-between p-3 bg-emerald-50/50 border border-emerald-200/70 rounded-xl">
-                  <div className="flex items-center gap-3 min-w-0">
-                    <img
-                      src={comprobanteUrl}
-                      alt="Comprobante de pago"
-                      className="w-12 h-12 rounded-xl object-cover border border-emerald-200 bg-white shrink-0"
-                    />
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <p className="text-xs font-bold text-slate-900 truncate">
-                          Foto adjuntada exitosamente
-                        </p>
-                        {statsCompresion && (
-                          <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold bg-emerald-100 text-[#175E38] border border-emerald-200">
-                            {statsCompresion.final} {statsCompresion.ahorroPct > 0 && `(−${statsCompresion.ahorroPct}%)`}
-                          </span>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-2 mt-0.5">
-                        <a
-                          href={comprobanteUrl}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="text-[11px] text-[#175E38] font-bold hover:underline truncate"
-                        >
-                          Ver foto en tamaño completo ↗
-                        </a>
-                      </div>
+            {comprobanteUrl ? (
+              <div className="flex items-center justify-between p-3 bg-emerald-50/50 border border-emerald-200/70 rounded-xl">
+                <div className="flex items-center gap-3 min-w-0">
+                  <img
+                    src={comprobanteUrl}
+                    alt="Comprobante de pago"
+                    className="w-12 h-12 rounded-xl object-cover border border-emerald-200 bg-white shrink-0"
+                  />
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <p className="text-xs font-bold text-slate-900 truncate">
+                        Foto adjuntada exitosamente
+                      </p>
+                      {statsCompresion && (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold bg-emerald-100 text-[#175E38] border border-emerald-200">
+                          {statsCompresion.final} {statsCompresion.ahorroPct > 0 && `(−${statsCompresion.ahorroPct}%)`}
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2 mt-0.5">
+                      <a
+                        href={comprobanteUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-[11px] text-[#175E38] font-bold hover:underline truncate"
+                      >
+                        Ver foto en tamaño completo ↗
+                      </a>
                     </div>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setComprobanteUrl("");
-                      setStatsCompresion(null);
-                      if (fileInputRef.current) fileInputRef.current.value = "";
-                    }}
-                    className="p-2 text-rose-600 hover:bg-rose-100/70 rounded-xl transition-colors cursor-pointer shrink-0"
-                    title="Eliminar foto"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
                 </div>
-              ) : (
-                <div
-                  onDragOver={(e) => {
-                    e.preventDefault();
-                    setIsDragOver(true);
-                  }}
-                  onDragLeave={() => setIsDragOver(false)}
-                  onDrop={(e) => {
-                    e.preventDefault();
-                    setIsDragOver(false);
-                    const file = e.dataTransfer.files?.[0];
-                    if (file) procesarYSubirComprobante(file);
-                  }}
+                <button
+                  type="button"
                   onClick={() => {
-                    if (!isUploading && !isCompressing) {
-                      fileInputRef.current?.click();
-                    }
+                    setComprobanteUrl("");
+                    setStatsCompresion(null);
+                    if (fileInputRef.current) fileInputRef.current.value = "";
                   }}
-                  className={`border-2 border-dashed rounded-xl p-3.5 text-center transition-all flex flex-col items-center justify-center gap-1 ${
-                    isDragOver
-                      ? "border-[#175E38] bg-emerald-50/50"
-                      : isUploading || isCompressing
-                      ? "cursor-wait bg-slate-50/80 border-slate-300"
-                      : "cursor-pointer hover:bg-slate-50 hover:border-[#175E38]/50 border-slate-300/80 bg-slate-50/40"
-                  }`}
+                  className="p-2 text-rose-600 hover:bg-rose-100/70 rounded-xl transition-colors cursor-pointer shrink-0"
+                  title="Eliminar foto"
                 >
-                  {isCompressing ? (
-                    <div className="py-0.5 flex flex-col items-center gap-1">
-                      <Loader2 className="w-5 h-5 animate-spin text-[#175E38]" />
-                      <span className="text-xs font-bold text-slate-800">
-                        Optimizando foto...
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </div>
+            ) : (
+              <div
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  setIsDragOver(true);
+                }}
+                onDragLeave={() => setIsDragOver(false)}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  setIsDragOver(false);
+                  const file = e.dataTransfer.files?.[0];
+                  if (file) procesarYSubirComprobante(file);
+                }}
+                onClick={() => {
+                  if (!isUploading && !isCompressing) {
+                    fileInputRef.current?.click();
+                  }
+                }}
+                className={`border-2 border-dashed rounded-xl p-3.5 text-center transition-all flex flex-col items-center justify-center gap-1 ${
+                  isDragOver
+                    ? "border-[#175E38] bg-emerald-50/50"
+                    : isUploading || isCompressing
+                    ? "cursor-wait bg-slate-50/80 border-slate-300"
+                    : "cursor-pointer hover:bg-slate-50 hover:border-[#175E38]/50 border-slate-300/80 bg-slate-50/40"
+                }`}
+              >
+                {isCompressing ? (
+                  <div className="py-0.5 flex flex-col items-center gap-1">
+                    <Loader2 className="w-5 h-5 animate-spin text-[#175E38]" />
+                    <span className="text-xs font-bold text-slate-800">
+                      Optimizando foto...
+                    </span>
+                  </div>
+                ) : isUploading ? (
+                  <div className="py-0.5 flex flex-col items-center gap-1">
+                    <Loader2 className="w-5 h-5 animate-spin text-[#175E38]" />
+                    <span className="text-xs font-bold text-slate-800">
+                      Subiendo foto a la nube...
+                    </span>
+                  </div>
+                ) : (
+                  <>
+                    <div className="flex items-center gap-2">
+                      <UploadCloud className="w-5 h-5 text-slate-400 shrink-0" />
+                      <span className="text-xs font-bold text-slate-700">
+                        Adjuntar foto o captura del comprobante
                       </span>
                     </div>
-                  ) : isUploading ? (
-                    <div className="py-0.5 flex flex-col items-center gap-1">
-                      <Loader2 className="w-5 h-5 animate-spin text-[#175E38]" />
-                      <span className="text-xs font-bold text-slate-800">
-                        Subiendo foto a la nube...
-                      </span>
-                    </div>
-                  ) : (
-                    <>
-                      <div className="flex items-center gap-2">
-                        <UploadCloud className="w-5 h-5 text-slate-400 shrink-0" />
-                        <span className="text-xs font-bold text-slate-700">
-                          Adjuntar foto o captura del comprobante
-                        </span>
-                      </div>
-                      <p className="text-[11px] text-slate-400 leading-tight">
-                        Opcional · Puedes guardar el pago sin imagen si ya tienes el número de referencia.
-                      </p>
-                    </>
-                  )}
-                </div>
-              )}
+                    <p className="text-[11px] text-slate-400 leading-tight">
+                      Opcional · Puedes guardar el pago sin imagen si ya tienes el numero de referencia.
+                    </p>
+                  </>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Observaciones */}
@@ -607,14 +940,14 @@ function PagoFormContent({
               rows={2}
               value={notas}
               onChange={(e) => setNotas(e.target.value)}
-              placeholder="Ej: Pago realizado vía transferencia Banesco, verificado en cuenta."
+              placeholder="Ej: Pago realizado via transferencia Banesco, verificado en cuenta."
               className="w-full px-3.5 py-2.5 text-sm bg-white border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#175E38]/20 focus:border-[#175E38] outline-hidden text-slate-900 resize-none font-medium"
             />
           </div>
         </div>
       </div>
 
-      {/* Botones de acción inferiores */}
+      {/* Botones de accion inferiores */}
       <div className="pt-4 border-t border-slate-100 flex flex-col-reverse sm:flex-row sm:items-center sm:justify-end gap-2.5">
         {esPorConfirmar && (
           <button
@@ -623,10 +956,9 @@ function PagoFormContent({
             disabled={isLoading || isSubmitting || isRechazando}
             className="relative w-full sm:w-auto sm:mr-auto px-4 py-2.5 rounded-xl border border-rose-200 text-xs sm:text-sm font-semibold text-rose-700 bg-rose-50/60 hover:bg-rose-100/80 transition-colors flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
           >
-            {/* Indicador flotante: Notifica rechazo por correo */}
             <span
               className="absolute -top-1.5 -right-1.5 z-10 flex items-center justify-center w-5 h-5 rounded-full bg-rose-600 text-white shadow-md border-2 border-white ring-1 ring-rose-700/30 pointer-events-none"
-              title="Esta acción envía un correo al Inquilino con el motivo del rechazo"
+              title="Esta accion envia un correo al Inquilino con el motivo del rechazo"
             >
               <Mail className="w-2.5 h-2.5 stroke-[2.5]" />
             </span>
@@ -661,10 +993,9 @@ function PagoFormContent({
               : "bg-gradient-to-r from-[#175E38] to-[#124b2d] border-b-[#0e3a23] hover:from-[#145231] hover:to-[#0f3d25] text-white"
           }`}
         >
-          {/* Indicador flotante: Notifica confirmación de pago por correo */}
           <span
             className="absolute -top-1.5 -right-1.5 z-10 flex items-center justify-center w-5 h-5 rounded-full bg-amber-500 text-white shadow-md border-2 border-white ring-1 ring-amber-600/30 pointer-events-none"
-            title="Esta acción envía un correo de confirmación oficial al Inquilino"
+            title="Esta accion envia un correo de confirmacion oficial al Inquilino"
           >
             <Mail className="w-2.5 h-2.5 stroke-[2.5]" />
           </span>
@@ -688,7 +1019,7 @@ function PagoFormContent({
       </div>
     </form>
 
-    {/* Modal Institucional de Confirmación de Descarte / Rechazo */}
+    {/* Modal Institucional de Confirmacion de Descarte / Rechazo */}
     <Modal
       isOpen={modalRechazoAbierto}
       onClose={() => setModalRechazoAbierto(false)}
@@ -699,7 +1030,7 @@ function PagoFormContent({
     >
       <div className="space-y-4">
         <p className="text-xs text-slate-600 leading-relaxed">
-          Se eliminará el comprobante adjunto y se enviará una notificación por correo al inquilino explicándole el motivo para que pueda corregir y volver a reportar su pago.
+          Se eliminara el comprobante adjunto y se enviara una notificacion por correo al inquilino explicandole el motivo para que pueda corregir y volver a reportar su pago.
         </p>
 
         <div className="space-y-1.5">
@@ -711,7 +1042,7 @@ function PagoFormContent({
             value={motivoRechazoInput}
             onChange={(e) => setMotivoRechazoInput(e.target.value)}
             className="w-full p-3 rounded-xl border border-slate-200 bg-white text-xs text-slate-800 focus:outline-hidden focus:ring-2 focus:ring-[#CC1A22]/20 focus:border-[#CC1A22] shadow-2xs resize-none font-medium"
-            placeholder="Explica al inquilino la razón (ej: referencia ilegible o no acreditada en banco)..."
+            placeholder="Explica al inquilino la razon (ej: referencia ilegible o no acreditada en banco)..."
           />
         </div>
 
@@ -730,10 +1061,9 @@ function PagoFormContent({
             disabled={isRechazando || !motivoRechazoInput.trim()}
             className="relative w-full sm:w-auto sm:min-w-[180px] inline-flex items-center justify-center gap-1.5 px-5 py-2.5 rounded-xl bg-[#CC1A22] hover:bg-[#a81219] text-white text-xs sm:text-sm font-bold shadow-[0_2px_8px_rgba(204,26,34,0.3)] border-b-[3px] border-b-[#7a0d12] active:translate-y-0.5 transition-all cursor-pointer disabled:opacity-50"
           >
-            {/* Indicador flotante: Notifica rechazo por correo */}
             <span
               className="absolute -top-1.5 -right-1.5 z-10 flex items-center justify-center w-5 h-5 rounded-full bg-rose-800 text-white shadow-md border-2 border-white pointer-events-none"
-              title="Envía correo al inquilino con el motivo del rechazo"
+              title="Envia correo al inquilino con el motivo del rechazo"
             >
               <Mail className="w-2.5 h-2.5 stroke-[2.5]" />
             </span>
