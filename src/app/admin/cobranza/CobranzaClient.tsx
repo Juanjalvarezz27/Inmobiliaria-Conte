@@ -466,74 +466,99 @@ export function CobranzaClient({
       {/* Banner de Alerta Permanente: Morosidad Histórica Acumulada de Meses Anteriores (Fase 25) */}
       {Boolean(
         estadisticas.morosidadHistoricaCuotas && estadisticas.morosidadHistoricaCuotas > 0
-      ) && (
-        <div className="px-4 py-3 bg-gradient-to-r from-rose-50 via-amber-50/70 to-rose-50 border border-rose-300/90 rounded-2xl shadow-2xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-[#CC1A22] text-white flex items-center justify-center shrink-0 shadow-2xs">
-              <AlertTriangle className="w-4.5 h-4.5" />
-            </div>
-            <div className="flex items-center gap-2 flex-wrap">
-              <h4 className="text-sm font-black text-slate-900 font-heading">
-                {estadisticas.morosidadHistoricaInquilinos} inquilino(s) con deudas de meses anteriores ({estadisticas.morosidadHistoricaCuotas} cuota(s))
-              </h4>
-              <span className="px-2 py-0.5 rounded-full text-[11px] font-black bg-rose-100 text-rose-800 border border-rose-300">
-                ${estadisticas.morosidadHistoricaTotal?.toFixed(2)} USD
-              </span>
-            </div>
-          </div>
+      ) && (() => {
+        const cantInq = estadisticas.morosidadHistoricaInquilinos || 0;
+        const cantCuotas = estadisticas.morosidadHistoricaCuotas || 0;
+        const textoInquilinos =
+          cantInq === 1
+            ? "1 inquilino con deudas de meses anteriores"
+            : `${cantInq} inquilinos con deudas de meses anteriores`;
+        const textoCuotas =
+          cantCuotas === 1 ? "1 cuota acumulada" : `${cantCuotas} cuotas acumuladas`;
 
-          <button
-            type="button"
-            onClick={abrirModalMorosos}
-            className="w-full sm:w-auto h-8.5 px-3.5 rounded-xl text-xs font-bold bg-[#CC1A22] hover:bg-[#a81219] text-white transition-all flex items-center justify-center gap-1.5 cursor-pointer shrink-0 shadow-xs active:translate-y-0.5"
-          >
-            <span>Ver deudas</span>
-            <ChevronRight className="w-3.5 h-3.5" />
-          </button>
-        </div>
-      )}
+        return (
+          <div className="px-3.5 sm:px-4 py-3 bg-gradient-to-r from-rose-50 via-amber-50/70 to-rose-50 border border-rose-300/90 rounded-2xl shadow-2xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4">
+            <div className="flex items-start sm:items-center gap-2.5 sm:gap-3 min-w-0 flex-1">
+              <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-[#CC1A22] text-white flex items-center justify-center shrink-0 shadow-2xs mt-0.5 sm:mt-0">
+                <AlertTriangle className="w-4.5 h-4.5" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+                  <h4 className="text-xs sm:text-sm font-black text-slate-900 font-heading leading-snug">
+                    {textoInquilinos}
+                  </h4>
+                  <span className="whitespace-nowrap px-2 py-0.5 rounded-full text-[10px] sm:text-[11px] font-bold bg-amber-100 text-amber-900 border border-amber-300">
+                    {textoCuotas}
+                  </span>
+                  <span className="whitespace-nowrap px-2 py-0.5 rounded-full text-[10px] sm:text-[11px] font-black bg-rose-100 text-rose-800 border border-rose-300">
+                    ${(estadisticas.morosidadHistoricaTotal || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USD
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={abrirModalMorosos}
+              className="w-full sm:w-auto h-9 px-4 rounded-xl text-xs font-bold bg-[#CC1A22] hover:bg-[#a81219] text-white transition-all flex items-center justify-center gap-1.5 cursor-pointer shrink-0 shadow-xs active:translate-y-0.5 mt-0.5 sm:mt-0"
+            >
+              <span>Ver deudas</span>
+              <ChevronRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        );
+      })()}
 
       {/* Banner de alerta: Pagos por confirmar reportados por inquilinos */}
       {Boolean(
         (estadisticas.cantidadPorConfirmar && estadisticas.cantidadPorConfirmar > 0) ||
         (estadisticas.cantidadPorConfirmarGlobal && estadisticas.cantidadPorConfirmarGlobal > 0)
-      ) && (
-        <div className="p-4 bg-gradient-to-r from-blue-50 via-indigo-50/70 to-blue-50 border border-blue-200/90 rounded-2xl shadow-2xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-blue-600 text-white flex items-center justify-center shrink-0 shadow-2xs">
-              <Receipt className="w-5 h-5" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h4 className="text-sm font-black text-slate-900 font-heading">
-                  {estadisticas.cantidadPorConfirmar && estadisticas.cantidadPorConfirmar > 0
-                    ? `${estadisticas.cantidadPorConfirmar} pago(s) reportado(s) por confirmar en ${nombreMesActual}`
-                    : `${estadisticas.cantidadPorConfirmarGlobal} pago(s) reportado(s) por confirmar en otros periodos`}
-                </h4>
-                <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-blue-100 text-blue-800 border border-blue-300">
-                  Requiere Conciliación
-                </span>
-              </div>
-              <p className="text-xs text-slate-600 mt-0.5">
-                Inquilinos han adjuntado comprobantes bancarios. Revisa y confirma para actualizar su solvencia.
-              </p>
-            </div>
-          </div>
+      ) && (() => {
+        const cantMes = estadisticas.cantidadPorConfirmar || 0;
+        const cantGlobal = estadisticas.cantidadPorConfirmarGlobal || 0;
+        const esMesActual = cantMes > 0;
+        const total = esMesActual ? cantMes : cantGlobal;
+        const textoPagos = total === 1 ? "1 pago reportado" : `${total} pagos reportados`;
+        const textoPeriodo = esMesActual
+          ? `por confirmar en ${nombreMesActual}`
+          : "por confirmar en otros períodos";
 
-          <button
-            type="button"
-            onClick={() => {
-              setEstadoFiltro("POR_CONFIRMAR");
-              setPagina(1);
-              recargarCobranzas(mes, ano, 1, propiedadId, "POR_CONFIRMAR", busqueda);
-            }}
-            className="w-full sm:w-auto h-9 px-4 rounded-xl text-xs font-bold bg-[#1C2539] hover:bg-[#2a3754] text-white transition-all flex items-center justify-center gap-1.5 cursor-pointer shrink-0 shadow-xs active:translate-y-0.5"
-          >
-            <span>Filtrar Por Confirmar</span>
-            <ChevronRight className="w-3.5 h-3.5" />
-          </button>
-        </div>
-      )}
+        return (
+          <div className="px-3.5 sm:px-4 py-3 sm:py-3.5 bg-gradient-to-r from-blue-50 via-indigo-50/70 to-blue-50 border border-blue-200/90 rounded-2xl shadow-2xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4">
+            <div className="flex items-start sm:items-center gap-2.5 sm:gap-3 min-w-0 flex-1">
+              <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-blue-600 text-white flex items-center justify-center shrink-0 shadow-2xs mt-0.5 sm:mt-0">
+                <Receipt className="w-4.5 h-4.5 sm:w-5 sm:h-5" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+                  <h4 className="text-xs sm:text-sm font-black text-slate-900 font-heading leading-snug">
+                    {textoPagos} {textoPeriodo}
+                  </h4>
+                  <span className="whitespace-nowrap px-2 py-0.5 rounded-full text-[10px] sm:text-[11px] font-black uppercase tracking-wider bg-blue-100 text-blue-800 border border-blue-300">
+                    Requiere Conciliación
+                  </span>
+                </div>
+                <p className="text-[11px] sm:text-xs text-slate-600 mt-1 leading-relaxed">
+                  Inquilinos han adjuntado comprobantes bancarios. Revisa y confirma para actualizar su solvencia.
+                </p>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => {
+                setEstadoFiltro("POR_CONFIRMAR");
+                setPagina(1);
+                recargarCobranzas(mes, ano, 1, propiedadId, "POR_CONFIRMAR", busqueda);
+              }}
+              className="w-full sm:w-auto h-9 px-4 rounded-xl text-xs font-bold bg-[#1C2539] hover:bg-[#2a3754] text-white transition-all flex items-center justify-center gap-1.5 cursor-pointer shrink-0 shadow-xs active:translate-y-0.5 mt-0.5 sm:mt-0"
+            >
+              <span>Filtrar Por Confirmar</span>
+              <ChevronRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        );
+      })()}
 
       {/* Barra de Filtros Adaptativa (Móvil: apilados verticalmente a ancho completo) */}
       <div className="bg-white border border-slate-200/90 rounded-2xl p-3 sm:p-4 shadow-2xs space-y-3">

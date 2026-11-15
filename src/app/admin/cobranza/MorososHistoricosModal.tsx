@@ -62,7 +62,11 @@ export function MorososHistoricosModal({
       isOpen={isOpen}
       onClose={onClose}
       title="Deudas de Meses Anteriores"
-      subtitle={`${pagos.length} canon(es) impago(s) acumulado(s)`}
+      subtitle={
+        pagos.length === 1
+          ? "1 canon impago acumulado"
+          : `${pagos.length} cánones impagos acumulados`
+      }
       icon={AlertTriangle}
       headerVariant="red"
       maxWidth="7xl"
@@ -147,7 +151,8 @@ export function MorososHistoricosModal({
         {/* Footer */}
         <div className="pt-2 border-t border-slate-100 flex items-center justify-between">
           <span className="text-xs text-slate-500 font-medium">
-            Mostrando <strong>{pagosFiltrados.length}</strong> de <strong>{pagos.length}</strong> canon(es) atrasado(s)
+            Mostrando <strong>{pagosFiltrados.length}</strong> de <strong>{pagos.length}</strong>{" "}
+            {pagos.length === 1 ? "canon atrasado" : "cánones atrasados"}
           </span>
           <button
             type="button"
