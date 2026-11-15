@@ -111,23 +111,42 @@ export function CobranzaClient({
     }
   };
 
-  // Carga lazy del detalle completo de un pago (solo al abrir el modal)
-  const abrirDetalle = async (pagoId: string, abrirEnEdicion = false) => {
-    setIsLoadingDetalle(true);
-    try {
-      const res = await getPagoDetalle(pagoId);
-      if (res.success && res.pago) {
-        if (abrirEnEdicion) {
-          setPagoAEditar(res.pago);
-        } else {
-          setPagoADetalle(res.pago);
-        }
+  // Apertura instantánea con datos locales en memoria y revalidación en segundo plano (0ms de latencia)
+  const abrirDetalle = (pagoId: string, abrirEnEdicion = false) => {
+    const pagoExistente =
+      pagos.find((p) => p.id === pagoId) ||
+      morososHistoricosList.find((p) => p.id === pagoId);
+
+    if (pagoExistente) {
+      if (abrirEnEdicion) {
+        setPagoAEditar(pagoExistente);
       } else {
-        toast.error(res.error || "No se pudo cargar la ficha del pago.");
+        setPagoADetalle(pagoExistente);
       }
-    } finally {
-      setIsLoadingDetalle(false);
+    } else {
+      setIsLoadingDetalle(true);
     }
+
+    getPagoDetalle(pagoId)
+      .then((res) => {
+        if (res.success && res.pago) {
+          if (abrirEnEdicion) {
+            setPagoAEditar(res.pago);
+          } else {
+            setPagoADetalle(res.pago);
+          }
+        } else if (!pagoExistente) {
+          toast.error(res.error || "No se pudo cargar la ficha del pago.");
+        }
+      })
+      .catch(() => {
+        if (!pagoExistente) {
+          toast.error("Error al cargar la ficha del pago.");
+        }
+      })
+      .finally(() => {
+        setIsLoadingDetalle(false);
+      });
   };
 
   const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
