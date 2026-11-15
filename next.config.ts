@@ -2,6 +2,8 @@ import type { NextConfig } from "next";
 
 // Recarga de configuración y esquema de base de datos
 const nextConfig: NextConfig = {
+  // Paquetes externos de servidor para evitar que Turbopack intente empaquetar binarios de Prisma
+  serverExternalPackages: ["@prisma/client", "prisma", "bcryptjs"],
   // Orígenes permitidos en desarrollo para acceso desde red local Wi-Fi
   allowedDevOrigins: ["192.168.0.101", "192.168.0.101:3000", "localhost:3000"],
   // Habilita compresión Gzip nativa para respuestas del servidor
