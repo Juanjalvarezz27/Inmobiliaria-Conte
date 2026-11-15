@@ -112,7 +112,7 @@ export function InquilinoContratoClient({
 
       {/* Si no existen contratos activos */}
       {contratos.length === 0 ? (
-        <section className="relative overflow-hidden bg-white rounded-2xl border border-slate-200/90 border-b-[3px] border-b-slate-300/90 p-8 text-center max-w-xl mx-auto shadow-sm">
+        <section className="relative overflow-hidden bg-white rounded-2xl border border-slate-200/90 border-b-[3px] border-b-slate-300/90 p-5 sm:p-8 text-center max-w-xl mx-auto shadow-sm">
           <div className="w-14 h-14 rounded-2xl bg-slate-100 text-slate-500 flex items-center justify-center mx-auto mb-4 border border-slate-200">
             <FileText className="w-7 h-7" />
           </div>

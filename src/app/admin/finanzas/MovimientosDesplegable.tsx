@@ -399,7 +399,7 @@ export function MovimientosDesplegable({
 
             {/* Estado de Carga */}
             {isCargando && (
-              <div className="p-8 flex flex-col items-center justify-center gap-2 text-center bg-white rounded-2xl border border-slate-200/80 shadow-2xs">
+              <div className="p-4 sm:p-6 lg:p-8 flex flex-col items-center justify-center gap-2 text-center bg-white rounded-2xl border border-slate-200/80 shadow-2xs">
                 <RotateCw className="w-6 h-6 text-[#175E38] animate-spin" />
                 <p className="text-xs font-bold text-slate-700">Cargando libro diario de {nombreMes}...</p>
                 <p className="text-[11px] text-slate-400">Consolidando cobranzas y egresos operativos</p>
@@ -610,7 +610,7 @@ export function MovimientosDesplegable({
                     </div>
                   ))
                 ) : (
-                  <div className="p-8 text-center bg-white rounded-2xl border border-slate-200/80 shadow-2xs space-y-1.5">
+                  <div className="p-4 sm:p-6 lg:p-8 text-center bg-white rounded-2xl border border-slate-200/80 shadow-2xs space-y-1.5">
                     <p className="text-xs font-bold text-slate-700">No hay ingresos para los filtros aplicados</p>
                     <p className="text-[11px] text-slate-400">
                       No se encontraron cobranzas de alquiler ni ingresos extra en {nombreMes} {ano}.
@@ -825,7 +825,7 @@ export function MovimientosDesplegable({
                     </div>
                   ))
                 ) : (
-                  <div className="p-8 text-center bg-white rounded-2xl border border-slate-200/80 shadow-2xs space-y-2">
+                  <div className="p-4 sm:p-6 lg:p-8 text-center bg-white rounded-2xl border border-slate-200/80 shadow-2xs space-y-2">
                     <div className="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-600 border border-emerald-200 flex items-center justify-center mx-auto">
                       <ShieldCheck className="w-5 h-5" />
                     </div>

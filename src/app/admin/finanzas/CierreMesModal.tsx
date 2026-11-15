@@ -155,7 +155,7 @@ export function CierreMesModal({
               </div>
 
               {/* Sub-tarjetas de Ingresos y Egresos (Grid 50/50 Equilibrado con discriminación multimoneda) */}
-              <div className="grid grid-cols-2 gap-2 sm:gap-3 pt-3 border-t border-slate-100">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3 pt-3 border-t border-slate-100">
                 {/* Ingresos Totales */}
                 <div className="bg-emerald-50/50 border border-emerald-200/70 rounded-xl p-2.5 sm:p-3 flex items-start gap-2.5">
                   <div className="w-8 h-8 rounded-lg bg-emerald-100 text-[#175E38] flex items-center justify-center shrink-0 mt-0.5">
@@ -246,7 +246,7 @@ export function CierreMesModal({
                         </div>
 
                         {/* Métricas en grid 3 columnas */}
-                        <div className="grid grid-cols-3 gap-3">
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 sm:gap-3">
                           {/* Ingresos */}
                           <div className="bg-emerald-50 border border-emerald-200/80 rounded-xl p-3">
                             <span className="text-[9px] font-bold text-emerald-700 uppercase tracking-wider block mb-1">
@@ -425,7 +425,7 @@ export function CierreMesModal({
 
                 {/* Cuerpo: métricas en grid */}
                 <div className="bg-white p-4 sm:p-5">
-                  <div className="grid grid-cols-2 gap-3 mb-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
                     {/* Total Ingresos */}
                     <div className="bg-emerald-50 border border-emerald-200/80 rounded-xl p-3">
                       <span className="text-[9px] font-bold text-emerald-700 uppercase tracking-wider block mb-1">

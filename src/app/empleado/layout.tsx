@@ -22,7 +22,7 @@ export default async function EmpleadoLayout({
   return (
     <div className="min-h-screen flex flex-col bg-slate-50/70">
       <Navbar user={session.user} />
-      <main className="flex-1 max-w-[1720px] w-full mx-auto px-4 sm:px-6 lg:px-10 py-6">
+      <main className="flex-1 max-w-[1720px] w-full mx-auto px-3 sm:px-6 lg:px-10 py-4 sm:py-6">
         <PageTransition>{children}</PageTransition>
       </main>
     </div>

@@ -214,7 +214,7 @@ export function FinalizarContratoModal({
               <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1.5">
                 ¿Qué se acordó hacer con la garantía?
               </label>
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                 <button
                   type="button"
                   onClick={() => handleTipoResolucionChange("REEMBOLSO_TOTAL")}
@@ -253,7 +253,7 @@ export function FinalizarContratoModal({
 
             {/* Ajuste manual de montos si es Mixto */}
             {tipoResolucion === "MIXTO" && (
-              <div className="grid grid-cols-2 gap-2.5 pt-1">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1">
                 <div>
                   <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1.5">
                     Monto a Devolver (USD)

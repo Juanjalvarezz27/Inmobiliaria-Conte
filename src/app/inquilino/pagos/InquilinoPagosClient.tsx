@@ -656,7 +656,7 @@ export function InquilinoPagosClient({
 
       {/* Listado de Locales y Cánones Agrupados */}
       {pagosFiltrados.length === 0 ? (
-        <div className="p-12 text-center bg-white rounded-2xl border border-slate-200/80 shadow-2xs space-y-2">
+        <div className="p-5 sm:p-8 lg:p-12 text-center bg-white rounded-2xl border border-slate-200/80 shadow-2xs space-y-2">
           <FileText className="w-10 h-10 text-slate-300 mx-auto stroke-[1.5]" />
           <h4 className="text-base font-bold text-slate-800">No se encontraron cánones</h4>
           <p className="text-xs text-slate-500 max-w-sm mx-auto">

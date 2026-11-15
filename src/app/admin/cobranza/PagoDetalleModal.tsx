@@ -456,7 +456,7 @@ export function PagoDetalleModal({
               </div>
 
               {/* 3 cajas de métricas clave con microcopy conciso sin texto desbordado */}
-              <div className="grid grid-cols-3 gap-2 pt-1 text-center">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-1 text-center">
                 <div className="bg-slate-50/90 border border-slate-200/80 rounded-xl p-2">
                   <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block truncate">
                     Espacio
@@ -601,7 +601,7 @@ export function PagoDetalleModal({
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   <div className="bg-slate-50 border border-slate-200/80 rounded-xl p-2">
                     <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block truncate">
                       Corte Mensual
@@ -839,7 +839,7 @@ export function PagoDetalleModal({
             </div>
 
             {/* Botones de acción en la cabecera del libro mayor */}
-            <div className="grid grid-cols-2 sm:flex sm:items-center gap-2 w-full sm:w-auto">
+            <div className="flex flex-col-reverse sm:flex-row sm:items-center gap-2 w-full sm:w-auto">
               {saldoPendiente > 0 && onRegistrarNuevo && (
                 pago.anteriorImpago ? (
                   <div className="relative group/lock w-full sm:w-auto">
@@ -1093,13 +1093,11 @@ export function PagoDetalleModal({
                 )}
             </div>
 
-            <div className="grid grid-cols-2 gap-2 sm:flex sm:items-center w-full sm:w-auto">
+            <div className="flex flex-col-reverse sm:flex-row gap-2 w-full sm:w-auto">
               <button
                 type="button"
                 onClick={onClose}
-                className={`w-full sm:w-auto px-4 h-11 rounded-xl text-xs sm:text-sm font-bold bg-slate-100 text-slate-700 hover:bg-slate-200 transition-colors cursor-pointer ${
-                  pago.estado === EstadoPago.PAGADO && !onVerRecibo ? "col-span-2" : ""
-                }`}
+                className="w-full sm:w-auto px-4 h-11 rounded-xl text-xs sm:text-sm font-bold bg-slate-100 text-slate-700 hover:bg-slate-200 transition-colors cursor-pointer"
               >
                 Cerrar
               </button>

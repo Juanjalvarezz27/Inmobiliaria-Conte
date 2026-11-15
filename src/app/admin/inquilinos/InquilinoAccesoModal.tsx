@@ -234,7 +234,7 @@ export function InquilinoAccesoModal({
                 <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block mb-2">
                   Opciones de Entrega de Datos
                 </span>
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   <button
                     type="button"
                     onClick={handleCopiarCredenciales}
@@ -258,16 +258,16 @@ export function InquilinoAccesoModal({
             </div>
 
             {/* Botones de Acción */}
-            <div className="border-t border-slate-100 pt-4 grid grid-cols-2 gap-2.5">
+            <div className="border-t border-slate-100 pt-4 flex flex-col-reverse sm:flex-row sm:items-center sm:justify-end gap-2.5">
               <button
                 type="button"
                 onClick={onClose}
                 disabled={isPending}
-                className="h-11 px-4 rounded-xl text-xs font-bold bg-slate-100 text-slate-700 hover:bg-slate-200 transition-all cursor-pointer"
+                className="w-full sm:w-auto h-11 px-4 rounded-xl text-xs font-bold bg-slate-100 text-slate-700 hover:bg-slate-200 transition-all cursor-pointer"
               >
                 Cancelar
               </button>
-              <div className="relative">
+              <div className="relative w-full sm:w-auto">
                 <button
                   type="submit"
                   disabled={isPending}
@@ -341,7 +341,7 @@ export function InquilinoAccesoModal({
                   </p>
                 </div>
 
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   <button
                     type="button"
                     onClick={handleCopiarCredenciales}

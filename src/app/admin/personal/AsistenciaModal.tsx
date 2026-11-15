@@ -262,7 +262,7 @@ export function AsistenciaModal({
 
         {/* Botones de Acción */}
         <div className="pt-2">
-          <div className="grid grid-cols-2 gap-2.5 w-full h-11 sm:hidden">
+          <div className="flex flex-col-reverse gap-2.5 w-full sm:hidden">
             <button
               type="button"
               onClick={onClose}

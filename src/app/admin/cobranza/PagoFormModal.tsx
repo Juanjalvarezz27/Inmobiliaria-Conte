@@ -423,7 +423,7 @@ function PagoFormContent({
         </div>
 
         {/* 3 Cajas de metricas financieras del canon */}
-        <div className="grid grid-cols-3 gap-2 text-center">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-center">
           <div className="p-2 sm:p-2.5 bg-white rounded-xl border border-slate-200/80">
             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
               Canon Total
@@ -505,7 +505,7 @@ function PagoFormContent({
           <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1.5">
             Moneda del Pago <span className="text-rose-500">*</span>
           </label>
-          <div className="grid grid-cols-2 gap-2 p-1 bg-slate-100 rounded-xl border border-slate-200">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 p-1 bg-slate-100 rounded-xl border border-slate-200">
             <button
               type="button"
               onClick={() => handleCambioMoneda(MonedaTransaccion.VES)}

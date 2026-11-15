@@ -246,7 +246,7 @@ export function InquilinoMantenimientoClient({
 
       {/* Lista de Averías Reportadas */}
       {ticketsIniciales.length === 0 ? (
-        <div className="bg-white rounded-2xl border border-slate-200/90 p-8 shadow-xs">
+        <div className="bg-white rounded-2xl border border-slate-200/90 p-4 sm:p-6 lg:p-8 shadow-xs">
           <EmptyState
             icon="wrench"
             title="No has reportado ninguna avería"
@@ -367,7 +367,7 @@ export function InquilinoMantenimientoClient({
 
           {/* Cuadrícula de 2 Columnas o Estado Vacío */}
           {ticketsFiltrados.length === 0 ? (
-            <div className="bg-white rounded-2xl border border-slate-200/90 p-8 sm:p-12 text-center shadow-xs space-y-3">
+            <div className="bg-white rounded-2xl border border-slate-200/90 p-4 sm:p-8 lg:p-12 text-center shadow-xs space-y-3">
               <div className="w-12 h-12 rounded-2xl bg-slate-100 text-slate-400 flex items-center justify-center mx-auto">
                 <Wrench className="w-6 h-6 stroke-[1.5]" />
               </div>

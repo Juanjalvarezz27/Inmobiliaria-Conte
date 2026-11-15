@@ -229,7 +229,7 @@ export function ContratoDetalleModal({
             <span>Vigencia y Términos Temporales</span>
           </h4>
 
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-xs">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 sm:gap-3 text-xs">
             <div className="p-3 rounded-xl bg-slate-50 border border-slate-100">
               <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
                 Fecha Inicio
@@ -419,7 +419,7 @@ export function ContratoDetalleModal({
           </div>
 
           {/* Botones Cerrar y Editar Contrato */}
-          <div className="grid grid-cols-2 gap-2.5 sm:flex sm:items-center sm:gap-2.5 w-full sm:w-auto">
+          <div className="flex flex-col-reverse sm:flex-row items-center gap-2.5 w-full sm:w-auto">
             <button
               type="button"
               onClick={onClose}

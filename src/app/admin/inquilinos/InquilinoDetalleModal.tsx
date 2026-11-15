@@ -81,7 +81,7 @@ export function InquilinoDetalleModal({
     >
       <div className="space-y-5">
         {/* Tarjetas de Datos Clave organizadas de 2 en 2 */}
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {/* Tipo de Persona */}
           <div className="bg-slate-50 rounded-2xl p-3.5 border border-slate-200/70">
             <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block">
@@ -418,11 +418,11 @@ export function InquilinoDetalleModal({
         </div>
 
         {/* Botones de Pie */}
-        <div className="flex items-center justify-between pt-2 border-t border-slate-100">
+        <div className="flex flex-col-reverse sm:flex-row sm:items-center sm:justify-between gap-2.5 pt-2 border-t border-slate-100">
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2 text-sm font-semibold text-slate-700 border border-slate-200 rounded-xl hover:bg-slate-50 transition-colors cursor-pointer"
+            className="w-full sm:w-auto px-4 py-2 text-sm font-semibold text-slate-700 border border-slate-200 rounded-xl hover:bg-slate-50 transition-colors cursor-pointer text-center"
           >
             Cerrar
           </button>
@@ -430,7 +430,7 @@ export function InquilinoDetalleModal({
           <button
             type="button"
             onClick={onEditar}
-            className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-semibold text-white bg-[#175E38] rounded-xl hover:bg-[#124b2d] transition-all shadow-xs cursor-pointer active:translate-y-0.5"
+            className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 px-4 py-2 text-sm font-semibold text-white bg-[#175E38] rounded-xl hover:bg-[#124b2d] transition-all shadow-xs cursor-pointer active:translate-y-0.5 text-center"
           >
             <Pencil className="w-3.5 h-3.5" />
             <span>Editar Datos</span>

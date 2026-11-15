@@ -51,7 +51,7 @@ export function ExpandirInquilinoModal({
     >
       <form onSubmit={handleSubmit} className="space-y-4">
         {/* Comparativa Visual: Antes y Después */}
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {/* Tarjeta Espacio Actual */}
           <div className="bg-slate-50 border border-slate-200/90 rounded-2xl p-3.5 space-y-1.5">
             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
@@ -126,19 +126,19 @@ export function ExpandirInquilinoModal({
         </div>
 
         {/* Botones de Acción */}
-        <div className="flex items-center justify-end gap-2.5 pt-2 border-t border-slate-100">
+        <div className="flex flex-col-reverse sm:flex-row sm:items-center sm:justify-end gap-2.5 pt-2 border-t border-slate-100">
           <button
             type="button"
             onClick={onClose}
             disabled={isLoading}
-            className="px-4 py-2.5 text-xs sm:text-sm font-bold text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer"
+            className="w-full sm:w-auto px-4 py-2.5 text-xs sm:text-sm font-bold text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer text-center"
           >
             Cancelar
           </button>
           <button
             type="submit"
             disabled={isLoading || nuevoCanon <= 0}
-            className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl text-xs sm:text-sm font-bold bg-gradient-to-r from-[#175E38] to-[#124b2d] text-white hover:bg-[#124b2d] transition-all shadow-[0_2px_8px_rgba(23,94,56,0.3)] cursor-pointer border-b-[3px] border-b-[#0e3a23] active:translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 px-5 py-2.5 rounded-xl text-xs sm:text-sm font-bold bg-gradient-to-r from-[#175E38] to-[#124b2d] text-white hover:bg-[#124b2d] transition-all shadow-[0_2px_8px_rgba(23,94,56,0.3)] cursor-pointer border-b-[3px] border-b-[#0e3a23] active:translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed text-center"
           >
             {isLoading ? (
               <>

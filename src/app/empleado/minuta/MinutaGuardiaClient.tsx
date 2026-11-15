@@ -395,7 +395,7 @@ export function MinutaGuardiaClient({ initialData }: Props) {
 
         {/* Estado Vacío */}
         {incidenciasFiltradas.length === 0 ? (
-          <div className="rounded-2xl bg-white border border-slate-200/90 border-b-[3px] border-b-slate-300/90 p-8 sm:p-12 text-center shadow-2xs flex flex-col items-center">
+          <div className="rounded-2xl bg-white border border-slate-200/90 border-b-[3px] border-b-slate-300/90 p-5 sm:p-8 lg:p-12 text-center shadow-2xs flex flex-col items-center">
             <div className="w-14 h-14 rounded-2xl bg-emerald-50 text-[#175E38] border border-emerald-100 flex items-center justify-center mb-3">
               <ShieldCheck className="w-7 h-7 stroke-[2]" />
             </div>

@@ -301,8 +301,8 @@ export function ReciboModal({ isOpen, onClose, pago }: ReciboModalProps) {
                   </span>
                 </div>
 
-                {/* Acciones principales: Grid 2 columnas en mobile | Flex a la derecha en Desktop */}
-                <div className="grid grid-cols-2 gap-2 sm:flex sm:items-center sm:gap-2 pt-1 sm:pt-0 border-t border-slate-200/60 sm:border-t-0">
+                {/* Acciones principales: Flex col en mobile | Flex row en Desktop */}
+                <div className="flex flex-col-reverse sm:flex-row sm:items-center sm:gap-2 pt-1 sm:pt-0 border-t border-slate-200/60 sm:border-t-0 gap-2">
                   <button
                     type="button"
                     onClick={handleCompartir}
@@ -479,7 +479,7 @@ export function ReciboModal({ isOpen, onClose, pago }: ReciboModalProps) {
                         {inquilinoNombreCompleto}
                       </span>
                     </div>
-                    <div className="grid grid-cols-2 gap-2 pt-0.5">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-0.5">
                       <div>
                         <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">C.I. / RIF</span>
                         <span className="text-xs font-bold text-slate-800 font-mono mt-0.5 block truncate">{documentoInquilino}</span>
@@ -503,7 +503,7 @@ export function ReciboModal({ isOpen, onClose, pago }: ReciboModalProps) {
                         {propiedad.nombre}, {propiedad.ciudad || "Trujillo"}
                       </span>
                     </div>
-                    <div className="grid grid-cols-2 gap-2 pt-0.5">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-0.5">
                       <div>
                         <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Emisión</span>
                         <span className="text-xs font-bold text-slate-800 font-mono mt-0.5 block truncate">{fechaEmisionStr}</span>
@@ -548,40 +548,42 @@ export function ReciboModal({ isOpen, onClose, pago }: ReciboModalProps) {
 
                 {/* Desglose de Concepto Arrendatario: Tabla Desktop (>= sm & Impresión) */}
                 <div className="hidden sm:block border border-slate-200 rounded-2xl overflow-hidden shadow-2xs">
-                  <table className="w-full text-left border-collapse text-xs">
-                    <thead>
-                      <tr className="bg-slate-100/80 text-slate-600 uppercase text-[11px] tracking-wider font-bold border-b border-slate-200">
-                        <th className="py-2.5 px-3.5">Espacio</th>
-                        <th className="py-2.5 px-3.5">Descripción del Concepto</th>
-                        <th className="py-2.5 px-2 text-center">Cant</th>
-                        <th className="py-2.5 px-3.5 text-right">Precio Unit.</th>
-                        <th className="py-2.5 px-3.5 text-right">Total</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100 bg-white font-sans">
-                      <tr className="hover:bg-slate-50/50 transition-colors">
-                        <td className="py-3 px-3.5">
-                          <span className="inline-block px-2.5 py-1 rounded-lg text-xs font-bold bg-slate-100 text-slate-900 border border-slate-200/80 whitespace-nowrap">
-                            {unidad.codigo}
-                          </span>
-                        </td>
-                        <td className="py-3 px-3.5 text-slate-700 font-medium">
-                          Alquiler del Espacio {unidad.codigo} ({propiedad.nombre})
-                        </td>
-                        <td className="py-3 px-2 text-center">
-                          <span className="inline-block px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 font-semibold text-xs">
-                            1
-                          </span>
-                        </td>
-                        <td className="py-3 px-3.5 text-right font-medium text-slate-700">
-                          ${pago.montoEsperado.toFixed(2)}
-                        </td>
-                        <td className="py-3 px-3.5 text-right font-black text-slate-950 font-heading">
-                          ${pago.montoEsperado.toFixed(2)}
-                        </td>
-                      </tr>
-                    </tbody>
-                  </table>
+                  <div className="overflow-x-auto w-full">
+                    <table className="w-full text-left border-collapse text-xs">
+                      <thead>
+                        <tr className="bg-slate-100/80 text-slate-600 uppercase text-[11px] tracking-wider font-bold border-b border-slate-200">
+                          <th className="py-2.5 px-3.5">Espacio</th>
+                          <th className="py-2.5 px-3.5">Descripción del Concepto</th>
+                          <th className="py-2.5 px-2 text-center">Cant</th>
+                          <th className="py-2.5 px-3.5 text-right">Precio Unit.</th>
+                          <th className="py-2.5 px-3.5 text-right">Total</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 bg-white font-sans">
+                        <tr className="hover:bg-slate-50/50 transition-colors">
+                          <td className="py-3 px-3.5">
+                            <span className="inline-block px-2.5 py-1 rounded-lg text-xs font-bold bg-slate-100 text-slate-900 border border-slate-200/80 whitespace-nowrap">
+                              {unidad.codigo}
+                            </span>
+                          </td>
+                          <td className="py-3 px-3.5 text-slate-700 font-medium">
+                            Alquiler del Espacio {unidad.codigo} ({propiedad.nombre})
+                          </td>
+                          <td className="py-3 px-2 text-center">
+                            <span className="inline-block px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 font-semibold text-xs">
+                              1
+                            </span>
+                          </td>
+                          <td className="py-3 px-3.5 text-right font-medium text-slate-700">
+                            ${pago.montoEsperado.toFixed(2)}
+                          </td>
+                          <td className="py-3 px-3.5 text-right font-black text-slate-950 font-heading">
+                            ${pago.montoEsperado.toFixed(2)}
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
 
                 {/* Franja Sobria de Período Liquidado */}
@@ -739,7 +741,7 @@ export function ReciboModal({ isOpen, onClose, pago }: ReciboModalProps) {
               </div>
 
               {/* Botones de Acción: Compartir & Previsualizar PDF */}
-              <div className="pt-3 border-t border-slate-100 grid grid-cols-2 gap-2.5 sm:flex sm:items-center sm:justify-center print:hidden">
+              <div className="pt-3 border-t border-slate-100 flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-center gap-2.5 print:hidden">
                 <button
                   type="button"
                   onClick={handleCompartir}

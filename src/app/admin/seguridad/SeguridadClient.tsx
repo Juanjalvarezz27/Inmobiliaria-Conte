@@ -405,7 +405,7 @@ export function SeguridadClient({ initialData }: SeguridadClientProps) {
         </div>
 
         {gruposPorPropiedad.length === 0 || incidenciasFiltradas.length === 0 ? (
-          <div className="rounded-2xl bg-white border border-slate-200/90 border-b-[3px] border-b-slate-300/90 p-8 sm:p-12 text-center shadow-2xs flex flex-col items-center">
+          <div className="rounded-2xl bg-white border border-slate-200/90 border-b-[3px] border-b-slate-300/90 p-5 sm:p-8 lg:p-12 text-center shadow-2xs flex flex-col items-center">
             <div className="w-14 h-14 rounded-2xl bg-slate-100 text-slate-500 flex items-center justify-center mb-3">
               <Search className="w-6 h-6 stroke-[2]" />
             </div>
@@ -807,7 +807,7 @@ export function SeguridadClient({ initialData }: SeguridadClientProps) {
       {/* Modal de Confirmación de Borrado */}
       {incidenciaAEliminar && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-xs animate-in fade-in-0 duration-200">
-          <div className="w-full max-w-md bg-white rounded-2xl border border-slate-200 shadow-2xl overflow-hidden">
+          <div className="w-full max-w-md bg-white rounded-2xl border border-slate-200 shadow-2xl overflow-hidden max-h-[90dvh] overflow-y-auto">
             <div className="bg-[#CC1A22] text-white p-4 flex items-center gap-3">
               <Trash2 className="w-5 h-5 shrink-0" />
               <div>
@@ -823,12 +823,12 @@ export function SeguridadClient({ initialData }: SeguridadClientProps) {
                 </span>{" "}
                 asentado por {incidenciaAEliminar.empleadoNombre}?
               </p>
-              <div className="grid grid-cols-2 gap-2 pt-2">
+              <div className="flex flex-col-reverse sm:flex-row gap-2 pt-2">
                 <button
                   type="button"
                   onClick={() => setIncidenciaAEliminar(null)}
                   disabled={isDeleting}
-                  className="h-10 rounded-xl border border-slate-200 text-xs font-bold text-slate-600 hover:bg-slate-100 cursor-pointer"
+                  className="w-full h-10 rounded-xl border border-slate-200 text-xs font-bold text-slate-600 hover:bg-slate-100 cursor-pointer"
                 >
                   Cancelar
                 </button>
@@ -836,7 +836,7 @@ export function SeguridadClient({ initialData }: SeguridadClientProps) {
                   type="button"
                   onClick={confirmarEliminar}
                   disabled={isDeleting}
-                  className="h-10 rounded-xl bg-[#CC1A22] hover:bg-[#a81219] text-white text-xs font-bold cursor-pointer transition-all flex items-center justify-center gap-1.5 shadow-sm"
+                  className="w-full h-10 rounded-xl bg-[#CC1A22] hover:bg-[#a81219] text-white text-xs font-bold cursor-pointer transition-all flex items-center justify-center gap-1.5 shadow-sm"
                 >
                   {isDeleting ? "Eliminando..." : "Eliminar Reporte"}
                 </button>

@@ -450,7 +450,7 @@ export function EmpleadoDetalleModal({
         {/* Pestañas de Vista Unificadas (Solo 2 pestañas naturales) */}
         <div
           ref={seccionTabsRef}
-          className="grid grid-cols-2 p-1 bg-slate-100/90 rounded-2xl border border-slate-200/80 w-full scroll-mt-3"
+          className="grid grid-cols-1 sm:grid-cols-2 p-1 bg-slate-100/90 rounded-2xl border border-slate-200/80 w-full scroll-mt-3 gap-1"
         >
           <button
             type="button"
@@ -510,7 +510,7 @@ export function EmpleadoDetalleModal({
         )}
 
         {/* Footer Institucional de la Ficha Contextual */}
-        <div className="pt-3 border-t border-slate-200/90 grid grid-cols-2 sm:flex sm:items-center sm:justify-between gap-2.5">
+        <div className="pt-3 border-t border-slate-200/90 flex flex-col-reverse sm:flex-row sm:items-center sm:justify-between gap-2.5">
           <button
             type="button"
             onClick={onClose}

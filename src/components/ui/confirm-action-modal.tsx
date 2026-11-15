@@ -177,12 +177,12 @@ export function ConfirmActionModal({
         )}
 
         {/* Botones de acción inferiores */}
-        <div className="pt-2 grid grid-cols-2 gap-2.5 sm:flex sm:items-center sm:justify-end sm:gap-3">
+        <div className="pt-2 flex flex-col-reverse sm:flex-row sm:items-center sm:justify-end gap-2.5 sm:gap-3">
           <button
             type="button"
             onClick={onClose}
             disabled={isLoading}
-            className="w-full sm:w-auto min-w-[120px] h-10 sm:h-10 px-4 rounded-xl text-xs sm:text-sm font-semibold text-slate-700 bg-white border border-slate-200 hover:bg-slate-50 transition-colors disabled:opacity-50 cursor-pointer shadow-2xs"
+            className="w-full sm:w-auto sm:min-w-[120px] h-10 px-4 rounded-xl text-xs sm:text-sm font-semibold text-slate-700 bg-white border border-slate-200 hover:bg-slate-50 transition-colors disabled:opacity-50 cursor-pointer shadow-2xs"
           >
             {cancelButtonText}
           </button>
@@ -191,7 +191,7 @@ export function ConfirmActionModal({
             type="button"
             onClick={handleConfirm}
             disabled={isConfirmDisabled}
-            className={`w-full sm:w-auto min-w-[150px] h-10 sm:h-10 px-4 rounded-xl text-xs sm:text-sm font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed active:translate-y-0.5 ${variantStyles.btn}`}
+            className={`w-full sm:w-auto sm:min-w-[150px] h-10 px-4 rounded-xl text-xs sm:text-sm font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed active:translate-y-0.5 ${variantStyles.btn}`}
           >
             {isLoading ? (
               <RefreshCw className="w-4 h-4 animate-spin shrink-0" />

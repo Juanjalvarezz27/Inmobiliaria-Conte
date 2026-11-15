@@ -299,7 +299,7 @@ export function TransaccionFormModal({
           <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1.5">
             Tipo de Movimiento
           </label>
-          <div className="grid grid-cols-2 gap-2 p-1 bg-slate-100 rounded-xl border border-slate-200">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 p-1 bg-slate-100 rounded-xl border border-slate-200">
             <button
               type="button"
               onClick={() => setTipo(TipoTransaccionFinanciera.EGRESO)}
@@ -339,7 +339,7 @@ export function TransaccionFormModal({
             <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1.5">
               Moneda de la Transacción <span className="text-rose-500">*</span>
             </label>
-            <div className="grid grid-cols-2 gap-2 p-1 bg-slate-100 rounded-xl border border-slate-200">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 p-1 bg-slate-100 rounded-xl border border-slate-200">
               <button
                 type="button"
                 onClick={() => handleCambioMoneda(MonedaTransaccion.VES)}

@@ -200,7 +200,7 @@ export function EntregaGuardiaModal({
         )}
 
         {/* Botones de acción 50/50 */}
-        <div className="grid grid-cols-2 gap-2.5 pt-2 border-t border-slate-100">
+        <div className="flex flex-col-reverse sm:flex-row gap-2.5 pt-2 border-t border-slate-100">
           <button
             type="button"
             onClick={onClose}

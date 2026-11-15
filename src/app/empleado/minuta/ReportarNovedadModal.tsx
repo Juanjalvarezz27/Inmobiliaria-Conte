@@ -374,7 +374,7 @@ export function ReportarNovedadModal({
               </span>
             </button>
 
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               <button
                 type="button"
                 onClick={() => {
@@ -550,7 +550,7 @@ export function ReportarNovedadModal({
 
             {/* Galería de fotos cargadas */}
             {fotos.length > 0 && (
-              <div className="grid grid-cols-2 gap-2.5 mb-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 mb-3">
                 {fotos.map((url, idx) => (
                   <div key={idx} className="relative aspect-video rounded-xl overflow-hidden border border-slate-200 bg-slate-900 group">
                     <Image

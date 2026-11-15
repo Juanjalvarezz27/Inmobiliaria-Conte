@@ -524,7 +524,7 @@ export function TareaDetalleModal({
 
               {/* 2 fotos: una al lado de la otra */}
               {evidencias.length === 2 && (
-                <div className="grid grid-cols-2 gap-3 max-w-md sm:max-w-lg mx-auto">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-md sm:max-w-lg mx-auto">
                   {evidencias.map((url, idx) => (
                     <div
                       key={url}
@@ -611,12 +611,12 @@ export function TareaDetalleModal({
           </button>
 
           {/* Botones de Guardar */}
-          <div className="grid grid-cols-2 gap-2 w-full sm:w-auto sm:flex sm:items-center sm:gap-2">
+          <div className="flex flex-col-reverse sm:flex-row items-center gap-2 w-full sm:w-auto">
             <button
               type="button"
               onClick={onClose}
               disabled={isSubmitting || isUploading || isCompressing}
-              className="h-10 sm:h-9.5 px-4 rounded-xl text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 transition-all flex items-center justify-center cursor-pointer"
+              className="w-full sm:w-auto h-10 sm:h-9.5 px-4 rounded-xl text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 transition-all flex items-center justify-center cursor-pointer"
             >
               Cerrar
             </button>
@@ -624,7 +624,7 @@ export function TareaDetalleModal({
               type="button"
               onClick={handleGuardarCambios}
               disabled={isSubmitting || isUploading || isCompressing}
-              className="h-10 sm:h-9.5 px-5 rounded-xl text-xs font-bold text-white bg-gradient-to-r from-[#175E38] to-[#124b2d] border-b-[3px] border-b-[#0e3a23] active:translate-y-0.5 transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-[0_2px_8px_rgba(23,94,56,0.25)] disabled:opacity-50"
+              className="w-full sm:w-auto h-10 sm:h-9.5 px-5 rounded-xl text-xs font-bold text-white bg-gradient-to-r from-[#175E38] to-[#124b2d] border-b-[3px] border-b-[#0e3a23] active:translate-y-0.5 transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-[0_2px_8px_rgba(23,94,56,0.25)] disabled:opacity-50"
             >
               {isSubmitting ? (
                 <Loader2 className="w-4 h-4 animate-spin" />

@@ -751,16 +751,16 @@ export function UnidadDetalleModal({
           )}
 
           {/* Footer de Acciones del Modal */}
-          <div className="flex items-center justify-between pt-3 border-t border-slate-100">
+          <div className="flex flex-col-reverse sm:flex-row sm:items-center sm:justify-between gap-2.5 pt-3 border-t border-slate-100">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 text-xs sm:text-sm font-bold text-slate-700 border border-slate-200 rounded-xl hover:bg-slate-50 transition-colors cursor-pointer"
+              className="w-full sm:w-auto px-4 py-2 text-xs sm:text-sm font-bold text-slate-700 border border-slate-200 rounded-xl hover:bg-slate-50 transition-colors cursor-pointer text-center"
             >
               Cerrar
             </button>
 
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center justify-end gap-2 w-full sm:w-auto">
               {/* Si es matriz inactiva con opción de expansión: Botón Principal Expandir */}
               {unidad.estado === "INACTIVO" && diagnostico?.esMatriz && diagnostico.puedeExpandir && (
                 <button

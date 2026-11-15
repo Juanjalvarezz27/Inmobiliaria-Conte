@@ -490,7 +490,7 @@ export function UnidadForm({ propiedades, initialData, onSubmit, onCancel, isLoa
 
             {/* 3 fotos: las 3 acomodadas en el contenedor */}
             {imagenes.length === 3 && (
-              <div className="grid grid-cols-3 gap-2.5 sm:gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 sm:gap-3">
                 {imagenes.map((url, idx) => (
                   <div
                     key={url}

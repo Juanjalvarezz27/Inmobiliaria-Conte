@@ -162,7 +162,7 @@ export function EmpleadoTareasClient({ initialTareas, empleadoNombre }: Props) {
 
       {/* Grid de Tareas */}
       {tareasFiltradas.length === 0 ? (
-        <div className="p-12 text-center rounded-2xl bg-white border border-slate-200/80 shadow-2xs">
+        <div className="p-5 sm:p-8 lg:p-12 text-center rounded-2xl bg-white border border-slate-200/80 shadow-2xs">
           <div className="w-14 h-14 rounded-2xl bg-emerald-50 text-[#175E38] flex items-center justify-center mx-auto mb-3">
             <CheckCircle2 className="w-7 h-7 stroke-[2.5]" />
           </div>

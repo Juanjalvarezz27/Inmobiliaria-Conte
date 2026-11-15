@@ -203,7 +203,7 @@ export function PropiedadesTab({
 
       {/* Vista vacía de filtro o búsqueda */}
       {propiedadesFiltradas.length === 0 ? (
-        <div className="bg-white rounded-2xl p-8 sm:p-12 border border-slate-200/90 shadow-2xs text-center space-y-2.5">
+        <div className="bg-white rounded-2xl p-5 sm:p-8 lg:p-12 border border-slate-200/90 shadow-2xs text-center space-y-2.5">
           <div className="w-12 h-12 rounded-xl bg-slate-100 text-slate-400 flex items-center justify-center mx-auto">
             {vistaArchivadas ? <Archive className="w-6 h-6" /> : <Search className="w-6 h-6" />}
           </div>

@@ -178,7 +178,7 @@ export function TicketDetalleModal({
         </div>
 
         {/* Datos Clave en Cajas Grid (Distribución 2 en 2) */}
-        <div className="grid grid-cols-2 gap-2.5 sm:gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 sm:gap-3">
           <div className="bg-slate-50 border border-slate-200/80 rounded-xl p-3">
             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
               Especialidad
@@ -491,7 +491,7 @@ export function TicketDetalleModal({
                   placeholder="Ej: Reporte duplicado, resuelto por el inquilino o error de tipificación..."
                   className="w-full h-10 px-3 rounded-xl border border-rose-300 bg-white text-xs sm:text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-rose-500/20"
                 />
-                <div className="grid grid-cols-2 sm:flex sm:justify-end gap-2 pt-1">
+                <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2 pt-1">
                   <button
                     type="button"
                     onClick={() => setMostrarCancelar(false)}

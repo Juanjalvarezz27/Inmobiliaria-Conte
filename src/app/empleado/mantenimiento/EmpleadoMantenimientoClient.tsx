@@ -333,7 +333,7 @@ export function EmpleadoMantenimientoClient({
 
       {/* Grid de Tarjetas de Mantenimiento Compactas */}
       {ticketsFiltrados.length === 0 ? (
-        <div className="bg-white rounded-2xl border border-slate-200/90 p-8 shadow-xs">
+        <div className="bg-white rounded-2xl border border-slate-200/90 p-4 sm:p-6 lg:p-8 shadow-xs">
           <EmptyState
             icon="wrench"
             title={tabFiltro === "PENDIENTES" ? "¡Sin averías pendientes!" : "Sin averías en esta sección"}
