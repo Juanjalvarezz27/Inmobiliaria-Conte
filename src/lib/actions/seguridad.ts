@@ -113,7 +113,7 @@ export async function getGuardiaDiarioDataAction(
         incidenciasHoy: [],
         fechaHoy: inicioHoy.toISOString(),
         esAdmin: false,
-        adminTelefono: process.env.ADMIN_WHATSAPP_PHONE || "+584121234567",
+        adminTelefono: process.env.ADMIN_WHATSAPP_PHONE || "04120000000",
       };
     }
 
@@ -183,7 +183,7 @@ export async function getGuardiaDiarioDataAction(
     orderBy: { createdAt: "asc" },
   });
   const adminTelefono =
-    adminUsuario?.telefono || process.env.ADMIN_WHATSAPP_PHONE || "+584121234567";
+    adminUsuario?.telefono || process.env.ADMIN_WHATSAPP_PHONE || "04120000000";
 
   return {
     propiedadAsignada,
@@ -320,7 +320,7 @@ export async function registrarIncidenciaAction(formData: {
       orderBy: { createdAt: "asc" },
     });
     const adminTelefono =
-      adminUsuario?.telefono || process.env.ADMIN_WHATSAPP_PHONE || "+584121234567";
+      adminUsuario?.telefono || process.env.ADMIN_WHATSAPP_PHONE || "04120000000";
 
     // Formatear texto oficial para WhatsApp con tono corporativo sobrio (sin emojis)
     const textoParte = [

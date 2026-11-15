@@ -67,7 +67,7 @@ export function NovedadFichaModal({
           )
         : null)
     : getWhatsAppUrl(
-        adminTelefono || "+584121234567",
+        adminTelefono || "04120000000",
         [
           "*NOVEDAD DE SEGURIDAD — INMOBILIARIA CONTÉ*",
           `*Inmueble:* ${novedad.propiedadNombre}`,

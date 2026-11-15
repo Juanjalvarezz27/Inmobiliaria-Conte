@@ -28,7 +28,7 @@ async function main() {
       nombre: "Fabian",
       apellido: "Conte",
       cedula: "V-27306275",
-      telefono: "+58 412 1234567",
+      telefono: "04120000000",
       direccion: "Oficina Administrativa Central",
       ubicacion: "Sede Principal",
       rol: Rol.ADMIN,
