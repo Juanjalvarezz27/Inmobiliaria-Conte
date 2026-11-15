@@ -92,8 +92,13 @@ export const authConfig: NextAuthConfig = {
         token.cargo = user.cargo;
         token.mustChangePassword = user.mustChangePassword;
       }
-      if (trigger === "update" && session?.mustChangePassword !== undefined) {
-        token.mustChangePassword = session.mustChangePassword;
+      if (trigger === "update" && session) {
+        if (session.nombre) token.nombre = session.nombre;
+        if (session.apellido !== undefined) token.apellido = session.apellido;
+        if (session.email) token.email = session.email;
+        if (session.mustChangePassword !== undefined) {
+          token.mustChangePassword = session.mustChangePassword;
+        }
       }
       return token;
     },
