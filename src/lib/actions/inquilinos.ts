@@ -55,6 +55,7 @@ const INQUILINO_LIST_SELECT = {
   },
   contratos: {
     where: { estado: EstadoContrato.ACTIVO },
+    take: 10,
     select: {
       id: true,
       codigo: true,
@@ -165,6 +166,7 @@ export async function getInquilinos(busqueda?: string) {
         : undefined,
       select: INQUILINO_LIST_SELECT,
       orderBy: { createdAt: "desc" },
+      take: 300,
     });
 
     return { success: true, data: inquilinos };

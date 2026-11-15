@@ -267,6 +267,7 @@ model Pago {
   @@index([periodoAno, periodoMes, estado])
   @@index([contratoId])
   @@index([estado])
+  @@index([estado, comprobanteUrl])
   @@map("pagos")
 }
 
@@ -631,6 +632,7 @@ model TicketMantenimiento {
   @@index([empleadoId])
   @@index([estado])
   @@index([urgencia])
+  @@index([estado, urgencia])
   @@index([categoria])
   @@index([createdAt])
   @@map("tickets_mantenimiento")

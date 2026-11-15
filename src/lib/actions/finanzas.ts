@@ -27,6 +27,8 @@ import type {
   MovimientoCierreItem,
 } from "@/app/admin/finanzas/types";
 import { CATEGORIA_CONFIG } from "@/app/admin/finanzas/constants";
+import { getPropiedadesOpciones } from "@/lib/actions/propiedades";
+import { getRangosMesVenezuela, getPartesFechaVenezuela } from "@/lib/date-utils";
 
 const transaccionSchema = z.object({
   tipo: z.nativeEnum(TipoTransaccionFinanciera),
@@ -76,7 +78,7 @@ export async function getFinanzasData(
       : {}),
   };
 
-  const diasEnMes = new Date(ano, mes, 0).getDate();
+  const { diasEnMes } = getRangosMesVenezuela(ano, mes);
 
   // 1. Consultar cobros y transacciones del mes y año seleccionados
   const [pagosMes, transaccionesMesTotales] = await Promise.all([
@@ -126,7 +128,7 @@ export async function getFinanzasData(
     conteoCobranzas += 1;
 
     const fechaRaw = p.fechaPago || p.fechaVencimiento || p.createdAt;
-    const diaNum = new Date(fechaRaw).getDate();
+    const diaNum = getPartesFechaVenezuela(fechaRaw).dia;
     if (diaNum >= 1 && diaNum <= diasEnMes) {
       diasDelMes[diaNum - 1].ingresos += p.montoPagado;
       diasDelMes[diaNum - 1].conteoIngresos += 1;
@@ -146,7 +148,7 @@ export async function getFinanzasData(
   const conteoCategorias: Record<string, { total: number; conteo: number }> = {};
 
   for (const t of transaccionesMesTotales) {
-    const diaNum = new Date(t.fecha).getDate();
+    const diaNum = getPartesFechaVenezuela(t.fecha).dia;
     const esDiaValido = diaNum >= 1 && diaNum <= diasEnMes;
 
     if (t.tipo === TipoTransaccionFinanciera.INGRESO) {
@@ -261,24 +263,7 @@ export async function getPropiedadesFinanzasOpciones(): Promise<
   PropiedadFinanzasOpcion[]
 > {
   await assertAdminSession();
-  const propiedades = await prisma.propiedad.findMany({
-    where: { activo: true },
-    select: {
-      id: true,
-      nombre: true,
-      tipo: true,
-      ciudad: true,
-      _count: {
-        select: {
-          transaccionesFinancieras: {
-            where: { activo: true },
-          },
-        },
-      },
-    },
-    orderBy: { nombre: "asc" },
-    take: 100,
-  });
+  const propiedades = await getPropiedadesOpciones();
 
   return propiedades.map((p) => ({
     id: p.id,
@@ -287,7 +272,7 @@ export async function getPropiedadesFinanzasOpciones(): Promise<
     ciudad: p.ciudad,
     totalEgresos: 0,
     totalIngresos: 0,
-    count: p._count.transaccionesFinancieras,
+    count: 0,
   }));
 }
 

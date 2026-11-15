@@ -22,16 +22,8 @@ let cacheTasa: {
 // Duracion del cache en memoria: 5 minutos
 const CACHE_TTL_MS = 5 * 60 * 1000;
 
-// Obtener fecha del dia de hoy en zona horaria venezolana (YYYY-MM-DD)
-export function obtenerFechaHoyVenezuela(): string {
-  const formatter = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "America/Caracas",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  });
-  return formatter.format(new Date());
-}
+import { obtenerFechaHoyVenezuela } from "@/lib/date-utils";
+export { obtenerFechaHoyVenezuela };
 
 // Estructura interna estandar para cualquier proveedor de tasas
 interface ProveedorTasaResult {

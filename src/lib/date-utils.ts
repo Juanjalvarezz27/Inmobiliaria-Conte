@@ -168,3 +168,77 @@ export function formatearCabeceraFecha(isoStr: string | null | undefined): {
   }
 }
 
+// Normalización de zona horaria oficial venezolana (America/Caracas, UTC-4)
+export const ZONA_HORARIA_VENEZUELA = "America/Caracas";
+
+// Obtiene la fecha actual en Venezuela en formato YYYY-MM-DD
+export function obtenerFechaHoyVenezuela(): string {
+  const formatter = new Intl.DateTimeFormat("en-CA", {
+    timeZone: ZONA_HORARIA_VENEZUELA,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  });
+  return formatter.format(new Date());
+}
+
+// Desglosa una fecha en sus componentes locales de Venezuela
+export function getPartesFechaVenezuela(fecha?: Date | string | null): {
+  ano: number;
+  mes: number;
+  dia: number;
+  hora: number;
+  minuto: number;
+  segundo: number;
+} {
+  const d = fecha ? (typeof fecha === "string" ? new Date(fecha) : fecha) : new Date();
+  if (isNaN(d.getTime())) {
+    const ahora = new Date();
+    return getPartesFechaVenezuela(ahora);
+  }
+  const formatter = new Intl.DateTimeFormat("en-CA", {
+    timeZone: ZONA_HORARIA_VENEZUELA,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hourCycle: "h23",
+  });
+  const partes = formatter.format(d).split(", ");
+  const [ano, mes, dia] = partes[0].split("-").map(Number);
+  const [hora, minuto, segundo] = partes[1].split(":").map(Number);
+  return { ano, mes, dia, hora, minuto, segundo };
+}
+
+// Obtiene el rango exacto de inicio y fin de una jornada en hora venezolana
+export function getRangosDiaVenezuela(fecha?: Date | string | null): {
+  inicioDia: Date;
+  finDia: Date;
+  ano: number;
+  mes: number;
+  dia: number;
+} {
+  const { ano, mes, dia } = getPartesFechaVenezuela(fecha);
+  const inicioDia = new Date(Date.UTC(ano, mes - 1, dia, 4, 0, 0, 0));
+  const finDia = new Date(Date.UTC(ano, mes - 1, dia + 1, 3, 59, 59, 999));
+  return { inicioDia, finDia, ano, mes, dia };
+}
+
+// Obtiene el rango exacto de inicio y fin de un mes en hora venezolana
+export function getRangosMesVenezuela(ano?: number, mes?: number): {
+  inicioMes: Date;
+  finMes: Date;
+  diasEnMes: number;
+} {
+  const ahora = getPartesFechaVenezuela();
+  const anio = ano ?? ahora.ano;
+  const mesNum = mes ?? ahora.mes;
+  const diasEnMes = new Date(Date.UTC(anio, mesNum, 0)).getUTCDate();
+  const inicioMes = new Date(Date.UTC(anio, mesNum - 1, 1, 4, 0, 0, 0));
+  const finMes = new Date(Date.UTC(anio, mesNum, 1, 3, 59, 59, 999));
+  return { inicioMes, finMes, diasEnMes };
+}
+
+

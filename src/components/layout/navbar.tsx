@@ -57,19 +57,34 @@ export function Navbar({ user }: NavbarProps = {}) {
 
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  // Consulta reactiva de badges de pendientes operativos al montar y al navegar
+  // Consulta de badges de pendientes operativos al montar y con intervalo de 5 minutos (cuota amigable)
   useEffect(() => {
     if (!user) return;
     let isSubscribed = true;
-    getNavbarBadgesAction().then((data) => {
-      if (isSubscribed) {
-        setBadges(data);
-      }
-    });
+
+    const fetchBadges = () => {
+      getNavbarBadgesAction().then((data) => {
+        if (isSubscribed) {
+          setBadges(data);
+        }
+      });
+    };
+
+    fetchBadges();
+
+    // Intervalo de 5 minutos para evitar mantener el cómputo de Neon activo
+    const interval = setInterval(fetchBadges, 5 * 60 * 1000);
+
+    // Evento para refresco inmediato bajo demanda al completar acciones
+    const handleRefresh = () => fetchBadges();
+    window.addEventListener("refresh-navbar-badges", handleRefresh);
+
     return () => {
       isSubscribed = false;
+      clearInterval(interval);
+      window.removeEventListener("refresh-navbar-badges", handleRefresh);
     };
-  }, [user?.id, pathname]);
+  }, [user?.id]);
 
   // Notificación de bienvenida al iniciar sesión exitosamente
   useEffect(() => {

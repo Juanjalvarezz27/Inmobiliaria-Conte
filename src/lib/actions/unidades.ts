@@ -138,6 +138,7 @@ export async function getUnidades(propiedadId?: string) {
       where: propiedadId ? { propiedadId } : undefined,
       orderBy: { createdAt: "desc" },
       select: UNIDAD_SELECT,
+      take: 500,
     });
   } catch (error) {
     console.error("Error al obtener unidades:", error);

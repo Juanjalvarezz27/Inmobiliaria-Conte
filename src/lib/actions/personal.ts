@@ -25,6 +25,8 @@ import type {
   PropiedadOpcion,
 } from "@/app/admin/personal/types";
 import { enviarNotificacionNuevaTarea } from "@/lib/email-templates/notificacion-tarea";
+import { getPropiedadesOpciones } from "@/lib/actions/propiedades";
+import { getRangosDiaVenezuela, getRangosMesVenezuela } from "@/lib/date-utils";
 
 // Esquema de validación para registrar un empleado
 const createEmpleadoSchema = z.object({
@@ -55,7 +57,7 @@ export type UpdateEmpleadoInput = z.infer<typeof updateEmpleadoSchema>;
 export async function cerrarJornadasIncompletasEmpleado(empleadoId: string): Promise<number> {
   try {
     const ahora = new Date();
-    const inicioHoy = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate(), 0, 0, 0, 0);
+    const { inicioDia: inicioHoy } = getRangosDiaVenezuela(ahora);
 
     // Obtener cargo del empleado para aplicar la regla de 24h
     const emp = await prisma.empleado.findUnique({
@@ -169,13 +171,12 @@ export async function sincronizarInasistenciasPasadas(): Promise<{ sincronizadas
   try {
     // Primero cerramos automáticamente cualquier jornada anterior que haya quedado abierta
     await cerrarJornadasIncompletasPasadas();
-    const ahora = new Date();
-    const inicioHoy = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate(), 0, 0, 0, 0);
+    const { inicioDia: inicioHoy } = getRangosDiaVenezuela();
     const finAyer = new Date(inicioHoy.getTime() - 1);
 
     // Ventana de evaluación: desde el inicio del mes actual o hasta 30 días atrás
-    const inicioMes = new Date(ahora.getFullYear(), ahora.getMonth(), 1, 0, 0, 0, 0);
-    const limite30Dias = new Date(ahora.getTime() - 30 * 24 * 60 * 60 * 1000);
+    const { inicioMes } = getRangosMesVenezuela();
+    const limite30Dias = new Date(inicioHoy.getTime() - 30 * 24 * 60 * 60 * 1000);
     const fechaInicioRango = inicioMes > limite30Dias ? inicioMes : limite30Dias;
 
     if (fechaInicioRango >= inicioHoy) {
@@ -325,10 +326,8 @@ export async function sincronizarInasistenciasPasadas(): Promise<{ sincronizadas
 // Obtención integral de datos para el módulo de personal
 export async function getPersonalData(): Promise<PersonalDashboardData> {
   await assertAdminSession();
-  const hoy = new Date();
-  const inicioDia = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate(), 0, 0, 0);
-  const finDia = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate(), 23, 59, 59);
-  const inicioMes = new Date(hoy.getFullYear(), hoy.getMonth(), 1, 0, 0, 0);
+  const { inicioDia, finDia } = getRangosDiaVenezuela();
+  const { inicioMes } = getRangosMesVenezuela();
 
   // getPersonalData es 100% de solo lectura (sin escrituras automáticas que consuman Neon)
 
@@ -336,7 +335,8 @@ export async function getPersonalData(): Promise<PersonalDashboardData> {
   const [
     empleadosRaw,
     asistenciasHoyRaw,
-    tareasRaw,
+    tareasActivasRaw,
+    tareasHistoricasRaw,
     propiedadesRaw,
     tareasCompletadasMesCount,
     asistenciasStatsRaw,
@@ -404,7 +404,11 @@ export async function getPersonalData(): Promise<PersonalDashboardData> {
       },
       orderBy: { horaEntrada: "desc" },
     }),
+    // Tareas activas (todas las pendientes o en proceso)
     prisma.tareaEmpleado.findMany({
+      where: {
+        estado: { in: [EstadoTarea.PENDIENTE, EstadoTarea.EN_PROCESO] },
+      },
       include: {
         empleado: {
           select: {
@@ -422,16 +426,31 @@ export async function getPersonalData(): Promise<PersonalDashboardData> {
       },
       orderBy: [{ estado: "asc" }, { createdAt: "desc" }],
     }),
-    prisma.propiedad.findMany({
-      where: { activo: true },
-      select: {
-        id: true,
-        nombre: true,
-        tipo: true,
-        ciudad: true,
+    // Tareas históricas cerradas (limitadas a las 50 más recientes para evitar sobrecarga)
+    prisma.tareaEmpleado.findMany({
+      where: {
+        estado: { in: [EstadoTarea.COMPLETADA, EstadoTarea.CANCELADA] },
       },
-      orderBy: { nombre: "asc" },
+      include: {
+        empleado: {
+          select: {
+            nombre: true,
+            apellido: true,
+            cargo: true,
+            telefono: true,
+          },
+        },
+        propiedad: {
+          select: {
+            nombre: true,
+          },
+        },
+      },
+      orderBy: { createdAt: "desc" },
+      take: 50,
     }),
+    // Catálogo de propiedades reutilizando Edge Cache (DRY)
+    getPropiedadesOpciones(),
     prisma.tareaEmpleado.count({
       where: {
         estado: EstadoTarea.COMPLETADA,
@@ -445,6 +464,8 @@ export async function getPersonalData(): Promise<PersonalDashboardData> {
       _count: { id: true },
     }),
   ]);
+
+  const tareasRaw = [...tareasActivasRaw, ...tareasHistoricasRaw];
 
   // Mapa de estadísticas de asistencia e inasistencia por empleado
   const conteoAsistenciasMap = new Map<string, { asistencias: number; inasistencias: number }>();
