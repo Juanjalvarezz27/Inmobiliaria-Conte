@@ -14,7 +14,6 @@ export function LoginForm() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [isDevHelperOpen, setIsDevHelperOpen] = useState(true);
 
   // Notificación reactiva con título y causa ante errores de autenticación
   useEffect(() => {
@@ -93,21 +92,8 @@ export function LoginForm() {
     }
   };
 
-  // Helper para autocompletar credenciales de prueba con notificación de feedback
-  const fillCredentials = (testEmail: string, testPass: string, roleName?: string) => {
-    setEmail(testEmail);
-    setPassword(testPass);
-    if (roleName) {
-      notify.info(
-        `Credenciales de ${roleName} cargadas`,
-        `Se autocompletaron los datos de acceso para ${testEmail}.`
-      );
-    }
-  };
-
   return (
-    <>
-      <div className="w-full max-w-md mx-auto">
+    <div className="w-full max-w-md mx-auto">
       {/* Cabecera del formulario con el logotipo oficial */}
       <div className="text-center mb-8">
         <div className="flex justify-center mb-4">
@@ -267,111 +253,5 @@ export function LoginForm() {
         </button>
       </form>
     </div>
-
-    {/* Widget flotante temporal a la derecha con accesos de prueba */}
-    {isDevHelperOpen ? (
-      <aside
-        aria-label="Credenciales de prueba para desarrollo"
-        className="fixed bottom-6 right-6 z-50 bg-[#1C2539]/95 backdrop-blur-md border border-[#2D4166] rounded-2xl p-4 shadow-2xl w-80 text-white animate-fadeIn"
-      >
-        <div className="flex items-center justify-between pb-2 mb-2.5 border-b border-white/10">
-          <div className="flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-            <span className="text-xs font-bold text-slate-200 uppercase tracking-wider">Accesos Demo</span>
-          </div>
-          <button
-            type="button"
-            onClick={() => setIsDevHelperOpen(false)}
-            className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-white/10 transition-colors cursor-pointer"
-            title="Minimizar panel demo"
-          >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
-
-        <p className="text-[11px] text-slate-300 mb-2.5 leading-snug">
-          Clic para rellenar credenciales automáticamente:
-        </p>
-
-        <div className="space-y-1.5">
-          {/* 1. Administrador */}
-          <button
-            type="button"
-            onClick={() => fillCredentials("jjsa610@gmail.com", "123456", "Administrador (Juan Álvarez)")}
-            className="w-full flex items-center justify-between px-3 py-2 rounded-xl bg-white/5 hover:bg-[#253758] border border-white/10 hover:border-[#3C588A]/60 transition-all text-left cursor-pointer group"
-          >
-            <div>
-              <div className="flex items-center gap-1.5">
-                <span className="block text-xs font-bold text-amber-300">Admin</span>
-                <span className="text-[10px] text-amber-200/80 font-medium">(Juan Álvarez)</span>
-              </div>
-              <span className="block text-[11px] text-slate-400 font-mono">jjsa610@gmail.com</span>
-            </div>
-            <span className="text-[10px] bg-amber-400/10 text-amber-300 px-2 py-0.5 rounded border border-amber-400/30 font-semibold">Auto</span>
-          </button>
-
-          {/* 2. Inquilino */}
-          <button
-            type="button"
-            onClick={() => fillCredentials("inquilino@conte.com", "123456", "Inquilino (Farmacia La Salud)")}
-            className="w-full flex items-center justify-between px-3 py-2 rounded-xl bg-white/5 hover:bg-[#253758] border border-white/10 hover:border-[#3C588A]/60 transition-all text-left cursor-pointer group"
-          >
-            <div>
-              <div className="flex items-center gap-1.5">
-                <span className="block text-xs font-bold text-emerald-300">Inquilino</span>
-                <span className="text-[10px] text-emerald-200/80 font-medium">(Farmacia La Salud C.A.)</span>
-              </div>
-              <span className="block text-[11px] text-slate-400 font-mono">inquilino@conte.com</span>
-            </div>
-            <span className="text-[10px] bg-emerald-400/10 text-emerald-300 px-2 py-0.5 rounded border border-emerald-400/30 font-semibold shrink-0">Auto</span>
-          </button>
-
-          {/* 3. Personal de Seguridad */}
-          <button
-            type="button"
-            onClick={() => fillCredentials("seguridad@conte.com", "123456", "Seguridad (Héctor Paredes)")}
-            className="w-full flex items-center justify-between px-3 py-2 rounded-xl bg-white/5 hover:bg-[#253758] border border-white/10 hover:border-[#3C588A]/60 transition-all text-left cursor-pointer group"
-          >
-            <div>
-              <div className="flex items-center gap-1.5">
-                <span className="block text-xs font-bold text-teal-300">Seguridad</span>
-                <span className="text-[10px] text-teal-200/80 font-medium">(Héctor Paredes)</span>
-              </div>
-              <span className="block text-[11px] text-slate-400 font-mono">seguridad@conte.com</span>
-            </div>
-            <span className="text-[10px] bg-teal-400/10 text-teal-300 px-2 py-0.5 rounded border border-teal-400/30 font-semibold">Auto</span>
-          </button>
-
-          {/* 4. Técnico de Mantenimiento */}
-          <button
-            type="button"
-            onClick={() => fillCredentials("carlos.mendoza@inmobiliariaconte.com", "123456", "Mantenimiento (Carlos Mendoza)")}
-            className="w-full flex items-center justify-between px-3 py-2 rounded-xl bg-white/5 hover:bg-[#253758] border border-white/10 hover:border-[#3C588A]/60 transition-all text-left cursor-pointer group"
-          >
-            <div>
-              <div className="flex items-center gap-1.5">
-                <span className="block text-xs font-bold text-sky-300">Mantenimiento</span>
-                <span className="text-[10px] text-sky-200/80 font-medium">(Carlos Mendoza)</span>
-              </div>
-              <span className="block text-[11px] text-slate-400 font-mono truncate max-w-[190px]">carlos.mendoza@inmobiliariaconte.com</span>
-            </div>
-            <span className="text-[10px] bg-sky-400/10 text-sky-300 px-2 py-0.5 rounded border border-sky-400/30 font-semibold">Auto</span>
-          </button>
-        </div>
-      </aside>
-    ) : (
-      <button
-        type="button"
-        onClick={() => setIsDevHelperOpen(true)}
-        className="fixed bottom-6 right-6 z-50 bg-[#1C2539] hover:bg-[#253758] border border-[#2D4166] text-white text-xs font-semibold px-3.5 py-2.5 rounded-full shadow-xl flex items-center gap-2 cursor-pointer transition-all animate-fadeIn"
-        title="Ver credenciales de prueba"
-      >
-        <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-        <span>Accesos Demo</span>
-      </button>
-    )}
-  </>
-);
+  );
 }
