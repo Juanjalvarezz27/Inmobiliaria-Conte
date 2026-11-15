@@ -345,25 +345,25 @@ export function UnidadDetalleModal({
                 <>
                   {/* CASO 1: Subunidad ocupada con opción de expansión */}
                   {diagnostico.puedeExpandir && diagnostico.inquilinoParaExpandir && (
-                    <div className="relative overflow-hidden rounded-2xl border border-emerald-500/40 bg-gradient-to-br from-emerald-50/70 via-white to-emerald-50/40 p-4 shadow-xs">
-                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                        <div className="flex items-start gap-3">
-                          <div className="w-9 h-9 rounded-xl bg-[#175E38] text-white flex items-center justify-center shrink-0 shadow-xs mt-0.5 sm:mt-0">
+                    <div className="relative overflow-hidden rounded-2xl border border-emerald-500/40 bg-gradient-to-br from-emerald-50/70 via-white to-emerald-50/40 p-3.5 sm:p-4 shadow-xs">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
+                        <div className="flex items-start gap-2.5 sm:gap-3 min-w-0 flex-1">
+                          <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-[#175E38] text-white flex items-center justify-center shrink-0 shadow-xs mt-0.5 sm:mt-0">
                             <Maximize2 className="w-4 h-4 stroke-[2.5]" />
                           </div>
-                          <div>
-                            <div className="flex items-center gap-2">
-                              <span className="text-[10px] font-black uppercase tracking-wider text-[#175E38] bg-emerald-100/90 px-2 py-0.5 rounded-full border border-emerald-200">
+                          <div className="min-w-0 flex-1">
+                            <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+                              <span className="whitespace-nowrap text-[10px] font-black uppercase tracking-wider text-[#175E38] bg-emerald-100/90 px-2.5 py-0.5 rounded-full border border-emerald-200">
                                 Opción de Expansión
                               </span>
-                              <span className="text-xs text-slate-500 font-medium">
+                              <span className="text-[11px] sm:text-xs text-slate-500 font-medium">
                                 Espacio contiguo disponible
                               </span>
                             </div>
-                            <h4 className="text-sm font-black text-slate-900 mt-1 font-heading">
+                            <h4 className="text-xs sm:text-sm font-black text-slate-900 mt-1 font-heading leading-snug">
                               {diagnostico.inquilinoParaExpandir.inquilinoNombre}
                             </h4>
-                            <p className="text-xs text-slate-600 mt-0.5">
+                            <p className="text-[11px] sm:text-xs text-slate-600 mt-1 leading-relaxed">
                               Arrienda <strong className="text-slate-800">{diagnostico.inquilinoParaExpandir.subunidadCodigo}</strong> (${diagnostico.inquilinoParaExpandir.canonActual}/mes) y puede expandir su contrato para ocupar el local completo ({unidad.codigo}, {unidad.areaMt2} m²).
                             </p>
                           </div>
@@ -372,7 +372,7 @@ export function UnidadDetalleModal({
                         <button
                           type="button"
                           onClick={() => setOpenExpandirModal(true)}
-                          className="px-4 py-2 rounded-xl text-xs font-bold bg-[#175E38] hover:bg-[#124b2d] text-white shadow-xs flex items-center justify-center gap-1.5 cursor-pointer active:translate-y-0.5 border-b-[3px] border-b-[#0e3a23] transition-all shrink-0 self-end sm:self-center"
+                          className="w-full sm:w-auto px-4 py-2.5 sm:py-2 rounded-xl text-xs font-bold bg-[#175E38] hover:bg-[#124b2d] text-white shadow-xs flex items-center justify-center gap-1.5 cursor-pointer active:translate-y-0.5 border-b-[3px] border-b-[#0e3a23] transition-all shrink-0 mt-1 sm:mt-0"
                         >
                           <Maximize2 className="w-3.5 h-3.5 stroke-[2.5]" />
                           <span>Expandir Arrendatario</span>
@@ -383,20 +383,20 @@ export function UnidadDetalleModal({
 
                   {/* CASO 2: Todas las subunidades libres (Reunificación posible) */}
                   {diagnostico.todasSubunidadesLibres && (
-                    <div className="rounded-2xl border border-blue-200/90 bg-blue-50/50 p-4 shadow-2xs">
-                      <div className="flex items-start gap-3">
-                        <div className="w-9 h-9 rounded-xl bg-blue-600 text-white flex items-center justify-center shrink-0 shadow-xs">
+                    <div className="rounded-2xl border border-blue-200/90 bg-blue-50/50 p-3.5 sm:p-4 shadow-2xs">
+                      <div className="flex items-start gap-2.5 sm:gap-3">
+                        <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-blue-600 text-white flex items-center justify-center shrink-0 shadow-xs mt-0.5 sm:mt-0">
                           <Layers className="w-4 h-4" />
                         </div>
-                        <div className="flex-1">
-                          <span className="text-[10px] font-black uppercase tracking-wider text-blue-700 bg-blue-100 px-2 py-0.5 rounded-full">
+                        <div className="min-w-0 flex-1">
+                          <span className="whitespace-nowrap text-[10px] font-black uppercase tracking-wider text-blue-700 bg-blue-100 px-2.5 py-0.5 rounded-full">
                             Subunidades Desocupadas
                           </span>
-                          <h4 className="text-xs font-bold text-slate-900 mt-1 font-heading">
+                          <h4 className="text-xs sm:text-sm font-bold text-slate-900 mt-1 font-heading leading-snug">
                             Todas las subunidades están libres (
                             {diagnostico.subunidades.map((s) => s.codigo).join(", ")})
                           </h4>
-                          <p className="text-[11px] text-slate-600 mt-0.5">
+                          <p className="text-[11px] sm:text-xs text-slate-600 mt-1 leading-relaxed">
                             Puedes reunificar el espacio físico y reactivar este local matriz como
                             DISPONIBLE para arrendarlo completo. Al reactivarlo, sus subunidades
                             pasarán a estado INACTIVO.
@@ -407,7 +407,7 @@ export function UnidadDetalleModal({
                         <button
                           type="button"
                           onClick={() => setOpenReunificarModal(true)}
-                          className="px-3.5 py-1.5 rounded-xl text-xs font-bold bg-[#175E38] hover:bg-[#124b2d] text-white flex items-center gap-1.5 cursor-pointer shadow-xs active:translate-y-0.5 border-b-[2px] border-b-[#0e3a23]"
+                          className="w-full sm:w-auto px-3.5 py-2 sm:py-1.5 rounded-xl text-xs font-bold bg-[#175E38] hover:bg-[#124b2d] text-white flex items-center justify-center gap-1.5 cursor-pointer shadow-xs active:translate-y-0.5 border-b-[2px] border-b-[#0e3a23]"
                         >
                           <Layers className="w-3.5 h-3.5" />
                           <span>Reunificar y Reactivar Local</span>
@@ -418,15 +418,15 @@ export function UnidadDetalleModal({
 
                   {/* CASO 3: Múltiples subunidades ocupadas por distintos arrendatarios */}
                   {!diagnostico.puedeExpandir && !diagnostico.todasSubunidadesLibres && (
-                    <div className="rounded-2xl border border-amber-200 bg-amber-50/60 p-4 shadow-2xs flex items-start gap-3">
-                      <div className="w-8 h-8 rounded-xl bg-amber-500 text-white flex items-center justify-center shrink-0">
+                    <div className="rounded-2xl border border-amber-200 bg-amber-50/60 p-3.5 sm:p-4 shadow-2xs flex items-start gap-2.5 sm:gap-3">
+                      <div className="w-8 h-8 rounded-xl bg-amber-500 text-white flex items-center justify-center shrink-0 mt-0.5">
                         <AlertCircle className="w-4 h-4" />
                       </div>
                       <div>
-                        <h4 className="text-xs font-bold text-amber-950 font-heading">
+                        <h4 className="text-xs sm:text-sm font-bold text-amber-950 font-heading leading-snug">
                           Subunidades ocupadas por distintos arrendatarios
                         </h4>
-                        <p className="text-[11px] text-amber-800 mt-0.5">
+                        <p className="text-[11px] sm:text-xs text-amber-800 mt-1 leading-relaxed">
                           Existen múltiples contratos de arrendamiento vigentes en las subunidades. Este
                           local matriz permanecerá inactivo hasta la culminación de dichos contratos para
                           preservar la coherencia física y contable del inmueble.
@@ -441,25 +441,25 @@ export function UnidadDetalleModal({
               {onSubdividirUnidad &&
                 !diagnostico?.esSubunidad &&
                 (!diagnostico?.subunidades || diagnostico.subunidades.length === 0) && (
-                  <div className="rounded-2xl border border-indigo-200/90 bg-gradient-to-br from-indigo-50/70 via-white to-slate-50 p-4 shadow-2xs">
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                      <div className="flex items-start gap-3">
-                        <div className="w-9 h-9 rounded-xl bg-indigo-600 text-white flex items-center justify-center shrink-0 shadow-xs mt-0.5 sm:mt-0">
+                  <div className="rounded-2xl border border-indigo-200/90 bg-gradient-to-br from-indigo-50/70 via-white to-slate-50 p-3.5 sm:p-4 shadow-2xs">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
+                      <div className="flex items-start gap-2.5 sm:gap-3 min-w-0 flex-1">
+                        <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-indigo-600 text-white flex items-center justify-center shrink-0 shadow-xs mt-0.5 sm:mt-0">
                           <Scissors className="w-4 h-4 stroke-[2.5]" />
                         </div>
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <span className="text-[10px] font-black uppercase tracking-wider text-indigo-700 bg-indigo-100/90 px-2 py-0.5 rounded-full border border-indigo-200">
+                        <div className="min-w-0 flex-1">
+                          <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+                            <span className="whitespace-nowrap text-[10px] font-black uppercase tracking-wider text-indigo-700 bg-indigo-100/90 px-2.5 py-0.5 rounded-full border border-indigo-200">
                               Subdivisión en 2 Partes
                             </span>
-                            <span className="text-xs text-slate-500 font-medium">
+                            <span className="text-[11px] sm:text-xs text-slate-500 font-medium">
                               Fraccionamiento comercial (A y B)
                             </span>
                           </div>
-                          <h4 className="text-sm font-black text-slate-900 mt-1 font-heading">
+                          <h4 className="text-xs sm:text-sm font-black text-slate-900 mt-1 font-heading leading-snug">
                             ¿Deseas dividir este local en dos mitades?
                           </h4>
-                          <p className="text-xs text-slate-600 mt-0.5">
+                          <p className="text-[11px] sm:text-xs text-slate-600 mt-1 leading-relaxed">
                             {unidad.estado === "OCUPADO"
                               ? `Este local cuenta con contrato activo. Puedes dividirlo en ${unidad.codigo}-A (reasignado al inquilino) y ${unidad.codigo}-B (disponible para nuevo arrendamiento).`
                               : `Puedes dividir ${unidad.codigo} (${unidad.areaMt2 ? `${unidad.areaMt2} m²` : "área total"}) en dos subunidades independientes (${unidad.codigo}-A y ${unidad.codigo}-B) con cánones y metrajes individuales.`}
@@ -470,7 +470,7 @@ export function UnidadDetalleModal({
                       <button
                         type="button"
                         onClick={() => setOpenSubdividirModal(true)}
-                        className="px-4 py-2 rounded-xl text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white shadow-xs flex items-center justify-center gap-1.5 cursor-pointer active:translate-y-0.5 border-b-[3px] border-b-indigo-800 transition-all shrink-0 self-end sm:self-center"
+                        className="w-full sm:w-auto px-4 py-2.5 sm:py-2 rounded-xl text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white shadow-xs flex items-center justify-center gap-1.5 cursor-pointer active:translate-y-0.5 border-b-[3px] border-b-indigo-800 transition-all shrink-0 mt-1 sm:mt-0"
                       >
                         <Scissors className="w-3.5 h-3.5" />
                         <span>Subdividir en 2</span>
@@ -527,7 +527,7 @@ export function UnidadDetalleModal({
                       {diagnostico?.esSubunidad &&
                         diagnostico.puedeExpandir &&
                         diagnostico.inquilinoParaExpandir?.subunidadId === unidad.id && (
-                          <div className="mt-3 p-3 bg-emerald-50/80 border border-emerald-200 rounded-xl flex items-center justify-between gap-3">
+                          <div className="mt-3 p-3 bg-emerald-50/80 border border-emerald-200 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                             <div>
                               <span className="text-[10px] font-black text-[#175E38] uppercase tracking-wider block">
                                 Oportunidad de Expansión Comercial
@@ -542,7 +542,7 @@ export function UnidadDetalleModal({
                             <button
                               type="button"
                               onClick={() => setOpenExpandirModal(true)}
-                              className="px-3 py-1.5 rounded-xl text-xs font-bold bg-[#175E38] hover:bg-[#124b2d] text-white shadow-xs shrink-0 cursor-pointer flex items-center gap-1.5 border-b-[2px] border-b-[#0e3a23]"
+                              className="w-full sm:w-auto px-3 py-2 sm:py-1.5 rounded-xl text-xs font-bold bg-[#175E38] hover:bg-[#124b2d] text-white shadow-xs shrink-0 cursor-pointer flex items-center justify-center gap-1.5 border-b-[2px] border-b-[#0e3a23]"
                             >
                               <Maximize2 className="w-3.5 h-3.5" />
                               <span>Expandir</span>
