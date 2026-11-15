@@ -282,29 +282,29 @@ export function PerfilView({ usuario }: PerfilViewProps) {
             <div className="absolute inset-3 rounded-full border border-emerald-500/20 bg-emerald-500/[0.05]" />
           </div>
 
-          <div className="relative z-10 flex items-center justify-between border-b border-slate-100 pb-3.5">
-            <div className="flex items-center gap-2.5">
-              <div className="w-9 h-9 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-700 shadow-2xs">
+          <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 sm:gap-3 border-b border-slate-100 pb-3.5">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="w-9 h-9 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-700 shadow-2xs shrink-0">
                 <User className="w-4 h-4" />
               </div>
-              <div>
+              <div className="min-w-0">
                 <h2 className="text-sm font-bold text-slate-900 font-heading">
                   Información de la Cuenta
                 </h2>
-                <p className="text-[11px] text-slate-400">
+                <p className="text-[11px] text-slate-400 truncate">
                   {isEditing ? "Modifica tus datos habilitados" : "Datos registrados en el sistema"}
                 </p>
               </div>
             </div>
-            <div className="flex items-center gap-2">
-              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-lg border uppercase tracking-wider ${roleStyles.badge}`}>
+            <div className="flex items-center justify-between sm:justify-end gap-2 shrink-0">
+              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-lg border uppercase tracking-wider shrink-0 ${roleStyles.badge}`}>
                 {roleStyles.label}
               </span>
               {!isEditing && (
                 <button
                   type="button"
                   onClick={handleIniciarEdicion}
-                  className="px-2.5 py-1 rounded-lg text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 border border-slate-200/90 transition-all flex items-center gap-1 cursor-pointer shadow-2xs active:translate-y-0.5"
+                  className="px-2.5 py-1 rounded-lg text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 border border-slate-200/90 transition-all flex items-center gap-1 cursor-pointer shadow-2xs active:translate-y-0.5 shrink-0"
                 >
                   <Pencil className="w-3 h-3 text-slate-600" />
                   <span>Editar</span>
@@ -690,24 +690,24 @@ export function PerfilView({ usuario }: PerfilViewProps) {
             <div className="absolute inset-3 rounded-full border border-purple-500/20 bg-purple-500/[0.05]" />
           </div>
 
-          <div className="relative z-10 flex items-center justify-between border-b border-slate-100 pb-3.5">
-            <div className="flex items-center gap-2.5">
-              <div className="w-9 h-9 rounded-xl bg-purple-50 border border-purple-200 flex items-center justify-center text-purple-700 shadow-2xs">
+          <div className="relative z-10 flex items-center justify-between gap-2.5 border-b border-slate-100 pb-3.5">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="w-9 h-9 rounded-xl bg-purple-50 border border-purple-200 flex items-center justify-center text-purple-700 shadow-2xs shrink-0">
                 <KeyRound className="w-4 h-4" />
               </div>
-              <div>
+              <div className="min-w-0">
                 <h2 className="text-sm font-bold text-slate-900 font-heading">
                   Seguridad de la Cuenta
                 </h2>
-                <p className="text-[11px] text-slate-400">Actualiza tu contraseña de acceso</p>
+                <p className="text-[11px] text-slate-400 truncate">Actualiza tu contraseña de acceso</p>
               </div>
             </div>
             {mustChangePassword ? (
-              <span className="text-[10px] font-extrabold px-2.5 py-1 rounded-full bg-amber-100 text-amber-800 border border-amber-300">
+              <span className="text-[10px] font-extrabold px-2.5 py-1 rounded-full bg-amber-100 text-amber-800 border border-amber-300 shrink-0">
                 Clave Inicial
               </span>
             ) : (
-              <span className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-slate-100 text-slate-600 border border-slate-200">
+              <span className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-slate-100 text-slate-600 border border-slate-200 shrink-0">
                 Opcional
               </span>
             )}
