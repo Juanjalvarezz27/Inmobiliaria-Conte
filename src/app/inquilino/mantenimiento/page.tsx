@@ -17,6 +17,7 @@ export default async function InquilinoMantenimientoPage() {
       locales={data.locales}
       propiedades={data.propiedades}
       inquilinoNombre={data.inquilinoNombre}
+      adminTelefono={data.adminTelefono}
     />
   );
 }

@@ -85,7 +85,7 @@ export interface TicketItem {
     id: string;
     nombre: string;
     apellido: string | null;
-    telefono: string;
+    telefono: string | null;
     email: string | null;
     cargo: string;
   } | null;
@@ -397,20 +397,28 @@ export async function getTicketsInquilino() {
         locales: [],
         propiedades: [],
         inquilinoNombre: session.user.nombre || "Inquilino",
+        adminTelefono: "04120000000",
       };
     }
 
-    const [ticketsRegistrados] = await Promise.all([
+    const [ticketsRegistrados, adminUsuario] = await Promise.all([
       prisma.ticketMantenimiento.findMany({
         where: { inquilinoId: inquilino.id },
         orderBy: { createdAt: "desc" },
         include: {
           propiedad: { select: { id: true, nombre: true, ciudad: true, direccion: true } },
           unidad: { select: { id: true, codigo: true, tipo: true, piso: true } },
-          empleado: { select: { id: true, nombre: true, apellido: true, cargo: true, telefono: true } },
+          empleado: { select: { id: true, nombre: true, apellido: true, cargo: true } },
         },
       }),
+      prisma.usuario.findFirst({
+        where: { rol: "ADMIN", activo: true },
+        select: { telefono: true },
+        orderBy: { createdAt: "asc" },
+      }),
     ]);
+
+    const adminTelefono = adminUsuario?.telefono || process.env.ADMIN_WHATSAPP_PHONE || "04120000000";
 
     // Extraer locales arrendados elegibles para reportar fallas
     const locales = inquilino.contratos.map((c) => ({
@@ -466,7 +474,7 @@ export async function getTicketsInquilino() {
             nombre: t.empleado.nombre,
             apellido: t.empleado.apellido,
             cargo: t.empleado.cargo,
-            telefono: t.empleado.telefono,
+            telefono: null,
             email: null,
           }
         : null,
@@ -478,6 +486,7 @@ export async function getTicketsInquilino() {
       locales,
       propiedades: Array.from(propiedadesMap.values()),
       inquilinoNombre: `${inquilino.nombre} ${inquilino.apellido || ""}`.trim(),
+      adminTelefono,
     };
   } catch (error) {
     console.error("Error al obtener tickets del inquilino:", error);
@@ -488,6 +497,7 @@ export async function getTicketsInquilino() {
       locales: [],
       propiedades: [],
       inquilinoNombre: "",
+      adminTelefono: "04120000000",
     };
   }
 }

@@ -31,6 +31,7 @@ import {
 } from "@/lib/constants/mantenimiento";
 import { CategoriaTicket, EstadoTicket } from "@prisma/client";
 import { formatearFechaNumerica } from "@/lib/date-utils";
+import { WhatsAppIcon, getWhatsAppUrl } from "@/lib/formatters";
 import type { TicketItem } from "@/lib/actions/mantenimiento";
 
 interface InquilinoTicketFichaModalProps {
@@ -38,6 +39,7 @@ interface InquilinoTicketFichaModalProps {
   onClose: () => void;
   ticket: TicketItem | null;
   onVerFotos: (fotos: string[], index: number, title: string) => void;
+  adminTelefono?: string;
 }
 
 function getCategoriaIcon(cat: CategoriaTicket) {
@@ -66,6 +68,7 @@ export function InquilinoTicketFichaModal({
   onClose,
   ticket,
   onVerFotos,
+  adminTelefono = "04120000000",
 }: InquilinoTicketFichaModalProps) {
   if (!ticket) return null;
 
@@ -236,7 +239,7 @@ export function InquilinoTicketFichaModal({
 
         {/* Técnico Asignado por Administración */}
         {ticket.empleado && (
-          <div className="bg-emerald-50/70 border border-emerald-200/90 rounded-2xl p-3 sm:p-3.5 space-y-3 sm:space-y-0 sm:flex sm:items-center sm:justify-between sm:gap-3">
+          <div className="bg-emerald-50/70 border border-emerald-200/90 rounded-2xl p-3 sm:p-3.5 flex items-center justify-between gap-3">
             <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
               <div className="w-10 h-10 rounded-xl bg-[#175E38] text-white flex items-center justify-center font-bold text-sm shrink-0 shadow-2xs">
                 <User className="w-5 h-5" />
@@ -253,28 +256,9 @@ export function InquilinoTicketFichaModal({
                 </p>
               </div>
             </div>
-
-            {ticket.empleado.telefono && (
-              <div className="grid grid-cols-2 sm:flex sm:items-center gap-2 shrink-0 pt-2 sm:pt-0 border-t border-emerald-200/50 sm:border-0">
-                <a
-                  href={`https://wa.me/${ticket.empleado.telefono.replace(/[^0-9]/g, "")}`}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="h-9 px-3 sm:px-3.5 rounded-xl text-xs font-bold bg-[#25D366] hover:bg-[#20ba59] text-white flex items-center justify-center gap-1.5 shadow-2xs cursor-pointer active:scale-95 transition-all"
-                >
-                  <MessageCircle className="w-3.5 h-3.5 shrink-0" />
-                  <span>WhatsApp</span>
-                </a>
-                <a
-                  href={`tel:${ticket.empleado.telefono}`}
-                  className="h-9 px-3 sm:px-3 rounded-xl text-xs font-bold bg-white text-slate-700 border border-slate-200/90 hover:bg-slate-50 flex items-center justify-center gap-1.5 shadow-2xs cursor-pointer active:scale-95 transition-all"
-                  title="Llamar al técnico"
-                >
-                  <Phone className="w-3.5 h-3.5 text-slate-500 shrink-0" />
-                  <span>Llamar</span>
-                </a>
-              </div>
-            )}
+            <span className="text-[10px] font-bold text-emerald-800 bg-emerald-100/90 px-2.5 py-1 rounded-lg border border-emerald-200 shrink-0">
+              Personal Asignado
+            </span>
           </div>
         )}
 
@@ -350,8 +334,20 @@ export function InquilinoTicketFichaModal({
           </div>
         )}
 
-        {/* Botón de Cierre Inferior */}
-        <div className="pt-3 border-t border-slate-100 flex items-center justify-end">
+        {/* Botones Inferiores: Contactar Administración y Cerrar Ficha */}
+        <div className="pt-3 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-end gap-2">
+          <a
+            href={getWhatsAppUrl(
+              adminTelefono,
+              `Hola Administración Conté, les escribo por mi ticket de mantenimiento ${ticket.codigo} (${ticket.titulo}) de ${ticket.unidad ? ticket.unidad.codigo : "inmueble"} en ${ticket.propiedad.nombre}.`
+            )}
+            target="_blank"
+            rel="noreferrer"
+            className="w-full sm:w-auto h-11 px-5 rounded-xl font-heading font-bold text-xs text-white bg-[#25D366] hover:bg-[#20bd5a] active:translate-y-0.5 transition-all shadow-xs flex items-center justify-center gap-2 cursor-pointer"
+          >
+            <WhatsAppIcon className="w-4 h-4 fill-current shrink-0" />
+            <span>Contactar al Administrador</span>
+          </a>
           <button
             type="button"
             onClick={onClose}

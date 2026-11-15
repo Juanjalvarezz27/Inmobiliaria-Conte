@@ -51,6 +51,7 @@ import {
 } from "@prisma/client";
 import type { TicketItem } from "@/lib/actions/mantenimiento";
 import { formatearFechaNumerica } from "@/lib/date-utils";
+import { WhatsAppIcon, getWhatsAppUrl } from "@/lib/formatters";
 
 interface InquilinoMantenimientoClientProps {
   ticketsIniciales: TicketItem[];
@@ -63,6 +64,7 @@ interface InquilinoMantenimientoClientProps {
   }>;
   propiedades: Array<{ id: string; nombre: string }>;
   inquilinoNombre: string;
+  adminTelefono?: string;
 }
 
 // Icono temático según especialidad técnica
@@ -95,6 +97,7 @@ export function InquilinoMantenimientoClient({
   locales,
   propiedades,
   inquilinoNombre,
+  adminTelefono = "04120000000",
 }: InquilinoMantenimientoClientProps) {
   const router = useRouter();
   const [modalReportarOpen, setModalReportarOpen] = useState(false);
@@ -515,19 +518,9 @@ export function InquilinoMantenimientoClient({
                                   </p>
                                 </div>
                               </div>
-
-                              {ticket.empleado.telefono && (
-                                <a
-                                  href={`https://wa.me/${ticket.empleado.telefono.replace(/[^0-9]/g, "")}`}
-                                  target="_blank"
-                                  rel="noreferrer"
-                                  className="px-2 py-1 rounded-lg text-[10.5px] font-bold bg-[#25D366] text-white flex items-center gap-1 shadow-2xs shrink-0 hover:scale-105 active:scale-95 transition-transform"
-                                  title="Contactar al técnico por WhatsApp"
-                                >
-                                  <MessageCircle className="w-3 h-3" />
-                                  <span>WhatsApp</span>
-                                </a>
-                              )}
+                              <span className="text-[10px] font-bold text-emerald-800 bg-emerald-100/90 px-2 py-0.5 rounded-md border border-emerald-200 shrink-0">
+                                Técnico Asignado
+                              </span>
                             </div>
                           ) : esResuelto ? (
                             <div className="flex items-center gap-1.5 text-xs text-[#175E38] bg-emerald-50 p-2 rounded-xl border border-emerald-200">
@@ -579,28 +572,20 @@ export function InquilinoMantenimientoClient({
                           <span className="truncate">Ver Ficha</span>
                         </button>
 
-                        {/* Botón 2: Acción Operativa o Estado */}
-                        {ticket.empleado && ticket.empleado.telefono ? (
-                          <a
-                            href={`https://wa.me/${ticket.empleado.telefono.replace(/[^0-9]/g, "")}`}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="w-full h-11 px-2.5 rounded-xl text-xs font-bold bg-[#25D366] text-white hover:bg-[#20bd5a] transition-all flex items-center justify-center gap-1.5 shadow-2xs active:translate-y-0.5"
-                          >
-                            <MessageCircle className="w-3.5 h-3.5 shrink-0" />
-                            <span className="truncate">Técnico</span>
-                          </a>
-                        ) : esResuelto ? (
-                          <div className="w-full h-11 px-2.5 rounded-xl text-xs font-bold bg-emerald-50 text-[#175E38] border border-emerald-200 flex items-center justify-center gap-1.5">
-                            <ShieldCheck className="w-3.5 h-3.5 shrink-0 text-[#175E38]" />
-                            <span className="truncate">Resuelto</span>
-                          </div>
-                        ) : (
-                          <div className="w-full h-11 px-2.5 rounded-xl text-xs font-bold bg-amber-50 text-amber-800 border border-amber-200 flex items-center justify-center gap-1.5">
-                            <Clock className="w-3.5 h-3.5 shrink-0 text-amber-700" />
-                            <span className="truncate">En Atención</span>
-                          </div>
-                        )}
+                        {/* Botón 2: Contactar Administración por WhatsApp */}
+                        <a
+                          href={getWhatsAppUrl(
+                            adminTelefono,
+                            `Hola Administración Conté, les escribo por mi ticket de mantenimiento ${ticket.codigo} (${ticket.titulo}) de ${ticket.unidad ? ticket.unidad.codigo : "inmueble"} en ${ticket.propiedad.nombre}.`
+                          )}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="w-full h-11 px-2.5 rounded-xl text-xs font-bold bg-[#25D366] text-white hover:bg-[#20bd5a] transition-all flex items-center justify-center gap-1.5 shadow-2xs active:translate-y-0.5 cursor-pointer"
+                          title="Contactar al Administrador vía WhatsApp"
+                        >
+                          <WhatsAppIcon className="w-3.5 h-3.5 shrink-0 fill-current" />
+                          <span className="truncate">Administración</span>
+                        </a>
                       </div>
                     </div>
                   );
@@ -639,6 +624,7 @@ export function InquilinoMantenimientoClient({
         onClose={() => setTicketParaFicha(null)}
         ticket={ticketParaFicha}
         onVerFotos={abrirVisor}
+        adminTelefono={adminTelefono}
       />
 
       {/* Modal Visor de Imágenes */}
