@@ -47,6 +47,7 @@ export interface PerfilUsuarioData {
     tipoPersona: string;
     documentoIdentidad: string;
     telefono: string;
+    telefonoSecundario?: string | null;
     email: string | null;
   } | null;
   empleado?: {
@@ -93,6 +94,7 @@ export async function getPerfilUsuario(): Promise<{
             tipoPersona: true,
             documentoIdentidad: true,
             telefono: true,
+            telefonoSecundario: true,
             email: true,
           },
         },
@@ -255,6 +257,159 @@ export async function actualizarPasswordAction(input: {
     return {
       success: false,
       message: "Ocurrió un error inesperado al procesar la actualización de contraseña.",
+    };
+  }
+}
+
+// Esquema de validación para edición de perfil
+const actualizarDatosPerfilSchema = z.object({
+  nombre: z.string().trim().min(2, "El nombre debe tener al menos 2 caracteres").optional(),
+  apellido: z.string().trim().optional().nullable(),
+  email: z.string().trim().email("Correo electrónico inválido").optional(),
+  cedula: z.string().trim().optional().nullable(),
+  telefono: z.string().trim().min(7, "El teléfono debe tener al menos 7 dígitos").optional().nullable(),
+  telefonoSecundario: z.string().trim().optional().nullable(),
+  direccion: z.string().trim().optional().nullable(),
+});
+
+export type ActualizarDatosPerfilInput = z.infer<typeof actualizarDatosPerfilSchema>;
+
+// 3. Actualizar datos del perfil (Administrador edita todo; Inquilinos/Empleados solo teléfonos de contacto)
+export async function actualizarDatosPerfilAction(input: ActualizarDatosPerfilInput): Promise<{
+  success: boolean;
+  message: string;
+  data?: Partial<PerfilUsuarioData>;
+}> {
+  try {
+    const session = await auth();
+    if (!session?.user) {
+      return { success: false, message: "Sesión no válida o expirada." };
+    }
+
+    const parseResult = actualizarDatosPerfilSchema.safeParse(input);
+    if (!parseResult.success) {
+      return {
+        success: false,
+        message: parseResult.error.issues[0]?.message || "Datos del perfil inválidos.",
+      };
+    }
+
+    const { nombre, apellido, email, cedula, telefono, telefonoSecundario, direccion } = parseResult.data;
+
+    const userId = session.user.id;
+    const userEmail = session.user.email?.toLowerCase().trim();
+
+    const usuario = await prisma.usuario.findFirst({
+      where: {
+        OR: [
+          ...(userId ? [{ id: userId }] : []),
+          ...(userEmail ? [{ email: userEmail }] : []),
+        ],
+      },
+      include: {
+        inquilino: true,
+        empleado: true,
+      },
+    });
+
+    if (!usuario) {
+      return { success: false, message: "Usuario no encontrado en el sistema." };
+    }
+
+    const esAdmin = usuario.rol === "ADMIN";
+
+    // Si es Administrador: tiene autorización plena para actualizar todos sus datos
+    if (esAdmin) {
+      if (email && email.toLowerCase() !== usuario.email.toLowerCase()) {
+        const existeEmail = await prisma.usuario.findFirst({
+          where: {
+            email: email.toLowerCase(),
+            id: { not: usuario.id },
+          },
+        });
+        if (existeEmail) {
+          return { success: false, message: "El correo electrónico ya está registrado por otro usuario." };
+        }
+      }
+
+      const usuarioActualizado = await prisma.usuario.update({
+        where: { id: usuario.id },
+        data: {
+          nombre: nombre ?? usuario.nombre,
+          apellido: apellido !== undefined ? (apellido?.trim() || null) : usuario.apellido,
+          email: email ? email.toLowerCase() : usuario.email,
+          cedula: cedula !== undefined ? (cedula?.trim() || null) : usuario.cedula,
+          telefono: telefono !== undefined ? (telefono?.trim() || null) : usuario.telefono,
+          direccion: direccion !== undefined ? (direccion?.trim() || null) : usuario.direccion,
+        },
+      });
+
+      revalidatePath("/admin/perfil");
+      revalidatePath("/admin/dashboard");
+
+      return {
+        success: true,
+        message: "¡Datos del perfil de administrador actualizados exitosamente!",
+        data: {
+          nombre: usuarioActualizado.nombre,
+          apellido: usuarioActualizado.apellido,
+          email: usuarioActualizado.email,
+          cedula: usuarioActualizado.cedula,
+          telefono: usuarioActualizado.telefono,
+          direccion: usuarioActualizado.direccion,
+        },
+      };
+    }
+
+    // Si es Usuario No-Admin (Inquilino o Empleado):
+    // REGLA ESTRICTA: La dirección, cédula, nombre y correo NO son editables por el usuario.
+    // Solo puede actualizar sus teléfonos de contacto.
+    const telLimpio = telefono ? telefono.trim() : null;
+    const telSecLimpio = telefonoSecundario ? telefonoSecundario.trim() : null;
+
+    await prisma.usuario.update({
+      where: { id: usuario.id },
+      data: {
+        telefono: telLimpio,
+      },
+    });
+
+    if (usuario.inquilino) {
+      await prisma.inquilino.update({
+        where: { id: usuario.inquilino.id },
+        data: {
+          telefono: telLimpio || usuario.inquilino.telefono,
+          ...(telefonoSecundario !== undefined ? { telefonoSecundario: telSecLimpio } : {}),
+        },
+      });
+    }
+
+    if (usuario.empleado) {
+      await prisma.empleado.update({
+        where: { id: usuario.empleado.id },
+        data: {
+          telefono: telLimpio || usuario.empleado.telefono,
+        },
+      });
+    }
+
+    revalidatePath("/inquilino/perfil");
+    revalidatePath("/empleado/perfil");
+    revalidatePath("/admin/inquilinos");
+    revalidatePath("/admin/personal");
+
+    return {
+      success: true,
+      message: "¡Teléfono de contacto actualizado exitosamente!",
+      data: {
+        telefono: telLimpio,
+      },
+    };
+  } catch (error) {
+    console.error("Error al actualizar datos del perfil:", error);
+    return {
+      success: false,
+      message: "Ocurrió un error inesperado al actualizar los datos del perfil.",
     };
   }
 }

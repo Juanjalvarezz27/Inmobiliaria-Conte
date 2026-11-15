@@ -20,16 +20,114 @@ import {
   Briefcase,
   AlertCircle,
   FileText,
+  Pencil,
+  X,
+  Info,
 } from "lucide-react";
 import { ImageViewerModal } from "@/components/ui/image-viewer-modal";
 import { notify } from "@/lib/notifications";
-import { actualizarPasswordAction, type PerfilUsuarioData } from "@/lib/actions/perfil";
+import {
+  actualizarPasswordAction,
+  actualizarDatosPerfilAction,
+  type PerfilUsuarioData,
+} from "@/lib/actions/perfil";
 
 interface PerfilViewProps {
   usuario: PerfilUsuarioData;
 }
 
 export function PerfilView({ usuario }: PerfilViewProps) {
+  // Estado local para los datos del usuario (actualización reactiva sin recarga)
+  const [perfilData, setPerfilData] = useState<PerfilUsuarioData>(usuario);
+  const esAdmin = perfilData.rol === "ADMIN";
+
+  // Estados para la edición de datos del perfil
+  const [isEditing, setIsEditing] = useState(false);
+  const [isSavingPerfil, setIsSavingPerfil] = useState(false);
+  const [formPerfil, setFormPerfil] = useState({
+    nombre: usuario.nombre || "",
+    apellido: usuario.apellido || "",
+    email: usuario.email || "",
+    cedula: usuario.cedula || usuario.inquilino?.documentoIdentidad || usuario.empleado?.cedula || "",
+    telefono: usuario.telefono || usuario.inquilino?.telefono || usuario.empleado?.telefono || "",
+    telefonoSecundario: usuario.inquilino?.telefonoSecundario || "",
+    direccion: usuario.direccion || "",
+  });
+
+  const handleIniciarEdicion = () => {
+    setFormPerfil({
+      nombre: perfilData.nombre || "",
+      apellido: perfilData.apellido || "",
+      email: perfilData.email || "",
+      cedula: perfilData.cedula || perfilData.inquilino?.documentoIdentidad || perfilData.empleado?.cedula || "",
+      telefono: perfilData.telefono || perfilData.inquilino?.telefono || perfilData.empleado?.telefono || "",
+      telefonoSecundario: perfilData.inquilino?.telefonoSecundario || "",
+      direccion: perfilData.direccion || "",
+    });
+    setIsEditing(true);
+  };
+
+  const handleCancelarEdicion = () => {
+    setIsEditing(false);
+  };
+
+  const handleGuardarPerfil = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (isSavingPerfil) return;
+    setIsSavingPerfil(true);
+
+    try {
+      const res = await actualizarDatosPerfilAction({
+        nombre: esAdmin ? formPerfil.nombre.trim() : undefined,
+        apellido: esAdmin ? (formPerfil.apellido.trim() || null) : undefined,
+        email: esAdmin ? formPerfil.email.trim() : undefined,
+        cedula: esAdmin ? (formPerfil.cedula.trim() || null) : undefined,
+        telefono: formPerfil.telefono.trim() || null,
+        telefonoSecundario: formPerfil.telefonoSecundario.trim() || null,
+        direccion: esAdmin ? (formPerfil.direccion.trim() || null) : undefined,
+      });
+
+      if (res.success) {
+        notify.success(res.message);
+        setPerfilData((prev) => ({
+          ...prev,
+          ...(esAdmin
+            ? {
+                nombre: formPerfil.nombre.trim(),
+                apellido: formPerfil.apellido.trim() || null,
+                email: formPerfil.email.trim(),
+                cedula: formPerfil.cedula.trim() || null,
+                telefono: formPerfil.telefono.trim() || null,
+                direccion: formPerfil.direccion.trim() || null,
+              }
+            : {
+                telefono: formPerfil.telefono.trim() || null,
+                inquilino: prev.inquilino
+                  ? {
+                      ...prev.inquilino,
+                      telefono: formPerfil.telefono.trim(),
+                      telefonoSecundario: formPerfil.telefonoSecundario.trim() || null,
+                    }
+                  : null,
+                empleado: prev.empleado
+                  ? {
+                      ...prev.empleado,
+                      telefono: formPerfil.telefono.trim(),
+                    }
+                  : null,
+              }),
+        }));
+        setIsEditing(false);
+      } else {
+        notify.error(res.message || "Error al actualizar perfil.");
+      }
+    } catch {
+      notify.error("Ocurrió un error inesperado al actualizar el perfil.");
+    } finally {
+      setIsSavingPerfil(false);
+    }
+  };
+
   // Estados para el cambio de contraseña
   const [passwordActual, setPasswordActual] = useState("");
   const [passwordNueva, setPasswordNueva] = useState("");
@@ -46,7 +144,7 @@ export function PerfilView({ usuario }: PerfilViewProps) {
   const [mensajeErrorCampo, setMensajeErrorCampo] = useState<string | null>(null);
 
   // Iniciales para el avatar
-  const iniciales = `${usuario.nombre.charAt(0)}${usuario.apellido?.charAt(0) || ""}`.toUpperCase();
+  const iniciales = `${perfilData.nombre.charAt(0)}${perfilData.apellido?.charAt(0) || ""}`.toUpperCase();
 
   // Validación en tiempo real
   const cumpleLongitud = passwordNueva.trim().length >= 6;
@@ -61,7 +159,7 @@ export function PerfilView({ usuario }: PerfilViewProps) {
   const fechaRegistro = new Intl.DateTimeFormat("es-ES", {
     month: "long",
     year: "numeric",
-  }).format(new Date(usuario.createdAt));
+  }).format(new Date(perfilData.createdAt));
 
   const roleStyles = {
     ADMIN: {
@@ -85,7 +183,7 @@ export function PerfilView({ usuario }: PerfilViewProps) {
       text: "text-emerald-300",
       badge: "bg-emerald-50 text-[#175E38] border-emerald-200",
     },
-  }[usuario.rol];
+  }[perfilData.rol];
 
   const handleCambiarPassword = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -159,11 +257,11 @@ export function PerfilView({ usuario }: PerfilViewProps) {
 
           <div className="min-w-0 flex-1">
             <h1 className="text-xl sm:text-3xl lg:text-4xl font-black font-heading tracking-tight text-white truncate">
-              {usuario.nombre} {usuario.apellido || ""}
+              {perfilData.nombre} {perfilData.apellido || ""}
             </h1>
 
             <p className="text-xs sm:text-sm text-slate-300 font-mono truncate mt-0.5 sm:mt-1">
-              {usuario.email}
+              {perfilData.email}
             </p>
 
             <p className="text-[11px] sm:text-xs text-slate-400 flex items-center gap-1.5 mt-1">
@@ -193,153 +291,395 @@ export function PerfilView({ usuario }: PerfilViewProps) {
                 <h2 className="text-sm font-bold text-slate-900 font-heading">
                   Información de la Cuenta
                 </h2>
-                <p className="text-[11px] text-slate-400">Datos registrados en el sistema</p>
+                <p className="text-[11px] text-slate-400">
+                  {isEditing ? "Modifica tus datos habilitados" : "Datos registrados en el sistema"}
+                </p>
               </div>
             </div>
-            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-lg border uppercase tracking-wider ${roleStyles.badge}`}>
-              {roleStyles.label}
-            </span>
+            <div className="flex items-center gap-2">
+              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-lg border uppercase tracking-wider ${roleStyles.badge}`}>
+                {roleStyles.label}
+              </span>
+              {!isEditing && (
+                <button
+                  type="button"
+                  onClick={handleIniciarEdicion}
+                  className="px-2.5 py-1 rounded-lg text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 border border-slate-200/90 transition-all flex items-center gap-1 cursor-pointer shadow-2xs active:translate-y-0.5"
+                >
+                  <Pencil className="w-3 h-3 text-slate-600" />
+                  <span>Editar</span>
+                </button>
+              )}
+            </div>
           </div>
 
-          {/* Lista de Campos de Contacto */}
-          <div className="relative z-10 space-y-3.5 text-xs">
-            {/* Nombre Completo */}
-            <div className="p-3 bg-slate-50 border border-slate-200/80 rounded-xl flex items-center justify-between gap-3">
-              <div className="min-w-0">
-                <span className="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">
-                  Nombre Completo
-                </span>
-                <span className="font-bold text-slate-800 text-sm truncate block mt-0.5">
-                  {usuario.nombre} {usuario.apellido || ""}
-                </span>
-              </div>
-              <User className="w-4 h-4 text-slate-400 shrink-0" />
-            </div>
-
-            {/* Correo Electrónico */}
-            <div className="p-3 bg-slate-50 border border-slate-200/80 rounded-xl flex items-center justify-between gap-3">
-              <div className="min-w-0">
-                <span className="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">
-                  Correo Electrónico (Login)
-                </span>
-                <span className="font-bold text-slate-800 text-sm truncate block mt-0.5 font-mono">
-                  {usuario.email}
-                </span>
-              </div>
-              <Mail className="w-4 h-4 text-slate-400 shrink-0" />
-            </div>
-
-            {/* Documento / Cédula */}
-            <div className="p-3 bg-slate-50 border border-slate-200/80 rounded-xl flex items-center justify-between gap-3">
-              <div className="min-w-0">
-                <span className="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">
-                  Documento de Identidad
-                </span>
-                <span className="font-bold text-slate-800 text-sm truncate block mt-0.5">
-                  {usuario.cedula || usuario.inquilino?.documentoIdentidad || usuario.empleado?.cedula || "No registrado"}
-                </span>
-              </div>
-              <CreditCard className="w-4 h-4 text-slate-400 shrink-0" />
-            </div>
-
-            {/* Teléfono */}
-            <div className="p-3 bg-slate-50 border border-slate-200/80 rounded-xl flex items-center justify-between gap-3">
-              <div className="min-w-0">
-                <span className="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">
-                  Teléfono de Contacto
-                </span>
-                <span className="font-bold text-slate-800 text-sm truncate block mt-0.5">
-                  {usuario.telefono || usuario.inquilino?.telefono || usuario.empleado?.telefono || "No registrado"}
-                </span>
-              </div>
-              <Phone className="w-4 h-4 text-slate-400 shrink-0" />
-            </div>
-
-            {/* Dirección */}
-            <div className="p-3 bg-slate-50 border border-slate-200/80 rounded-xl flex items-center justify-between gap-3">
-              <div className="min-w-0">
-                <span className="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">
-                  Dirección
-                </span>
-                <span className="font-medium text-slate-700 text-xs truncate block mt-0.5">
-                  {usuario.direccion || "San Cristóbal, Estado Táchira"}
-                </span>
-              </div>
-              <MapPin className="w-4 h-4 text-slate-400 shrink-0" />
-            </div>
-
-            {/* Datos Especiales según el Rol */}
-            {usuario.empleado && (
-              <>
-                <div className="p-3 bg-sky-50/70 border border-sky-200/80 rounded-xl space-y-1">
-                  <div className="flex items-center gap-1.5 text-sky-800 font-bold text-[11px] uppercase tracking-wider">
-                    <Briefcase className="w-3.5 h-3.5" />
-                    <span>Datos Operativos</span>
+          {/* Formulario de Edición */}
+          {isEditing ? (
+            <form onSubmit={handleGuardarPerfil} className="relative z-10 space-y-3.5 text-xs">
+              {/* Nombre y Apellido: Editable para Admin / Bloqueado para Inquilino y Empleado */}
+              {esAdmin ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                  <div>
+                    <label className="text-[10px] uppercase font-bold text-slate-600 mb-1 block tracking-wider">
+                      Nombre *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={formPerfil.nombre}
+                      onChange={(e) => setFormPerfil((p) => ({ ...p, nombre: e.target.value }))}
+                      className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-bold text-slate-900 bg-white focus:outline-hidden focus:border-[#175E38] focus:ring-1 focus:ring-[#175E38] shadow-2xs"
+                    />
                   </div>
-                  <div className="text-xs text-sky-950">
-                    <strong>Cargo:</strong> {usuario.empleado.cargoPersonalizado || usuario.empleado.cargo}
+                  <div>
+                    <label className="text-[10px] uppercase font-bold text-slate-600 mb-1 block tracking-wider">
+                      Apellido
+                    </label>
+                    <input
+                      type="text"
+                      value={formPerfil.apellido}
+                      onChange={(e) => setFormPerfil((p) => ({ ...p, apellido: e.target.value }))}
+                      className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-bold text-slate-900 bg-white focus:outline-hidden focus:border-[#175E38] focus:ring-1 focus:ring-[#175E38] shadow-2xs"
+                    />
                   </div>
-                  {usuario.empleado.propiedadNombre && (
-                    <div className="text-xs text-sky-950">
-                      <strong>Sede:</strong> {usuario.empleado.propiedadNombre}
+                </div>
+              ) : (
+                <div className="p-3 bg-slate-100/70 border border-slate-200/80 rounded-xl flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">
+                        Nombre Completo
+                      </span>
+                      <span className="text-[9px] font-bold text-slate-500 bg-slate-200/80 px-1.5 py-0.2 rounded-md flex items-center gap-1">
+                        <Lock className="w-2.5 h-2.5" /> Protegido
+                      </span>
                     </div>
+                    <span className="font-bold text-slate-700 text-sm truncate block mt-0.5">
+                      {perfilData.nombre} {perfilData.apellido || ""}
+                    </span>
+                  </div>
+                  <User className="w-4 h-4 text-slate-400 shrink-0" />
+                </div>
+              )}
+
+              {/* Correo Electrónico: Editable para Admin / Bloqueado para Inquilino y Empleado */}
+              {esAdmin ? (
+                <div>
+                  <label className="text-[10px] uppercase font-bold text-slate-600 mb-1 block tracking-wider">
+                    Correo Electrónico (Login) *
+                  </label>
+                  <input
+                    type="email"
+                    required
+                    value={formPerfil.email}
+                    onChange={(e) => setFormPerfil((p) => ({ ...p, email: e.target.value }))}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-mono font-bold text-slate-900 bg-white focus:outline-hidden focus:border-[#175E38] focus:ring-1 focus:ring-[#175E38] shadow-2xs"
+                  />
+                </div>
+              ) : (
+                <div className="p-3 bg-slate-100/70 border border-slate-200/80 rounded-xl flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">
+                        Correo Electrónico (Login)
+                      </span>
+                      <span className="text-[9px] font-bold text-slate-500 bg-slate-200/80 px-1.5 py-0.2 rounded-md flex items-center gap-1">
+                        <Lock className="w-2.5 h-2.5" /> Acceso
+                      </span>
+                    </div>
+                    <span className="font-bold text-slate-700 text-sm truncate block mt-0.5 font-mono">
+                      {perfilData.email}
+                    </span>
+                  </div>
+                  <Mail className="w-4 h-4 text-slate-400 shrink-0" />
+                </div>
+              )}
+
+              {/* Documento de Identidad: Editable para Admin / Bloqueado para Inquilino y Empleado */}
+              {esAdmin ? (
+                <div>
+                  <label className="text-[10px] uppercase font-bold text-slate-600 mb-1 block tracking-wider">
+                    Documento de Identidad / Cédula
+                  </label>
+                  <input
+                    type="text"
+                    value={formPerfil.cedula}
+                    onChange={(e) => setFormPerfil((p) => ({ ...p, cedula: e.target.value }))}
+                    placeholder="Ej: V-12345678"
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-bold text-slate-900 bg-white focus:outline-hidden focus:border-[#175E38] focus:ring-1 focus:ring-[#175E38] shadow-2xs"
+                  />
+                </div>
+              ) : (
+                <div className="p-3 bg-slate-100/70 border border-slate-200/80 rounded-xl flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">
+                        Documento de Identidad
+                      </span>
+                      <span className="text-[9px] font-bold text-slate-500 bg-slate-200/80 px-1.5 py-0.2 rounded-md flex items-center gap-1">
+                        <Lock className="w-2.5 h-2.5" /> Legal
+                      </span>
+                    </div>
+                    <span className="font-bold text-slate-700 text-sm truncate block mt-0.5">
+                      {perfilData.cedula || perfilData.inquilino?.documentoIdentidad || perfilData.empleado?.cedula || "No registrado"}
+                    </span>
+                  </div>
+                  <CreditCard className="w-4 h-4 text-slate-400 shrink-0" />
+                </div>
+              )}
+
+              {/* Teléfono de Contacto (WhatsApp): EDITABLE PARA TODOS */}
+              <div>
+                <label className="text-[10px] uppercase font-bold text-slate-600 mb-1 flex items-center justify-between tracking-wider">
+                  <span>Teléfono de Contacto (WhatsApp) *</span>
+                  <span className="text-emerald-700 font-semibold normal-case">Línea activa</span>
+                </label>
+                <div className="relative">
+                  <input
+                    type="tel"
+                    required
+                    value={formPerfil.telefono}
+                    onChange={(e) => setFormPerfil((p) => ({ ...p, telefono: e.target.value }))}
+                    placeholder="Ej: +58 414-1234567"
+                    className="w-full pl-3 pr-9 py-2 rounded-xl border border-slate-200 text-xs font-bold text-slate-900 bg-white focus:outline-hidden focus:border-[#175E38] focus:ring-1 focus:ring-[#175E38] shadow-2xs"
+                  />
+                  <Phone className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                </div>
+              </div>
+
+              {/* Teléfono Secundario: Si es Inquilino */}
+              {perfilData.inquilino && (
+                <div>
+                  <label className="text-[10px] uppercase font-bold text-slate-600 mb-1 block tracking-wider">
+                    Teléfono Secundario / Oficina
+                  </label>
+                  <input
+                    type="tel"
+                    value={formPerfil.telefonoSecundario}
+                    onChange={(e) => setFormPerfil((p) => ({ ...p, telefonoSecundario: e.target.value }))}
+                    placeholder="Opcional"
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-bold text-slate-900 bg-white focus:outline-hidden focus:border-[#175E38] focus:ring-1 focus:ring-[#175E38] shadow-2xs"
+                  />
+                </div>
+              )}
+
+              {/* Dirección: Editable para Admin / BLOQUEADO para Inquilino y Empleado */}
+              {esAdmin ? (
+                <div>
+                  <label className="text-[10px] uppercase font-bold text-slate-600 mb-1 block tracking-wider">
+                    Dirección
+                  </label>
+                  <input
+                    type="text"
+                    value={formPerfil.direccion}
+                    onChange={(e) => setFormPerfil((p) => ({ ...p, direccion: e.target.value }))}
+                    placeholder="San Cristóbal, Estado Táchira"
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-medium text-slate-900 bg-white focus:outline-hidden focus:border-[#175E38] focus:ring-1 focus:ring-[#175E38] shadow-2xs"
+                  />
+                </div>
+              ) : (
+                <div className="p-3 bg-slate-100/70 border border-slate-200/80 rounded-xl flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">
+                        Dirección
+                      </span>
+                      <span className="text-[9px] font-bold text-slate-500 bg-slate-200/80 px-1.5 py-0.2 rounded-md flex items-center gap-1">
+                        <Lock className="w-2.5 h-2.5" /> Fija
+                      </span>
+                    </div>
+                    <span className="font-medium text-slate-600 text-xs truncate block mt-0.5">
+                      {perfilData.direccion || "San Cristóbal, Estado Táchira"}
+                    </span>
+                  </div>
+                  <MapPin className="w-4 h-4 text-slate-400 shrink-0" />
+                </div>
+              )}
+
+              {!esAdmin && (
+                <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200/80 flex items-start gap-2 text-[11px] text-slate-500">
+                  <Info className="w-3.5 h-3.5 text-slate-400 shrink-0 mt-0.5" />
+                  <p>
+                    Por seguridad jurídica y coherencia con los contratos firmados, la identidad, cédula y dirección solo pueden ser modificadas por la administración.
+                  </p>
+                </div>
+              )}
+
+              {/* Botones de Guardar / Cancelar */}
+              <div className="pt-2 border-t border-slate-100 flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={handleCancelarEdicion}
+                  disabled={isSavingPerfil}
+                  className="px-3.5 py-2 rounded-xl text-xs font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 transition-all cursor-pointer disabled:opacity-50"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSavingPerfil}
+                  className="px-4 py-2 rounded-xl text-xs font-bold bg-[#175E38] hover:bg-[#124b2d] text-white transition-all flex items-center gap-1.5 cursor-pointer shadow-xs active:translate-y-0.5 disabled:opacity-50"
+                >
+                  {isSavingPerfil ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      <span>Guardando...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Check className="w-3.5 h-3.5" />
+                      <span>Guardar Cambios</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          ) : (
+            /* Lista de Campos en Modo Solo Lectura */
+            <div className="relative z-10 space-y-3.5 text-xs">
+              {/* Nombre Completo */}
+              <div className="p-3 bg-slate-50 border border-slate-200/80 rounded-xl flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <span className="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">
+                    Nombre Completo
+                  </span>
+                  <span className="font-bold text-slate-800 text-sm truncate block mt-0.5">
+                    {perfilData.nombre} {perfilData.apellido || ""}
+                  </span>
+                </div>
+                <User className="w-4 h-4 text-slate-400 shrink-0" />
+              </div>
+
+              {/* Correo Electrónico */}
+              <div className="p-3 bg-slate-50 border border-slate-200/80 rounded-xl flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <span className="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">
+                    Correo Electrónico (Login)
+                  </span>
+                  <span className="font-bold text-slate-800 text-sm truncate block mt-0.5 font-mono">
+                    {perfilData.email}
+                  </span>
+                </div>
+                <Mail className="w-4 h-4 text-slate-400 shrink-0" />
+              </div>
+
+              {/* Documento / Cédula */}
+              <div className="p-3 bg-slate-50 border border-slate-200/80 rounded-xl flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <span className="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">
+                    Documento de Identidad
+                  </span>
+                  <span className="font-bold text-slate-800 text-sm truncate block mt-0.5">
+                    {perfilData.cedula || perfilData.inquilino?.documentoIdentidad || perfilData.empleado?.cedula || "No registrado"}
+                  </span>
+                </div>
+                <CreditCard className="w-4 h-4 text-slate-400 shrink-0" />
+              </div>
+
+              {/* Teléfono */}
+              <div className="p-3 bg-slate-50 border border-slate-200/80 rounded-xl flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <span className="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">
+                    Teléfono de Contacto
+                  </span>
+                  <span className="font-bold text-slate-800 text-sm truncate block mt-0.5">
+                    {perfilData.telefono || perfilData.inquilino?.telefono || perfilData.empleado?.telefono || "No registrado"}
+                  </span>
+                  {perfilData.inquilino?.telefonoSecundario && (
+                    <span className="text-[11px] text-slate-500 block mt-0.5">
+                      Secundario: {perfilData.inquilino.telefonoSecundario}
+                    </span>
                   )}
                 </div>
+                <Phone className="w-4 h-4 text-slate-400 shrink-0" />
+              </div>
 
-                {/* Tarjeta de Contrato Laboral */}
-                <div className="p-3.5 bg-gradient-to-r from-emerald-50/60 via-white to-slate-50 border border-emerald-200/80 rounded-xl space-y-2.5 shadow-2xs">
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-2">
-                      <div className="w-7 h-7 rounded-lg bg-emerald-100 text-[#175E38] flex items-center justify-center shrink-0 border border-emerald-200">
-                        <FileText className="w-3.5 h-3.5" />
-                      </div>
-                      <span className="text-xs font-bold text-slate-900 block">
-                        Mi Contrato de Trabajo
-                      </span>
+              {/* Dirección */}
+              <div className="p-3 bg-slate-50 border border-slate-200/80 rounded-xl flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <span className="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">
+                    Dirección
+                  </span>
+                  <span className="font-medium text-slate-700 text-xs truncate block mt-0.5">
+                    {perfilData.direccion || "San Cristóbal, Estado Táchira"}
+                  </span>
+                </div>
+                <MapPin className="w-4 h-4 text-slate-400 shrink-0" />
+              </div>
+
+              {/* Datos Especiales según el Rol */}
+              {perfilData.empleado && (
+                <>
+                  <div className="p-3 bg-sky-50/70 border border-sky-200/80 rounded-xl space-y-1">
+                    <div className="flex items-center gap-1.5 text-sky-800 font-bold text-[11px] uppercase tracking-wider">
+                      <Briefcase className="w-3.5 h-3.5" />
+                      <span>Datos Operativos</span>
                     </div>
-                    {usuario.empleado.contratoUrl ? (
-                      <span className="px-2 py-0.5 rounded-md text-[10px] font-black bg-emerald-100 text-[#175E38] border border-emerald-300">
-                        Vigente
-                      </span>
-                    ) : (
-                      <span className="px-2 py-0.5 rounded-md text-[10px] font-semibold bg-slate-100 text-slate-500 border border-slate-200">
-                        En resguardo
-                      </span>
+                    <div className="text-xs text-sky-950">
+                      <strong>Cargo:</strong> {perfilData.empleado.cargoPersonalizado || perfilData.empleado.cargo}
+                    </div>
+                    {perfilData.empleado.propiedadNombre && (
+                      <div className="text-xs text-sky-950">
+                        <strong>Sede:</strong> {perfilData.empleado.propiedadNombre}
+                      </div>
                     )}
                   </div>
 
-                  <p className="text-[11px] text-slate-500 leading-relaxed">
-                    {usuario.empleado.contratoUrl
-                      ? "Tu contrato laboral firmado se encuentra digitalizado en tu expediente para consulta en alta resolución o descarga."
-                      : "Tu contrato físico está en resguardo por la administración de Inmobiliaria Conté y aún no ha sido digitalizado en el sistema."}
-                  </p>
+                  {/* Tarjeta de Contrato Laboral */}
+                  <div className="p-3.5 bg-gradient-to-r from-emerald-50/60 via-white to-slate-50 border border-emerald-200/80 rounded-xl space-y-2.5 shadow-2xs">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <div className="w-7 h-7 rounded-lg bg-emerald-100 text-[#175E38] flex items-center justify-center shrink-0 border border-emerald-200">
+                          <FileText className="w-3.5 h-3.5" />
+                        </div>
+                        <span className="text-xs font-bold text-slate-900 block">
+                          Mi Contrato de Trabajo
+                        </span>
+                      </div>
+                      {perfilData.empleado.contratoUrl ? (
+                        <span className="px-2 py-0.5 rounded-md text-[10px] font-black bg-emerald-100 text-[#175E38] border border-emerald-300">
+                          Vigente
+                        </span>
+                      ) : (
+                        <span className="px-2 py-0.5 rounded-md text-[10px] font-semibold bg-slate-100 text-slate-500 border border-slate-200">
+                          En resguardo
+                        </span>
+                      )}
+                    </div>
 
-                  {usuario.empleado.contratoUrl && (
-                    <button
-                      type="button"
-                      onClick={() => setViewerContratoAbierto(true)}
-                      className="w-full h-9 rounded-lg text-xs font-bold bg-[#175E38] hover:bg-[#124b2d] text-white transition-all flex items-center justify-center gap-1.5 shadow-2xs cursor-pointer active:scale-98"
-                    >
-                      <Eye className="w-3.5 h-3.5" />
-                      <span>Consultar Mi Contrato</span>
-                    </button>
-                  )}
-                </div>
-              </>
-            )}
+                    <p className="text-[11px] text-slate-500 leading-relaxed">
+                      {perfilData.empleado.contratoUrl
+                        ? "Tu contrato laboral firmado se encuentra digitalizado en tu expediente para consulta en alta resolución o descarga."
+                        : "Tu contrato físico está en resguardo por la administración de Inmobiliaria Conté y aún no ha sido digitalizado en el sistema."}
+                    </p>
 
-            {usuario.inquilino && (
-              <div className="p-3 bg-emerald-50/70 border border-emerald-200/80 rounded-xl space-y-1">
-                <div className="flex items-center gap-1.5 text-[#175E38] font-bold text-[11px] uppercase tracking-wider">
-                  <Building2 className="w-3.5 h-3.5" />
-                  <span>Condición Arrendataria</span>
+                    {perfilData.empleado.contratoUrl && (
+                      <button
+                        type="button"
+                        onClick={() => setViewerContratoAbierto(true)}
+                        className="w-full h-9 rounded-lg text-xs font-bold bg-[#175E38] hover:bg-[#124b2d] text-white transition-all flex items-center justify-center gap-1.5 shadow-2xs cursor-pointer active:scale-98"
+                      >
+                        <Eye className="w-3.5 h-3.5" />
+                        <span>Consultar Mi Contrato</span>
+                      </button>
+                    )}
+                  </div>
+                </>
+              )}
+
+              {perfilData.inquilino && (
+                <div className="p-3 bg-emerald-50/70 border border-emerald-200/80 rounded-xl space-y-1">
+                  <div className="flex items-center gap-1.5 text-[#175E38] font-bold text-[11px] uppercase tracking-wider">
+                    <Building2 className="w-3.5 h-3.5" />
+                    <span>Condición Arrendataria</span>
+                  </div>
+                  <div className="text-xs text-emerald-950">
+                    <strong>Tipo:</strong> {perfilData.inquilino.tipoPersona === "JURIDICA" ? "Empresa / Jurídica" : "Persona Natural"}
+                  </div>
                 </div>
-                <div className="text-xs text-emerald-950">
-                  <strong>Tipo:</strong> {usuario.inquilino.tipoPersona === "JURIDICA" ? "Empresa / Jurídica" : "Persona Natural"}
-                </div>
-              </div>
-            )}
-          </div>
+              )}
+            </div>
+          )}
         </section>
 
         {/* Columna Derecha: Seguridad y Cambio de Contraseña */}
@@ -564,13 +904,13 @@ export function PerfilView({ usuario }: PerfilViewProps) {
       </div>
 
       {/* Visor Modal de Contrato Laboral */}
-      {usuario.empleado?.contratoUrl && (
+      {perfilData.empleado?.contratoUrl && (
         <ImageViewerModal
           isOpen={viewerContratoAbierto}
           onClose={() => setViewerContratoAbierto(false)}
-          images={[usuario.empleado.contratoUrl]}
+          images={[perfilData.empleado.contratoUrl]}
           title="Mi Contrato de Trabajo"
-          subtitle={`${usuario.nombre} ${usuario.apellido || ""}`}
+          subtitle={`${perfilData.nombre} ${perfilData.apellido || ""}`}
         />
       )}
     </div>
