@@ -556,7 +556,7 @@ export function PersonalClient({ initialData }: PersonalClientProps) {
           <button
             type="button"
             onClick={() => setActiveTab("directorio")}
-            className={`group relative h-12 sm:h-11 px-2.5 sm:px-5 rounded-xl text-xs sm:text-sm font-bold transition-all flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2.5 cursor-pointer ${
+            className={`group relative h-11 px-2.5 sm:px-5 rounded-xl text-xs sm:text-sm font-bold transition-all flex items-center justify-center gap-1.5 sm:gap-2.5 cursor-pointer whitespace-nowrap ${
               activeTab === "directorio"
                 ? "bg-white text-slate-950 shadow-[0_2px_8px_rgba(28,37,57,0.08)] border border-slate-200/90"
                 : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"
@@ -571,8 +571,8 @@ export function PersonalClient({ initialData }: PersonalClientProps) {
             >
               <Users className="w-3.5 h-3.5" />
             </div>
-            <span className="font-heading font-black tracking-tight truncate">
-              <span className="sm:hidden text-[11px]">Directorio</span>
+            <span className="font-heading font-black tracking-tight">
+              <span className="sm:hidden text-xs">Directorio</span>
               <span className="hidden sm:inline">Directorio de Personal</span>
             </span>
             <span
@@ -590,7 +590,7 @@ export function PersonalClient({ initialData }: PersonalClientProps) {
           <button
             type="button"
             onClick={() => setActiveTab("tareas")}
-            className={`group relative h-12 sm:h-11 px-2.5 sm:px-5 rounded-xl text-xs sm:text-sm font-bold transition-all flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2.5 cursor-pointer ${
+            className={`group relative h-11 px-2.5 sm:px-5 rounded-xl text-xs sm:text-sm font-bold transition-all flex items-center justify-center gap-1.5 sm:gap-2.5 cursor-pointer whitespace-nowrap ${
               activeTab === "tareas"
                 ? "bg-white text-slate-950 shadow-[0_2px_8px_rgba(28,37,57,0.08)] border border-slate-200/90"
                 : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"
@@ -605,8 +605,8 @@ export function PersonalClient({ initialData }: PersonalClientProps) {
             >
               <FileCheck2 className="w-3.5 h-3.5" />
             </div>
-            <span className="font-heading font-black tracking-tight truncate">
-              <span className="sm:hidden text-[11px]">Tareas</span>
+            <span className="font-heading font-black tracking-tight">
+              <span className="sm:hidden text-xs">Tareas</span>
               <span className="hidden sm:inline">Tareas Asignadas</span>
             </span>
             <span
