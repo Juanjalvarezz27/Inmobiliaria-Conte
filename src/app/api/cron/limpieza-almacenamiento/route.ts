@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { purgarArchivosTransitorios } from "@/lib/storage-cleanup";
 
+export const dynamic = "force-dynamic";
+
 // Función para validar autorización por CRON_SECRET o sesión de Administrador
 async function validarAutorizacion(req: NextRequest): Promise<boolean> {
   const authHeader = req.headers.get("authorization");
