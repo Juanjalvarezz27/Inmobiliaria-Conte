@@ -190,23 +190,6 @@ export function UnidadDetalleModal({
               </button>
             </div>
 
-            {/* BOTÓN INMEDIATO EN LA CABECERA: Visible siempre en primer plano sin necesidad de scroll */}
-            {!isLoadingHistorial &&
-              onSubdividirUnidad &&
-              diagnostico &&
-              !diagnostico.esSubunidad &&
-              (!diagnostico.subunidades || diagnostico.subunidades.length === 0) && (
-                <button
-                  type="button"
-                  onClick={() => setOpenSubdividirModal(true)}
-                  className="px-3.5 py-1.5 rounded-xl text-xs font-black bg-indigo-600 hover:bg-indigo-700 text-white flex items-center gap-1.5 cursor-pointer shadow-xs active:translate-y-0.5 border-b-[2px] border-b-indigo-900 transition-all shrink-0"
-                  title="Dividir este local en 2 subunidades comerciales independientes (A y B)"
-                >
-                  <Scissors className="w-3.5 h-3.5 stroke-[2.5]" />
-                  <span>Subdividir en 2 (A / B)</span>
-                </button>
-              )}
-
             {/* Badge visual si el local YA ESTÁ SUBDIVIDIDO */}
             {!isLoadingHistorial && diagnostico?.esMatriz && diagnostico.subunidades.length > 0 && (
               <span
@@ -820,21 +803,6 @@ export function UnidadDetalleModal({
                   <span>Inactivar</span>
                 </button>
               )}
-
-              {/* Botón de Subdivisión en Barra de Acciones */}
-              {onSubdividirUnidad &&
-                !diagnostico?.esSubunidad &&
-                (!diagnostico?.subunidades || diagnostico.subunidades.length === 0) && (
-                  <button
-                    type="button"
-                    onClick={() => setOpenSubdividirModal(true)}
-                    className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 rounded-xl transition-all cursor-pointer shadow-2xs"
-                    title="Dividir este local en 2 subunidades independientes (A y B)"
-                  >
-                    <Scissors className="w-3.5 h-3.5 text-indigo-600" />
-                    <span>Subdividir en 2</span>
-                  </button>
-                )}
 
               <button
                 type="button"
