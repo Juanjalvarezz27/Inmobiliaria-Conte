@@ -2,7 +2,7 @@ import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
 
-const ADMIN_EMAIL = "jjsa610@gmail.com";
+const ADMIN_EMAIL = "fabianinmoconte@gmail.com";
 
 // Script para purgar completamente la base de datos dejando únicamente el usuario administrador principal
 async function main() {

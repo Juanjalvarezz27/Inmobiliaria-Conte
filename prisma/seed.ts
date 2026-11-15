@@ -3,7 +3,7 @@ import bcrypt from "bcryptjs";
 
 const prisma = new PrismaClient();
 
-const ADMIN_EMAIL = "jjsa610@gmail.com";
+const ADMIN_EMAIL = "fabianinmoconte@gmail.com";
 
 // Seed de producción: asegura exclusivamente la existencia del usuario Administrador principal
 async function main() {
@@ -19,17 +19,17 @@ async function main() {
   }
 
   // Si no existe, se crea con credenciales iniciales
-  const passwordHash = await bcrypt.hash("123456", 10);
+  const passwordHash = await bcrypt.hash("27306275", 10);
 
   const admin = await prisma.usuario.create({
     data: {
       email: ADMIN_EMAIL,
       passwordHash: passwordHash,
-      nombre: "Juan",
-      apellido: "Álvarez",
-      cedula: "V-10203040",
+      nombre: "Fabian",
+      apellido: "Conte",
+      cedula: "V-27306275",
       telefono: "+58 412 1234567",
-      direccion: "Oficina Administrativa Central, Valera",
+      direccion: "Oficina Administrativa Central",
       ubicacion: "Sede Principal",
       rol: Rol.ADMIN,
       activo: true,
