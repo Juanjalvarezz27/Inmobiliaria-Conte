@@ -3,7 +3,16 @@ import type { NextConfig } from "next";
 // Recarga de configuración y esquema de base de datos
 const nextConfig: NextConfig = {
   // Paquetes externos de servidor para evitar que Turbopack intente empaquetar binarios de Prisma
-  serverExternalPackages: ["@prisma/client", "prisma", "bcryptjs"],
+  serverExternalPackages: ["@prisma/client", "bcryptjs"],
+  // Exclusión de motores y binarios no utilizados para reducir el tamaño de las Serverless Functions en Vercel
+  outputFileTracingExcludes: {
+    "*": [
+      "node_modules/@prisma/engines/**/*",
+      "node_modules/prisma/**/*",
+      "node_modules/@prisma/client/runtime/*.sqlite.*",
+      "node_modules/@prisma/client/runtime/*.mysql.*",
+    ],
+  },
   // Orígenes permitidos en desarrollo para acceso desde red local Wi-Fi
   allowedDevOrigins: ["192.168.0.101", "192.168.0.101:3000", "localhost:3000"],
   // Habilita compresión Gzip nativa para respuestas del servidor
