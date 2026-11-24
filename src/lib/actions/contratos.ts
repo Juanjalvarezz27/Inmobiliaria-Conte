@@ -39,6 +39,15 @@ const createContratoSchema = z.object({
   moneda: z.string().default("USD"),
   documentoUrl: z.string().url("URL de documento inválida").optional().nullable().or(z.literal("")),
   notas: z.string().optional().nullable(),
+  mesesAdeudadosPrevios: z
+    .array(
+      z.object({
+        mes: z.number().int().min(1).max(12),
+        ano: z.number().int().min(2000).max(2100),
+      })
+    )
+    .optional()
+    .nullable(),
 });
 
 const updateContratoSchema = z.object({
@@ -497,12 +506,34 @@ export async function createContrato(data: CreateContratoInput) {
         }
       }
 
-      // Salvaguarda para contratos históricos: si no se especifica corte, iniciar en el próximo mes solvente
+      // Salvaguarda para contratos históricos: soportar meses puntuales o iniciar en próximo mes solvente
       const ahora = new Date();
-      const inicioMesActual = new Date(Date.UTC(ahora.getUTCFullYear(), ahora.getUTCMonth(), 1));
-      const inicioProximoMes = new Date(Date.UTC(ahora.getUTCFullYear(), ahora.getUTCMonth() + 1, 1));
+      const mesActual = ahora.getUTCMonth() + 1;
+      const anoActual = ahora.getUTCFullYear();
+      const inicioMesActual = new Date(Date.UTC(anoActual, mesActual - 1, 1));
+      const inicioProximoMes = new Date(Date.UTC(anoActual, mesActual, 1));
+      const inicioContratoYm = fInicio.getUTCFullYear() * 12 + (fInicio.getUTCMonth() + 1);
+      const finContratoYm = fFin.getUTCFullYear() * 12 + (fFin.getUTCMonth() + 1);
+      const mesActualYm = anoActual * 12 + mesActual;
+
+      const adeudadosMapa = new Map<string, { mes: number; ano: number }>();
+      if (parsed.mesesAdeudadosPrevios && parsed.mesesAdeudadosPrevios.length > 0) {
+        for (const item of parsed.mesesAdeudadosPrevios) {
+          const ym = item.ano * 12 + item.mes;
+          if (ym >= inicioContratoYm && ym <= finContratoYm && ym <= mesActualYm) {
+            adeudadosMapa.set(`${item.ano}-${item.mes}`, item);
+          }
+        }
+      }
+      const mesesAdeudadosOrdenados = Array.from(adeudadosMapa.values()).sort(
+        (a, b) => a.ano * 12 + a.mes - (b.ano * 12 + b.mes)
+      );
+
       let fInicioCobranza: Date | null = null;
-      if (parsed.fechaInicioCobranza) {
+      if (mesesAdeudadosOrdenados.length > 0) {
+        const primero = mesesAdeudadosOrdenados[0];
+        fInicioCobranza = new Date(Date.UTC(primero.ano, primero.mes - 1, 1));
+      } else if (parsed.fechaInicioCobranza) {
         fInicioCobranza = new Date(parsed.fechaInicioCobranza);
       } else if (fInicio < inicioMesActual) {
         fInicioCobranza = fFin >= inicioProximoMes ? inicioProximoMes : inicioMesActual;
@@ -537,16 +568,32 @@ export async function createContrato(data: CreateContratoInput) {
         data: { estado: EstadoUnidad.OCUPADO },
       });
 
-      // 5. Pregenerar cuotas devengadas y solo adelantar mes+1 si no nace con cuotas impagas previas
+      // 5. Pregenerar cuotas devengadas (marcando intermedios no adeudados como solventes en modo puntual)
       const periodosDevengados = obtenerPeriodosParaGenerarContrato(fInicio, fFin, fInicioCobranza, 0);
       const periodos =
         periodosDevengados.length === 0
           ? obtenerPeriodosParaGenerarContrato(fInicio, fFin, fInicioCobranza, 1)
           : periodosDevengados;
+      const esModoMesesPuntuales = mesesAdeudadosOrdenados.length > 0;
+
       const cuotasParaCrear = periodos.map(({ mes, ano }) => {
         const ultimoDiaMes = new Date(Date.UTC(ano, mes, 0)).getUTCDate();
         const diaEfectivo = Math.min(parsed.diaCobro, ultimoDiaMes);
         const fechaVencimiento = new Date(Date.UTC(ano, mes - 1, diaEfectivo, 23, 59, 59, 999));
+
+        if (esModoMesesPuntuales && !adeudadosMapa.has(`${ano}-${mes}`)) {
+          return {
+            contratoId: contrato.id,
+            periodoMes: mes,
+            periodoAno: ano,
+            montoEsperado: 0,
+            montoPagado: 0,
+            fechaVencimiento,
+            estado: EstadoPago.PAGADO,
+            notas: "Mes solvente previo al registro en sistema",
+          };
+        }
+
         const esVencido = ahora > fechaVencimiento;
         return {
           contratoId: contrato.id,
