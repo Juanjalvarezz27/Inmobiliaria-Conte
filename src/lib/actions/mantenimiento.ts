@@ -659,16 +659,17 @@ export async function crearTicketInquilinoAction(input: CrearTicketInquilinoInpu
       return { success: false, error: "No se encontró el perfil de inquilino asociado." };
     }
 
-    // Generar código único correlativo: TCK-YYYY-XXX
+    // Generar código único correlativo: TCK-YYYY-XXX (robusto ante requests concurrentes)
     const anoActual = new Date().getFullYear();
-    const countTickets = await prisma.ticketMantenimiento.count({
-      where: {
-        createdAt: {
-          gte: new Date(Date.UTC(anoActual, 0, 1)),
-        },
-      },
+    const ultimoTicket = await prisma.ticketMantenimiento.findFirst({
+      where: { codigo: { startsWith: `TCK-${anoActual}-` } },
+      orderBy: { codigo: "desc" },
+      select: { codigo: true },
     });
-    const codigo = `TCK-${anoActual}-${String(countTickets + 1).padStart(3, "0")}`;
+    const ultimoConsecutivoTicket = ultimoTicket
+      ? parseInt(ultimoTicket.codigo.split("-")[2] ?? "0", 10)
+      : 0;
+    const codigo = `TCK-${anoActual}-${String(ultimoConsecutivoTicket + 1).padStart(3, "0")}`;
 
     const ticketCreado = await prisma.ticketMantenimiento.create({
       data: {
@@ -770,14 +771,15 @@ export async function crearTicketAdminAction(input: CrearTicketAdminInput) {
     } = validacion.data;
 
     const anoActual = new Date().getFullYear();
-    const countTickets = await prisma.ticketMantenimiento.count({
-      where: {
-        createdAt: {
-          gte: new Date(Date.UTC(anoActual, 0, 1)),
-        },
-      },
+    const ultimoTicket2 = await prisma.ticketMantenimiento.findFirst({
+      where: { codigo: { startsWith: `TCK-${anoActual}-` } },
+      orderBy: { codigo: "desc" },
+      select: { codigo: true },
     });
-    const codigo = `TCK-${anoActual}-${String(countTickets + 1).padStart(3, "0")}`;
+    const ultimoConsecutivoTicket2 = ultimoTicket2
+      ? parseInt(ultimoTicket2.codigo.split("-")[2] ?? "0", 10)
+      : 0;
+    const codigo = `TCK-${anoActual}-${String(ultimoConsecutivoTicket2 + 1).padStart(3, "0")}`;
 
     const estadoInicial = empleadoId ? EstadoTicket.EN_PROCESO : EstadoTicket.PENDIENTE;
 
