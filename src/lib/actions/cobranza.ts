@@ -1471,6 +1471,12 @@ export type ActualizarSolvenciaInput = z.infer<typeof actualizarSolvenciaSchema>
  */
 export async function actualizarSolvenciaServiciosAction(input: ActualizarSolvenciaInput) {
   try {
+    // Verificar sesión antes de cualquier operación de base de datos
+    const session = await auth();
+    if (!session?.user?.id) {
+      return { success: false, error: "No autenticado. Por favor inicia sesión." };
+    }
+
     const validacion = actualizarSolvenciaSchema.safeParse(input);
     if (!validacion.success) {
       return { success: false, error: validacion.error.issues?.[0]?.message || "Datos inválidos" };
@@ -1509,11 +1515,6 @@ export async function actualizarSolvenciaServiciosAction(input: ActualizarSolven
 
     if (!pago) {
       return { success: false, error: "Registro de cuota no encontrado" };
-    }
-
-    const session = await auth();
-    if (!session?.user?.id) {
-      return { success: false, error: "No autenticado. Por favor inicia sesión." };
     }
 
     const esAdmin = session.user.rol === "ADMIN";
