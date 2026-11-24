@@ -14,18 +14,20 @@ export async function loginAction(
   prevState: LoginState,
   formData: FormData
 ): Promise<LoginState> {
-  const email = formData.get("email");
-  const password = formData.get("password");
+  const emailRaw = formData.get("email");
+  const passwordRaw = formData.get("password");
 
-  if (!email || !password) {
+  if (typeof emailRaw !== "string" || typeof passwordRaw !== "string" || !emailRaw.trim() || !passwordRaw) {
     return { error: "Por favor, completa todos los campos requeridos." };
   }
+
+  const email = emailRaw.trim().toLowerCase();
 
   try {
     // Autenticar credenciales y asentar cookies de sesión de forma segura
     await signIn("credentials", {
-      email: String(email).trim().toLowerCase(),
-      password: String(password),
+      email,
+      password: passwordRaw,
       redirect: false,
     });
   } catch (error) {
@@ -42,17 +44,23 @@ export async function loginAction(
   }
 
   // Redirigir directamente al dashboard según el rol del usuario autenticado
-  const usuario = await prisma.usuario.findUnique({
-    where: { email: String(email).trim().toLowerCase() },
-    select: { rol: true },
-  });
+  let rolUsuario: string | undefined;
+  try {
+    const usuario = await prisma.usuario.findUnique({
+      where: { email },
+      select: { rol: true },
+    });
+    rolUsuario = usuario?.rol;
+  } catch (err) {
+    console.error("Error consultando rol tras login:", err);
+  }
 
   const destino =
-    usuario?.rol === "ADMIN"
+    rolUsuario === "ADMIN"
       ? "/admin/dashboard"
-      : usuario?.rol === "EMPLEADO"
+      : rolUsuario === "EMPLEADO"
       ? "/empleado/dashboard"
-      : usuario?.rol === "INQUILINO"
+      : rolUsuario === "INQUILINO"
       ? "/inquilino/dashboard"
       : "/home/dashboard";
 
@@ -60,6 +68,10 @@ export async function loginAction(
 }
 
 export async function logoutAction() {
-  await signOut({ redirect: false });
+  try {
+    await signOut({ redirect: false });
+  } catch (err) {
+    console.error("Error en signOut:", err);
+  }
   redirect("/home/login");
 }

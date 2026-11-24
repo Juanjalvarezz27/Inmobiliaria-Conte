@@ -155,9 +155,9 @@ export async function getNavbarBadgesAction(): Promise<NavbarBadges> {
         where: {
           contrato: {
             inquilino: { usuarioId: id },
-            estado: "ACTIVO",
+            estado: { in: ["ACTIVO", "POR_VENCER"] },
           },
-          estado: { in: [EstadoPago.PENDIENTE, EstadoPago.VENCIDO] },
+          estado: { in: [EstadoPago.PENDIENTE, EstadoPago.VENCIDO, EstadoPago.PARCIAL] },
         },
       });
 

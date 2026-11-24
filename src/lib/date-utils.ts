@@ -206,10 +206,20 @@ export function getPartesFechaVenezuela(fecha?: Date | string | null): {
     second: "2-digit",
     hourCycle: "h23",
   });
-  const partes = formatter.format(d).split(", ");
-  const [ano, mes, dia] = partes[0].split("-").map(Number);
-  const [hora, minuto, segundo] = partes[1].split(":").map(Number);
-  return { ano, mes, dia, hora, minuto, segundo };
+  const map: Record<string, number> = {};
+  for (const part of formatter.formatToParts(d)) {
+    if (part.type !== "literal") {
+      map[part.type] = Number(part.value);
+    }
+  }
+  return {
+    ano: map.year,
+    mes: map.month,
+    dia: map.day,
+    hora: map.hour === 24 ? 0 : map.hour,
+    minuto: map.minute,
+    segundo: map.second,
+  };
 }
 
 // Obtiene el rango exacto de inicio y fin de una jornada en hora venezolana

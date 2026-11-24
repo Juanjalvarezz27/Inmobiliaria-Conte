@@ -16,7 +16,8 @@ export async function GET(request: Request) {
 
     const { searchParams } = new URL(request.url);
     const fecha = searchParams.get("fecha");
-    const force = searchParams.get("force") === "true";
+    // Solo el administrador puede forzar recarga/scraping manual en tiempo real
+    const force = searchParams.get("force") === "true" && session.user.rol === "ADMIN";
 
     const data = fecha && /^\d{4}-\d{2}-\d{2}$/.test(fecha)
       ? await getTasaBcvPorFecha(fecha)

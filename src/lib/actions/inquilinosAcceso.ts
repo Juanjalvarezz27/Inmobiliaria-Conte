@@ -86,8 +86,19 @@ export async function crearAccesoInquilino(input: z.infer<typeof crearAccesoSche
       : inquilino.documentoIdentidad.trim();
     const passwordHash = await bcrypt.hash(passwordFinal, 10);
 
-    // Creación atómica del usuario y vinculación al inquilino
-    await prisma.$transaction(async (tx) => {
+    // Creación atómica del usuario y vinculación condicionada para evitar usuarios huérfanos por concurrencia
+    const resultadoTx = await prisma.$transaction(async (tx) => {
+      const inqActual = await tx.inquilino.findUnique({
+        where: { id: inquilinoId },
+        select: { usuarioId: true },
+      });
+      if (!inqActual) {
+        return { error: "Inquilino no encontrado." };
+      }
+      if (inqActual.usuarioId) {
+        return { error: "Este inquilino ya cuenta con un usuario digital activo." };
+      }
+
       const nuevoUsuario = await tx.usuario.create({
         data: {
           email,
@@ -103,32 +114,50 @@ export async function crearAccesoInquilino(input: z.infer<typeof crearAccesoSche
         },
       });
 
-      await tx.inquilino.update({
-        where: { id: inquilinoId },
+      const updated = await tx.inquilino.updateMany({
+        where: { id: inquilinoId, usuarioId: null },
         data: {
           usuarioId: nuevoUsuario.id,
           email, // Sincronizar correo oficial en ficha de inquilino
         },
       });
+
+      if (updated.count === 0) {
+        throw new Error("CONCURRENT_INQUILINO_LINKED");
+      }
+      return { ok: true };
     });
+
+    if ("error" in resultadoTx && resultadoTx.error) {
+      return { success: false, message: resultadoTx.error };
+    }
 
     // Despacho de correo asíncrono con credenciales (sin bloquear la respuesta)
     const nombreCompleto = inquilino.apellido
       ? `${inquilino.nombre} ${inquilino.apellido}`
       : inquilino.nombre;
 
-    after(async () => {
-      try {
-        await enviarNotificacionAccesoInquilino({
-          inquilinoNombre: nombreCompleto,
-          inquilinoEmail: email,
-          cedula: inquilino.documentoIdentidad,
-          passwordInicial: passwordFinal,
-        });
-      } catch (err) {
-        console.error("Error al despachar correo de bienvenida:", err);
-      }
-    });
+    try {
+      after(async () => {
+        try {
+          await enviarNotificacionAccesoInquilino({
+            inquilinoNombre: nombreCompleto,
+            inquilinoEmail: email,
+            cedula: inquilino.documentoIdentidad,
+            passwordInicial: passwordFinal,
+          });
+        } catch (err) {
+          console.error("Error al despachar correo de bienvenida:", err);
+        }
+      });
+    } catch {
+      enviarNotificacionAccesoInquilino({
+        inquilinoNombre: nombreCompleto,
+        inquilinoEmail: email,
+        cedula: inquilino.documentoIdentidad,
+        passwordInicial: passwordFinal,
+      }).catch((err) => console.error("Error al despachar correo de bienvenida:", err));
+    }
 
     revalidatePath("/admin/inquilinos");
     return {
@@ -188,18 +217,27 @@ export async function restablecerClaveInquilino(input: z.infer<typeof restablece
     const emailDestino = inquilino.usuario?.email || inquilino.email;
 
     if (emailDestino) {
-      after(async () => {
-        try {
-          await enviarNotificacionAccesoInquilino({
-            inquilinoNombre: nombreCompleto,
-            inquilinoEmail: emailDestino,
-            cedula: inquilino.documentoIdentidad,
-            passwordInicial: passwordFinal,
-          });
-        } catch (err) {
-          console.error("Error al despachar correo de restablecimiento:", err);
-        }
-      });
+      try {
+        after(async () => {
+          try {
+            await enviarNotificacionAccesoInquilino({
+              inquilinoNombre: nombreCompleto,
+              inquilinoEmail: emailDestino,
+              cedula: inquilino.documentoIdentidad,
+              passwordInicial: passwordFinal,
+            });
+          } catch (err) {
+            console.error("Error al despachar correo de restablecimiento:", err);
+          }
+        });
+      } catch {
+        enviarNotificacionAccesoInquilino({
+          inquilinoNombre: nombreCompleto,
+          inquilinoEmail: emailDestino,
+          cedula: inquilino.documentoIdentidad,
+          passwordInicial: passwordFinal,
+        }).catch((err) => console.error("Error al despachar correo de restablecimiento:", err));
+      }
     }
 
     revalidatePath("/admin/inquilinos");
@@ -269,6 +307,23 @@ export async function cambiarPasswordPrimerAcceso(input: z.infer<typeof cambiarP
   const { passwordNueva } = parseResult.data;
 
   try {
+    const usuario = await prisma.usuario.findUnique({
+      where: { id: session.user.id },
+      select: { activo: true, mustChangePassword: true },
+    });
+
+    if (!usuario || !usuario.activo) {
+      return { success: false, message: "Cuenta inactiva o no encontrada." };
+    }
+
+    // Evitar bypass de contraseña actual si la cuenta no está marcada para cambio inicial obligatorio
+    if (!usuario.mustChangePassword) {
+      return {
+        success: false,
+        message: "Para cambiar tu contraseña actual debes hacerlo desde Mi Perfil ingresando tu clave vigente.",
+      };
+    }
+
     const passwordHash = await bcrypt.hash(passwordNueva, 10);
 
     await prisma.usuario.update({

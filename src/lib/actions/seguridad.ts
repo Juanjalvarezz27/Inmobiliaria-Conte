@@ -27,7 +27,8 @@ import {
   type IncidenciaItem,
   type SeguridadDashboardData,
 } from "@/lib/types/seguridad";
-import { formatearHora12, formatearFechaCorta } from "@/lib/date-utils";
+import { formatearHora12, formatearFechaCorta, getRangosDiaVenezuela, getRangosMesVenezuela } from "@/lib/date-utils";
+import { requireAdminSession } from "@/lib/auth-guard";
 import { getWhatsAppUrl } from "@/lib/formatters";
 import { PaginationParams, PaginatedResult } from "@/types/pagination";
 import { resolvePagination, createPaginatedResponse } from "@/lib/pagination-helper";
@@ -62,14 +63,17 @@ async function getEmpleadoAutenticado() {
     },
   });
 
-  if (!usuario) {
-    throw new Error("Usuario no encontrado");
+  if (!usuario || !usuario.activo) {
+    throw new Error("Cuenta inactiva o no encontrada");
   }
 
   const esAdmin = usuario.rol === "ADMIN";
+  if (!esAdmin && usuario.rol !== "EMPLEADO") {
+    throw new Error("No autorizado para acceder al módulo de seguridad");
+  }
 
-  if (!esAdmin && !usuario.empleado) {
-    throw new Error("No se encontró perfil de trabajador asociado a esta cuenta");
+  if (!esAdmin && (!usuario.empleado || !usuario.empleado.activo)) {
+    throw new Error("No se encontró perfil de trabajador activo asociado a esta cuenta");
   }
 
   return { usuario, empleado: usuario.empleado, esAdmin };
@@ -255,53 +259,60 @@ export async function registrarIncidenciaAction(formData: {
       }
     }
 
-    // Obtener el inicio del día para agrupar la bitácora de seguridad
+    // Obtener el inicio del día en hora Venezuela para agrupar la bitácora de seguridad
     const ahora = new Date();
-    const inicioHoy = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate(), 0, 0, 0);
+    const { inicioDia: inicioHoy, finDia: finHoy } = getRangosDiaVenezuela(ahora);
+    const lockKey = `minuta-${propiedadId}-${inicioHoy.toISOString().slice(0, 10)}`;
 
-    // Contenedor diario para el inmueble (se crea una sola vez por día si no existe)
-    let minutaDiaria = await prisma.minutaGuardia.findFirst({
-      where: {
-        propiedadId,
-        fecha: {
-          gte: inicioHoy,
-          lt: new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate() + 1, 0, 0, 0),
-        },
-      },
-    });
+    // Crear/reutilizar minuta diaria e insertar novedad atómicamente evitando duplicados por concurrencia
+    const errorOrMinuta = await prisma.$transaction(async (tx) => {
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${lockKey}))`;
 
-    if (!minutaDiaria) {
-      const empleadoIdParaMinuta =
-        empleado?.id || (await prisma.empleado.findFirst({ select: { id: true } }))?.id;
-
-      if (!empleadoIdParaMinuta) {
-        return {
-          success: false,
-          error: "Debe existir al menos un empleado registrado para aperturar la minuta diaria.",
-        };
-      }
-
-      minutaDiaria = await prisma.minutaGuardia.create({
-        data: {
+      let minutaDiaria = await tx.minutaGuardia.findFirst({
+        where: {
           propiedadId,
-          empleadoId: empleadoIdParaMinuta,
-          fecha: inicioHoy,
-          horaInicio: ahora,
+          fecha: {
+            gte: inicioHoy,
+            lte: finHoy,
+          },
         },
       });
-    }
 
-    // Insertar la novedad/incidencia en el libro
-    await prisma.novedadMinuta.create({
-      data: {
-        minutaId: minutaDiaria.id,
-        hora: ahora,
-        categoria,
-        titulo,
-        descripcion,
-        fotos: fotos || [],
-      },
+      if (!minutaDiaria) {
+        const empleadoIdParaMinuta =
+          empleado?.id || (await tx.empleado.findFirst({ where: { activo: true }, select: { id: true } }))?.id;
+
+        if (!empleadoIdParaMinuta) {
+          return { error: "Debe existir al menos un empleado registrado para aperturar la minuta diaria." };
+        }
+
+        minutaDiaria = await tx.minutaGuardia.create({
+          data: {
+            propiedadId,
+            empleadoId: empleadoIdParaMinuta,
+            fecha: inicioHoy,
+            horaInicio: ahora,
+          },
+        });
+      }
+
+      await tx.novedadMinuta.create({
+        data: {
+          minutaId: minutaDiaria.id,
+          hora: ahora,
+          categoria,
+          titulo,
+          descripcion,
+          fotos: fotos || [],
+        },
+      });
+
+      return { ok: true };
     });
+
+    if ("error" in errorOrMinuta && errorOrMinuta.error) {
+      return { success: false, error: errorOrMinuta.error };
+    }
 
     // Obtener datos del inmueble para el parte
     const prop = await prisma.propiedad.findUnique({
@@ -389,15 +400,18 @@ export async function actualizarIncidenciaAction(formData: {
   fotos?: string[];
 }): Promise<{ success: boolean; message?: string; error?: string }> {
   try {
-    const session = await auth();
-    if (!session?.user?.id || session.user.rol !== "ADMIN") {
-      return {
-        success: false,
-        error: "No autorizado. Solo los administradores pueden editar registros.",
-      };
+    const authCheck = await requireAdminSession();
+    if (!authCheck.ok) {
+      return { success: false, error: authCheck.error };
     }
 
     const { id, categoria, titulo, descripcion, fotos, propiedadId } = formData;
+    if (!titulo?.trim() || titulo.trim().length < 3) {
+      return { success: false, error: "El título debe tener al menos 3 caracteres." };
+    }
+    if (!descripcion?.trim() || descripcion.trim().length < 5) {
+      return { success: false, error: "El detalle debe tener al menos 5 caracteres." };
+    }
 
     const incidenciaExistente = await prisma.novedadMinuta.findUnique({
       where: { id },
@@ -408,38 +422,52 @@ export async function actualizarIncidenciaAction(formData: {
       return { success: false, error: "No se encontró el reporte a editar." };
     }
 
-    let nuevaMinutaId = incidenciaExistente.minutaId;
-    if (propiedadId && propiedadId !== incidenciaExistente.minuta.propiedadId) {
-      const fechaMinuta = incidenciaExistente.minuta.fecha;
-      let minutaDestino = await prisma.minutaGuardia.findFirst({
-        where: {
-          propiedadId,
-          fecha: fechaMinuta,
-        },
-      });
+    await prisma.$transaction(async (tx) => {
+      let nuevaMinutaId = incidenciaExistente.minutaId;
+      if (propiedadId && propiedadId !== incidenciaExistente.minuta.propiedadId) {
+        const propDestino = await tx.propiedad.findUnique({
+          where: { id: propiedadId },
+          select: { id: true, activo: true },
+        });
+        if (!propDestino?.activo) {
+          throw new Error("El inmueble de destino no existe o está inactivo.");
+        }
 
-      if (!minutaDestino) {
-        minutaDestino = await prisma.minutaGuardia.create({
-          data: {
+        const fechaMinuta = incidenciaExistente.minuta.fecha;
+        const { inicioDia, finDia } = getRangosDiaVenezuela(fechaMinuta);
+        const lockKey = `minuta-${propiedadId}-${inicioDia.toISOString().slice(0, 10)}`;
+        await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${lockKey}))`;
+
+        let minutaDestino = await tx.minutaGuardia.findFirst({
+          where: {
             propiedadId,
-            empleadoId: incidenciaExistente.minuta.empleadoId,
-            fecha: fechaMinuta,
-            horaInicio: incidenciaExistente.minuta.horaInicio || new Date(),
+            fecha: { gte: inicioDia, lte: finDia },
           },
         });
-      }
-      nuevaMinutaId = minutaDestino.id;
-    }
 
-    await prisma.novedadMinuta.update({
-      where: { id },
-      data: {
-        minutaId: nuevaMinutaId,
-        categoria,
-        titulo: titulo.trim(),
-        descripcion: descripcion.trim(),
-        fotos: fotos || [],
-      },
+        if (!minutaDestino) {
+          minutaDestino = await tx.minutaGuardia.create({
+            data: {
+              propiedadId,
+              empleadoId: incidenciaExistente.minuta.empleadoId,
+              fecha: inicioDia,
+              horaInicio: incidenciaExistente.minuta.horaInicio || new Date(),
+            },
+          });
+        }
+        nuevaMinutaId = minutaDestino.id;
+      }
+
+      await tx.novedadMinuta.update({
+        where: { id },
+        data: {
+          minutaId: nuevaMinutaId,
+          categoria,
+          titulo: titulo.trim(),
+          descripcion: descripcion.trim(),
+          fotos: fotos || [],
+        },
+      });
     });
 
     revalidatePath("/empleado/minuta");
@@ -462,9 +490,9 @@ export async function eliminarIncidenciaAction(
   id: string
 ): Promise<{ success: boolean; message?: string; error?: string }> {
   try {
-    const session = await auth();
-    if (!session?.user?.id || session.user.rol !== "ADMIN") {
-      return { success: false, error: "No autorizado. Solo los administradores pueden eliminar registros." };
+    const authCheck = await requireAdminSession();
+    if (!authCheck.ok) {
+      return { success: false, error: authCheck.error };
     }
 
     await prisma.novedadMinuta.delete({
@@ -476,6 +504,9 @@ export async function eliminarIncidenciaAction(
 
     return { success: true, message: "Registro eliminado de la Bitácora de Seguridad." };
   } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2025") {
+      return { success: false, error: "El registro ya fue eliminado previamente." };
+    }
     return {
       success: false,
       error: error instanceof Error ? error.message : "Error al eliminar el registro",
@@ -494,15 +525,18 @@ export interface FiltrosNovedades extends PaginationParams {
 export async function getNovedadesPaginadasAction(
   filtros: FiltrosNovedades = {}
 ): Promise<PaginatedResult<IncidenciaItem>> {
-  const session = await auth();
-  if (!session?.user?.id) {
-    throw new Error("No autenticado");
-  }
+  const { empleado, esAdmin } = await getEmpleadoAutenticado();
 
   const { page, pageSize, skip, take } = resolvePagination(filtros, 15);
   const where: Prisma.NovedadMinutaWhereInput = {};
 
-  if (filtros.propiedadId && filtros.propiedadId !== "TODOS") {
+  if (!esAdmin) {
+    // Aislamiento estricto por sede asignada para personal no administrador
+    if (!empleado?.propiedadId) {
+      return createPaginatedResponse([], 0, page, pageSize);
+    }
+    where.minuta = { propiedadId: empleado.propiedadId };
+  } else if (filtros.propiedadId && filtros.propiedadId !== "TODOS") {
     where.minuta = { propiedadId: filtros.propiedadId };
   }
 
@@ -513,9 +547,8 @@ export async function getNovedadesPaginadasAction(
   if (filtros.fecha) {
     const [y, m, d] = filtros.fecha.split("-").map(Number);
     if (y && m && d) {
-      const inicio = new Date(y, m - 1, d, 0, 0, 0);
-      const fin = new Date(y, m - 1, d, 23, 59, 59, 999);
-      where.hora = { gte: inicio, lte: fin };
+      const { inicioDia, finDia } = getRangosDiaVenezuela(new Date(Date.UTC(y, m - 1, d, 12, 0, 0)));
+      where.hora = { gte: inicioDia, lte: finDia };
     }
   }
 
@@ -569,14 +602,13 @@ export async function getNovedadesPaginadasAction(
 
 // 4. Obtener datos para la vista ejecutiva de Auditoría (Admin) con métricas en SQL
 export async function getSeguridadDashboardDataAction(): Promise<SeguridadDashboardData> {
-  const session = await auth();
-  if (!session?.user?.id || session.user.rol !== "ADMIN") {
-    throw new Error("Acceso restringido para administradores");
+  const authCheck = await requireAdminSession();
+  if (!authCheck.ok) {
+    throw new Error(authCheck.error);
   }
 
-  const ahora = new Date();
-  const inicioMes = new Date(ahora.getFullYear(), ahora.getMonth(), 1, 0, 0, 0);
-  const inicioHoy = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate(), 0, 0, 0);
+  const { inicioMes } = getRangosMesVenezuela();
+  const { inicioDia: inicioHoy } = getRangosDiaVenezuela();
 
   // Ejecución concurrente con conteos delegados a PostgreSQL
   const [propiedades, totalIncidenciasMes, incidenciasHoy, gruposPropiedad, novedadesRecientes] =

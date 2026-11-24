@@ -11,7 +11,7 @@ export default async function InquilinoLayout({
   const session = await auth();
 
   if (!session?.user) {
-    redirect("/home/login");
+    redirect("/home/login?expired=1");
   }
 
   // Permitir acceso a INQUILINO y ADMIN

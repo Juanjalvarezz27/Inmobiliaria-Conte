@@ -26,7 +26,7 @@ import type {
 } from "@/app/admin/personal/types";
 import { enviarNotificacionNuevaTarea } from "@/lib/email-templates/notificacion-tarea";
 import { getPropiedadesOpciones } from "@/lib/actions/propiedades";
-import { getRangosDiaVenezuela, getRangosMesVenezuela } from "@/lib/date-utils";
+import { getRangosDiaVenezuela, getRangosMesVenezuela, getPartesFechaVenezuela } from "@/lib/date-utils";
 
 // Esquema de validación para registrar un empleado
 const createEmpleadoSchema = z.object({
@@ -34,7 +34,7 @@ const createEmpleadoSchema = z.object({
   apellido: z.string().optional().nullable(),
   cedula: z.string().min(3, "La cédula es requerida").trim().toUpperCase(),
   telefono: z.string().min(6, "El teléfono de contacto es requerido").trim(),
-  email: z.string().email("Correo electrónico inválido").optional().nullable().or(z.literal("")),
+  email: z.string().trim().toLowerCase().email("Correo electrónico inválido").optional().nullable().or(z.literal("")),
   direccion: z.string().optional().nullable(),
   cargo: z.nativeEnum(CargoEmpleado).default(CargoEmpleado.CONSERJE),
   cargoPersonalizado: z.string().optional().nullable(),
@@ -56,16 +56,25 @@ export type UpdateEmpleadoInput = z.infer<typeof updateEmpleadoSchema>;
 // Con soporte especial para SEGURIDAD: las guardias continuas de 24h no se cierran a medianoche
 export async function cerrarJornadasIncompletasEmpleado(empleadoId: string): Promise<number> {
   try {
+    const session = await auth();
+    if (!session?.user?.id) {
+      return 0;
+    }
+
     const ahora = new Date();
     const { inicioDia: inicioHoy } = getRangosDiaVenezuela(ahora);
 
-    // Obtener cargo del empleado para aplicar la regla de 24h
+    // Obtener cargo y usuarioId del empleado para validar autorización y aplicar regla de 24h
     const emp = await prisma.empleado.findUnique({
       where: { id: empleadoId },
-      select: { cargo: true },
+      select: { cargo: true, usuarioId: true },
     });
 
-    const esSeguridad = emp?.cargo === CargoEmpleado.SEGURIDAD;
+    if (!emp || (session.user.rol !== Rol.ADMIN && emp.usuarioId !== session.user.id)) {
+      return 0;
+    }
+
+    const esSeguridad = emp.cargo === CargoEmpleado.SEGURIDAD;
     // Para seguridad, la tolerancia es de 30 horas continuas desde el inicio del turno
     const limiteSeguridad = new Date(ahora.getTime() - 30 * 60 * 60 * 1000);
 
@@ -104,12 +113,15 @@ export async function cerrarJornadasIncompletasEmpleado(empleadoId: string): Pro
 // Cierre masivo atómico para jornadas pasadas olvidadas
 // Excluye guardias activas de seguridad que tengan menos de 30 horas de servicio continuo
 export async function cerrarJornadasIncompletasPasadas(): Promise<{ cerradas: number }> {
+  const authCheck = await requireAdminSession();
+  if (!authCheck.ok) return { cerradas: 0 };
+
   try {
     const ahora = new Date();
-    const inicioHoy = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate(), 0, 0, 0, 0);
+    const { inicioDia: inicioHoy } = getRangosDiaVenezuela(ahora);
     const limiteSeguridad = new Date(ahora.getTime() - 30 * 60 * 60 * 1000);
 
-    // 1. Cerrar turnos regulares de personal NO seguridad (conserjes, técnicos, etc.) antes de medianoche
+    // 1. Cerrar turnos regulares de personal NO seguridad (conserjes, técnicos, etc.) antes de medianoche VET
     const resRegulares = await prisma.registroAsistencia.updateMany({
       where: {
         horaSalida: null,
@@ -150,17 +162,19 @@ export async function cerrarJornadasIncompletasPasadas(): Promise<{ cerradas: nu
   }
 }
 
-// Helper para calcular días hábiles (Lunes a Viernes) transcurridos
+// Helper para calcular días hábiles (Lunes a Viernes) transcurridos en hora Venezuela
 function calcularDiasLaborables(desde: Date, hasta: Date): number {
   let count = 0;
-  const cursor = new Date(desde.getFullYear(), desde.getMonth(), desde.getDate(), 0, 0, 0, 0);
-  const fin = new Date(hasta.getFullYear(), hasta.getMonth(), hasta.getDate(), 0, 0, 0, 0);
+  const pDesde = getPartesFechaVenezuela(desde);
+  const pHasta = getPartesFechaVenezuela(hasta);
+  const cursor = new Date(Date.UTC(pDesde.ano, pDesde.mes - 1, pDesde.dia, 12, 0, 0));
+  const fin = new Date(Date.UTC(pHasta.ano, pHasta.mes - 1, pHasta.dia, 12, 0, 0));
   while (cursor < fin) {
-    const day = cursor.getDay();
+    const day = cursor.getUTCDay();
     if (day !== 0 && day !== 6) {
       count++;
     }
-    cursor.setDate(cursor.getDate() + 1);
+    cursor.setUTCDate(cursor.getUTCDate() + 1);
   }
   return count;
 }
@@ -168,11 +182,15 @@ function calcularDiasLaborables(desde: Date, hasta: Date): number {
 
 // Sincronización automática de inasistencias para días laborales pasados no registrados
 export async function sincronizarInasistenciasPasadas(): Promise<{ sincronizadas: number }> {
+  const authCheck = await requireAdminSession();
+  if (!authCheck.ok) return { sincronizadas: 0 };
+
   try {
     // Primero cerramos automáticamente cualquier jornada anterior que haya quedado abierta
     await cerrarJornadasIncompletasPasadas();
-    const { inicioDia: inicioHoy } = getRangosDiaVenezuela();
+    const { inicioDia: inicioHoy, ano: hoyAno, mes: hoyMes, dia: hoyDia } = getRangosDiaVenezuela();
     const finAyer = new Date(inicioHoy.getTime() - 1);
+    const finCursor = new Date(Date.UTC(hoyAno, hoyMes - 1, hoyDia, 12, 0, 0));
 
     // Ventana de evaluación: desde el inicio del mes actual o hasta 30 días atrás
     const { inicioMes } = getRangosMesVenezuela();
@@ -196,127 +214,81 @@ export async function sincronizarInasistenciasPasadas(): Promise<{ sincronizadas
       return { sincronizadas: 0 };
     }
 
-    // 2. Traer registros existentes en esa ventana para empleados activos
-    const registrosExistentes = await prisma.registroAsistencia.findMany({
-      where: {
-        empleadoId: { in: empleadosActivos.map((e) => e.id) },
-        fecha: {
-          gte: fechaInicioRango,
-          lte: finAyer,
-        },
-      },
-      select: {
-        empleadoId: true,
-        fecha: true,
-      },
-    });
+    return await prisma.$transaction(async (tx) => {
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext('sync-inasistencias'))`;
 
-    // Mapear registros existentes: `${empleadoId}_${YYYY-MM-DD}`
-    const registrosSet = new Set<string>();
-    for (const r of registrosExistentes) {
-      const d = new Date(r.fecha);
-      const k = `${r.empleadoId}_${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-      registrosSet.add(k);
-    }
-
-    // 3. Generar inasistencias solo para días hábiles (Lunes a Viernes, excluyendo Sábados y Domingos)
-    const faltasACrear: Array<{
-      empleadoId: string;
-      fecha: Date;
-      horaEntrada: Date;
-      horaSalida: Date | null;
-      estado: EstadoAsistencia;
-      observaciones: string;
-    }> = [];
-
-    for (const emp of empleadosActivos) {
-      // El control de asistencia digital inicia a partir del momento en que el trabajador
-      // es dado de alta en la plataforma (createdAt), o su fecha de ingreso si entra a futuro.
-      // Jamás se generan inasistencias retroactivas para días anteriores a su creación en el sistema.
-      const fechaBaseControl = emp.createdAt > emp.fechaIngreso ? emp.createdAt : emp.fechaIngreso;
-      const inicioEmpleado = fechaBaseControl > fechaInicioRango ? fechaBaseControl : fechaInicioRango;
-      const cursorDia = new Date(
-        inicioEmpleado.getFullYear(),
-        inicioEmpleado.getMonth(),
-        inicioEmpleado.getDate(),
-        0,
-        0,
-        0,
-        0
-      );
-
-      while (cursorDia < inicioHoy) {
-        // Excluir fines de semana (0 = Domingo, 6 = Sábado)
-        if (cursorDia.getDay() !== 0 && cursorDia.getDay() !== 6) {
-          const diaStr = `${cursorDia.getFullYear()}-${String(cursorDia.getMonth() + 1).padStart(2, "0")}-${String(cursorDia.getDate()).padStart(2, "0")}`;
-          const key = `${emp.id}_${diaStr}`;
-
-          if (!registrosSet.has(key)) {
-            faltasACrear.push({
-              empleadoId: emp.id,
-              fecha: new Date(cursorDia.getFullYear(), cursorDia.getMonth(), cursorDia.getDate(), 12, 0, 0),
-              horaEntrada: new Date(cursorDia.getFullYear(), cursorDia.getMonth(), cursorDia.getDate(), 8, 0, 0),
-              horaSalida: null,
-              estado: EstadoAsistencia.FALTA_INJUSTIFICADA,
-              observaciones: "Inasistencia automática - Jornada sin registro de entrada",
-            });
-            registrosSet.add(key);
-          }
-        }
-        cursorDia.setDate(cursorDia.getDate() + 1);
-      }
-    }
-
-    if (faltasACrear.length > 0) {
-      await prisma.registroAsistencia.createMany({
-        data: faltasACrear,
-        skipDuplicates: true,
-      });
-    }
-
-    // Depuración de inasistencias automáticas que pudieran existir en fines de semana
-    const autoInasistenciasFinde = await prisma.registroAsistencia.findMany({
-      where: {
-        observaciones: "Inasistencia automática - Jornada sin registro de entrada",
-        estado: EstadoAsistencia.FALTA_INJUSTIFICADA,
-      },
-      select: { id: true, fecha: true },
-    });
-    const idsFinde = autoInasistenciasFinde
-      .filter((r) => {
-        const dia = new Date(r.fecha).getDay();
-        return dia === 0 || dia === 6;
-      })
-      .map((r) => r.id);
-
-    if (idsFinde.length > 0) {
-      await prisma.registroAsistencia.deleteMany({
-        where: { id: { in: idsFinde } },
-      });
-    }
-
-    // Depuración de inasistencias automáticas para personal de SEGURIDAD (régimen de guardia rotativa)
-    const empleadosSeguridad = await prisma.empleado.findMany({
-      where: { cargo: CargoEmpleado.SEGURIDAD },
-      select: { id: true },
-    });
-    if (empleadosSeguridad.length > 0) {
-      await prisma.registroAsistencia.deleteMany({
+      // 2. Traer registros existentes en esa ventana para empleados activos
+      const registrosExistentes = await tx.registroAsistencia.findMany({
         where: {
-          empleadoId: { in: empleadosSeguridad.map((s) => s.id) },
-          observaciones: "Inasistencia automática - Jornada sin registro de entrada",
-          estado: EstadoAsistencia.FALTA_INJUSTIFICADA,
+          empleadoId: { in: empleadosActivos.map((e) => e.id) },
+          fecha: {
+            gte: fechaInicioRango,
+            lte: finAyer,
+          },
+        },
+        select: {
+          empleadoId: true,
+          fecha: true,
         },
       });
-    }
 
-    // Normalización preventiva de registros con estado RETARDO hacia PRESENTE
-    await prisma.registroAsistencia.updateMany({
-      where: { estado: EstadoAsistencia.RETARDO },
-      data: { estado: EstadoAsistencia.PRESENTE },
+      // Mapear registros existentes usando partes de fecha Venezuela: `${empleadoId}_${YYYY-MM-DD}`
+      const registrosSet = new Set<string>();
+      for (const r of registrosExistentes) {
+        const p = getPartesFechaVenezuela(r.fecha);
+        const k = `${r.empleadoId}_${p.ano}-${String(p.mes).padStart(2, "0")}-${String(p.dia).padStart(2, "0")}`;
+        registrosSet.add(k);
+      }
+
+      // 3. Generar inasistencias solo para días hábiles (Lunes a Viernes) en hora Venezuela
+      const faltasACrear: Array<{
+        empleadoId: string;
+        fecha: Date;
+        horaEntrada: Date;
+        horaSalida: Date | null;
+        estado: EstadoAsistencia;
+        observaciones: string;
+      }> = [];
+
+      for (const emp of empleadosActivos) {
+        const fechaBaseControl = emp.createdAt > emp.fechaIngreso ? emp.createdAt : emp.fechaIngreso;
+        const inicioEmpleado = fechaBaseControl > fechaInicioRango ? fechaBaseControl : fechaInicioRango;
+        const pIni = getPartesFechaVenezuela(inicioEmpleado);
+        const cursorDia = new Date(Date.UTC(pIni.ano, pIni.mes - 1, pIni.dia, 12, 0, 0));
+
+        while (cursorDia < finCursor) {
+          if (cursorDia.getUTCDay() !== 0 && cursorDia.getUTCDay() !== 6) {
+            const y = cursorDia.getUTCFullYear();
+            const m = cursorDia.getUTCMonth() + 1;
+            const d = cursorDia.getUTCDate();
+            const diaStr = `${y}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+            const key = `${emp.id}_${diaStr}`;
+
+            if (!registrosSet.has(key)) {
+              faltasACrear.push({
+                empleadoId: emp.id,
+                // 16:00 UTC = 12:00 VET, 12:00 UTC = 08:00 VET
+                fecha: new Date(Date.UTC(y, m - 1, d, 16, 0, 0)),
+                horaEntrada: new Date(Date.UTC(y, m - 1, d, 12, 0, 0)),
+                horaSalida: null,
+                estado: EstadoAsistencia.FALTA_INJUSTIFICADA,
+                observaciones: "Inasistencia automática - Jornada sin registro de entrada",
+              });
+              registrosSet.add(key);
+            }
+          }
+          cursorDia.setUTCDate(cursorDia.getUTCDate() + 1);
+        }
+      }
+
+      if (faltasACrear.length > 0) {
+        await tx.registroAsistencia.createMany({
+          data: faltasACrear,
+        });
+      }
+
+      return { sincronizadas: faltasACrear.length };
     });
-
-    return { sincronizadas: faltasACrear.length };
   } catch (error) {
     console.error("Error al sincronizar inasistencias pasadas:", error);
     return { sincronizadas: 0 };
@@ -636,54 +608,18 @@ export async function crearEmpleadoAction(rawInput: CreateEmpleadoInput) {
   try {
     const validated = createEmpleadoSchema.parse(rawInput);
 
-    // Verificar unicidad de cédula
-    const existeCedula = await prisma.empleado.findUnique({
-      where: { cedula: validated.cedula },
-    });
-    if (existeCedula) {
-      return { success: false, error: "Ya existe un colaborador registrado con esta cédula." };
-    }
+    const debeCrearUsuario =
+      (validated.crearUsuario ?? true) && Boolean(validated.email && validated.email.trim() !== "");
 
-    let usuarioId: string | null = null;
-
-    // Crear cuenta de acceso para el portal del empleado si se indicó correo
-    const debeCrearUsuario = (validated.crearUsuario ?? true) && Boolean(validated.email && validated.email.trim() !== "");
+    let passwordHash: string | null = null;
     if (debeCrearUsuario && validated.email) {
-      const existeEmail = await prisma.usuario.findUnique({
-        where: { email: validated.email },
-      });
-
-      if (existeEmail) {
-        return {
-          success: false,
-          error: "El correo electrónico ya está registrado para otro usuario del sistema.",
-        };
-      }
-
       if (!validated.passwordTemporal || validated.passwordTemporal.trim().length < 6) {
         return {
           success: false,
           error: "Debes asignar una contraseña de acceso temporal (mínimo 6 caracteres) para el nuevo usuario.",
         };
       }
-
-      const pass = validated.passwordTemporal.trim();
-      const passwordHash = await bcrypt.hash(pass, 10);
-
-      const nuevoUsuario = await prisma.usuario.create({
-        data: {
-          email: validated.email,
-          passwordHash,
-          nombre: validated.nombre,
-          apellido: validated.apellido || null,
-          cedula: validated.cedula,
-          telefono: validated.telefono,
-          direccion: validated.direccion || null,
-          rol: Rol.EMPLEADO,
-          activo: true,
-        },
-      });
-      usuarioId = nuevoUsuario.id;
+      passwordHash = await bcrypt.hash(validated.passwordTemporal.trim(), 10);
     }
 
     const fechaIngreso = validated.fechaIngreso
@@ -695,27 +631,63 @@ export async function crearEmpleadoAction(rawInput: CreateEmpleadoInput) {
         ? null
         : validated.propiedadId;
 
-    const nuevoEmpleado = await prisma.empleado.create({
-      data: {
-        nombre: validated.nombre,
-        apellido: validated.apellido || null,
-        cedula: validated.cedula,
-        telefono: validated.telefono,
-        email: validated.email || null,
-        direccion: validated.direccion || null,
-        cargo: validated.cargo,
-        cargoPersonalizado:
-          validated.cargo === CargoEmpleado.OTRO
-            ? validated.cargoPersonalizado?.trim() || null
-            : null,
-        fechaIngreso,
-        salarioMensual: validated.salarioMensual ?? null,
-        notas: validated.notas || null,
-        contratoUrl: validated.contratoUrl || null,
-        propiedadId,
-        activo: true,
-        usuarioId,
-      },
+    const emailFinal = validated.email ? validated.email.trim().toLowerCase() : null;
+
+    const nuevoEmpleado = await prisma.$transaction(async (tx) => {
+      const existeCedula = await tx.empleado.findUnique({
+        where: { cedula: validated.cedula },
+      });
+      if (existeCedula) {
+        throw new Error("Ya existe un colaborador registrado con esta cédula.");
+      }
+
+      let usuarioId: string | null = null;
+      if (debeCrearUsuario && emailFinal && passwordHash) {
+        const existeEmail = await tx.usuario.findUnique({
+          where: { email: emailFinal },
+        });
+        if (existeEmail) {
+          throw new Error("El correo electrónico ya está registrado para otro usuario del sistema.");
+        }
+
+        const nuevoUsuario = await tx.usuario.create({
+          data: {
+            email: emailFinal,
+            passwordHash,
+            nombre: validated.nombre,
+            apellido: validated.apellido || null,
+            cedula: validated.cedula,
+            telefono: validated.telefono,
+            direccion: validated.direccion || null,
+            rol: Rol.EMPLEADO,
+            activo: true,
+          },
+        });
+        usuarioId = nuevoUsuario.id;
+      }
+
+      return tx.empleado.create({
+        data: {
+          nombre: validated.nombre,
+          apellido: validated.apellido || null,
+          cedula: validated.cedula,
+          telefono: validated.telefono,
+          email: emailFinal,
+          direccion: validated.direccion || null,
+          cargo: validated.cargo,
+          cargoPersonalizado:
+            validated.cargo === CargoEmpleado.OTRO
+              ? validated.cargoPersonalizado?.trim() || null
+              : null,
+          fechaIngreso,
+          salarioMensual: validated.salarioMensual ?? null,
+          notas: validated.notas || null,
+          contratoUrl: validated.contratoUrl || null,
+          propiedadId,
+          activo: true,
+          usuarioId,
+        },
+      });
     });
 
     revalidatePath("/admin/personal");
@@ -724,6 +696,9 @@ export async function crearEmpleadoAction(rawInput: CreateEmpleadoInput) {
     console.error("Error en crearEmpleadoAction:", error);
     if (error instanceof z.ZodError) {
       return { success: false, error: error.issues[0]?.message || "Datos inválidos" };
+    }
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+      return { success: false, error: "La cédula o el correo electrónico ya están registrados." };
     }
     const msg = error instanceof Error ? error.message : "Error al registrar el empleado";
     return { success: false, error: msg };
@@ -745,119 +720,116 @@ export async function actualizarEmpleadoAction(id: string, rawInput: UpdateEmple
       return { success: false, error: "Colaborador no encontrado." };
     }
 
-    // Si se modifica la cédula, validar unicidad
-    if (validated.cedula && validated.cedula !== empleadoExistente.cedula) {
-      const existeCedula = await prisma.empleado.findUnique({
-        where: { cedula: validated.cedula },
-      });
-      if (existeCedula) {
-        return { success: false, error: "Ya existe otro colaborador con esta cédula." };
-      }
+    const emailFinal =
+      validated.email !== undefined
+        ? (validated.email ? validated.email.trim().toLowerCase() : null)
+        : undefined;
+
+    let hashedPass: string | null = null;
+    if (validated.passwordTemporal && validated.passwordTemporal.trim().length >= 6) {
+      hashedPass = await bcrypt.hash(validated.passwordTemporal.trim(), 10);
     }
 
-    let usuarioId = empleadoExistente.usuarioId;
-
-    // Actualizar cuenta existente o crear una nueva si se ingresó correo
-    if (usuarioId) {
-      const usuarioUpdateData: { passwordHash?: string; email?: string } = {};
-
-      if (validated.passwordTemporal && validated.passwordTemporal.trim().length >= 6) {
-        usuarioUpdateData.passwordHash = await bcrypt.hash(validated.passwordTemporal.trim(), 10);
-      }
-
-      if (validated.email && validated.email.trim() !== "") {
-        const usuarioActual = await prisma.usuario.findUnique({ where: { id: usuarioId } });
-        if (usuarioActual && usuarioActual.email !== validated.email) {
-          const existeEmail = await prisma.usuario.findUnique({
-            where: { email: validated.email },
-          });
-          if (existeEmail) {
-            return {
-              success: false,
-              error: "El nuevo correo ya está registrado para otro usuario.",
-            };
-          }
-          usuarioUpdateData.email = validated.email;
+    const empleadoActualizado = await prisma.$transaction(async (tx) => {
+      if (validated.cedula && validated.cedula !== empleadoExistente.cedula) {
+        const existeCedula = await tx.empleado.findUnique({
+          where: { cedula: validated.cedula },
+        });
+        if (existeCedula) {
+          throw new Error("Ya existe otro colaborador con esta cédula.");
         }
       }
 
-      if (Object.keys(usuarioUpdateData).length > 0) {
-        await prisma.usuario.update({
-          where: { id: usuarioId },
-          data: usuarioUpdateData,
+      let usuarioId = empleadoExistente.usuarioId;
+
+      if (usuarioId) {
+        const usuarioUpdateData: Prisma.UsuarioUpdateInput = {};
+        if (hashedPass) usuarioUpdateData.passwordHash = hashedPass;
+        if (validated.nombre) usuarioUpdateData.nombre = validated.nombre;
+        if (validated.apellido !== undefined) usuarioUpdateData.apellido = validated.apellido;
+        if (validated.cedula) usuarioUpdateData.cedula = validated.cedula;
+        if (validated.telefono) usuarioUpdateData.telefono = validated.telefono;
+        if (validated.direccion !== undefined) usuarioUpdateData.direccion = validated.direccion;
+
+        if (emailFinal) {
+          const usuarioActual = await tx.usuario.findUnique({ where: { id: usuarioId } });
+          if (usuarioActual && usuarioActual.email !== emailFinal) {
+            const existeEmail = await tx.usuario.findUnique({ where: { email: emailFinal } });
+            if (existeEmail) {
+              throw new Error("El nuevo correo ya está registrado para otro usuario.");
+            }
+            usuarioUpdateData.email = emailFinal;
+          }
+        }
+
+        if (Object.keys(usuarioUpdateData).length > 0) {
+          await tx.usuario.update({
+            where: { id: usuarioId },
+            data: usuarioUpdateData,
+          });
+        }
+      } else if (emailFinal) {
+        const existeEmail = await tx.usuario.findUnique({
+          where: { email: emailFinal },
         });
-      }
-    } else if (validated.email && validated.email.trim() !== "") {
-      const existeEmail = await prisma.usuario.findUnique({
-        where: { email: validated.email },
-      });
-      if (existeEmail) {
-        return {
-          success: false,
-          error: "El correo electrónico ya está registrado para otro usuario.",
-        };
+        if (existeEmail) {
+          throw new Error("El correo electrónico ya está registrado para otro usuario.");
+        }
+        if (!hashedPass) {
+          throw new Error("Debes asignar una contraseña de acceso temporal (mínimo 6 caracteres) para crear la cuenta del colaborador.");
+        }
+
+        const nuevoUsuario = await tx.usuario.create({
+          data: {
+            email: emailFinal,
+            passwordHash: hashedPass,
+            nombre: validated.nombre || empleadoExistente.nombre,
+            apellido: validated.apellido || empleadoExistente.apellido,
+            cedula: validated.cedula || empleadoExistente.cedula,
+            telefono: validated.telefono || empleadoExistente.telefono,
+            direccion: validated.direccion || empleadoExistente.direccion,
+            rol: Rol.EMPLEADO,
+            activo: true,
+          },
+        });
+        usuarioId = nuevoUsuario.id;
       }
 
-      if (!validated.passwordTemporal || validated.passwordTemporal.trim().length < 6) {
-        return {
-          success: false,
-          error: "Debes asignar una contraseña de acceso temporal (mínimo 6 caracteres) para crear la cuenta del colaborador.",
-        };
-      }
-
-      const pass = validated.passwordTemporal.trim();
-      const passwordHash = await bcrypt.hash(pass, 10);
-
-      const nuevoUsuario = await prisma.usuario.create({
+      return tx.empleado.update({
+        where: { id },
         data: {
-          email: validated.email,
-          passwordHash,
-          nombre: validated.nombre || empleadoExistente.nombre,
-          apellido: validated.apellido || empleadoExistente.apellido,
-          cedula: validated.cedula || empleadoExistente.cedula,
-          telefono: validated.telefono || empleadoExistente.telefono,
-          direccion: validated.direccion || empleadoExistente.direccion,
-          rol: Rol.EMPLEADO,
-          activo: true,
+          ...(validated.nombre && { nombre: validated.nombre }),
+          apellido: validated.apellido !== undefined ? validated.apellido : empleadoExistente.apellido,
+          ...(validated.cedula && { cedula: validated.cedula }),
+          ...(validated.telefono && { telefono: validated.telefono }),
+          email: emailFinal !== undefined ? emailFinal : empleadoExistente.email,
+          direccion: validated.direccion !== undefined ? validated.direccion : empleadoExistente.direccion,
+          ...(validated.cargo && {
+            cargo: validated.cargo,
+            cargoPersonalizado:
+              validated.cargo === CargoEmpleado.OTRO
+                ? validated.cargoPersonalizado?.trim() || null
+                : null,
+          }),
+          ...(validated.fechaIngreso && { fechaIngreso: new Date(validated.fechaIngreso) }),
+          salarioMensual:
+            validated.salarioMensual !== undefined
+              ? validated.salarioMensual
+              : empleadoExistente.salarioMensual,
+          notas: validated.notas !== undefined ? validated.notas : empleadoExistente.notas,
+          contratoUrl:
+            validated.contratoUrl !== undefined
+              ? (validated.contratoUrl || null)
+              : empleadoExistente.contratoUrl,
+          ...(validated.propiedadId !== undefined && {
+            propiedadId:
+              validated.propiedadId === "GENERAL" || !validated.propiedadId
+                ? null
+                : validated.propiedadId,
+          }),
+          usuarioId,
         },
       });
-      usuarioId = nuevoUsuario.id;
-    }
-
-    const empleadoActualizado = await prisma.empleado.update({
-      where: { id },
-      data: {
-        ...(validated.nombre && { nombre: validated.nombre }),
-        apellido: validated.apellido !== undefined ? validated.apellido : empleadoExistente.apellido,
-        ...(validated.cedula && { cedula: validated.cedula }),
-        ...(validated.telefono && { telefono: validated.telefono }),
-        email: validated.email !== undefined ? validated.email : empleadoExistente.email,
-        direccion: validated.direccion !== undefined ? validated.direccion : empleadoExistente.direccion,
-        ...(validated.cargo && {
-          cargo: validated.cargo,
-          cargoPersonalizado:
-            validated.cargo === CargoEmpleado.OTRO
-              ? validated.cargoPersonalizado?.trim() || null
-              : null,
-        }),
-        ...(validated.fechaIngreso && { fechaIngreso: new Date(validated.fechaIngreso) }),
-        salarioMensual:
-          validated.salarioMensual !== undefined
-            ? validated.salarioMensual
-            : empleadoExistente.salarioMensual,
-        notas: validated.notas !== undefined ? validated.notas : empleadoExistente.notas,
-        contratoUrl:
-          validated.contratoUrl !== undefined
-            ? (validated.contratoUrl || null)
-            : empleadoExistente.contratoUrl,
-        ...(validated.propiedadId !== undefined && {
-          propiedadId:
-            validated.propiedadId === "GENERAL" || !validated.propiedadId
-              ? null
-              : validated.propiedadId,
-        }),
-        usuarioId,
-      },
     });
 
     // Purgar contrato anterior de UploadThing si fue reemplazado o eliminado
@@ -878,6 +850,9 @@ export async function actualizarEmpleadoAction(id: string, rawInput: UpdateEmple
     if (error instanceof z.ZodError) {
       return { success: false, error: error.issues[0]?.message || "Datos inválidos" };
     }
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+      return { success: false, error: "La cédula o el correo electrónico ya están registrados." };
+    }
     const msg = error instanceof Error ? error.message : "Error al actualizar el colaborador";
     return { success: false, error: msg };
   }
@@ -897,18 +872,20 @@ export async function toggleEstadoEmpleadoAction(id: string, activo: boolean) {
       return { success: false, error: "Colaborador no encontrado" };
     }
 
-    await prisma.empleado.update({
-      where: { id },
-      data: { activo },
-    });
-
-    // Sincronizar estado de la cuenta de usuario vinculada
-    if (empleado.usuarioId) {
-      await prisma.usuario.update({
-        where: { id: empleado.usuarioId },
+    await prisma.$transaction(async (tx) => {
+      await tx.empleado.update({
+        where: { id },
         data: { activo },
       });
-    }
+
+      // Sincronizar estado de la cuenta de usuario vinculada atómicamente
+      if (empleado.usuarioId) {
+        await tx.usuario.update({
+          where: { id: empleado.usuarioId },
+          data: { activo },
+        });
+      }
+    });
 
     revalidatePath("/admin/personal");
     return {
@@ -950,67 +927,74 @@ export async function registrarAsistenciaAction(rawInput: RegistrarAsistenciaInp
 
     if (validated.fecha && validated.fecha.includes("-")) {
       const [y, m, d] = validated.fecha.split("-").map(Number);
-      baseFecha = new Date(y, m - 1, d, 12, 0, 0);
-      inicioDia = new Date(y, m - 1, d, 0, 0, 0);
-      finDia = new Date(y, m - 1, d, 23, 59, 59, 999);
+      const rangos = getRangosDiaVenezuela(new Date(Date.UTC(y, m - 1, d, 16, 0, 0)));
+      baseFecha = new Date(Date.UTC(y, m - 1, d, 16, 0, 0));
+      inicioDia = rangos.inicioDia;
+      finDia = rangos.finDia;
     } else {
       const ahora = new Date();
+      const rangos = getRangosDiaVenezuela(ahora);
       baseFecha = ahora;
-      inicioDia = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate(), 0, 0, 0);
-      finDia = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate(), 23, 59, 59, 999);
+      inicioDia = rangos.inicioDia;
+      finDia = rangos.finDia;
     }
 
     // Parsear horas
     const horaEntrada = validated.horaEntrada ? new Date(validated.horaEntrada) : new Date();
     const horaSalida = validated.horaSalida ? new Date(validated.horaSalida) : null;
 
-    // Buscar si ya tiene asistencia ese día
-    const asistenciaExistente = await prisma.registroAsistencia.findFirst({
-      where: {
-        empleadoId: validated.empleadoId,
-        fecha: {
-          gte: inicioDia,
-          lte: finDia,
-        },
-      },
-    });
-
-    if (asistenciaExistente) {
-      // Actualizar registro existente
-      const actualizado = await prisma.registroAsistencia.update({
-        where: { id: asistenciaExistente.id },
-        data: {
-          estado: validated.estado,
-          horaEntrada,
-          horaSalida: horaSalida || asistenciaExistente.horaSalida,
-          ubicacionEntrada: validated.ubicacionEntrada ?? asistenciaExistente.ubicacionEntrada,
-          ubicacionSalida: validated.ubicacionSalida ?? asistenciaExistente.ubicacionSalida,
-          observaciones: validated.observaciones ?? asistenciaExistente.observaciones,
-        },
-      });
-      revalidatePath("/admin/personal");
-      return { success: true, data: actualizado, message: "Asistencia actualizada correctamente." };
-    }
-
     // Cierre perezoso (Just-In-Time) de turnos olvidados anteriores de este empleado
     await cerrarJornadasIncompletasEmpleado(validated.empleadoId);
 
-    // Crear nuevo registro
-    const nuevo = await prisma.registroAsistencia.create({
-      data: {
-        empleadoId: validated.empleadoId,
-        fecha: baseFecha,
-        horaEntrada,
-        horaSalida,
-        estado: validated.estado,
-        ubicacionEntrada: validated.ubicacionEntrada || null,
-        ubicacionSalida: validated.ubicacionSalida || null,
-        observaciones: validated.observaciones || null,
-      },
+    const { actualizado, fueActualizacion } = await prisma.$transaction(async (tx) => {
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`asistencia-${validated.empleadoId}`}))`;
+
+      const asistenciaExistente = await tx.registroAsistencia.findFirst({
+        where: {
+          empleadoId: validated.empleadoId,
+          fecha: {
+            gte: inicioDia,
+            lte: finDia,
+          },
+        },
+      });
+
+      if (asistenciaExistente) {
+        const resUpd = await tx.registroAsistencia.update({
+          where: { id: asistenciaExistente.id },
+          data: {
+            estado: validated.estado,
+            horaEntrada,
+            horaSalida: horaSalida || asistenciaExistente.horaSalida,
+            ubicacionEntrada: validated.ubicacionEntrada ?? asistenciaExistente.ubicacionEntrada,
+            ubicacionSalida: validated.ubicacionSalida ?? asistenciaExistente.ubicacionSalida,
+            observaciones: validated.observaciones ?? asistenciaExistente.observaciones,
+          },
+        });
+        return { actualizado: resUpd, fueActualizacion: true };
+      }
+
+      const resNew = await tx.registroAsistencia.create({
+        data: {
+          empleadoId: validated.empleadoId,
+          fecha: baseFecha,
+          horaEntrada,
+          horaSalida,
+          estado: validated.estado,
+          ubicacionEntrada: validated.ubicacionEntrada || null,
+          ubicacionSalida: validated.ubicacionSalida || null,
+          observaciones: validated.observaciones || null,
+        },
+      });
+      return { actualizado: resNew, fueActualizacion: false };
     });
 
     revalidatePath("/admin/personal");
-    return { success: true, data: nuevo, message: "Asistencia registrada con éxito." };
+    return {
+      success: true,
+      data: actualizado,
+      message: fueActualizacion ? "Asistencia actualizada correctamente." : "Asistencia registrada con éxito.",
+    };
   } catch (error: unknown) {
     console.error("Error en registrarAsistenciaAction:", error);
     const msg = error instanceof Error ? error.message : "Error al registrar la asistencia";

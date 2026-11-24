@@ -1053,16 +1053,19 @@ export async function registrarPago(input: RegistrarPagoInput) {
               const diaEfectivoSig = Math.min(pagoActual.contrato.diaCobro, ultimoDiaSig);
               const fechaVenceSig = new Date(Date.UTC(sigAno, sigMes - 1, diaEfectivoSig, 23, 59, 59, 999));
 
-              await tx.pago.create({
-                data: {
-                  contratoId: pagoActual.contratoId,
-                  periodoMes: sigMes,
-                  periodoAno: sigAno,
-                  montoEsperado: pagoActual.contrato.montoAlquiler,
-                  montoPagado: 0,
-                  fechaVencimiento: fechaVenceSig,
-                  estado: EstadoPago.PENDIENTE,
-                },
+              await tx.pago.createMany({
+                data: [
+                  {
+                    contratoId: pagoActual.contratoId,
+                    periodoMes: sigMes,
+                    periodoAno: sigAno,
+                    montoEsperado: pagoActual.contrato.montoAlquiler,
+                    montoPagado: 0,
+                    fechaVencimiento: fechaVenceSig,
+                    estado: EstadoPago.PENDIENTE,
+                  },
+                ],
+                skipDuplicates: true,
               });
             }
           }

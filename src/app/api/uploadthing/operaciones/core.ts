@@ -1,15 +1,23 @@
 import { createUploadthing, type FileRouter } from "uploadthing/next";
 import { UploadThingError } from "uploadthing/server";
 import { auth } from "@/auth";
+import { prisma } from "@/lib/prisma";
 
 // Router para operaciones diarias
 const f = createUploadthing();
 
-// Helper para validar autenticación básica en cargas
+// Helper para validar autenticación y vigencia en BD al subir archivos
 async function getUploadSession() {
   const session = await auth();
   if (!session?.user?.id) {
     throw new UploadThingError("No autenticado. Inicia sesión para subir archivos.");
+  }
+  const usuario = await prisma.usuario.findUnique({
+    where: { id: session.user.id },
+    select: { activo: true },
+  });
+  if (!usuario?.activo) {
+    throw new UploadThingError("Tu cuenta está desactivada.");
   }
   return session.user;
 }

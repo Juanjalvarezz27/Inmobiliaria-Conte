@@ -63,6 +63,9 @@ const PROPIEDAD_SELECT = {
 
 // Obtener todas las propiedades con conteo de unidades optimizado
 export async function getPropiedades() {
+  const authCheck = await requireAdminSession();
+  if (!authCheck.ok) return [];
+
   try {
     return await prisma.propiedad.findMany({
       orderBy: { createdAt: "desc" },
@@ -82,6 +85,9 @@ export async function getPropiedades() {
 
 // Obtener una propiedad por ID con sus unidades optimizadas
 export async function getPropiedadById(id: string) {
+  const authCheck = await requireAdminSession();
+  if (!authCheck.ok) return null;
+
   try {
     return await prisma.propiedad.findUnique({
       where: { id },
@@ -371,11 +377,34 @@ export const getPropiedadesOpcionesCached = unstable_cache(
 
 // Obtener lista reducida de propiedades para selectores y filtros (ultra ligero con Edge Cache)
 export async function getPropiedadesOpciones() {
+  const authCheck = await requireAdminSession();
+  if (!authCheck.ok) return [];
+
   try {
     return await getPropiedadesOpcionesCached();
   } catch (error) {
     console.error("Error al obtener opciones de propiedades:", error);
     return [];
+  }
+}
+
+// Dominios permitidos para resolución segura de enlaces de Google Maps (prevención SSRF)
+function esDominioGoogleMapsSeguro(urlStr: string): boolean {
+  try {
+    const parsed = new URL(urlStr);
+    if (parsed.protocol !== "https:" && parsed.protocol !== "http:") return false;
+    const host = parsed.hostname.toLowerCase();
+    return (
+      host === "maps.app.goo.gl" ||
+      host === "goo.gl" ||
+      host === "g.page" ||
+      host === "maps.google.com" ||
+      host === "www.google.com" ||
+      host === "google.com" ||
+      host.endsWith(".google.com")
+    );
+  } catch {
+    return false;
   }
 }
 
@@ -387,6 +416,11 @@ export async function resolverCoordenadasUrl(input: string): Promise<{
   finalUrl?: string;
   error?: string;
 }> {
+  const authCheck = await requireAdminSession();
+  if (!authCheck.ok) {
+    return { success: false, error: authCheck.error };
+  }
+
   if (!input || !input.trim()) {
     return { success: false, error: "El enlace o texto está vacío." };
   }
@@ -397,9 +431,12 @@ export async function resolverCoordenadasUrl(input: string): Promise<{
     return { success: true, lat: directas.lat, lon: directas.lon };
   }
 
-  // 2. Si es una URL http/https, seguir la redirección en el servidor
+  // 2. Si es una URL válida de Google Maps, seguir la redirección en el servidor
   const urlTrim = input.trim();
   if (/^https?:\/\//i.test(urlTrim)) {
+    if (!esDominioGoogleMapsSeguro(urlTrim)) {
+      return { success: false, error: "Solo se permiten enlaces oficiales de Google Maps." };
+    }
     try {
       const response = await fetch(urlTrim, {
         method: "GET",

@@ -18,8 +18,10 @@ interface PageProps {
 export default async function CobranzaPage(props: PageProps) {
   const searchParams = props.searchParams ? await props.searchParams : undefined;
   const hoy = new Date();
-  const mesActual = searchParams?.mes ? parseInt(searchParams.mes, 10) : hoy.getMonth() + 1;
-  const anoActual = searchParams?.ano ? parseInt(searchParams.ano, 10) : hoy.getFullYear();
+  const mesParsed = searchParams?.mes ? parseInt(searchParams.mes, 10) : NaN;
+  const anoParsed = searchParams?.ano ? parseInt(searchParams.ano, 10) : NaN;
+  const mesActual = Number.isInteger(mesParsed) && mesParsed >= 1 && mesParsed <= 12 ? mesParsed : hoy.getMonth() + 1;
+  const anoActual = Number.isInteger(anoParsed) && anoParsed >= 2000 && anoParsed <= 2100 ? anoParsed : hoy.getFullYear();
 
   // Obtener cobros iniciales y lista de propiedades para filtros
   const [cobranzaData, propiedades] = await Promise.all([

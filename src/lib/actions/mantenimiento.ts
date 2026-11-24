@@ -659,39 +659,43 @@ export async function crearTicketInquilinoAction(input: CrearTicketInquilinoInpu
       return { success: false, error: "No se encontró el perfil de inquilino asociado." };
     }
 
-    // Generar código único correlativo: TCK-YYYY-XXX (robusto ante requests concurrentes)
+    // Generar código único correlativo TCK-YYYY-XXX y crear ticket de forma atómica sin colisiones
     const anoActual = new Date().getFullYear();
-    const ultimoTicket = await prisma.ticketMantenimiento.findFirst({
-      where: { codigo: { startsWith: `TCK-${anoActual}-` } },
-      orderBy: { codigo: "desc" },
-      select: { codigo: true },
-    });
-    const ultimoConsecutivoTicket = ultimoTicket
-      ? parseInt(ultimoTicket.codigo.split("-")[2] ?? "0", 10)
-      : 0;
-    const codigo = `TCK-${anoActual}-${String(ultimoConsecutivoTicket + 1).padStart(3, "0")}`;
+    const prefix = `TCK-${anoActual}-`;
 
-    const ticketCreado = await prisma.ticketMantenimiento.create({
-      data: {
-        codigo,
-        titulo: titulo.trim(),
-        descripcion: descripcion.trim(),
-        categoria,
-        categoriaPersonalizada:
-          categoria === CategoriaTicket.OTRO && categoriaPersonalizada?.trim()
-            ? categoriaPersonalizada.trim()
-            : null,
-        urgencia,
-        estado: EstadoTicket.PENDIENTE,
-        fotosAveria,
-        propiedadId,
-        unidadId: unidadId || null,
-        inquilinoId: inquilino.id,
-      },
-      include: {
-        propiedad: true,
-        unidad: true,
-      },
+    const ticketCreado = await prisma.$transaction(async (tx) => {
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${prefix}))`;
+      const maxRes = await tx.$queryRaw<Array<{ max_num: number | null }>>`
+        SELECT MAX(CAST(SPLIT_PART(codigo, '-', 3) AS INTEGER)) AS max_num
+        FROM tickets_mantenimiento
+        WHERE codigo LIKE ${prefix + "%"}
+          AND SPLIT_PART(codigo, '-', 3) ~ '^[0-9]+$'
+      `;
+      const ultimoConsecutivoTicket = Number(maxRes?.[0]?.max_num ?? 0);
+      const codigo = `${prefix}${String(ultimoConsecutivoTicket + 1).padStart(3, "0")}`;
+
+      return tx.ticketMantenimiento.create({
+        data: {
+          codigo,
+          titulo: titulo.trim(),
+          descripcion: descripcion.trim(),
+          categoria,
+          categoriaPersonalizada:
+            categoria === CategoriaTicket.OTRO && categoriaPersonalizada?.trim()
+              ? categoriaPersonalizada.trim()
+              : null,
+          urgencia,
+          estado: EstadoTicket.PENDIENTE,
+          fotosAveria,
+          propiedadId,
+          unidadId: unidadId || null,
+          inquilinoId: inquilino.id,
+        },
+        include: {
+          propiedad: true,
+          unidad: true,
+        },
+      });
     });
 
     // Notificación en segundo plano al Administrador (< 150 ms)
@@ -771,43 +775,46 @@ export async function crearTicketAdminAction(input: CrearTicketAdminInput) {
     } = validacion.data;
 
     const anoActual = new Date().getFullYear();
-    const ultimoTicket2 = await prisma.ticketMantenimiento.findFirst({
-      where: { codigo: { startsWith: `TCK-${anoActual}-` } },
-      orderBy: { codigo: "desc" },
-      select: { codigo: true },
-    });
-    const ultimoConsecutivoTicket2 = ultimoTicket2
-      ? parseInt(ultimoTicket2.codigo.split("-")[2] ?? "0", 10)
-      : 0;
-    const codigo = `TCK-${anoActual}-${String(ultimoConsecutivoTicket2 + 1).padStart(3, "0")}`;
-
+    const prefix = `TCK-${anoActual}-`;
     const estadoInicial = empleadoId ? EstadoTicket.EN_PROCESO : EstadoTicket.PENDIENTE;
 
-    const ticketCreado = await prisma.ticketMantenimiento.create({
-      data: {
-        codigo,
-        titulo: titulo.trim(),
-        descripcion: descripcion.trim(),
-        categoria,
-        categoriaPersonalizada:
-          categoria === CategoriaTicket.OTRO && categoriaPersonalizada?.trim()
-            ? categoriaPersonalizada.trim()
-            : null,
-        urgencia,
-        estado: estadoInicial,
-        fotosAveria,
-        propiedadId,
-        unidadId: unidadId || null,
-        inquilinoId: inquilinoId || null,
-        empleadoId: empleadoId || null,
-        notasAdmin: notasAdmin?.trim() || null,
-        fechaAsignacion: empleadoId ? new Date() : null,
-      },
-      include: {
-        propiedad: true,
-        unidad: true,
-        empleado: true,
-      },
+    const ticketCreado = await prisma.$transaction(async (tx) => {
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${prefix}))`;
+      const maxRes = await tx.$queryRaw<Array<{ max_num: number | null }>>`
+        SELECT MAX(CAST(SPLIT_PART(codigo, '-', 3) AS INTEGER)) AS max_num
+        FROM tickets_mantenimiento
+        WHERE codigo LIKE ${prefix + "%"}
+          AND SPLIT_PART(codigo, '-', 3) ~ '^[0-9]+$'
+      `;
+      const ultimoConsecutivoTicket2 = Number(maxRes?.[0]?.max_num ?? 0);
+      const codigo = `${prefix}${String(ultimoConsecutivoTicket2 + 1).padStart(3, "0")}`;
+
+      return tx.ticketMantenimiento.create({
+        data: {
+          codigo,
+          titulo: titulo.trim(),
+          descripcion: descripcion.trim(),
+          categoria,
+          categoriaPersonalizada:
+            categoria === CategoriaTicket.OTRO && categoriaPersonalizada?.trim()
+              ? categoriaPersonalizada.trim()
+              : null,
+          urgencia,
+          estado: estadoInicial,
+          fotosAveria,
+          propiedadId,
+          unidadId: unidadId || null,
+          inquilinoId: inquilinoId || null,
+          empleadoId: empleadoId || null,
+          notasAdmin: notasAdmin?.trim() || null,
+          fechaAsignacion: empleadoId ? new Date() : null,
+        },
+        include: {
+          propiedad: true,
+          unidad: true,
+          empleado: true,
+        },
+      });
     });
 
     if (ticketCreado.empleado && ticketCreado.empleado.email) {
@@ -941,10 +948,22 @@ export async function iniciarReparacionAction(ticketId: string) {
     const session = await auth();
     if (!session?.user?.id) throw new Error("No autenticado");
 
+    const usuario = await prisma.usuario.findUnique({
+      where: { id: session.user.id },
+      select: { activo: true, rol: true, empleado: { select: { id: true } } },
+    });
+    if (!usuario?.activo || (usuario.rol !== "ADMIN" && usuario.rol !== "EMPLEADO")) {
+      return { success: false, error: "No autorizado para iniciar reparaciones." };
+    }
+
     const ticket = await prisma.ticketMantenimiento.findUnique({
       where: { id: ticketId },
     });
     if (!ticket) return { success: false, error: "El ticket no existe." };
+
+    if (usuario.rol !== "ADMIN" && ticket.empleadoId !== usuario.empleado?.id) {
+      return { success: false, error: "No autorizado para operar sobre este ticket." };
+    }
 
     await prisma.ticketMantenimiento.update({
       where: { id: ticketId },
@@ -981,6 +1000,14 @@ export async function resolverTicketAction(input: ResolverTicketInput) {
     const session = await auth();
     if (!session?.user?.id) throw new Error("No autenticado");
 
+    const usuario = await prisma.usuario.findUnique({
+      where: { id: session.user.id },
+      select: { activo: true, rol: true, empleado: { select: { id: true } } },
+    });
+    if (!usuario?.activo || (usuario.rol !== "ADMIN" && usuario.rol !== "EMPLEADO")) {
+      return { success: false, error: "No autorizado para resolver tickets." };
+    }
+
     const validacion = resolverTicketSchema.safeParse(input);
     if (!validacion.success) {
       return { success: false, error: validacion.error.issues[0]?.message || "Datos inválidos" };
@@ -1000,6 +1027,10 @@ export async function resolverTicketAction(input: ResolverTicketInput) {
 
     if (!ticketActual) {
       return { success: false, error: "El ticket no existe." };
+    }
+
+    if (usuario.rol !== "ADMIN" && ticketActual.empleadoId !== usuario.empleado?.id) {
+      return { success: false, error: "No autorizado para finiquitar este ticket." };
     }
 
     const ahora = new Date();

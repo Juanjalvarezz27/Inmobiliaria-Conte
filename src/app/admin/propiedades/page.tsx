@@ -3,6 +3,8 @@ import { getUnidades } from "@/lib/actions/unidades";
 import { EstadoUnidad } from "@prisma/client";
 import { PropiedadesClient } from "./PropiedadesClient";
 
+export const dynamic = "force-dynamic";
+
 export const metadata = {
   title: "Propiedades y Espacios | Inmobiliaria Conté",
   description: "Gestión integral del parque inmobiliario: complejos, edificios, unidades y locales.",

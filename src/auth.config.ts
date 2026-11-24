@@ -14,8 +14,8 @@ export const authConfig: NextAuthConfig = {
 
       // --- Protección de endpoints API ---
       if (pathname.startsWith("/api")) {
-        // Endpoints de autenticación de NextAuth siempre accesibles
-        if (pathname.startsWith("/api/auth")) return true;
+        // Endpoints de autenticación y cron jobs (validan CRON_SECRET internamente) siempre accesibles
+        if (pathname.startsWith("/api/auth") || pathname.startsWith("/api/cron")) return true;
 
         // Cualquier otro endpoint sin sesión activa → 401
         if (!isLoggedIn) {
@@ -30,6 +30,7 @@ export const authConfig: NextAuthConfig = {
       // --- Protección de páginas públicas ---
       // Las rutas de login (/ y /home/login) son las únicas públicas
       const isPublicPage = pathname === "/" || pathname === "/home/login";
+      const isExpiredSession = nextUrl.searchParams.get("expired") === "1";
 
       // Función auxiliar para obtener la URL de destino según el rol
       const getRoleDashboard = (rol?: string) => {
@@ -39,8 +40,8 @@ export const authConfig: NextAuthConfig = {
         return "/home/dashboard";
       };
 
-      // Usuario con sesión intentando entrar al login → redirigir a su dashboard correspondiente
-      if (isLoggedIn && isPublicPage) {
+      // Usuario con sesión intentando entrar al login (salvo sesión expirada/revocada) → redirigir a su dashboard
+      if (isLoggedIn && isPublicPage && !isExpiredSession) {
         return Response.redirect(new URL(getRoleDashboard(auth?.user?.rol), nextUrl));
       }
 
@@ -50,7 +51,12 @@ export const authConfig: NextAuthConfig = {
       }
 
       // --- Protección granular por rol (RBAC) para usuarios autenticados ---
-      if (isLoggedIn) {
+      if (isLoggedIn && !isExpiredSession) {
+        // Forzar cambio de clave inicial si mustChangePassword está activo
+        if (auth?.user?.mustChangePassword && pathname !== "/auth/change-password") {
+          return Response.redirect(new URL("/auth/change-password", nextUrl));
+        }
+
         const userRole = auth?.user?.rol;
 
         // Si intentan entrar a /home/dashboard genérico, redirigir a su portal específico

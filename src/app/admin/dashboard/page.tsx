@@ -179,8 +179,8 @@ export default async function AdminDashboardPage() {
       category: "Operaciones",
       badge: "Programación",
       description: "Calendario de cobros, vencimientos de contratos a 90/30 días y recordatorios automáticos.",
-      href: "/admin/agenda",
-      actionText: "Consultar Agenda",
+      href: "/admin/contratos",
+      actionText: "Consultar Vencimientos",
       icon: CalendarDays,
       colorTokens: {
         glow: "bg-purple-600/20",

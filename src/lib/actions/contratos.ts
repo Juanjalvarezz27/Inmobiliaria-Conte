@@ -464,20 +464,19 @@ export async function createContrato(data: CreateContratoInput) {
         throw new Error(`El espacio "${unidad.codigo}" ya se encuentra ocupado por otro contrato activo.`);
       }
 
-      // 2. Generar código único de contrato (robusto ante inserciones concurrentes)
+      // 2. Generar código único de contrato con bloqueo transaccional por año y máximo numérico real
       const year = fInicio.getFullYear();
-      // Buscar el máximo consecutivo ya registrado para este año en lugar de COUNT,
-      // para evitar colisiones cuando dos requests simultáneos lean el mismo count antes de insertar
-      const ultimoContrato = await tx.contrato.findFirst({
-        where: { codigo: { startsWith: `CTR-${year}-` } },
-        orderBy: { codigo: "desc" },
-        select: { codigo: true },
-      });
-      const ultimoConsecutivo = ultimoContrato
-        ? parseInt(ultimoContrato.codigo.split("-")[2] ?? "0", 10)
-        : 0;
+      const prefix = `CTR-${year}-`;
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${prefix}))`;
+      const maxRes = await tx.$queryRaw<Array<{ max_num: number | null }>>`
+        SELECT MAX(CAST(SPLIT_PART(codigo, '-', 3) AS INTEGER)) AS max_num
+        FROM contratos
+        WHERE codigo LIKE ${prefix + "%"}
+          AND SPLIT_PART(codigo, '-', 3) ~ '^[0-9]+$'
+      `;
+      const ultimoConsecutivo = Number(maxRes?.[0]?.max_num ?? 0);
       const consecutivo = String(ultimoConsecutivo + 1).padStart(3, "0");
-      const codigoContrato = `CTR-${year}-${consecutivo}`;
+      const codigoContrato = `${prefix}${consecutivo}`;
 
       // 3. Crear el contrato
       const tieneDeposito = parsed.depositoGarantia && parsed.depositoGarantia > 0;

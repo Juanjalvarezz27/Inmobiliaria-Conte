@@ -8,6 +8,7 @@ import { z } from "zod";
 import { MetodoPago, MonedaTransaccion } from "@prisma/client";
 import type { PagoItem } from "@/app/admin/cobranza/types";
 import { getTasaBcvOficial, type TasaBcvResponse } from "@/lib/bcv";
+import { getPartesFechaVenezuela } from "@/lib/date-utils";
 import { enviarNotificacionPagoReportadoAdmin } from "@/lib/email-templates/notificacion-pago-reportado";
 import { sincronizarCuotasMes } from "@/lib/actions/cobranza";
 
@@ -139,55 +140,260 @@ export async function getInquilinoDashboardData(): Promise<{
     throw new Error("No autenticado");
   }
 
-  // Buscar el perfil Inquilino vinculado al usuario
-  let inquilino = await prisma.inquilino.findUnique({
-    where: { usuarioId: session.user.id },
-    include: {
-      contratos: {
-        where: { estado: { in: ["ACTIVO", "POR_VENCER"] } },
+  try {
+    const usuarioActivo = await prisma.usuario.findUnique({
+      where: { id: session.user.id },
+      select: { activo: true, rol: true, email: true },
+    });
+    if (!usuarioActivo?.activo || (usuarioActivo.rol !== "INQUILINO" && usuarioActivo.rol !== "ADMIN")) {
+      throw new Error("No autorizado");
+    }
+
+    // Buscar el perfil Inquilino vinculado al usuario
+    let inquilino = await prisma.inquilino.findUnique({
+      where: { usuarioId: session.user.id },
+      include: {
+        contratos: {
+          where: { estado: { in: ["ACTIVO", "POR_VENCER"] } },
+          include: {
+            unidad: { include: { propiedad: true } },
+            pagos: { orderBy: [{ periodoAno: "desc" }, { periodoMes: "desc" }] },
+          },
+        },
+      },
+    });
+
+    // Solo asociar por email si el perfil de inquilino aún no tiene usuarioId vinculado
+    if (!inquilino && usuarioActivo.email) {
+      inquilino = await prisma.inquilino.findFirst({
+        where: { email: usuarioActivo.email, usuarioId: null, activo: true },
         include: {
-          unidad: { include: { propiedad: true } },
-          pagos: { orderBy: [{ periodoAno: "desc" }, { periodoMes: "desc" }] },
-        },
-      },
-    },
-  });
-
-  // Si no se encuentra por usuarioId, intentar buscar por correo electrónico
-  if (!inquilino && session.user.email) {
-    inquilino = await prisma.inquilino.findFirst({
-      where: { email: session.user.email },
-      include: {
-        contratos: {
-          where: { estado: { in: ["ACTIVO", "POR_VENCER"] } },
-          include: {
-            unidad: { include: { propiedad: true } },
-            pagos: { orderBy: [{ periodoAno: "desc" }, { periodoMes: "desc" }] },
+          contratos: {
+            where: { estado: { in: ["ACTIVO", "POR_VENCER"] } },
+            include: {
+              unidad: { include: { propiedad: true } },
+              pagos: { orderBy: [{ periodoAno: "desc" }, { periodoMes: "desc" }] },
+            },
           },
         },
-      },
-    });
-  }
+      });
+    }
 
-  // Si es Administrador y no tiene perfil de inquilino propio, activar Modo Supervisión
-  let esAdminModoSupervision = false;
-  if (!inquilino && session.user.rol === "ADMIN") {
-    esAdminModoSupervision = true;
-    inquilino = await prisma.inquilino.findFirst({
-      where: { activo: true, contratos: { some: { estado: { in: ["ACTIVO", "POR_VENCER"] } } } },
-      include: {
-        contratos: {
-          where: { estado: { in: ["ACTIVO", "POR_VENCER"] } },
-          include: {
-            unidad: { include: { propiedad: true } },
-            pagos: { orderBy: [{ periodoAno: "desc" }, { periodoMes: "desc" }] },
+    // Si es Administrador y no tiene perfil de inquilino propio, activar Modo Supervisión
+    let esAdminModoSupervision = false;
+    if (!inquilino && usuarioActivo.rol === "ADMIN") {
+      esAdminModoSupervision = true;
+      inquilino = await prisma.inquilino.findFirst({
+        where: { activo: true, contratos: { some: { estado: { in: ["ACTIVO", "POR_VENCER"] } } } },
+        include: {
+          contratos: {
+            where: { estado: { in: ["ACTIVO", "POR_VENCER"] } },
+            include: {
+              unidad: { include: { propiedad: true } },
+              pagos: { orderBy: [{ periodoAno: "desc" }, { periodoMes: "desc" }] },
+            },
           },
         },
-      },
-    });
-  }
+      });
+    }
 
-  if (!inquilino || inquilino.contratos.length === 0) {
+    if (!inquilino || inquilino.contratos.length === 0) {
+      return {
+        resumen: {
+          semaforoEstado: "SIN_CONTRATO",
+          montoCanonTotal: 0,
+          montoDeudaVencida: 0,
+          cuotasVencidasCount: 0,
+          periodosVencidos: [],
+          periodoVencidoTexto: null,
+          montoPorPagar: 0,
+          diasParaVencer: null,
+          fechaProximoVencimiento: null,
+          periodoProximoVencimiento: null,
+          ultimoPeriodoPagado: null,
+          proximoDiaCorte: null,
+          totalLocalesActivos: 0,
+          detalleEspacioPrincipal: null,
+          mesesRestantesContrato: null,
+          codigoContratoPrincipal: null,
+          cuotasPagadasCount: 0,
+          montoDepositoGarantia: null,
+          esAdminModoSupervision,
+          inquilinoNombre: inquilino?.nombre || session.user.nombre || "Inquilino",
+          documentoIdentidad: inquilino?.documentoIdentidad || "Sin documento",
+          serviciosLuzPendientesCount: 0,
+          serviciosAguaPendientesCount: 0,
+          totalServiciosPendientes: 0,
+        },
+        locales: [],
+      };
+    }
+
+    const ahora = new Date();
+    const { mes: mesActual, ano: anoActual } = getPartesFechaVenezuela(ahora);
+
+    let montoCanonTotal = 0;
+    let montoDeudaVencida = 0;
+    let cuotasVencidasCount = 0;
+    let cuotasPagadasCount = 0;
+    let montoPorPagar = 0;
+    let proximoVencimiento: Date | null = null;
+    let periodoProximoVencimiento: string | null = null;
+    let proximoDiaCorte: number | null = null;
+    let tieneCuotaMesActualImpaga = false;
+
+    let serviciosLuzPendientesCount = 0;
+    let serviciosAguaPendientesCount = 0;
+
+    let ultimoPeriodoAnoMes = 0;
+    let ultimoPeriodoPagado: string | null = null;
+    const periodosVencidos: string[] = [];
+
+    const locales: LocalArrendadoResumen[] = [];
+
+    for (const contrato of inquilino.contratos) {
+      montoCanonTotal += contrato.montoAlquiler;
+      if (proximoDiaCorte === null || contrato.diaCobro < proximoDiaCorte) {
+        proximoDiaCorte = contrato.diaCobro;
+      }
+
+      locales.push({
+        id: contrato.unidad.id,
+        codigoLocal: contrato.unidad.codigo,
+        propiedadNombre: contrato.unidad.propiedad.nombre,
+        tipoPropiedad: contrato.unidad.propiedad.tipo,
+        tipoUnidad: contrato.unidad.tipo,
+        piso: contrato.unidad.piso,
+        areaMt2: contrato.unidad.areaMt2,
+        canonMensual: contrato.montoAlquiler,
+        contratoCodigo: contrato.codigo,
+        contratoId: contrato.id,
+        diaCobro: contrato.diaCobro,
+        fechaInicio: contrato.fechaInicio.toISOString(),
+        fechaFin: contrato.fechaFin.toISOString(),
+        documentoUrl: contrato.documentoUrl,
+      });
+
+      // Evaluar pagos asociados al contrato
+      for (const pago of contrato.pagos) {
+        // Computar solvencia de servicios públicos para meses corrientes o pasados
+        const esMesCorrienteOPasado =
+          pago.periodoAno < anoActual ||
+          (pago.periodoAno === anoActual && pago.periodoMes <= mesActual);
+
+        if (esMesCorrienteOPasado) {
+          if (!pago.luzSolvente) serviciosLuzPendientesCount += 1;
+          if (!pago.aguaSolvente) serviciosAguaPendientesCount += 1;
+        }
+
+        const saldoPendiente = Math.max(0, pago.montoEsperado - pago.montoPagado);
+        
+        if (saldoPendiente <= 0) {
+          cuotasPagadasCount += 1;
+          const peso = pago.periodoAno * 100 + pago.periodoMes;
+          if (peso > ultimoPeriodoAnoMes) {
+            ultimoPeriodoAnoMes = peso;
+            ultimoPeriodoPagado = `${NOMBRES_MESES[pago.periodoMes - 1]} ${pago.periodoAno}`;
+          }
+          continue;
+        }
+
+        const fechaVenc = new Date(pago.fechaVencimiento);
+        const estaVencido = pago.estado === "VENCIDO" || fechaVenc < ahora;
+
+        if (pago.periodoAno === anoActual && pago.periodoMes === mesActual) {
+          tieneCuotaMesActualImpaga = true;
+        }
+
+        if (estaVencido) {
+          montoDeudaVencida += saldoPendiente;
+          cuotasVencidasCount += 1;
+          const nombrePeriodo = `${NOMBRES_MESES[pago.periodoMes - 1]} ${pago.periodoAno}`;
+          if (!periodosVencidos.includes(nombrePeriodo)) {
+            periodosVencidos.push(nombrePeriodo);
+          }
+        } else {
+          montoPorPagar += saldoPendiente;
+          if (!proximoVencimiento || fechaVenc < proximoVencimiento) {
+            proximoVencimiento = fechaVenc;
+            periodoProximoVencimiento = `${NOMBRES_MESES[pago.periodoMes - 1]} ${pago.periodoAno}`;
+          }
+        }
+      }
+    }
+
+    // Datos contractuales adicionales para métricas clave
+    let mesesRestantesContrato: number | null = null;
+    let codigoContratoPrincipal: string | null = null;
+    let montoDepositoGarantia: number | null = null;
+    let detalleEspacioPrincipal: string | null = null;
+
+    if (inquilino.contratos.length > 0) {
+      const primerContrato = inquilino.contratos[0];
+      codigoContratoPrincipal = primerContrato.codigo;
+      const diffMeses = (primerContrato.fechaFin.getFullYear() - ahora.getFullYear()) * 12 +
+                        (primerContrato.fechaFin.getMonth() - ahora.getMonth());
+      mesesRestantesContrato = Math.max(0, diffMeses);
+
+      if (primerContrato.depositoGarantia && primerContrato.depositoEstado === "COBRADO") {
+        montoDepositoGarantia = primerContrato.depositoGarantia;
+      }
+    }
+
+    if (locales.length > 0) {
+      detalleEspacioPrincipal = `${locales[0].propiedadNombre} • ${locales[0].codigoLocal}`;
+    }
+
+    let diasParaVencer: number | null = null;
+    if (proximoVencimiento) {
+      const diffMs = proximoVencimiento.getTime() - ahora.getTime();
+      diasParaVencer = Math.max(0, Math.ceil(diffMs / (1000 * 60 * 60 * 24)));
+    }
+
+    let semaforoEstado: SemaforoEstado = "AL_DIA";
+    const periodoVencidoTexto = periodosVencidos.length > 0 ? periodosVencidos.join(", ") : null;
+
+    if (montoDeudaVencida > 0) {
+      semaforoEstado = "EN_MORA";
+    } else if (tieneCuotaMesActualImpaga) {
+      semaforoEstado = "POR_PAGAR";
+    } else if (montoPorPagar > 0 && diasParaVencer !== null && diasParaVencer <= 5) {
+      semaforoEstado = "POR_PAGAR";
+    } else {
+      semaforoEstado = "AL_DIA";
+    }
+
+    return {
+      resumen: {
+        semaforoEstado,
+        montoCanonTotal,
+        montoDeudaVencida,
+        cuotasVencidasCount,
+        periodosVencidos,
+        periodoVencidoTexto,
+        montoPorPagar,
+        diasParaVencer,
+        fechaProximoVencimiento: proximoVencimiento ? proximoVencimiento.toISOString() : null,
+        periodoProximoVencimiento,
+        ultimoPeriodoPagado,
+        proximoDiaCorte,
+        totalLocalesActivos: locales.length,
+        detalleEspacioPrincipal,
+        mesesRestantesContrato,
+        codigoContratoPrincipal,
+        cuotasPagadasCount,
+        montoDepositoGarantia,
+        esAdminModoSupervision,
+        inquilinoNombre: `${inquilino.nombre} ${inquilino.apellido || ""}`.trim(),
+        documentoIdentidad: inquilino.documentoIdentidad,
+        serviciosLuzPendientesCount,
+        serviciosAguaPendientesCount,
+        totalServiciosPendientes: serviciosLuzPendientesCount + serviciosAguaPendientesCount,
+      },
+      locales,
+    };
+  } catch (error) {
+    console.error("Error en getInquilinoDashboardData:", error);
     return {
       resumen: {
         semaforoEstado: "SIN_CONTRATO",
@@ -208,9 +414,9 @@ export async function getInquilinoDashboardData(): Promise<{
         codigoContratoPrincipal: null,
         cuotasPagadasCount: 0,
         montoDepositoGarantia: null,
-        esAdminModoSupervision,
-        inquilinoNombre: inquilino?.nombre || session.user.nombre || "Inquilino",
-        documentoIdentidad: inquilino?.documentoIdentidad || "Sin documento",
+        esAdminModoSupervision: false,
+        inquilinoNombre: session.user.nombre || "Inquilino",
+        documentoIdentidad: "Sin documento",
         serviciosLuzPendientesCount: 0,
         serviciosAguaPendientesCount: 0,
         totalServiciosPendientes: 0,
@@ -218,176 +424,6 @@ export async function getInquilinoDashboardData(): Promise<{
       locales: [],
     };
   }
-
-  const ahora = new Date();
-  const mesActual = ahora.getMonth() + 1;
-  const anoActual = ahora.getFullYear();
-
-  let montoCanonTotal = 0;
-  let montoDeudaVencida = 0;
-  let cuotasVencidasCount = 0;
-  let cuotasPagadasCount = 0;
-  let montoPorPagar = 0;
-  let proximoVencimiento: Date | null = null;
-  let periodoProximoVencimiento: string | null = null;
-  let proximoDiaCorte: number | null = null;
-  let tieneCuotaMesActualImpaga = false;
-
-  let serviciosLuzPendientesCount = 0;
-  let serviciosAguaPendientesCount = 0;
-
-  let ultimoPeriodoAnoMes = 0;
-  let ultimoPeriodoPagado: string | null = null;
-  const periodosVencidos: string[] = [];
-
-  const locales: LocalArrendadoResumen[] = [];
-
-  for (const contrato of inquilino.contratos) {
-    montoCanonTotal += contrato.montoAlquiler;
-    if (proximoDiaCorte === null || contrato.diaCobro < proximoDiaCorte) {
-      proximoDiaCorte = contrato.diaCobro;
-    }
-
-    locales.push({
-      id: contrato.unidad.id,
-      codigoLocal: contrato.unidad.codigo,
-      propiedadNombre: contrato.unidad.propiedad.nombre,
-      tipoPropiedad: contrato.unidad.propiedad.tipo,
-      tipoUnidad: contrato.unidad.tipo,
-      piso: contrato.unidad.piso,
-      areaMt2: contrato.unidad.areaMt2,
-      canonMensual: contrato.montoAlquiler,
-      contratoCodigo: contrato.codigo,
-      contratoId: contrato.id,
-      diaCobro: contrato.diaCobro,
-      fechaInicio: contrato.fechaInicio.toISOString(),
-      fechaFin: contrato.fechaFin.toISOString(),
-      documentoUrl: contrato.documentoUrl,
-    });
-
-    // Evaluar pagos asociados al contrato
-    for (const pago of contrato.pagos) {
-      // Computar solvencia de servicios públicos para meses corrientes o pasados
-      const esMesCorrienteOPasado =
-        pago.periodoAno < anoActual ||
-        (pago.periodoAno === anoActual && pago.periodoMes <= mesActual);
-
-      if (esMesCorrienteOPasado) {
-        if (!pago.luzSolvente) serviciosLuzPendientesCount += 1;
-        if (!pago.aguaSolvente) serviciosAguaPendientesCount += 1;
-      }
-
-      const saldoPendiente = Math.max(0, pago.montoEsperado - pago.montoPagado);
-      
-      if (saldoPendiente <= 0) {
-        cuotasPagadasCount += 1;
-        // Cuota solventada
-        const peso = pago.periodoAno * 100 + pago.periodoMes;
-        if (peso > ultimoPeriodoAnoMes) {
-          ultimoPeriodoAnoMes = peso;
-          ultimoPeriodoPagado = `${NOMBRES_MESES[pago.periodoMes - 1]} ${pago.periodoAno}`;
-        }
-        continue;
-      }
-
-      const fechaVenc = new Date(pago.fechaVencimiento);
-      const estaVencido = pago.estado === "VENCIDO" || fechaVenc < ahora;
-
-      if (pago.periodoAno === anoActual && pago.periodoMes === mesActual) {
-        tieneCuotaMesActualImpaga = true;
-      }
-
-      if (estaVencido) {
-        montoDeudaVencida += saldoPendiente;
-        cuotasVencidasCount += 1;
-        const nombrePeriodo = `${NOMBRES_MESES[pago.periodoMes - 1]} ${pago.periodoAno}`;
-        if (!periodosVencidos.includes(nombrePeriodo)) {
-          periodosVencidos.push(nombrePeriodo);
-        }
-      } else {
-        montoPorPagar += saldoPendiente;
-        if (!proximoVencimiento || fechaVenc < proximoVencimiento) {
-          proximoVencimiento = fechaVenc;
-          periodoProximoVencimiento = `${NOMBRES_MESES[pago.periodoMes - 1]} ${pago.periodoAno}`;
-        }
-      }
-    }
-  }
-
-  // Datos contractuales adicionales para métricas clave
-  let mesesRestantesContrato: number | null = null;
-  let codigoContratoPrincipal: string | null = null;
-  let montoDepositoGarantia: number | null = null;
-  let detalleEspacioPrincipal: string | null = null;
-
-  if (inquilino.contratos.length > 0) {
-    const primerContrato = inquilino.contratos[0];
-    codigoContratoPrincipal = primerContrato.codigo;
-    const diffMeses = (primerContrato.fechaFin.getFullYear() - ahora.getFullYear()) * 12 +
-                      (primerContrato.fechaFin.getMonth() - ahora.getMonth());
-    mesesRestantesContrato = Math.max(0, diffMeses);
-
-    if (primerContrato.depositoGarantia && primerContrato.depositoEstado === "COBRADO") {
-      montoDepositoGarantia = primerContrato.depositoGarantia;
-    }
-  }
-
-  if (locales.length > 0) {
-    detalleEspacioPrincipal = `${locales[0].propiedadNombre} • ${locales[0].codigoLocal}`;
-  }
-
-  let diasParaVencer: number | null = null;
-  if (proximoVencimiento) {
-    const diffMs = proximoVencimiento.getTime() - ahora.getTime();
-    diasParaVencer = Math.max(0, Math.ceil(diffMs / (1000 * 60 * 60 * 24)));
-  }
-
-  let semaforoEstado: SemaforoEstado = "AL_DIA";
-  const periodoVencidoTexto = periodosVencidos.length > 0 ? periodosVencidos.join(", ") : null;
-
-  if (montoDeudaVencida > 0) {
-    // 1. Hay cuotas vencidas impagas
-    semaforoEstado = "EN_MORA";
-  } else if (tieneCuotaMesActualImpaga) {
-    // 2. La cuota del mes en curso está impaga
-    semaforoEstado = "POR_PAGAR";
-  } else if (montoPorPagar > 0 && diasParaVencer !== null && diasParaVencer <= 5) {
-    // 3. La cuota del próximo mes está a 5 días o menos de vencer (ventana de cobro regular)
-    semaforoEstado = "POR_PAGAR";
-  } else {
-    // 4. El mes actual está completamente solvente y la siguiente cuota aún no entra en ventana de cobro
-    semaforoEstado = "AL_DIA";
-  }
-
-  return {
-    resumen: {
-      semaforoEstado,
-      montoCanonTotal,
-      montoDeudaVencida,
-      cuotasVencidasCount,
-      periodosVencidos,
-      periodoVencidoTexto,
-      montoPorPagar,
-      diasParaVencer,
-      fechaProximoVencimiento: proximoVencimiento ? proximoVencimiento.toISOString() : null,
-      periodoProximoVencimiento,
-      ultimoPeriodoPagado,
-      proximoDiaCorte,
-      totalLocalesActivos: locales.length,
-      detalleEspacioPrincipal,
-      mesesRestantesContrato,
-      codigoContratoPrincipal,
-      cuotasPagadasCount,
-      montoDepositoGarantia,
-      esAdminModoSupervision,
-      inquilinoNombre: `${inquilino.nombre} ${inquilino.apellido || ""}`.trim(),
-      documentoIdentidad: inquilino.documentoIdentidad,
-      serviciosLuzPendientesCount,
-      serviciosAguaPendientesCount,
-      totalServiciosPendientes: serviciosLuzPendientesCount + serviciosAguaPendientesCount,
-    },
-    locales,
-  };
 }
 
 // 2. Obtener lista detallada de contratos del inquilino autenticado
@@ -402,138 +438,156 @@ export async function getInquilinoContratosData(): Promise<{
     throw new Error("No autenticado");
   }
 
-  let inquilino = await prisma.inquilino.findUnique({
-    where: { usuarioId: session.user.id },
-    include: {
-      contratos: {
-        orderBy: { createdAt: "desc" },
+  try {
+    const usuarioActivo = await prisma.usuario.findUnique({
+      where: { id: session.user.id },
+      select: { activo: true, rol: true, email: true },
+    });
+    if (!usuarioActivo?.activo || (usuarioActivo.rol !== "INQUILINO" && usuarioActivo.rol !== "ADMIN")) {
+      throw new Error("No autorizado");
+    }
+
+    let inquilino = await prisma.inquilino.findUnique({
+      where: { usuarioId: session.user.id },
+      include: {
+        contratos: {
+          orderBy: { createdAt: "desc" },
+          include: {
+            unidad: { include: { propiedad: true } },
+            pagos: true,
+          },
+        },
+      },
+    });
+
+    if (!inquilino && usuarioActivo.email) {
+      inquilino = await prisma.inquilino.findFirst({
+        where: { email: usuarioActivo.email, usuarioId: null, activo: true },
         include: {
-          unidad: { include: { propiedad: true } },
-          pagos: true,
-        },
-      },
-    },
-  });
-
-  if (!inquilino && session.user.email) {
-    inquilino = await prisma.inquilino.findFirst({
-      where: { email: session.user.email },
-      include: {
-        contratos: {
-          orderBy: { createdAt: "desc" },
-          include: {
-            unidad: { include: { propiedad: true } },
-            pagos: true,
+          contratos: {
+            orderBy: { createdAt: "desc" },
+            include: {
+              unidad: { include: { propiedad: true } },
+              pagos: true,
+            },
           },
         },
-      },
-    });
-  }
+      });
+    }
 
-  let esAdminModoSupervision = false;
-  if (!inquilino && session.user.rol === "ADMIN") {
-    esAdminModoSupervision = true;
-    inquilino = await prisma.inquilino.findFirst({
-      where: { activo: true, contratos: { some: {} } },
-      include: {
-        contratos: {
-          orderBy: { createdAt: "desc" },
-          include: {
-            unidad: { include: { propiedad: true } },
-            pagos: true,
+    let esAdminModoSupervision = false;
+    if (!inquilino && usuarioActivo.rol === "ADMIN") {
+      esAdminModoSupervision = true;
+      inquilino = await prisma.inquilino.findFirst({
+        where: { activo: true, contratos: { some: {} } },
+        include: {
+          contratos: {
+            orderBy: { createdAt: "desc" },
+            include: {
+              unidad: { include: { propiedad: true } },
+              pagos: true,
+            },
           },
         },
-      },
-    });
-  }
+      });
+    }
 
-  if (!inquilino) {
+    if (!inquilino) {
+      return {
+        contratos: [],
+        esAdminModoSupervision,
+        inquilinoNombre: session.user.nombre || "Inquilino",
+        documentoIdentidad: "Sin documento",
+      };
+    }
+
+    const ahora = new Date();
+
+    const contratos: InquilinoContratoDetalle[] = inquilino.contratos.map((c) => {
+      const fInicio = new Date(c.fechaInicio);
+      const fFin = new Date(c.fechaFin);
+
+      const mesesTotales = Math.max(
+        1,
+        (fFin.getFullYear() - fInicio.getFullYear()) * 12 + (fFin.getMonth() - fInicio.getMonth())
+      );
+
+      const mesesRestantes = Math.max(
+        0,
+        (fFin.getFullYear() - ahora.getFullYear()) * 12 + (fFin.getMonth() - ahora.getMonth())
+      );
+
+      const duracionTotalMs = Math.max(1, fFin.getTime() - fInicio.getTime());
+      const transcurridoMs = Math.max(0, ahora.getTime() - fInicio.getTime());
+      const porcentajeTranscurrido = Math.min(100, Math.max(0, Math.round((transcurridoMs / duracionTotalMs) * 100)));
+
+      const totalPagados = c.pagos.filter((p) => p.estado === "PAGADO").length;
+      const totalPendientes = c.pagos.filter((p) => p.estado === "PENDIENTE" && new Date(p.fechaVencimiento) >= ahora).length;
+      const totalVencidos = c.pagos.filter((p) => p.estado === "VENCIDO" || (p.estado === "PENDIENTE" && new Date(p.fechaVencimiento) < ahora)).length;
+
+      return {
+        id: c.id,
+        codigo: c.codigo,
+        estado: c.estado,
+        fechaInicio: c.fechaInicio.toISOString(),
+        fechaFin: c.fechaFin.toISOString(),
+        diaCobro: c.diaCobro,
+        montoAlquiler: c.montoAlquiler,
+        moneda: c.moneda,
+        documentoUrl: c.documentoUrl,
+        notas: c.notas,
+        mesesTotales,
+        mesesRestantes,
+        porcentajeTranscurrido,
+        unidad: {
+          id: c.unidad.id,
+          codigo: c.unidad.codigo,
+          tipo: c.unidad.tipo,
+          piso: c.unidad.piso,
+          areaMt2: c.unidad.areaMt2,
+          descripcion: c.unidad.descripcion,
+          imagenes: c.unidad.imagenes,
+          propiedad: {
+            id: c.unidad.propiedad.id,
+            nombre: c.unidad.propiedad.nombre,
+            tipo: c.unidad.propiedad.tipo,
+            direccion: c.unidad.propiedad.direccion,
+            ciudad: c.unidad.propiedad.ciudad,
+            telefonoContacto: c.unidad.propiedad.telefonoContacto,
+          },
+        },
+        deposito: {
+          monto: c.depositoGarantia,
+          estado: c.depositoEstado,
+          fechaCobro: c.depositoFechaCobro ? c.depositoFechaCobro.toISOString() : null,
+          metodoPago: c.depositoMetodoPago,
+          referencia: c.depositoReferencia,
+          comprobanteUrl: c.depositoComprobanteUrl,
+          notas: c.depositoNotas,
+        },
+        pagosResumen: {
+          totalPagados,
+          totalPendientes,
+          totalVencidos,
+        },
+      };
+    });
+
+    return {
+      contratos,
+      esAdminModoSupervision,
+      inquilinoNombre: `${inquilino.nombre} ${inquilino.apellido || ""}`.trim(),
+      documentoIdentidad: inquilino.documentoIdentidad,
+    };
+  } catch (error) {
+    console.error("Error en getInquilinoContratosData:", error);
     return {
       contratos: [],
-      esAdminModoSupervision,
+      esAdminModoSupervision: false,
       inquilinoNombre: session.user.nombre || "Inquilino",
       documentoIdentidad: "Sin documento",
     };
   }
-
-  const ahora = new Date();
-
-  const contratos: InquilinoContratoDetalle[] = inquilino.contratos.map((c) => {
-    const fInicio = new Date(c.fechaInicio);
-    const fFin = new Date(c.fechaFin);
-
-    const mesesTotales = Math.max(
-      1,
-      (fFin.getFullYear() - fInicio.getFullYear()) * 12 + (fFin.getMonth() - fInicio.getMonth())
-    );
-
-    const mesesRestantes = Math.max(
-      0,
-      (fFin.getFullYear() - ahora.getFullYear()) * 12 + (fFin.getMonth() - ahora.getMonth())
-    );
-
-    const duracionTotalMs = Math.max(1, fFin.getTime() - fInicio.getTime());
-    const transcurridoMs = Math.max(0, ahora.getTime() - fInicio.getTime());
-    const porcentajeTranscurrido = Math.min(100, Math.max(0, Math.round((transcurridoMs / duracionTotalMs) * 100)));
-
-    const totalPagados = c.pagos.filter((p) => p.estado === "PAGADO").length;
-    const totalPendientes = c.pagos.filter((p) => p.estado === "PENDIENTE" && new Date(p.fechaVencimiento) >= ahora).length;
-    const totalVencidos = c.pagos.filter((p) => p.estado === "VENCIDO" || (p.estado === "PENDIENTE" && new Date(p.fechaVencimiento) < ahora)).length;
-
-    return {
-      id: c.id,
-      codigo: c.codigo,
-      estado: c.estado,
-      fechaInicio: c.fechaInicio.toISOString(),
-      fechaFin: c.fechaFin.toISOString(),
-      diaCobro: c.diaCobro,
-      montoAlquiler: c.montoAlquiler,
-      moneda: c.moneda,
-      documentoUrl: c.documentoUrl,
-      notas: c.notas,
-      mesesTotales,
-      mesesRestantes,
-      porcentajeTranscurrido,
-      unidad: {
-        id: c.unidad.id,
-        codigo: c.unidad.codigo,
-        tipo: c.unidad.tipo,
-        piso: c.unidad.piso,
-        areaMt2: c.unidad.areaMt2,
-        descripcion: c.unidad.descripcion,
-        imagenes: c.unidad.imagenes,
-        propiedad: {
-          id: c.unidad.propiedad.id,
-          nombre: c.unidad.propiedad.nombre,
-          tipo: c.unidad.propiedad.tipo,
-          direccion: c.unidad.propiedad.direccion,
-          ciudad: c.unidad.propiedad.ciudad,
-          telefonoContacto: c.unidad.propiedad.telefonoContacto,
-        },
-      },
-      deposito: {
-        monto: c.depositoGarantia,
-        estado: c.depositoEstado,
-        fechaCobro: c.depositoFechaCobro ? c.depositoFechaCobro.toISOString() : null,
-        metodoPago: c.depositoMetodoPago,
-        referencia: c.depositoReferencia,
-        comprobanteUrl: c.depositoComprobanteUrl,
-        notas: c.depositoNotas,
-      },
-      pagosResumen: {
-        totalPagados,
-        totalPendientes,
-        totalVencidos,
-      },
-    };
-  });
-
-  return {
-    contratos,
-    esAdminModoSupervision,
-    inquilinoNombre: `${inquilino.nombre} ${inquilino.apellido || ""}`.trim(),
-    documentoIdentidad: inquilino.documentoIdentidad,
-  };
 }
 
 // 3. Obtener listado de cuotas y estado de pagos para el portal del inquilino
@@ -548,202 +602,226 @@ export async function getInquilinoPagosDataAction(): Promise<{
   if (!session?.user?.id) throw new Error("No autenticado");
 
   // Fase 24: Sincronizar bajo demanda el mes en curso y el próximo mes (máx 1 mes de adelanto)
-  const ahora = new Date();
-  const mesActual = ahora.getUTCMonth() + 1;
-  const anoActual = ahora.getUTCFullYear();
+  const { mes: mesActual, ano: anoActual } = getPartesFechaVenezuela();
   let proximoMes = mesActual + 1;
   let proximoAno = anoActual;
   if (proximoMes > 12) {
     proximoMes = 1;
     proximoAno += 1;
   }
-  await Promise.all([
-    sincronizarCuotasMes(mesActual, anoActual),
-    sincronizarCuotasMes(proximoMes, proximoAno),
-  ]);
 
-  // Obtener la tasa oficial BCV del día en paralelo
-  const tasaBcvActual = await getTasaBcvOficial();
+  try {
+    const usuarioActivo = await prisma.usuario.findUnique({
+      where: { id: session.user.id },
+      select: { activo: true, rol: true, email: true },
+    });
+    if (!usuarioActivo?.activo || (usuarioActivo.rol !== "INQUILINO" && usuarioActivo.rol !== "ADMIN")) {
+      throw new Error("No autorizado");
+    }
 
-  // Buscar el perfil Inquilino vinculado al usuario
-  let inquilino = await prisma.inquilino.findUnique({
-    where: { usuarioId: session.user.id },
-    include: {
-      contratos: {
+    await Promise.all([
+      sincronizarCuotasMes(mesActual, anoActual),
+      sincronizarCuotasMes(proximoMes, proximoAno),
+    ]);
+
+    // Obtener la tasa oficial BCV del día en paralelo
+    const tasaBcvActual = await getTasaBcvOficial();
+
+    // Buscar el perfil Inquilino vinculado al usuario
+    let inquilino = await prisma.inquilino.findUnique({
+      where: { usuarioId: session.user.id },
+      include: {
+        contratos: {
+          include: {
+            unidad: { include: { propiedad: true } },
+            pagos: {
+              orderBy: [{ periodoAno: "desc" }, { periodoMes: "desc" }],
+              include: {
+                transacciones: { orderBy: { fechaPago: "desc" } },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!inquilino && usuarioActivo.email) {
+      inquilino = await prisma.inquilino.findFirst({
+        where: { email: usuarioActivo.email, usuarioId: null, activo: true },
         include: {
-          unidad: { include: { propiedad: true } },
-          pagos: {
-            orderBy: [{ periodoAno: "desc" }, { periodoMes: "desc" }],
+          contratos: {
             include: {
-              transacciones: { orderBy: { fechaPago: "desc" } },
-            },
-          },
-        },
-      },
-    },
-  });
-
-  if (!inquilino && session.user.email) {
-    inquilino = await prisma.inquilino.findFirst({
-      where: { email: session.user.email },
-      include: {
-        contratos: {
-          include: {
-            unidad: { include: { propiedad: true } },
-            pagos: {
-              orderBy: [{ periodoAno: "desc" }, { periodoMes: "desc" }],
-              include: {
-                transacciones: { orderBy: { fechaPago: "desc" } },
+              unidad: { include: { propiedad: true } },
+              pagos: {
+                orderBy: [{ periodoAno: "desc" }, { periodoMes: "desc" }],
+                include: {
+                  transacciones: { orderBy: { fechaPago: "desc" } },
+                },
               },
             },
-          },
-        },
-      },
-    });
-  }
-
-  let esAdminModoSupervision = false;
-  if (!inquilino && session.user.rol === "ADMIN") {
-    esAdminModoSupervision = true;
-    inquilino = await prisma.inquilino.findFirst({
-      where: { activo: true, contratos: { some: {} } },
-      include: {
-        contratos: {
-          include: {
-            unidad: { include: { propiedad: true } },
-            pagos: {
-              orderBy: [{ periodoAno: "desc" }, { periodoMes: "desc" }],
-              include: {
-                transacciones: { orderBy: { fechaPago: "desc" } },
-              },
-            },
-          },
-        },
-      },
-    });
-  }
-
-  const { resumen } = await getInquilinoDashboardData();
-
-  if (!inquilino || inquilino.contratos.length === 0) {
-    return {
-      pagos: [],
-      resumen,
-      esAdminModoSupervision,
-      inquilinoNombre: session.user.name || "Inquilino",
-      tasaBcvActual,
-    };
-  }
-
-  // Aplanar todos los pagos de los contratos del inquilino serializados para Client Components
-  const todosLosPagos: PagoItem[] = [];
-
-  for (const c of inquilino.contratos) {
-    for (const p of c.pagos) {
-      todosLosPagos.push({
-        id: p.id,
-        contratoId: p.contratoId,
-        periodoMes: p.periodoMes,
-        periodoAno: p.periodoAno,
-        montoEsperado: p.montoEsperado,
-        montoPagado: p.montoPagado,
-        monedaOriginal: p.monedaOriginal,
-        montoOriginal: p.montoOriginal,
-        montoBs: p.montoBs,
-        tasaBcv: p.tasaBcv,
-        fechaVencimiento: p.fechaVencimiento.toISOString(),
-        fechaPago: p.fechaPago ? p.fechaPago.toISOString() : null,
-        metodoPago: p.metodoPago,
-        referencia: p.referencia,
-        comprobanteUrl: p.comprobanteUrl,
-        estado: p.estado,
-        notas: p.notas,
-        // Control de Servicios Públicos (Fase 27)
-        luzSolvente: Boolean(p.luzSolvente),
-        luzNumeroFactura: p.luzNumeroFactura || null,
-        luzComprobanteUrl: p.luzComprobanteUrl || null,
-        aguaSolvente: Boolean(p.aguaSolvente),
-        aguaNumeroFactura: p.aguaNumeroFactura || null,
-        aguaComprobanteUrl: p.aguaComprobanteUrl || null,
-        serviciosObservaciones: p.serviciosObservaciones || null,
-        fechaRevisionServicios: p.fechaRevisionServicios ? p.fechaRevisionServicios.toISOString() : null,
-        createdAt: p.createdAt.toISOString(),
-        updatedAt: p.updatedAt.toISOString(),
-        transacciones: p.transacciones.map((t) => ({
-          id: t.id,
-          pagoId: t.pagoId,
-          monto: t.monto,
-          monedaOriginal: t.monedaOriginal,
-          montoOriginal: t.montoOriginal,
-          montoBs: t.montoBs,
-          tasaBcv: t.tasaBcv,
-          fechaPago: t.fechaPago.toISOString(),
-          metodoPago: t.metodoPago,
-          referencia: t.referencia,
-          comprobanteUrl: t.comprobanteUrl,
-          notas: t.notas,
-          createdAt: t.createdAt.toISOString(),
-        })),
-        contrato: {
-          id: c.id,
-          codigo: c.codigo,
-          diaCobro: c.diaCobro,
-          moneda: c.moneda,
-          fechaInicio: c.fechaInicio.toISOString(),
-          fechaFin: c.fechaFin.toISOString(),
-          montoAlquiler: c.montoAlquiler,
-          depositoGarantia: c.depositoGarantia,
-          estado: c.estado,
-          documentoUrl: c.documentoUrl,
-          notas: c.notas,
-          unidad: {
-            id: c.unidad.id,
-            codigo: c.unidad.codigo,
-            tipo: c.unidad.tipo,
-            piso: c.unidad.piso,
-            areaMt2: c.unidad.areaMt2,
-            precioAlquiler: c.unidad.precioAlquiler,
-            descripcion: c.unidad.descripcion,
-            imagenes: c.unidad.imagenes,
-            propiedad: {
-              id: c.unidad.propiedad.id,
-              nombre: c.unidad.propiedad.nombre,
-              tipo: c.unidad.propiedad.tipo,
-              direccion: c.unidad.propiedad.direccion,
-              ciudad: c.unidad.propiedad.ciudad,
-              propietario: c.unidad.propiedad.propietario,
-              telefonoContacto: c.unidad.propiedad.telefonoContacto,
-            },
-          },
-          inquilino: {
-            id: inquilino.id,
-            nombre: inquilino.nombre,
-            apellido: inquilino.apellido,
-            documentoIdentidad: inquilino.documentoIdentidad,
-            telefono: inquilino.telefono,
-            telefonoSecundario: inquilino.telefonoSecundario,
-            email: inquilino.email,
-            tipoPersona: inquilino.tipoPersona,
-            direccion: inquilino.direccion,
           },
         },
       });
     }
+
+    let esAdminModoSupervision = false;
+    if (!inquilino && usuarioActivo.rol === "ADMIN") {
+      esAdminModoSupervision = true;
+      inquilino = await prisma.inquilino.findFirst({
+        where: { activo: true, contratos: { some: {} } },
+        include: {
+          contratos: {
+            include: {
+              unidad: { include: { propiedad: true } },
+              pagos: {
+                orderBy: [{ periodoAno: "desc" }, { periodoMes: "desc" }],
+                include: {
+                  transacciones: { orderBy: { fechaPago: "desc" } },
+                },
+              },
+            },
+          },
+        },
+      });
+    }
+
+    const { resumen } = await getInquilinoDashboardData();
+
+    if (!inquilino || inquilino.contratos.length === 0) {
+      return {
+        pagos: [],
+        resumen,
+        esAdminModoSupervision,
+        inquilinoNombre: session.user.nombre || "Inquilino",
+        tasaBcvActual,
+      };
+    }
+
+    // Aplanar todos los pagos de los contratos del inquilino serializados para Client Components
+    const todosLosPagos: PagoItem[] = [];
+
+    for (const c of inquilino.contratos) {
+      for (const p of c.pagos) {
+        todosLosPagos.push({
+          id: p.id,
+          contratoId: p.contratoId,
+          periodoMes: p.periodoMes,
+          periodoAno: p.periodoAno,
+          montoEsperado: p.montoEsperado,
+          montoPagado: p.montoPagado,
+          monedaOriginal: p.monedaOriginal,
+          montoOriginal: p.montoOriginal,
+          montoBs: p.montoBs,
+          tasaBcv: p.tasaBcv,
+          fechaVencimiento: p.fechaVencimiento.toISOString(),
+          fechaPago: p.fechaPago ? p.fechaPago.toISOString() : null,
+          metodoPago: p.metodoPago,
+          referencia: p.referencia,
+          comprobanteUrl: p.comprobanteUrl,
+          estado: p.estado,
+          notas: p.notas,
+          luzSolvente: Boolean(p.luzSolvente),
+          luzNumeroFactura: p.luzNumeroFactura || null,
+          luzComprobanteUrl: p.luzComprobanteUrl || null,
+          aguaSolvente: Boolean(p.aguaSolvente),
+          aguaNumeroFactura: p.aguaNumeroFactura || null,
+          aguaComprobanteUrl: p.aguaComprobanteUrl || null,
+          serviciosObservaciones: p.serviciosObservaciones || null,
+          fechaRevisionServicios: p.fechaRevisionServicios ? p.fechaRevisionServicios.toISOString() : null,
+          createdAt: p.createdAt.toISOString(),
+          updatedAt: p.updatedAt.toISOString(),
+          transacciones: p.transacciones.map((t) => ({
+            id: t.id,
+            pagoId: t.pagoId,
+            monto: t.monto,
+            monedaOriginal: t.monedaOriginal,
+            montoOriginal: t.montoOriginal,
+            montoBs: t.montoBs,
+            tasaBcv: t.tasaBcv,
+            fechaPago: t.fechaPago.toISOString(),
+            metodoPago: t.metodoPago,
+            referencia: t.referencia,
+            comprobanteUrl: t.comprobanteUrl,
+            notas: t.notas,
+            createdAt: t.createdAt.toISOString(),
+          })),
+          contrato: {
+            id: c.id,
+            codigo: c.codigo,
+            diaCobro: c.diaCobro,
+            moneda: c.moneda,
+            fechaInicio: c.fechaInicio.toISOString(),
+            fechaFin: c.fechaFin.toISOString(),
+            montoAlquiler: c.montoAlquiler,
+            depositoGarantia: c.depositoGarantia,
+            estado: c.estado,
+            documentoUrl: c.documentoUrl,
+            notas: c.notas,
+            unidad: {
+              id: c.unidad.id,
+              codigo: c.unidad.codigo,
+              tipo: c.unidad.tipo,
+              piso: c.unidad.piso,
+              areaMt2: c.unidad.areaMt2,
+              precioAlquiler: c.unidad.precioAlquiler,
+              descripcion: c.unidad.descripcion,
+              imagenes: c.unidad.imagenes,
+              propiedad: {
+                id: c.unidad.propiedad.id,
+                nombre: c.unidad.propiedad.nombre,
+                tipo: c.unidad.propiedad.tipo,
+                direccion: c.unidad.propiedad.direccion,
+                ciudad: c.unidad.propiedad.ciudad,
+                propietario: c.unidad.propiedad.propietario,
+                telefonoContacto: c.unidad.propiedad.telefonoContacto,
+              },
+            },
+            inquilino: {
+              id: inquilino.id,
+              nombre: inquilino.nombre,
+              apellido: inquilino.apellido,
+              documentoIdentidad: inquilino.documentoIdentidad,
+              telefono: inquilino.telefono,
+              telefonoSecundario: inquilino.telefonoSecundario,
+              email: inquilino.email,
+              tipoPersona: inquilino.tipoPersona,
+              direccion: inquilino.direccion,
+            },
+          },
+        });
+      }
+    }
+
+    // Ordenar cronológicamente (más recientes primero)
+    todosLosPagos.sort((a, b) => {
+      if (a.periodoAno !== b.periodoAno) return b.periodoAno - a.periodoAno;
+      return b.periodoMes - a.periodoMes;
+    });
+
+    return {
+      pagos: todosLosPagos,
+      resumen,
+      esAdminModoSupervision,
+      inquilinoNombre: `${inquilino.nombre} ${inquilino.apellido || ""}`.trim(),
+      tasaBcvActual,
+    };
+  } catch (error) {
+    console.error("Error en getInquilinoPagosDataAction:", error);
+    const { resumen } = await getInquilinoDashboardData();
+    const tasaFallback: TasaBcvResponse = {
+      tasa: 0,
+      fechaActualizacion: new Date().toISOString(),
+      fuente: "Respaldo",
+      esFallback: true,
+    };
+    return {
+      pagos: [],
+      resumen,
+      esAdminModoSupervision: false,
+      inquilinoNombre: session.user.nombre || "Inquilino",
+      tasaBcvActual: tasaFallback,
+    };
   }
-
-  // Ordenar cronológicamente (más recientes primero)
-  todosLosPagos.sort((a, b) => {
-    if (a.periodoAno !== b.periodoAno) return b.periodoAno - a.periodoAno;
-    return b.periodoMes - a.periodoMes;
-  });
-
-  return {
-    pagos: todosLosPagos,
-    resumen,
-    esAdminModoSupervision,
-    inquilinoNombre: `${inquilino.nombre} ${inquilino.apellido || ""}`.trim(),
-    tasaBcvActual,
-  };
 }
 
 const reportarPagoSchema = z.object({
@@ -778,6 +856,14 @@ export async function reportarPagoInquilinoAction(input: ReportarPagoInput): Pro
       };
     }
 
+    const usuarioActivo = await prisma.usuario.findUnique({
+      where: { id: session.user.id },
+      select: { activo: true, rol: true, email: true },
+    });
+    if (!usuarioActivo?.activo || (usuarioActivo.rol !== "INQUILINO" && usuarioActivo.rol !== "ADMIN")) {
+      return { success: false, error: "Cuenta no autorizada o desactivada." };
+    }
+
     const {
       pagoId,
       montoReportado,
@@ -790,107 +876,6 @@ export async function reportarPagoInquilinoAction(input: ReportarPagoInput): Pro
       notas,
     } = validacion.data;
 
-    const pago = await prisma.pago.findUnique({
-      where: { id: pagoId },
-      include: {
-        contrato: {
-          include: {
-            inquilino: true,
-            unidad: {
-              include: {
-                propiedad: true,
-              },
-            },
-          },
-        },
-      },
-    });
-
-    if (!pago) {
-      return { success: false, error: "La cuota seleccionada no existe" };
-    }
-
-    // Verificar autorización: el inquilino autenticado debe ser el dueño del contrato (salvo ADMIN en supervisión)
-    const esAdmin = session.user.rol === "ADMIN";
-    const esDueno =
-      pago.contrato.inquilino.usuarioId === session.user.id ||
-      pago.contrato.inquilino.email === session.user.email;
-
-    if (!esAdmin && !esDueno) {
-      return {
-        success: false,
-        error: "No tienes autorización para reportar pagos de este contrato",
-      };
-    }
-
-    // Validación estricta de negocio: No permitir reportar un monto superior al saldo pendiente
-    const saldoPendiente = Math.max(0, Number((pago.montoEsperado - pago.montoPagado).toFixed(2)));
-    if (montoReportado > saldoPendiente) {
-      return {
-        success: false,
-        error: `El monto reportado ($${montoReportado.toFixed(2)} USD) no puede superar el saldo pendiente de este canon ($${saldoPendiente.toFixed(2)} USD).`,
-      };
-    }
-
-    // Validación de Imputación Secuencial (Fase 24): No permitir pagar meses futuros si existen cuotas anteriores impagas
-    const cuotaAnteriorImpaga = await prisma.pago.findFirst({
-      where: {
-        contratoId: pago.contratoId,
-        OR: [
-          { periodoAno: { lt: pago.periodoAno } },
-          { periodoAno: pago.periodoAno, periodoMes: { lt: pago.periodoMes } },
-        ],
-        estado: { not: "PAGADO" },
-      },
-      orderBy: [
-        { periodoAno: "asc" },
-        { periodoMes: "asc" },
-      ],
-      select: {
-        periodoMes: true,
-        periodoAno: true,
-        montoEsperado: true,
-        montoPagado: true,
-      },
-    });
-
-    if (cuotaAnteriorImpaga) {
-      const nombreMesAnterior = new Date(Date.UTC(cuotaAnteriorImpaga.periodoAno, cuotaAnteriorImpaga.periodoMes - 1, 1)).toLocaleDateString("es-VE", {
-        month: "long",
-        year: "numeric",
-        timeZone: "UTC",
-      });
-      const saldoRestante = Math.max(0, cuotaAnteriorImpaga.montoEsperado - cuotaAnteriorImpaga.montoPagado).toFixed(2);
-      return {
-        success: false,
-        error: `Para mantener la correlatividad contable, debes solventar primero el canon de ${nombreMesAnterior} (Resta: $${saldoRestante} USD) antes de reportar este período.`,
-      };
-    }
-
-    // Validación de Tope Calendario (Fase 24): Máximo 1 mes por encima del mes calendario actual
-    const ahoraUTC = new Date();
-    const mesActualUtc = ahoraUTC.getUTCMonth() + 1;
-    const anoActualUtc = ahoraUTC.getUTCFullYear();
-    let maxMesAdelanto = mesActualUtc + 1;
-    let maxAnoAdelanto = anoActualUtc;
-    while (maxMesAdelanto > 12) {
-      maxMesAdelanto -= 12;
-      maxAnoAdelanto += 1;
-    }
-
-    const excedeTopeCalendario =
-      pago.periodoAno > maxAnoAdelanto ||
-      (pago.periodoAno === maxAnoAdelanto && pago.periodoMes > maxMesAdelanto);
-
-    if (excedeTopeCalendario) {
-      return {
-        success: false,
-        error: `Solo se permite reportar hasta 1 mes por encima del mes calendario actual (${maxMesAdelanto}/${maxAnoAdelanto}). Períodos posteriores se habilitarán cuando avance el calendario.`,
-      };
-    }
-
-    // Validación de correlatividad aprobada: al no tener cuotas previas impagas y no exceder el tope, el pago es elegible.
-
     // Determinar si es método en Bolívares y calcular montos congelados
     const esMonedaNacional =
       metodoPago === MetodoPago.PAGO_MOVIL || metodoPago === MetodoPago.TRANSFERENCIA;
@@ -901,34 +886,120 @@ export async function reportarPagoInquilinoAction(input: ReportarPagoInput): Pro
       ? montoBsCalculado || montoReportado
       : montoReportado;
 
-    // Actualizar la cuota con el soporte del inquilino para auditoría administrativa
     const fechaObj = new Date(fechaPago);
     const detalleBsAudit =
       esMonedaNacional && montoBsCalculado && tasaBcv
         ? ` • Bs. ${montoBsCalculado.toLocaleString("es-VE", { minimumFractionDigits: 2 })} @ Tasa BCV: ${tasaBcv.toFixed(2)} Bs/$`
         : "";
 
-    const notasLimpias = [
-      pago.notas,
-      `Reportado por inquilino: Ref ${referencia} ($${montoReportado.toFixed(2)} USD${detalleBsAudit}) el ${fechaPago}.`,
-      notas?.trim() || "",
-    ]
-      .filter(Boolean)
-      .join(" - ");
+    const pago = await prisma.$transaction(async (tx) => {
+      const pagoTx = await tx.pago.findUnique({
+        where: { id: pagoId },
+        include: {
+          contrato: {
+            include: {
+              inquilino: true,
+              unidad: { include: { propiedad: true } },
+            },
+          },
+        },
+      });
 
-    await prisma.pago.update({
-      where: { id: pagoId },
-      data: {
-        metodoPago,
-        referencia: referencia.trim(),
-        comprobanteUrl: comprobanteUrl.trim(),
-        fechaPago: isNaN(fechaObj.getTime()) ? new Date() : fechaObj,
-        monedaOriginal,
-        montoOriginal: montoOriginalCalculado,
-        montoBs: montoBsCalculado,
-        tasaBcv: tasaBcv || null,
-        notas: notasLimpias,
-      },
+      if (!pagoTx) throw new Error("La cuota seleccionada no existe");
+
+      const esAdmin = usuarioActivo.rol === "ADMIN";
+      const esDueno =
+        pagoTx.contrato.inquilino.usuarioId === session.user.id ||
+        (!pagoTx.contrato.inquilino.usuarioId &&
+          usuarioActivo.email &&
+          pagoTx.contrato.inquilino.email === usuarioActivo.email);
+
+      if (!esAdmin && !esDueno) {
+        throw new Error("No tienes autorización para reportar pagos de este contrato");
+      }
+
+      if (pagoTx.estado === "PAGADO") {
+        throw new Error("Esta cuota ya fue conciliada y marcada como pagada.");
+      }
+
+      const saldoPendiente = Math.max(0, Number((pagoTx.montoEsperado - pagoTx.montoPagado).toFixed(2)));
+      if (montoReportado > saldoPendiente) {
+        throw new Error(
+          `El monto reportado ($${montoReportado.toFixed(2)} USD) no puede superar el saldo pendiente de este canon ($${saldoPendiente.toFixed(2)} USD).`
+        );
+      }
+
+      const cuotaAnteriorImpaga = await tx.pago.findFirst({
+        where: {
+          contratoId: pagoTx.contratoId,
+          OR: [
+            { periodoAno: { lt: pagoTx.periodoAno } },
+            { periodoAno: pagoTx.periodoAno, periodoMes: { lt: pagoTx.periodoMes } },
+          ],
+          estado: { not: "PAGADO" },
+        },
+        orderBy: [{ periodoAno: "asc" }, { periodoMes: "asc" }],
+        select: { periodoMes: true, periodoAno: true, montoEsperado: true, montoPagado: true },
+      });
+
+      if (cuotaAnteriorImpaga) {
+        const nombreMesAnterior = new Date(
+          Date.UTC(cuotaAnteriorImpaga.periodoAno, cuotaAnteriorImpaga.periodoMes - 1, 1)
+        ).toLocaleDateString("es-VE", { month: "long", year: "numeric", timeZone: "UTC" });
+        const saldoRestante = Math.max(
+          0,
+          cuotaAnteriorImpaga.montoEsperado - cuotaAnteriorImpaga.montoPagado
+        ).toFixed(2);
+        throw new Error(
+          `Para mantener la correlatividad contable, debes solventar primero el canon de ${nombreMesAnterior} (Resta: $${saldoRestante} USD) antes de reportar este período.`
+        );
+      }
+
+      const { mes: mesActualCal, ano: anoActualCal } = getPartesFechaVenezuela();
+      let maxMesAdelanto = mesActualCal + 1;
+      let maxAnoAdelanto = anoActualCal;
+      while (maxMesAdelanto > 12) {
+        maxMesAdelanto -= 12;
+        maxAnoAdelanto += 1;
+      }
+      const excedeTopeCalendario =
+        pagoTx.periodoAno > maxAnoAdelanto ||
+        (pagoTx.periodoAno === maxAnoAdelanto && pagoTx.periodoMes > maxMesAdelanto);
+
+      if (excedeTopeCalendario) {
+        throw new Error(
+          `Solo se permite reportar hasta 1 mes por encima del mes calendario actual (${maxMesAdelanto}/${maxAnoAdelanto}). Períodos posteriores se habilitarán cuando avance el calendario.`
+        );
+      }
+
+      const notasLimpias = [
+        pagoTx.notas,
+        `Reportado por inquilino: Ref ${referencia} ($${montoReportado.toFixed(2)} USD${detalleBsAudit}) el ${fechaPago}.`,
+        notas?.trim() || "",
+      ]
+        .filter(Boolean)
+        .join(" - ");
+
+      const updated = await tx.pago.updateMany({
+        where: { id: pagoId, estado: { not: "PAGADO" } },
+        data: {
+          metodoPago,
+          referencia: referencia.trim(),
+          comprobanteUrl: comprobanteUrl.trim(),
+          fechaPago: isNaN(fechaObj.getTime()) ? new Date() : fechaObj,
+          monedaOriginal,
+          montoOriginal: montoOriginalCalculado,
+          montoBs: montoBsCalculado,
+          tasaBcv: tasaBcv || null,
+          notas: notasLimpias,
+        },
+      });
+
+      if (updated.count === 0) {
+        throw new Error("La cuota ya fue conciliada concurrentemente.");
+      }
+
+      return pagoTx;
     });
 
     // Enviar notificación por correo al administrador en segundo plano (respuesta instantánea < 150ms)

@@ -11,7 +11,7 @@ export default async function AdminLayout({
   const session = await auth();
 
   if (!session?.user) {
-    redirect("/home/login");
+    redirect("/home/login?expired=1");
   }
 
   if (session.user.rol !== "ADMIN") {

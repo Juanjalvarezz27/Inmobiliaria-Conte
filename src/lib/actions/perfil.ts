@@ -363,35 +363,39 @@ export async function actualizarDatosPerfilAction(input: ActualizarDatosPerfilIn
 
     // Si es Usuario No-Admin (Inquilino o Empleado):
     // REGLA ESTRICTA: La dirección, cédula, nombre y correo NO son editables por el usuario.
-    // Solo puede actualizar sus teléfonos de contacto.
-    const telLimpio = telefono ? telefono.trim() : null;
-    const telSecLimpio = telefonoSecundario ? telefonoSecundario.trim() : null;
+    // Solo puede actualizar sus teléfonos de contacto dentro de una transacción atómica.
+    const telLimpio = telefono !== undefined ? (telefono?.trim() || null) : undefined;
+    const telSecLimpio = telefonoSecundario !== undefined ? (telefonoSecundario?.trim() || null) : undefined;
 
-    await prisma.usuario.update({
-      where: { id: usuario.id },
-      data: {
-        telefono: telLimpio,
-      },
+    await prisma.$transaction(async (tx) => {
+      if (telLimpio !== undefined) {
+        await tx.usuario.update({
+          where: { id: usuario.id },
+          data: {
+            telefono: telLimpio,
+          },
+        });
+      }
+
+      if (usuario.inquilino && (telLimpio !== undefined || telSecLimpio !== undefined)) {
+        await tx.inquilino.update({
+          where: { id: usuario.inquilino.id },
+          data: {
+            ...(telLimpio ? { telefono: telLimpio } : {}),
+            ...(telSecLimpio !== undefined ? { telefonoSecundario: telSecLimpio } : {}),
+          },
+        });
+      }
+
+      if (usuario.empleado && telLimpio) {
+        await tx.empleado.update({
+          where: { id: usuario.empleado.id },
+          data: {
+            telefono: telLimpio,
+          },
+        });
+      }
     });
-
-    if (usuario.inquilino) {
-      await prisma.inquilino.update({
-        where: { id: usuario.inquilino.id },
-        data: {
-          telefono: telLimpio || usuario.inquilino.telefono,
-          ...(telefonoSecundario !== undefined ? { telefonoSecundario: telSecLimpio } : {}),
-        },
-      });
-    }
-
-    if (usuario.empleado) {
-      await prisma.empleado.update({
-        where: { id: usuario.empleado.id },
-        data: {
-          telefono: telLimpio || usuario.empleado.telefono,
-        },
-      });
-    }
 
     revalidatePath("/inquilino/perfil");
     revalidatePath("/empleado/perfil");
@@ -402,7 +406,7 @@ export async function actualizarDatosPerfilAction(input: ActualizarDatosPerfilIn
       success: true,
       message: "¡Teléfono de contacto actualizado exitosamente!",
       data: {
-        telefono: telLimpio,
+        telefono: telLimpio ?? usuario.telefono,
       },
     };
   } catch (error) {

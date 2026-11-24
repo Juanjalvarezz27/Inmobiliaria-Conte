@@ -5,6 +5,7 @@ import { requireAdminSession } from "@/lib/auth-guard";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { TipoPersona, EstadoContrato, EstadoUnidad, EstadoPago, Prisma } from "@prisma/client";
+import { getPartesFechaVenezuela } from "@/lib/date-utils";
 
 // Esquema de validación para registrar un inquilino
 const createInquilinoSchema = z.object({
@@ -295,13 +296,45 @@ export async function updateInquilino(id: string, data: UpdateInquilinoInput) {
       }
     }
 
-    const actualizado = await prisma.inquilino.update({
-      where: { id },
-      data: {
-        ...parsed,
-        email: parsed.email ? parsed.email.toLowerCase() : parsed.email === "" ? null : undefined,
-      },
-      select: INQUILINO_LIST_SELECT,
+    const actualizado = await prisma.$transaction(async (tx) => {
+      const emailNormalizado =
+        parsed.email === undefined
+          ? undefined
+          : parsed.email
+          ? parsed.email.toLowerCase().trim()
+          : null;
+
+      const inqActualizado = await tx.inquilino.update({
+        where: { id },
+        data: {
+          ...parsed,
+          email: emailNormalizado,
+        },
+        select: {
+          ...INQUILINO_LIST_SELECT,
+          usuarioId: true,
+        },
+      });
+
+      // Sincronizar datos básicos del Usuario vinculado si existe
+      if (inqActualizado.usuarioId) {
+        const updateUsuarioData: Prisma.UsuarioUpdateInput = {};
+        if (parsed.nombre !== undefined) updateUsuarioData.nombre = parsed.nombre;
+        if (parsed.apellido !== undefined) updateUsuarioData.apellido = parsed.apellido;
+        if (parsed.documentoIdentidad !== undefined) updateUsuarioData.cedula = parsed.documentoIdentidad;
+        if (parsed.telefono !== undefined) updateUsuarioData.telefono = parsed.telefono;
+        if (parsed.direccion !== undefined) updateUsuarioData.direccion = parsed.direccion;
+        if (emailNormalizado) updateUsuarioData.email = emailNormalizado;
+
+        if (Object.keys(updateUsuarioData).length > 0) {
+          await tx.usuario.update({
+            where: { id: inqActualizado.usuarioId },
+            data: updateUsuarioData,
+          });
+        }
+      }
+
+      return inqActualizado;
     });
 
     revalidatePath("/admin/inquilinos");
@@ -342,9 +375,7 @@ export async function archivarInquilino(
 
       // Si tiene contratos vigentes y se autorizó rescindir, procesarlos atómicamente:
       if (contratosActivos.length > 0 && opciones?.rescindirContratos) {
-        const hoy = new Date();
-        const mesActual = hoy.getMonth() + 1;
-        const anoActual = hoy.getFullYear();
+        const { mes: mesActual, ano: anoActual } = getPartesFechaVenezuela();
 
         for (const c of contratosActivos) {
           // Liberar el espacio a DISPONIBLE
@@ -374,12 +405,24 @@ export async function archivarInquilino(
         }
       }
 
-      // Marcar al inquilino como inactivo
-      return await tx.inquilino.update({
+      // Marcar al inquilino como inactivo y desactivar su usuario de acceso si existe
+      const inqInactivo = await tx.inquilino.update({
         where: { id },
         data: { activo: false },
-        select: INQUILINO_LIST_SELECT,
+        select: {
+          ...INQUILINO_LIST_SELECT,
+          usuarioId: true,
+        },
       });
+
+      if (inqInactivo.usuarioId) {
+        await tx.usuario.update({
+          where: { id: inqInactivo.usuarioId },
+          data: { activo: false },
+        });
+      }
+
+      return inqInactivo;
     });
 
     revalidatePath("/admin/inquilinos");

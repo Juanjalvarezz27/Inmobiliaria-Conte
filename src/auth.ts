@@ -12,34 +12,39 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     async session(params) {
       const baseSession = (await authConfig.callbacks?.session?.(params)) ?? params.session;
       if (baseSession?.user?.id) {
-        const u = await prisma.usuario.findUnique({
-          where: { id: baseSession.user.id },
-          select: {
-            activo: true,
-            nombre: true,
-            apellido: true,
-            email: true,
-            rol: true,
-            cedula: true,
-            mustChangePassword: true,
-            empleado: {
-              select: {
-                cargo: true,
+        try {
+          const u = await prisma.usuario.findUnique({
+            where: { id: baseSession.user.id },
+            select: {
+              activo: true,
+              nombre: true,
+              apellido: true,
+              email: true,
+              rol: true,
+              cedula: true,
+              mustChangePassword: true,
+              empleado: {
+                select: {
+                  cargo: true,
+                },
               },
             },
-          },
-        });
-        if (!u || !u.activo) {
+          });
+          if (!u || !u.activo) {
+            return null as unknown as typeof baseSession;
+          }
+          baseSession.user.nombre = u.nombre;
+          baseSession.user.apellido = u.apellido;
+          baseSession.user.email = u.email;
+          baseSession.user.rol = u.rol;
+          baseSession.user.cedula = u.cedula;
+          baseSession.user.mustChangePassword = u.mustChangePassword;
+          if (u.empleado?.cargo) {
+            baseSession.user.cargo = u.empleado.cargo;
+          }
+        } catch (err) {
+          console.error("Error validando sesión activa en BD:", err);
           return null as unknown as typeof baseSession;
-        }
-        baseSession.user.nombre = u.nombre;
-        baseSession.user.apellido = u.apellido;
-        baseSession.user.email = u.email;
-        baseSession.user.rol = u.rol;
-        baseSession.user.cedula = u.cedula;
-        baseSession.user.mustChangePassword = u.mustChangePassword;
-        if (u.empleado?.cargo) {
-          baseSession.user.cargo = u.empleado.cargo;
         }
       }
       return baseSession;

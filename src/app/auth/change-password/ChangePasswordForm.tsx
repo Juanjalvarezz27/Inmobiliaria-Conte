@@ -10,9 +10,16 @@ import { notify } from "@/lib/notifications";
 interface ChangePasswordFormProps {
   nombreUsuario: string;
   emailUsuario: string;
+  rolUsuario?: string;
 }
 
-export function ChangePasswordForm({ nombreUsuario, emailUsuario }: ChangePasswordFormProps) {
+export function ChangePasswordForm({ nombreUsuario, emailUsuario, rolUsuario }: ChangePasswordFormProps) {
+  const portalUrl =
+    rolUsuario === "ADMIN"
+      ? "/admin/dashboard"
+      : rolUsuario === "EMPLEADO"
+      ? "/empleado/dashboard"
+      : "/inquilino/dashboard";
   const [passwordNueva, setPasswordNueva] = useState("");
   const [passwordConfirmacion, setPasswordConfirmacion] = useState("");
   const [showNueva, setShowNueva] = useState(false);
@@ -41,7 +48,7 @@ export function ChangePasswordForm({ nombreUsuario, emailUsuario }: ChangePasswo
         notify.success("¡Contraseña actualizada!", "Bienvenido a tu portal. Redirigiendo...");
         // Redirigir refrescando estado de sesión para el guardián de rutas
         setTimeout(() => {
-          window.location.href = "/inquilino";
+          window.location.href = portalUrl;
         }, 1000);
       } else {
         notify.error("Error", res.message);
@@ -63,7 +70,7 @@ export function ChangePasswordForm({ nombreUsuario, emailUsuario }: ChangePasswo
         <div className="text-center mb-6 relative z-10">
           <div className="inline-flex items-center justify-center mb-3">
             <Image
-              src="/logo.png"
+              src="/Logo.png"
               alt="Inmobiliaria Conté"
               width={140}
               height={50}
@@ -174,7 +181,7 @@ export function ChangePasswordForm({ nombreUsuario, emailUsuario }: ChangePasswo
         {/* Enlaces de retorno y salir */}
         <div className="mt-5 pt-4 border-t border-slate-100 flex items-center justify-between text-xs font-semibold">
           <a
-            href="/inquilino"
+            href={portalUrl}
             className="text-slate-600 hover:text-[#175E38] transition-colors"
           >
             ← Volver a mi portal

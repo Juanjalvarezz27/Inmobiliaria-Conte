@@ -1,7 +1,7 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
-import { requireAdminSession } from "@/lib/auth-guard";
+import { requireAdminSession, assertAdminSession } from "@/lib/auth-guard";
 import { revalidatePath } from "next/cache";
 import { Prisma, EstadoUnidad, TipoUnidad, EstadoContrato } from "@prisma/client";
 import { eliminarArchivosUploadThing } from "@/lib/uploadthing-server";
@@ -97,6 +97,7 @@ export interface FiltrosUnidades extends PaginationParams {
 export async function getUnidadesPaginadasAction(
   filtros: FiltrosUnidades = {}
 ): Promise<PaginatedResult<unknown>> {
+  await assertAdminSession();
   const { page, pageSize, skip, take } = resolvePagination(filtros, 15);
   const where: Prisma.UnidadWhereInput = {};
 
@@ -133,6 +134,9 @@ export async function getUnidadesPaginadasAction(
 
 // Obtener todas las unidades (opcionalmente filtradas por propiedad) optimizado
 export async function getUnidades(propiedadId?: string) {
+  const authCheck = await requireAdminSession();
+  if (!authCheck.ok) return [];
+
   try {
     return await prisma.unidad.findMany({
       where: propiedadId ? { propiedadId } : undefined,
@@ -148,6 +152,9 @@ export async function getUnidades(propiedadId?: string) {
 
 // Obtener una unidad por ID optimizado
 export async function getUnidadById(id: string) {
+  const authCheck = await requireAdminSession();
+  if (!authCheck.ok) return null;
+
   try {
     return await prisma.unidad.findUnique({
       where: { id },
@@ -161,6 +168,17 @@ export async function getUnidadById(id: string) {
 
 // Obtener métricas consolidadas del parque inmobiliario
 export async function getEstadisticasPropiedades() {
+  const authCheck = await requireAdminSession();
+  if (!authCheck.ok) {
+    return {
+      totalPropiedades: 0,
+      totalUnidades: 0,
+      disponibles: 0,
+      ocupadas: 0,
+      tasaOcupacion: 0,
+    };
+  }
+
   try {
     const [totalPropiedades, totalUnidades, disponibles, ocupadas] = await Promise.all([
       prisma.propiedad.count(),
@@ -447,6 +465,16 @@ export interface DiagnosticoSubdivision {
  */
 export async function getHistorialInquilinosUnidadAction(unidadId: string) {
   try {
+    const authCheck = await requireAdminSession();
+    if (!authCheck.ok) {
+      return {
+        success: false,
+        error: authCheck.error,
+        contratos: [],
+        diagnostico: null,
+      };
+    }
+
     const unidad = await prisma.unidad.findUnique({
       where: { id: unidadId },
       select: {
@@ -676,7 +704,7 @@ export async function expandirInquilinoALocalCompletoAction(
   if (!authCheck.ok) return { success: false, error: authCheck.error };
 
   try {
-    return await prisma.$transaction(async (tx) => {
+    const resTx = await prisma.$transaction(async (tx) => {
       const matriz = await tx.unidad.findUnique({
         where: { id: input.unidadMatrizId },
       });
@@ -690,6 +718,12 @@ export async function expandirInquilinoALocalCompletoAction(
         },
       });
       if (!contrato) return { success: false, error: "Contrato vigente no encontrado." };
+      if (contrato.estado !== EstadoContrato.ACTIVO && contrato.estado !== EstadoContrato.POR_VENCER) {
+        return { success: false, error: "Solo se pueden expandir contratos vigentes." };
+      }
+      if (contrato.unidad.propiedadId !== matriz.propiedadId) {
+        return { success: false, error: "El contrato no pertenece a esta propiedad." };
+      }
 
       // Buscar subunidades asociadas a la matriz
       const subunidades = await tx.unidad.findMany({
@@ -761,9 +795,6 @@ export async function expandirInquilinoALocalCompletoAction(
         });
       }
 
-      revalidatePath("/admin/propiedades");
-      revalidatePath("/admin/contratos");
-
       return {
         success: true,
         data: matrizActualizada,
@@ -771,6 +802,12 @@ export async function expandirInquilinoALocalCompletoAction(
         message: `¡Expansión exitosa! "${inqNombre}" ahora arrienda el espacio completo "${matriz.codigo}" por $${canonFinal} USD/mes.`,
       };
     });
+
+    if (resTx.success) {
+      revalidatePath("/admin/propiedades");
+      revalidatePath("/admin/contratos");
+    }
+    return resTx;
   } catch (error) {
     console.error("Error al expandir inquilino al local completo:", error);
     return { success: false, error: "Ocurrió un error al procesar la expansión del local." };
@@ -789,7 +826,7 @@ export async function reunificarYReactivarMatrizAction(
   if (!authCheck.ok) return { success: false, error: authCheck.error };
 
   try {
-    return await prisma.$transaction(async (tx) => {
+    const resTx = await prisma.$transaction(async (tx) => {
       const matriz = await tx.unidad.findUnique({
         where: { id: unidadMatrizId },
       });
@@ -837,9 +874,6 @@ export async function reunificarYReactivarMatrizAction(
         select: UNIDAD_SELECT,
       });
 
-      revalidatePath("/admin/propiedades");
-      revalidatePath("/admin/contratos");
-
       return {
         success: true,
         data: matrizActualizada,
@@ -847,6 +881,12 @@ export async function reunificarYReactivarMatrizAction(
         message: `Espacio "${matriz.codigo}" reunificado y reactivado como DISPONIBLE. Sus subunidades han sido inactivadas.`,
       };
     });
+
+    if (resTx.success) {
+      revalidatePath("/admin/propiedades");
+      revalidatePath("/admin/contratos");
+    }
+    return resTx;
   } catch (error) {
     console.error("Error al reunificar y reactivar matriz:", error);
     return { success: false, error: "Error al reunificar y reactivar el espacio." };
@@ -900,7 +940,7 @@ export async function subdividirUnidadAction(
   }
 
   try {
-    return await prisma.$transaction(async (tx) => {
+    const resTx = await prisma.$transaction(async (tx) => {
       const matriz = await tx.unidad.findUnique({
         where: { id: input.unidadMatrizId },
         include: {
@@ -1066,9 +1106,6 @@ export async function subdividirUnidadAction(
         select: UNIDAD_SELECT,
       });
 
-      revalidatePath("/admin/propiedades");
-      revalidatePath("/admin/contratos");
-
       return {
         success: true,
         data: {
@@ -1078,6 +1115,12 @@ export async function subdividirUnidadAction(
         message: `¡Espacio "${matriz.codigo}" dividido con éxito en 2 subunidades (${nuevaSubunidadA.codigo} y ${nuevaSubunidadB.codigo})!`,
       };
     });
+
+    if (resTx.success) {
+      revalidatePath("/admin/propiedades");
+      revalidatePath("/admin/contratos");
+    }
+    return resTx;
   } catch (error) {
     console.error("Error al subdividir unidad:", error);
     return { success: false, error: "Ocurrió un error inesperado al procesar la división del local." };

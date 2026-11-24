@@ -17,6 +17,7 @@ import {
 import { RegistroAsistenciaItem } from "@/app/admin/personal/types";
 import { cerrarJornadasIncompletasEmpleado } from "./personal";
 import { calcularDistanciaMetros, formatearDistancia } from "@/lib/geo-utils";
+import { getRangosDiaVenezuela } from "@/lib/date-utils";
 
 // Helper interno para resolver el empleado autenticado de forma estricta en el servidor
 async function getEmpleadoAutenticado() {
@@ -25,9 +26,17 @@ async function getEmpleadoAutenticado() {
     return null;
   }
 
-  // Buscar por usuarioId vinculado
+  const usuarioActivo = await prisma.usuario.findUnique({
+    where: { id: session.user.id },
+    select: { activo: true, rol: true, email: true },
+  });
+  if (!usuarioActivo?.activo || (usuarioActivo.rol !== Rol.EMPLEADO && usuarioActivo.rol !== Rol.ADMIN)) {
+    return null;
+  }
+
+  // Buscar por usuarioId vinculado (solo colaboradores activos)
   let empleado = await prisma.empleado.findFirst({
-    where: { usuarioId: session.user.id },
+    where: { usuarioId: session.user.id, activo: true },
     include: {
       propiedad: {
         select: {
@@ -41,10 +50,10 @@ async function getEmpleadoAutenticado() {
     },
   });
 
-  // Si no se encuentra por usuarioId, buscar por email
-  if (!empleado && session.user.email) {
+  // Si no se encuentra por usuarioId, buscar por email solo si aún no está vinculado a otro usuario
+  if (!empleado && usuarioActivo.email) {
     empleado = await prisma.empleado.findFirst({
-      where: { email: session.user.email },
+      where: { email: usuarioActivo.email, usuarioId: null, activo: true },
       include: {
         propiedad: {
           select: {
@@ -60,7 +69,7 @@ async function getEmpleadoAutenticado() {
   }
 
   // Modo auditoría/prueba: si un ADMIN ingresa al portal de empleados pero no tiene ficha vinculada
-  if (!empleado && session.user.rol === Rol.ADMIN) {
+  if (!empleado && usuarioActivo.rol === Rol.ADMIN) {
     empleado = await prisma.empleado.findFirst({
       where: { activo: true },
       include: {
@@ -400,168 +409,154 @@ export async function marcarEntradaSalidaEmpleadoAction(input?: string | Entrega
     const ahora = new Date();
     const esSeguridad = empleado.cargo === CargoEmpleado.SEGURIDAD;
     const limite30Horas = new Date(ahora.getTime() - 30 * 60 * 60 * 1000);
-    const inicioHoy = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate(), 0, 0, 0);
-    const finHoy = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate(), 23, 59, 59, 999);
+    const { inicioDia: inicioHoy, finDia: finHoy } = getRangosDiaVenezuela(ahora);
 
     // Cierre perezoso (Just-In-Time) de turnos olvidados anteriores de este trabajador
     const turnosCerrados = await cerrarJornadasIncompletasEmpleado(empleado.id);
 
-    // 1. Buscar si tiene una guardia/turno abierto pendiente de salida
-    // Si es seguridad, busca hasta 30 horas hacia atrás (permite cerrar guardia de ayer)
-    let asistenciaPendienteSalida = await prisma.registroAsistencia.findFirst({
-      where: {
-        empleadoId: empleado.id,
-        horaSalida: null,
-        horaEntrada: esSeguridad ? { gte: limite30Horas } : { gte: inicioHoy, lte: finHoy },
-        estado: { in: [EstadoAsistencia.PRESENTE, EstadoAsistencia.RETARDO] },
-      },
-      orderBy: { horaEntrada: "desc" },
-    });
-
-    // Salvaguarda: si se auto-cerró un turno por exceso de tiempo y no hay otro abierto, notificar sin crear entrada involuntaria
-    if (!asistenciaPendienteSalida && turnosCerrados > 0) {
-      revalidatePath("/empleado/dashboard");
-      revalidatePath("/empleado/asistencia");
-      revalidatePath("/admin/personal");
-      return {
-        success: true,
-        tipo: "SALIDA",
-        esGuardia24h: esSeguridad,
-        message: esSeguridad
-          ? "Tu guardia anterior fue cerrada automáticamente por exceder las 30 horas continuas. Vuelve a marcar si vas a iniciar un nuevo turno."
-          : "Tu jornada anterior fue cerrada automáticamente por el sistema. Vuelve a pulsar si deseas iniciar una nueva jornada.",
-      };
-    }
-
     const nombreLugar = payload.ubicacion || empleado.propiedad?.nombre || "Marcaje Móvil";
 
-    // 2. Si no tiene turno abierto: REGISTRAR ENTRADA
-    if (!asistenciaPendienteSalida) {
-      // Verificar si ya completó un turno hoy (para empleados regulares no seguridad)
-      if (!esSeguridad) {
-        const yaCompletadaHoy = await prisma.registroAsistencia.findFirst({
-          where: {
-            empleadoId: empleado.id,
-            fecha: { gte: inicioHoy, lte: finHoy },
-            horaSalida: { not: null },
-          },
-        });
-        if (yaCompletadaHoy) {
-          return {
-            success: true,
-            tipo: "YA_COMPLETADA",
-            message: "Ya completaste tu jornada de trabajo del día de hoy.",
-          };
-        }
-      }
+    const resultadoMarcaje = await prisma.$transaction(async (tx) => {
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`asistencia-${empleado.id}`}))`;
 
-      // Validación de presencia física por GPS si el inmueble tiene coordenadas configuradas
-      let distanciaCalculada: number | null = null;
-      let esExterno = false;
-      const tieneCoordsPropiedad =
-        typeof empleado.propiedad?.latitud === "number" &&
-        typeof empleado.propiedad?.longitud === "number";
-
-      if (tieneCoordsPropiedad && payload.latitud && payload.longitud) {
-        distanciaCalculada = calcularDistanciaMetros(
-          payload.latitud,
-          payload.longitud,
-          empleado.propiedad!.latitud!,
-          empleado.propiedad!.longitud!
-        );
-        const radioMaximo = empleado.propiedad!.radioMetros || 200;
-        if (distanciaCalculada > radioMaximo) {
-          esExterno = true;
-        }
-      }
-
-      let notasEntrada = esSeguridad ? "Inicio de Guardia de Seguridad (24 Horas)" : null;
-      if (esExterno && payload.motivoExterno) {
-        const distanciaTxt = distanciaCalculada ? ` (${formatearDistancia(distanciaCalculada)})` : "";
-        notasEntrada = notasEntrada
-          ? `${notasEntrada} | Marcaje Externo${distanciaTxt}: ${payload.motivoExterno}`
-          : `Marcaje Externo${distanciaTxt}: ${payload.motivoExterno}`;
-      }
-
-      await prisma.registroAsistencia.create({
-        data: {
+      // 1. Buscar si tiene una guardia/turno abierto pendiente de salida
+      const asistenciaPendienteSalida = await tx.registroAsistencia.findFirst({
+        where: {
           empleadoId: empleado.id,
-          fecha: ahora,
-          horaEntrada: ahora,
-          estado: EstadoAsistencia.PRESENTE,
-          ubicacionEntrada: nombreLugar,
-          latitudEntrada: payload.latitud || null,
-          longitudEntrada: payload.longitud || null,
-          distanciaMetros: distanciaCalculada,
-          esMarcajeExterno: esExterno,
-          motivoExterno: esExterno ? payload.motivoExterno || "Fuera de sede" : null,
-          observaciones: notasEntrada,
+          horaSalida: null,
+          horaEntrada: esSeguridad ? { gte: limite30Horas } : { gte: inicioHoy, lte: finHoy },
+          estado: { in: [EstadoAsistencia.PRESENTE, EstadoAsistencia.RETARDO] },
         },
+        orderBy: { horaEntrada: "desc" },
       });
 
-      revalidatePath("/empleado/dashboard");
-      revalidatePath("/empleado/asistencia");
-      revalidatePath("/admin/personal");
+      if (!asistenciaPendienteSalida && turnosCerrados > 0) {
+        return {
+          success: true,
+          tipo: "SALIDA" as const,
+          esGuardia24h: esSeguridad,
+          message: esSeguridad
+            ? "Tu guardia anterior fue cerrada automáticamente por exceder las 30 horas continuas. Vuelve a marcar si vas a iniciar un nuevo turno."
+            : "Tu jornada anterior fue cerrada automáticamente por el sistema. Vuelve a pulsar si deseas iniciar una nueva jornada.",
+        };
+      }
 
-      const avisoDistancia = esExterno && distanciaCalculada
-        ? ` (Marcaje externo a ${formatearDistancia(distanciaCalculada)})`
-        : "";
+      // 2. Si no tiene turno abierto: REGISTRAR ENTRADA
+      if (!asistenciaPendienteSalida) {
+        if (!esSeguridad) {
+          const yaCompletadaHoy = await tx.registroAsistencia.findFirst({
+            where: {
+              empleadoId: empleado.id,
+              fecha: { gte: inicioHoy, lte: finHoy },
+              horaSalida: { not: null },
+            },
+          });
+          if (yaCompletadaHoy) {
+            return {
+              success: true,
+              tipo: "YA_COMPLETADA" as const,
+              message: "Ya completaste tu jornada de trabajo del día de hoy.",
+            };
+          }
+        }
 
-      return {
-        success: true,
-        tipo: "ENTRADA",
-        message: esSeguridad
-          ? `Guardia iniciada con éxito a las ${ahora.toLocaleTimeString("es-VE", { hour: "2-digit", minute: "2-digit" })}${avisoDistancia}.`
-          : `Entrada registrada con éxito a las ${ahora.toLocaleTimeString("es-VE", { hour: "2-digit", minute: "2-digit" })}${avisoDistancia}.`,
-      };
-    }
+        let distanciaCalculada: number | null = null;
+        let esExterno = false;
+        const tieneCoordsPropiedad =
+          typeof empleado.propiedad?.latitud === "number" &&
+          typeof empleado.propiedad?.longitud === "number";
 
-    // 3. Si tiene turno abierto: REGISTRAR SALIDA / ENTREGA DE GUARDIA
-    const entradaMs = new Date(asistenciaPendienteSalida.horaEntrada).getTime();
-    const salidaMs = ahora.getTime();
-    const diffHoras = Math.max(0, Math.round((salidaMs - entradaMs) / (1000 * 60 * 60) * 10) / 10);
-    const esGuardia24h = esSeguridad || diffHoras >= 12;
+        if (tieneCoordsPropiedad && payload.latitud && payload.longitud) {
+          distanciaCalculada = calcularDistanciaMetros(
+            payload.latitud,
+            payload.longitud,
+            empleado.propiedad!.latitud!,
+            empleado.propiedad!.longitud!
+          );
+          const radioMaximo = empleado.propiedad!.radioMetros || 200;
+          if (distanciaCalculada > radioMaximo) {
+            esExterno = true;
+          }
+        }
 
-    const esSinRelevo = Boolean(
-      payload.sinRelevo ||
-      payload.guardiaRelevoId === "SIN_RELEVO" ||
-      (!payload.guardiaRelevoId && !payload.guardiaRelevoNombre)
-    );
+        let notasEntrada = esSeguridad ? "Inicio de Guardia de Seguridad (24 Horas)" : null;
+        if (esExterno && payload.motivoExterno) {
+          const distanciaTxt = distanciaCalculada ? ` (${formatearDistancia(distanciaCalculada)})` : "";
+          notasEntrada = notasEntrada
+            ? `${notasEntrada} | Marcaje Externo${distanciaTxt}: ${payload.motivoExterno}`
+            : `Marcaje Externo${distanciaTxt}: ${payload.motivoExterno}`;
+        }
 
-    const idRelevoValido = !esSinRelevo && typeof payload.guardiaRelevoId === "string" && payload.guardiaRelevoId.trim().length > 0 && payload.guardiaRelevoId !== "SIN_RELEVO"
-      ? payload.guardiaRelevoId.trim()
-      : null;
+        await tx.registroAsistencia.create({
+          data: {
+            empleadoId: empleado.id,
+            fecha: ahora,
+            horaEntrada: ahora,
+            estado: EstadoAsistencia.PRESENTE,
+            ubicacionEntrada: nombreLugar,
+            latitudEntrada: payload.latitud || null,
+            longitudEntrada: payload.longitud || null,
+            distanciaMetros: distanciaCalculada,
+            esMarcajeExterno: esExterno,
+            motivoExterno: esExterno ? payload.motivoExterno || "Fuera de sede" : null,
+            observaciones: notasEntrada,
+          },
+        });
 
-    const nombreRelevoValido = !esSinRelevo && typeof payload.guardiaRelevoNombre === "string" && payload.guardiaRelevoNombre.trim().length > 0 && payload.guardiaRelevoNombre !== "SIN_RELEVO"
-      ? payload.guardiaRelevoNombre.trim()
-      : null;
+        const avisoDistancia = esExterno && distanciaCalculada
+          ? ` (Marcaje externo a ${formatearDistancia(distanciaCalculada)})`
+          : "";
 
-    const tieneRelevoValido = Boolean(idRelevoValido || nombreRelevoValido);
+        return {
+          success: true,
+          tipo: "ENTRADA" as const,
+          message: esSeguridad
+            ? `Guardia iniciada con éxito a las ${ahora.toLocaleTimeString("es-VE", { hour: "2-digit", minute: "2-digit", timeZone: "America/Caracas" })}${avisoDistancia}.`
+            : `Entrada registrada con éxito a las ${ahora.toLocaleTimeString("es-VE", { hour: "2-digit", minute: "2-digit", timeZone: "America/Caracas" })}${avisoDistancia}.`,
+        };
+      }
 
-    let notaFinal = asistenciaPendienteSalida.observaciones || "";
-    if (tieneRelevoValido && nombreRelevoValido) {
-      notaFinal = notaFinal
-        ? `${notaFinal} | Relevo: Entregado a ${nombreRelevoValido}`
-        : `Relevo: Entregado a ${nombreRelevoValido}`;
-    } else if (esSinRelevo && esGuardia24h) {
-      notaFinal = notaFinal
-        ? `${notaFinal} | Fin de turno: Sin relevo presencial`
-        : `Guardia finalizada sin relevo presencial (${diffHoras}h de servicio)`;
-    }
+      // 3. Si tiene turno abierto: REGISTRAR SALIDA / ENTREGA DE GUARDIA
+      const entradaMs = new Date(asistenciaPendienteSalida.horaEntrada).getTime();
+      const salidaMs = ahora.getTime();
+      const diffHoras = Math.max(0, Math.round((salidaMs - entradaMs) / (1000 * 60 * 60) * 10) / 10);
+      const esGuardia24h = esSeguridad || diffHoras >= 12;
 
-    if (payload.observacionesEntrega && payload.observacionesEntrega.trim()) {
-      notaFinal = notaFinal
-        ? `${notaFinal} | Nota: ${payload.observacionesEntrega.trim()}`
-        : payload.observacionesEntrega.trim();
-    }
+      const esSinRelevo = Boolean(
+        payload.sinRelevo ||
+        payload.guardiaRelevoId === "SIN_RELEVO" ||
+        (!payload.guardiaRelevoId && !payload.guardiaRelevoNombre)
+      );
 
-    const nombreVigilanteSaliente = `${empleado.nombre} ${empleado.apellido || ""}`.trim();
+      const idRelevoValido = !esSinRelevo && typeof payload.guardiaRelevoId === "string" && payload.guardiaRelevoId.trim().length > 0 && payload.guardiaRelevoId !== "SIN_RELEVO"
+        ? payload.guardiaRelevoId.trim()
+        : null;
 
-    // Transacción atómica: 
-    // a) Liquidar la guardia de 24h del vigilante saliente (A)
-    // b) Si seleccionó relevo (B), aperturar automáticamente la guardia del vigilante entrante (B)
-    await prisma.$transaction(async (tx) => {
-      // 1. Cerrar guardia de A
+      const nombreRelevoValido = !esSinRelevo && typeof payload.guardiaRelevoNombre === "string" && payload.guardiaRelevoNombre.trim().length > 0 && payload.guardiaRelevoNombre !== "SIN_RELEVO"
+        ? payload.guardiaRelevoNombre.trim()
+        : null;
+
+      const tieneRelevoValido = Boolean(idRelevoValido || nombreRelevoValido);
+
+      let notaFinal = asistenciaPendienteSalida.observaciones || "";
+      if (tieneRelevoValido && nombreRelevoValido) {
+        notaFinal = notaFinal
+          ? `${notaFinal} | Relevo: Entregado a ${nombreRelevoValido}`
+          : `Relevo: Entregado a ${nombreRelevoValido}`;
+      } else if (esSinRelevo && esGuardia24h) {
+        notaFinal = notaFinal
+          ? `${notaFinal} | Fin de turno: Sin relevo presencial`
+          : `Guardia finalizada sin relevo presencial (${diffHoras}h de servicio)`;
+      }
+
+      if (payload.observacionesEntrega && payload.observacionesEntrega.trim()) {
+        notaFinal = notaFinal
+          ? `${notaFinal} | Nota: ${payload.observacionesEntrega.trim()}`
+          : payload.observacionesEntrega.trim();
+      }
+
+      const nombreVigilanteSaliente = `${empleado.nombre} ${empleado.apellido || ""}`.trim();
+
       await tx.registroAsistencia.update({
         where: { id: asistenciaPendienteSalida.id },
         data: {
@@ -571,14 +566,18 @@ export async function marcarEntradaSalidaEmpleadoAction(input?: string | Entrega
         },
       });
 
-      // 2. Si hay un compañero relevo identificado: Iniciar automáticamente la guardia de B
       if (tieneRelevoValido) {
         const empleadoRelevo = idRelevoValido
-          ? await tx.empleado.findUnique({
-              where: { id: idRelevoValido },
+          ? await tx.empleado.findFirst({
+              where: {
+                id: idRelevoValido,
+                activo: true,
+                cargo: CargoEmpleado.SEGURIDAD,
+                ...(empleado.propiedadId ? { propiedadId: empleado.propiedadId } : {}),
+              },
               select: { id: true, nombre: true, cargo: true, propiedadId: true },
             })
-          : (nombreRelevoValido
+          : (nombreRelevoValido && empleado.propiedadId
               ? await tx.empleado.findFirst({
                   where: {
                     nombre: { startsWith: nombreRelevoValido.split(" ")[0] },
@@ -591,7 +590,6 @@ export async function marcarEntradaSalidaEmpleadoAction(input?: string | Entrega
               : null);
 
         if (empleadoRelevo && empleadoRelevo.id !== empleado.id) {
-          // Verificar si B ya tiene un turno abierto para no duplicar
           const turnoAbiertoRelevo = await tx.registroAsistencia.findFirst({
             where: {
               empleadoId: empleadoRelevo.id,
@@ -614,25 +612,27 @@ export async function marcarEntradaSalidaEmpleadoAction(input?: string | Entrega
           }
         }
       }
+
+      const mensajeSalida = esGuardia24h
+        ? (tieneRelevoValido && nombreRelevoValido
+            ? `Guardia de 24h entregada con éxito a ${nombreRelevoValido} a las ${ahora.toLocaleTimeString("es-VE", { hour: "2-digit", minute: "2-digit", timeZone: "America/Caracas" })}. ¡Excelente labor!`
+            : `Guardia de 24h concluida con éxito sin relevo presencial a las ${ahora.toLocaleTimeString("es-VE", { hour: "2-digit", minute: "2-digit", timeZone: "America/Caracas" })} (${diffHoras}h). ¡Buen descanso!`)
+        : `Salida registrada con éxito a las ${ahora.toLocaleTimeString("es-VE", { hour: "2-digit", minute: "2-digit", timeZone: "America/Caracas" })}. ¡Buen descanso!`;
+
+      return {
+        success: true,
+        tipo: "SALIDA" as const,
+        esGuardia24h,
+        horasLaboradas: diffHoras,
+        message: mensajeSalida,
+      };
     });
 
     revalidatePath("/empleado/dashboard");
     revalidatePath("/empleado/asistencia");
     revalidatePath("/admin/personal");
 
-    const mensajeSalida = esGuardia24h
-      ? (tieneRelevoValido && nombreRelevoValido
-          ? `Guardia de 24h entregada con éxito a ${nombreRelevoValido} a las ${ahora.toLocaleTimeString("es-VE", { hour: "2-digit", minute: "2-digit" })}. ¡Excelente labor!`
-          : `Guardia de 24h concluida con éxito sin relevo presencial a las ${ahora.toLocaleTimeString("es-VE", { hour: "2-digit", minute: "2-digit" })} (${diffHoras}h). ¡Buen descanso!`)
-      : `Salida registrada con éxito a las ${ahora.toLocaleTimeString("es-VE", { hour: "2-digit", minute: "2-digit" })}. ¡Buen descanso!`;
-
-    return {
-      success: true,
-      tipo: "SALIDA",
-      esGuardia24h,
-      horasLaboradas: diffHoras,
-      message: mensajeSalida,
-    };
+    return resultadoMarcaje;
   } catch (error: unknown) {
     console.error("Error en marcarEntradaSalidaEmpleadoAction:", error);
     const msg = error instanceof Error ? error.message : "Error al procesar el marcaje";
@@ -779,11 +779,11 @@ export async function cambiarPasswordEmpleadoAction(
 
     const usuario = await prisma.usuario.findUnique({
       where: { id: session.user.id },
-      select: { id: true, passwordHash: true },
+      select: { id: true, passwordHash: true, activo: true },
     });
 
-    if (!usuario) {
-      return { success: false, error: "Usuario no encontrado.", message: "" };
+    if (!usuario || !usuario.activo) {
+      return { success: false, error: "Usuario no encontrado o cuenta desactivada.", message: "" };
     }
 
     const coinciden = await bcrypt.compare(passwordActual, usuario.passwordHash);

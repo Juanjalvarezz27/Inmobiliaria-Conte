@@ -81,199 +81,250 @@ export async function getFinanzasData(
   const { diasEnMes } = getRangosMesVenezuela(ano, mes);
 
   // 1. Consultar cobros y transacciones del mes y año seleccionados
-  const [pagosMes, transaccionesMesTotales] = await Promise.all([
-    prisma.pago.findMany({
-      where: wherePagosCobranza,
-      select: {
-        id: true,
-        montoPagado: true,
-        fechaPago: true,
-        fechaVencimiento: true,
-        createdAt: true,
-      },
-    }),
-    prisma.transaccionFinanciera.findMany({
-      where: {
-        periodoMes: mes,
-        periodoAno: ano,
-        activo: true,
-        ...(tienePropiedad ? { propiedadId } : {}),
-      },
-      select: {
-        tipo: true,
-        categoria: true,
-        monto: true,
-        monedaOriginal: true,
-        montoOriginal: true,
-        tasaBcv: true,
-        fecha: true,
-      },
-    }),
-  ]);
+  try {
+    const [pagosMes, transaccionesMesTotales] = await Promise.all([
+      prisma.pago.findMany({
+        where: wherePagosCobranza,
+        select: {
+          id: true,
+          montoPagado: true,
+          monedaOriginal: true,
+          montoOriginal: true,
+          montoBs: true,
+          tasaBcv: true,
+          fechaPago: true,
+          fechaVencimiento: true,
+          createdAt: true,
+        },
+      }),
+      prisma.transaccionFinanciera.findMany({
+        where: {
+          periodoMes: mes,
+          periodoAno: ano,
+          activo: true,
+          ...(tienePropiedad ? { propiedadId } : {}),
+        },
+        select: {
+          tipo: true,
+          categoria: true,
+          monto: true,
+          monedaOriginal: true,
+          montoOriginal: true,
+          tasaBcv: true,
+          fecha: true,
+        },
+      }),
+    ]);
 
-  // Inicializar arreglo de días del mes (1..diasEnMes)
-  const diasDelMes: DiaFinancieroMes[] = Array.from({ length: diasEnMes }, (_, i) => ({
-    dia: i + 1,
-    ingresos: 0,
-    egresos: 0,
-    conteoIngresos: 0,
-    conteoEgresos: 0,
-  }));
+    // Inicializar arreglo de días del mes (1..diasEnMes)
+    const diasDelMes: DiaFinancieroMes[] = Array.from({ length: diasEnMes }, (_, i) => ({
+      dia: i + 1,
+      ingresos: 0,
+      egresos: 0,
+      conteoIngresos: 0,
+      conteoEgresos: 0,
+    }));
 
-  let totalIngresosAlquiler = 0;
-  let conteoCobranzas = 0;
+    let totalIngresosAlquiler = 0;
+    let conteoCobranzas = 0;
+    let totalIngresosExtra = 0;
+    let conteoIngresosExtra = 0;
+    let totalEgresos = 0;
+    let conteoEgresos = 0;
+    let totalEgresosUsd = 0;
+    let totalEgresosVes = 0;
+    let totalEgresosVesEquivUsd = 0;
+    let totalIngresosUsd = 0;
+    let totalIngresosVes = 0;
+    let totalIngresosVesEquivUsd = 0;
+    const conteoCategorias: Record<string, { total: number; conteo: number }> = {};
 
-  for (const p of pagosMes) {
-    totalIngresosAlquiler += p.montoPagado;
-    conteoCobranzas += 1;
+    for (const p of pagosMes) {
+      totalIngresosAlquiler += p.montoPagado;
+      conteoCobranzas += 1;
 
-    const fechaRaw = p.fechaPago || p.fechaVencimiento || p.createdAt;
-    const diaNum = getPartesFechaVenezuela(fechaRaw).dia;
-    if (diaNum >= 1 && diaNum <= diasEnMes) {
-      diasDelMes[diaNum - 1].ingresos += p.montoPagado;
-      diasDelMes[diaNum - 1].conteoIngresos += 1;
-    }
-  }
-
-  let totalIngresosExtra = 0;
-  let conteoIngresosExtra = 0;
-  let totalEgresos = 0;
-  let conteoEgresos = 0;
-  let totalEgresosUsd = 0;
-  let totalEgresosVes = 0;
-  let totalEgresosVesEquivUsd = 0;
-  let totalIngresosUsd = totalIngresosAlquiler;
-  let totalIngresosVes = 0;
-  let totalIngresosVesEquivUsd = 0;
-  const conteoCategorias: Record<string, { total: number; conteo: number }> = {};
-
-  for (const t of transaccionesMesTotales) {
-    const diaNum = getPartesFechaVenezuela(t.fecha).dia;
-    const esDiaValido = diaNum >= 1 && diaNum <= diasEnMes;
-
-    if (t.tipo === TipoTransaccionFinanciera.INGRESO) {
-      totalIngresosExtra += t.monto;
-      conteoIngresosExtra += 1;
-
-      if (t.monedaOriginal === MonedaTransaccion.VES) {
-        totalIngresosVes += t.montoOriginal || (t.monto * (t.tasaBcv || 1));
-        totalIngresosVesEquivUsd += t.monto;
+      if (p.monedaOriginal === MonedaTransaccion.VES) {
+        totalIngresosVes += p.montoOriginal || p.montoBs || (p.montoPagado * (p.tasaBcv || 1));
+        totalIngresosVesEquivUsd += p.montoPagado;
       } else {
-        totalIngresosUsd += t.monto;
+        totalIngresosUsd += p.montoPagado;
       }
 
-      if (esDiaValido) {
-        diasDelMes[diaNum - 1].ingresos += t.monto;
+      const fechaRaw = p.fechaPago || p.fechaVencimiento || p.createdAt;
+      const diaNum = getPartesFechaVenezuela(fechaRaw).dia;
+      if (diaNum >= 1 && diaNum <= diasEnMes) {
+        diasDelMes[diaNum - 1].ingresos += p.montoPagado;
         diasDelMes[diaNum - 1].conteoIngresos += 1;
       }
-    } else {
-      totalEgresos += t.monto;
-      conteoEgresos += 1;
-
-      if (t.monedaOriginal === MonedaTransaccion.VES) {
-        totalEgresosVes += t.montoOriginal || (t.monto * (t.tasaBcv || 1));
-        totalEgresosVesEquivUsd += t.monto;
-      } else {
-        totalEgresosUsd += t.monto;
-      }
-
-      if (esDiaValido) {
-        diasDelMes[diaNum - 1].egresos += t.monto;
-        diasDelMes[diaNum - 1].conteoEgresos += 1;
-      }
-      const catKey = t.categoria;
-      if (!conteoCategorias[catKey]) {
-        conteoCategorias[catKey] = { total: 0, conteo: 0 };
-      }
-      conteoCategorias[catKey].total += t.monto;
-      conteoCategorias[catKey].conteo += 1;
     }
-  }
 
-  // Redondear montos por día
-  diasDelMes.forEach((d) => {
-    d.ingresos = Number(d.ingresos.toFixed(2));
-    d.egresos = Number(d.egresos.toFixed(2));
-  });
+    for (const t of transaccionesMesTotales) {
+      const diaNum = getPartesFechaVenezuela(t.fecha).dia;
+      const esDiaValido = diaNum >= 1 && diaNum <= diasEnMes;
 
-  totalIngresosAlquiler = Number(totalIngresosAlquiler.toFixed(2));
-  totalIngresosExtra = Number(totalIngresosExtra.toFixed(2));
-  totalEgresos = Number(totalEgresos.toFixed(2));
-  totalEgresosUsd = Number(totalEgresosUsd.toFixed(2));
-  totalEgresosVes = Number(totalEgresosVes.toFixed(2));
-  totalEgresosVesEquivUsd = Number(totalEgresosVesEquivUsd.toFixed(2));
-  totalIngresosUsd = Number(totalIngresosUsd.toFixed(2));
-  totalIngresosVes = Number(totalIngresosVes.toFixed(2));
-  totalIngresosVesEquivUsd = Number(totalIngresosVesEquivUsd.toFixed(2));
-  const totalIngresos = Number((totalIngresosAlquiler + totalIngresosExtra).toFixed(2));
-  const balanceNeto = Number((totalIngresos - totalEgresos).toFixed(2));
-  const margenOperativo =
-    totalIngresos > 0 ? Number(((balanceNeto / totalIngresos) * 100).toFixed(1)) : 0;
+      if (t.tipo === TipoTransaccionFinanciera.INGRESO) {
+        totalIngresosExtra += t.monto;
+        conteoIngresosExtra += 1;
 
-  // Desglose de egresos por categoría
-  const desgloseEgresosPorCategoria: CategoriaDesglose[] = Object.entries(
-    conteoCategorias
-  ).map(([catKey, data]) => {
-    const catEnum = catKey as CategoriaTransaccion;
-    const catConf = CATEGORIA_CONFIG[catEnum];
-    const totalCat = Number(data.total.toFixed(2));
-    const porcentaje =
-      totalEgresos > 0 ? Number(((totalCat / totalEgresos) * 100).toFixed(1)) : 0;
-    return {
-      categoria: catEnum,
-      label: catConf?.label || catKey,
-      total: totalCat,
-      conteo: data.conteo,
-      porcentaje,
+        if (t.monedaOriginal === MonedaTransaccion.VES) {
+          totalIngresosVes += t.montoOriginal || (t.monto * (t.tasaBcv || 1));
+          totalIngresosVesEquivUsd += t.monto;
+        } else {
+          totalIngresosUsd += t.monto;
+        }
+
+        if (esDiaValido) {
+          diasDelMes[diaNum - 1].ingresos += t.monto;
+          diasDelMes[diaNum - 1].conteoIngresos += 1;
+        }
+      } else {
+        totalEgresos += t.monto;
+        conteoEgresos += 1;
+
+        if (t.monedaOriginal === MonedaTransaccion.VES) {
+          totalEgresosVes += t.montoOriginal || (t.monto * (t.tasaBcv || 1));
+          totalEgresosVesEquivUsd += t.monto;
+        } else {
+          totalEgresosUsd += t.monto;
+        }
+
+        if (esDiaValido) {
+          diasDelMes[diaNum - 1].egresos += t.monto;
+          diasDelMes[diaNum - 1].conteoEgresos += 1;
+        }
+        const catKey = t.categoria;
+        if (!conteoCategorias[catKey]) {
+          conteoCategorias[catKey] = { total: 0, conteo: 0 };
+        }
+        conteoCategorias[catKey].total += t.monto;
+        conteoCategorias[catKey].conteo += 1;
+      }
+    }
+
+    // Redondear montos por día
+    diasDelMes.forEach((d) => {
+      d.ingresos = Number(d.ingresos.toFixed(2));
+      d.egresos = Number(d.egresos.toFixed(2));
+    });
+
+    totalIngresosAlquiler = Number(totalIngresosAlquiler.toFixed(2));
+    totalIngresosExtra = Number(totalIngresosExtra.toFixed(2));
+    totalEgresos = Number(totalEgresos.toFixed(2));
+    totalEgresosUsd = Number(totalEgresosUsd.toFixed(2));
+    totalEgresosVes = Number(totalEgresosVes.toFixed(2));
+    totalEgresosVesEquivUsd = Number(totalEgresosVesEquivUsd.toFixed(2));
+    totalIngresosUsd = Number(totalIngresosUsd.toFixed(2));
+    totalIngresosVes = Number(totalIngresosVes.toFixed(2));
+    totalIngresosVesEquivUsd = Number(totalIngresosVesEquivUsd.toFixed(2));
+    const totalIngresos = Number((totalIngresosAlquiler + totalIngresosExtra).toFixed(2));
+    const balanceNeto = Number((totalIngresos - totalEgresos).toFixed(2));
+    const margenOperativo =
+      totalIngresos > 0 ? Number(((balanceNeto / totalIngresos) * 100).toFixed(1)) : 0;
+
+    // Desglose de egresos por categoría
+    const desgloseEgresosPorCategoria: CategoriaDesglose[] = Object.entries(
+      conteoCategorias
+    ).map(([catKey, data]) => {
+      const catEnum = catKey as CategoriaTransaccion;
+      const catConf = CATEGORIA_CONFIG[catEnum];
+      const totalCat = Number(data.total.toFixed(2));
+      const porcentaje =
+        totalEgresos > 0 ? Number(((totalCat / totalEgresos) * 100).toFixed(1)) : 0;
+      return {
+        categoria: catEnum,
+        label: catConf?.label || catKey,
+        total: totalCat,
+        conteo: data.conteo,
+        porcentaje,
+      };
+    }).sort((a, b) => b.total - a.total);
+
+    const estadisticas: EstadisticasFinanzas = {
+      totalIngresos,
+      totalIngresosAlquiler,
+      totalIngresosExtra,
+      totalEgresos,
+      totalEgresosUsd,
+      totalEgresosVes,
+      totalEgresosVesEquivUsd,
+      totalIngresosUsd,
+      totalIngresosVes,
+      totalIngresosVesEquivUsd,
+      balanceNeto,
+      margenOperativo,
+      conteoCobranzas,
+      conteoEgresos,
+      conteoIngresosExtra,
+      desgloseEgresosPorCategoria,
+      diasDelMes,
+      diasEnMes,
     };
-  }).sort((a, b) => b.total - a.total);
 
-  const estadisticas: EstadisticasFinanzas = {
-    totalIngresos,
-    totalIngresosAlquiler,
-    totalIngresosExtra,
-    totalEgresos,
-    totalEgresosUsd,
-    totalEgresosVes,
-    totalEgresosVesEquivUsd,
-    totalIngresosUsd,
-    totalIngresosVes,
-    totalIngresosVesEquivUsd,
-    balanceNeto,
-    margenOperativo,
-    conteoCobranzas,
-    conteoEgresos,
-    conteoIngresosExtra,
-    desgloseEgresosPorCategoria,
-    diasDelMes,
-    diasEnMes,
-  };
-
-  // La lista detallada se delega a getMovimientosDetalladosPeriodo mediante Lazy Loading
-  return {
-    transacciones: [],
-    estadisticas,
-    totalRegistros: estadisticas.conteoEgresos + estadisticas.conteoIngresosExtra,
-    totalPaginas: 1,
-    paginaActual: 1,
-  };
+    // La lista detallada se delega a getMovimientosDetalladosPeriodo mediante Lazy Loading
+    return {
+      transacciones: [],
+      estadisticas,
+      totalRegistros: estadisticas.conteoEgresos + estadisticas.conteoIngresosExtra,
+      totalPaginas: 1,
+      paginaActual: 1,
+    };
+  } catch (error) {
+    console.error("Error al obtener datos financieros:", error);
+    return {
+      transacciones: [],
+      estadisticas: {
+        totalIngresos: 0,
+        totalIngresosAlquiler: 0,
+        totalIngresosExtra: 0,
+        totalEgresos: 0,
+        totalEgresosUsd: 0,
+        totalEgresosVes: 0,
+        totalEgresosVesEquivUsd: 0,
+        totalIngresosUsd: 0,
+        totalIngresosVes: 0,
+        totalIngresosVesEquivUsd: 0,
+        balanceNeto: 0,
+        margenOperativo: 0,
+        conteoCobranzas: 0,
+        conteoEgresos: 0,
+        conteoIngresosExtra: 0,
+        desgloseEgresosPorCategoria: [],
+        diasDelMes: Array.from({ length: diasEnMes }, (_, i) => ({
+          dia: i + 1,
+          ingresos: 0,
+          egresos: 0,
+          conteoIngresos: 0,
+          conteoEgresos: 0,
+        })),
+        diasEnMes,
+      },
+      totalRegistros: 0,
+      totalPaginas: 1,
+      paginaActual: 1,
+    };
+  }
 }
 
 export async function getPropiedadesFinanzasOpciones(): Promise<
   PropiedadFinanzasOpcion[]
 > {
   await assertAdminSession();
-  const propiedades = await getPropiedadesOpciones();
+  try {
+    const propiedades = await getPropiedadesOpciones();
 
-  return propiedades.map((p) => ({
-    id: p.id,
-    nombre: p.nombre,
-    tipo: p.tipo,
-    ciudad: p.ciudad,
-    totalEgresos: 0,
-    totalIngresos: 0,
-    count: 0,
-  }));
+    return propiedades.map((p) => ({
+      id: p.id,
+      nombre: p.nombre,
+      tipo: p.tipo,
+      ciudad: p.ciudad,
+      totalEgresos: 0,
+      totalIngresos: 0,
+      count: 0,
+    }));
+  } catch (error) {
+    console.error("Error al obtener opciones de propiedades financieras:", error);
+    return [];
+  }
 }
 
 function safeRevalidateFinanzas() {
@@ -284,15 +335,26 @@ function safeRevalidateFinanzas() {
   }
 }
 
+function parseFechaFinanciera(raw: string): Date {
+  const trimmed = raw.trim();
+  // Normalizar YYYY-MM-DD al mediodía UTC (08:00 VET) para que el día nunca cambie por zona horaria
+  const fechaObj = /^\d{4}-\d{2}-\d{2}$/.test(trimmed)
+    ? new Date(`${trimmed}T12:00:00.000Z`)
+    : new Date(trimmed);
+  if (isNaN(fechaObj.getTime())) {
+    throw new Error("La fecha proporcionada no es válida.");
+  }
+  return fechaObj;
+}
+
 export async function crearTransaccionFinanciera(data: TransaccionInput) {
   const authCheck = await requireAdminSession();
   if (!authCheck.ok) return { success: false, error: authCheck.error };
 
   try {
     const validated = transaccionSchema.parse(data);
-    const fechaObj = new Date(validated.fecha);
-    const periodoMes = fechaObj.getUTCMonth() + 1;
-    const periodoAno = fechaObj.getUTCFullYear();
+    const fechaObj = parseFechaFinanciera(validated.fecha);
+    const { mes: periodoMes, ano: periodoAno } = getPartesFechaVenezuela(fechaObj);
 
     let montoCalculado = Number(validated.monto.toFixed(2));
     let montoOriginalVal = validated.montoOriginal ?? null;
@@ -365,9 +427,8 @@ export async function actualizarTransaccionFinanciera(
 
   try {
     const validated = transaccionSchema.parse(data);
-    const fechaObj = new Date(validated.fecha);
-    const periodoMes = fechaObj.getUTCMonth() + 1;
-    const periodoAno = fechaObj.getUTCFullYear();
+    const fechaObj = parseFechaFinanciera(validated.fecha);
+    const { mes: periodoMes, ano: periodoAno } = getPartesFechaVenezuela(fechaObj);
 
     let montoCalculado = Number(validated.monto.toFixed(2));
     let montoOriginalVal = validated.montoOriginal ?? null;
@@ -597,10 +658,17 @@ export async function getCierreMesData(mes: number, ano: number) {
           movimientos: [],
         };
       }
+      const esVes = p.monedaOriginal === MonedaTransaccion.VES;
+      const montoBsPago = p.montoOriginal || p.montoBs || (p.montoPagado * (p.tasaBcv || tasaBcvReferencial));
       propiedadesMap[propId].ingresos += p.montoPagado;
-      propiedadesMap[propId].ingresosUsd += p.montoPagado;
       totalIngresosGeneral += p.montoPagado;
-      totalIngresosUsdGeneral += p.montoPagado;
+      if (esVes) {
+        propiedadesMap[propId].ingresosVes += montoBsPago;
+        totalIngresosVesGeneral += montoBsPago;
+      } else {
+        propiedadesMap[propId].ingresosUsd += p.montoPagado;
+        totalIngresosUsdGeneral += p.montoPagado;
+      }
 
       const fechaObj = p.fechaPago || p.fechaVencimiento || p.createdAt;
       const inq = p.contrato?.inquilino;
@@ -610,7 +678,6 @@ export async function getCierreMesData(mes: number, ano: number) {
         ? `Cobro Alquiler (${unidCodigo})${inqNombre ? ` - ${inqNombre}` : ""}`
         : `Cobro de Alquiler${inqNombre ? ` - ${inqNombre}` : ""}`;
 
-      const esVes = p.monedaOriginal === MonedaTransaccion.VES;
       propiedadesMap[propId].movimientos.push({
         id: `pago-${p.id}`,
         fecha: fechaObj.toISOString().split("T")[0],
@@ -742,203 +809,215 @@ export async function getMovimientosDetalladosPeriodo(params: {
   const { mes, ano, propiedadId = "TODAS" } = params;
   const tienePropiedad = propiedadId && propiedadId !== "TODAS";
 
-  // 1. Pagos de cobranza de alquiler del periodo
-  const pagos = await prisma.pago.findMany({
-    where: {
-      periodoMes: mes,
-      periodoAno: ano,
-      montoPagado: { gt: 0 },
-      ...(tienePropiedad
-        ? {
-            contrato: {
-              unidad: {
-                propiedadId: propiedadId,
+  try {
+    // 1. Pagos de cobranza de alquiler del periodo
+    const pagos = await prisma.pago.findMany({
+      where: {
+        periodoMes: mes,
+        periodoAno: ano,
+        montoPagado: { gt: 0 },
+        ...(tienePropiedad
+          ? {
+              contrato: {
+                unidad: {
+                  propiedadId: propiedadId,
+                },
+              },
+            }
+          : {}),
+      },
+      select: {
+        id: true,
+        montoPagado: true,
+        monedaOriginal: true,
+        montoOriginal: true,
+        montoBs: true,
+        tasaBcv: true,
+        fechaPago: true,
+        fechaVencimiento: true,
+        createdAt: true,
+        metodoPago: true,
+        referencia: true,
+        comprobanteUrl: true,
+        notas: true,
+        contrato: {
+          select: {
+            codigo: true,
+            inquilino: {
+              select: {
+                nombre: true,
+                apellido: true,
+                documentoIdentidad: true,
               },
             },
-          }
-        : {}),
-    },
-    select: {
-      id: true,
-      montoPagado: true,
-      monedaOriginal: true,
-      montoOriginal: true,
-      montoBs: true,
-      tasaBcv: true,
-      fechaPago: true,
-      fechaVencimiento: true,
-      createdAt: true,
-      metodoPago: true,
-      referencia: true,
-      comprobanteUrl: true,
-      notas: true,
-      contrato: {
-        select: {
-          codigo: true,
-          inquilino: {
-            select: {
-              nombre: true,
-              apellido: true,
-              documentoIdentidad: true,
-            },
-          },
-          unidad: {
-            select: {
-              codigo: true,
-              propiedad: {
-                select: {
-                  nombre: true,
+            unidad: {
+              select: {
+                codigo: true,
+                propiedad: {
+                  select: {
+                    nombre: true,
+                  },
                 },
               },
             },
           },
         },
       },
-    },
-    orderBy: { fechaPago: "desc" },
-  });
-
-  // 2. Transacciones financieras manuales (ingresos extra y egresos)
-  const transacciones = await prisma.transaccionFinanciera.findMany({
-    where: {
-      periodoMes: mes,
-      periodoAno: ano,
-      activo: true,
-      ...(tienePropiedad ? { propiedadId } : {}),
-    },
-    include: {
-      propiedad: {
-        select: { id: true, nombre: true, tipo: true, ciudad: true },
-      },
-      unidad: {
-        select: { id: true, codigo: true, tipo: true },
-      },
-    },
-    orderBy: { fecha: "desc" },
-  });
-
-  // Transformar ingresos
-  const ingresos: MovimientoIngresoDetalle[] = [];
-
-  // A) Pagos de alquiler devengados
-  for (const p of pagos) {
-    const fecha = p.fechaPago || p.fechaVencimiento || p.createdAt;
-    const fechaIso = fecha.toISOString();
-    const dia = new Date(fecha).getDate();
-    const inq = p.contrato?.inquilino;
-    const inqNombre = inq
-      ? `${inq.nombre}${inq.apellido ? ` ${inq.apellido}` : ""}`
-      : "Inquilino";
-    const inqDoc = inq?.documentoIdentidad || null;
-    const propNombre = p.contrato?.unidad?.propiedad?.nombre || null;
-    const unidCodigo = p.contrato?.unidad?.codigo || null;
-
-    ingresos.push({
-      id: `pago-${p.id}`,
-      tipo: "ALQUILER",
-      concepto: "Cobranza de Alquiler",
-      contratoCodigo: p.contrato?.codigo || null,
-      monto: Number(p.montoPagado.toFixed(2)),
-      monedaOriginal: p.monedaOriginal || MonedaTransaccion.USD,
-      montoOriginal: p.montoOriginal || (p.montoBs ? p.montoBs : null),
-      tasaBcv: p.tasaBcv || null,
-      fecha: fechaIso,
-      dia,
-      inquilinoNombre: inqNombre,
-      inquilinoDocumento: inqDoc,
-      propiedadNombre: propNombre,
-      unidadCodigo: unidCodigo,
-      metodoPago: p.metodoPago || null,
-      referencia: p.referencia || null,
-      comprobanteUrl: p.comprobanteUrl || null,
-      notas: p.notas || null,
+      orderBy: { fechaPago: "desc" },
     });
-  }
 
-  // B) Ingresos extra de TransaccionFinanciera
-  for (const t of transacciones) {
-    if (t.tipo === TipoTransaccionFinanciera.INGRESO) {
-      const fechaIso = t.fecha.toISOString();
-      const dia = new Date(t.fecha).getDate();
+    // 2. Transacciones financieras manuales (ingresos extra y egresos)
+    const transacciones = await prisma.transaccionFinanciera.findMany({
+      where: {
+        periodoMes: mes,
+        periodoAno: ano,
+        activo: true,
+        ...(tienePropiedad ? { propiedadId } : {}),
+      },
+      include: {
+        propiedad: {
+          select: { id: true, nombre: true, tipo: true, ciudad: true },
+        },
+        unidad: {
+          select: { id: true, codigo: true, tipo: true },
+        },
+      },
+      orderBy: { fecha: "desc" },
+    });
+
+    // Transformar ingresos
+    const ingresos: MovimientoIngresoDetalle[] = [];
+
+    // A) Pagos de alquiler devengados
+    for (const p of pagos) {
+      const fecha = p.fechaPago || p.fechaVencimiento || p.createdAt;
+      const fechaIso = fecha.toISOString();
+      const dia = getPartesFechaVenezuela(fecha).dia;
+      const inq = p.contrato?.inquilino;
+      const inqNombre = inq
+        ? `${inq.nombre}${inq.apellido ? ` ${inq.apellido}` : ""}`
+        : "Inquilino";
+      const inqDoc = inq?.documentoIdentidad || null;
+      const propNombre = p.contrato?.unidad?.propiedad?.nombre || null;
+      const unidCodigo = p.contrato?.unidad?.codigo || null;
 
       ingresos.push({
-        id: `extra-${t.id}`,
-        tipo: "EXTRA",
-        concepto: t.concepto,
-        monto: Number(t.monto.toFixed(2)),
-        monedaOriginal: t.monedaOriginal,
-        montoOriginal: t.montoOriginal,
-        tasaBcv: t.tasaBcv,
+        id: `pago-${p.id}`,
+        tipo: "ALQUILER",
+        concepto: "Cobranza de Alquiler",
+        contratoCodigo: p.contrato?.codigo || null,
+        monto: Number(p.montoPagado.toFixed(2)),
+        monedaOriginal: p.monedaOriginal || MonedaTransaccion.USD,
+        montoOriginal: p.montoOriginal || (p.montoBs ? p.montoBs : null),
+        tasaBcv: p.tasaBcv || null,
         fecha: fechaIso,
         dia,
-        inquilinoNombre: t.beneficiario || "Ingreso Extraordinario",
-        inquilinoDocumento: null,
-        propiedadNombre: t.propiedad?.nombre || null,
-        unidadCodigo: t.unidad?.codigo || null,
-        metodoPago: t.metodoPago || null,
-        referencia: t.referencia || null,
-        comprobanteUrl: t.comprobanteUrl || null,
-        notas: t.notas || null,
-        transaccionOriginal: {
-          ...t,
-          fecha: fechaIso,
-          createdAt: t.createdAt.toISOString(),
-        },
+        inquilinoNombre: inqNombre,
+        inquilinoDocumento: inqDoc,
+        propiedadNombre: propNombre,
+        unidadCodigo: unidCodigo,
+        metodoPago: p.metodoPago || null,
+        referencia: p.referencia || null,
+        comprobanteUrl: p.comprobanteUrl || null,
+        notas: p.notas || null,
       });
     }
-  }
 
-  // Ordenar ingresos por fecha descendente
-  ingresos.sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime());
+    // B) Ingresos extra de TransaccionFinanciera
+    for (const t of transacciones) {
+      if (t.tipo === TipoTransaccionFinanciera.INGRESO) {
+        const fechaIso = t.fecha.toISOString();
+        const dia = getPartesFechaVenezuela(t.fecha).dia;
 
-  // Transformar egresos
-  const egresos: MovimientoEgresoDetalle[] = [];
-  for (const t of transacciones) {
-    if (t.tipo === TipoTransaccionFinanciera.EGRESO) {
-      const fechaIso = t.fecha.toISOString();
-      const dia = new Date(t.fecha).getDate();
-      const catConf = CATEGORIA_CONFIG[t.categoria] || CATEGORIA_CONFIG.OTRO;
-
-      egresos.push({
-        id: t.id,
-        concepto: t.concepto,
-        categoria: t.categoria,
-        categoriaLabel: catConf.label,
-        categoriaBadge: catConf.colorBadge,
-        monto: Number(t.monto.toFixed(2)),
-        monedaOriginal: t.monedaOriginal,
-        montoOriginal: t.montoOriginal,
-        tasaBcv: t.tasaBcv,
-        fecha: fechaIso,
-        dia,
-        beneficiario: t.beneficiario || null,
-        propiedadNombre: t.propiedad?.nombre || null,
-        unidadCodigo: t.unidad?.codigo || null,
-        metodoPago: t.metodoPago || null,
-        referencia: t.referencia || null,
-        comprobanteUrl: t.comprobanteUrl || null,
-        notas: t.notas || null,
-        transaccionOriginal: {
-          ...t,
+        ingresos.push({
+          id: `extra-${t.id}`,
+          tipo: "EXTRA",
+          concepto: t.concepto,
+          monto: Number(t.monto.toFixed(2)),
+          monedaOriginal: t.monedaOriginal,
+          montoOriginal: t.montoOriginal,
+          tasaBcv: t.tasaBcv,
           fecha: fechaIso,
-          createdAt: t.createdAt.toISOString(),
-        },
-      });
+          dia,
+          inquilinoNombre: t.beneficiario || "Ingreso Extraordinario",
+          inquilinoDocumento: null,
+          propiedadNombre: t.propiedad?.nombre || null,
+          unidadCodigo: t.unidad?.codigo || null,
+          metodoPago: t.metodoPago || null,
+          referencia: t.referencia || null,
+          comprobanteUrl: t.comprobanteUrl || null,
+          notas: t.notas || null,
+          transaccionOriginal: {
+            ...t,
+            fecha: fechaIso,
+            createdAt: t.createdAt.toISOString(),
+          },
+        });
+      }
     }
+
+    // Ordenar ingresos por fecha descendente
+    ingresos.sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime());
+
+    // Transformar egresos
+    const egresos: MovimientoEgresoDetalle[] = [];
+    for (const t of transacciones) {
+      if (t.tipo === TipoTransaccionFinanciera.EGRESO) {
+        const fechaIso = t.fecha.toISOString();
+        const dia = getPartesFechaVenezuela(t.fecha).dia;
+        const catConf = CATEGORIA_CONFIG[t.categoria] || CATEGORIA_CONFIG.OTRO;
+
+        egresos.push({
+          id: t.id,
+          concepto: t.concepto,
+          categoria: t.categoria,
+          categoriaLabel: catConf.label,
+          categoriaBadge: catConf.colorBadge,
+          monto: Number(t.monto.toFixed(2)),
+          monedaOriginal: t.monedaOriginal,
+          montoOriginal: t.montoOriginal,
+          tasaBcv: t.tasaBcv,
+          fecha: fechaIso,
+          dia,
+          beneficiario: t.beneficiario || null,
+          propiedadNombre: t.propiedad?.nombre || null,
+          unidadCodigo: t.unidad?.codigo || null,
+          metodoPago: t.metodoPago || null,
+          referencia: t.referencia || null,
+          comprobanteUrl: t.comprobanteUrl || null,
+          notas: t.notas || null,
+          transaccionOriginal: {
+            ...t,
+            fecha: fechaIso,
+            createdAt: t.createdAt.toISOString(),
+          },
+        });
+      }
+    }
+
+    // Ordenar egresos por fecha descendente
+    egresos.sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime());
+
+    const totalIngresos = Number(ingresos.reduce((acc, i) => acc + i.monto, 0).toFixed(2));
+    const totalEgresos = Number(egresos.reduce((acc, e) => acc + e.monto, 0).toFixed(2));
+
+    return {
+      ingresos,
+      egresos,
+      totalIngresos,
+      totalEgresos,
+      conteoIngresos: ingresos.length,
+      conteoEgresos: egresos.length,
+    };
+  } catch (error) {
+    console.error("Error al consultar movimientos detallados del periodo:", error);
+    return {
+      ingresos: [],
+      egresos: [],
+      totalIngresos: 0,
+      totalEgresos: 0,
+      conteoIngresos: 0,
+      conteoEgresos: 0,
+    };
   }
-
-  // Ordenar egresos por fecha descendente
-  egresos.sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime());
-
-  const totalIngresos = Number(ingresos.reduce((acc, i) => acc + i.monto, 0).toFixed(2));
-  const totalEgresos = Number(egresos.reduce((acc, e) => acc + e.monto, 0).toFixed(2));
-
-  return {
-    ingresos,
-    egresos,
-    totalIngresos,
-    totalEgresos,
-    conteoIngresos: ingresos.length,
-    conteoEgresos: egresos.length,
-  };
 }

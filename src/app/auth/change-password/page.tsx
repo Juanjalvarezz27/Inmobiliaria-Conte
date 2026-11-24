@@ -18,10 +18,11 @@ export default async function ChangePasswordPage() {
 
   const nombre = session.user.nombre || "Usuario";
   const email = session.user.email || "";
+  const rol = session.user.rol || "INQUILINO";
 
   return (
     <main className="min-h-screen flex items-center justify-center p-4 sm:p-6 bg-gradient-to-b from-slate-100 via-slate-50 to-slate-100">
-      <ChangePasswordForm nombreUsuario={nombre} emailUsuario={email} />
+      <ChangePasswordForm nombreUsuario={nombre} emailUsuario={email} rolUsuario={rol} />
     </main>
   );
 }

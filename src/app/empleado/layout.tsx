@@ -11,7 +11,7 @@ export default async function EmpleadoLayout({
   const session = await auth();
 
   if (!session?.user) {
-    redirect("/home/login");
+    redirect("/home/login?expired=1");
   }
 
   // Permitir acceso a EMPLEADO y ADMIN en modo auditoría
