@@ -220,6 +220,15 @@ export function ContratoFormModal({
       fileInputRef.current.value = "";
     }
 
+    const MAX_FOTOS_CONTRATO = 2;
+    const sonImagenes = fileArray.every((f) => f.type.startsWith("image/"));
+    if (sonImagenes && fileArray.length > MAX_FOTOS_CONTRATO) {
+      const msgLimite = `Solo puedes subir un máximo de ${MAX_FOTOS_CONTRATO} fotos por contrato. Si tiene más páginas, súbelo como PDF.`;
+      setUploadError(msgLimite);
+      toast.error(msgLimite);
+      return;
+    }
+
     const controller = new AbortController();
     abortControllerRef.current = controller;
 
@@ -778,7 +787,7 @@ export function ContratoFormModal({
           {/* Subida o visor de PDF firmado */}
           <div>
             <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1.5">
-              Copia Digital del Contrato Firmado (PDF, máx. 4 MB)
+              Copia Digital del Contrato Firmado (1 PDF o máx. 2 fotos · 8 MB)
             </label>
 
             {/* Input oculto de archivos */}
@@ -931,7 +940,7 @@ export function ContratoFormModal({
                         Haz clic para seleccionar el contrato o arrástralo aquí
                       </p>
                       <p className="text-[11px] text-slate-400 mt-0.5">
-                        PDF o fotos de las páginas (JPG, PNG) · Compresión automática integrada
+                        1 PDF o máximo 2 fotos de las páginas (JPG, PNG, WebP) · Compresión automática integrada
                       </p>
                     </div>
                     <span className="mt-1 px-3 py-1 text-[11px] font-semibold text-[#175E38] bg-emerald-50 border border-emerald-200/80 rounded-lg">
