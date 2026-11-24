@@ -14,7 +14,6 @@
     "db:studio": "prisma studio",
     "db:push": "prisma db push",
     "db:seed": "prisma db seed",
-    "db:seed:demo": "tsx prisma/seed-demo.ts",
     "db:purge": "tsx scripts/purgar-sistema.ts",
     "storage:clean": "tsx scripts/limpieza-almacenamiento.ts"
   },
