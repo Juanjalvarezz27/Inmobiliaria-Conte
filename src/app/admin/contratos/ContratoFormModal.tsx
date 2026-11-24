@@ -61,15 +61,19 @@ export function ContratoFormModal({
   unidadIdPreseleccionada,
   isLoading = false,
 }: ContratoFormModalProps) {
-  // Fechas por defecto: hoy y 1 año después
+  // Fechas por defecto: hoy, 1er día del próximo mes para corte de cobranza y 1 año después
   const hoyObj = new Date();
   const hoyStr = hoyObj.toISOString().split("T")[0];
   const primerDiaMesActualStr = `${hoyObj.getFullYear()}-${String(hoyObj.getMonth() + 1).padStart(2, "0")}-01`;
+  const proximoMesObj = new Date(hoyObj.getFullYear(), hoyObj.getMonth() + 1, 1);
+  const primerDiaMesSiguienteStr = `${proximoMesObj.getFullYear()}-${String(proximoMesObj.getMonth() + 1).padStart(2, "0")}-01`;
   const unAnoDespues = new Date();
   const [fechaInicioCobranza, setFechaInicioCobranza] = useState<string>(
     initialData?.fechaInicioCobranza
       ? new Date(initialData.fechaInicioCobranza).toISOString().split("T")[0]
-      : primerDiaMesActualStr
+      : initialData
+      ? new Date(initialData.fechaInicio).toISOString().split("T")[0]
+      : primerDiaMesSiguienteStr
   );
   unAnoDespues.setFullYear(unAnoDespues.getFullYear() + 1);
   const unAnoStr = unAnoDespues.toISOString().split("T")[0];
@@ -321,6 +325,11 @@ export function ContratoFormModal({
       return;
     }
 
+    if (mostrarCorteCobranza && fechaInicioCobranza && new Date(fechaInicioCobranza) > new Date(fechaFin)) {
+      toast.error("La fecha de corte de cobranza no puede ser posterior a la fecha de fin.");
+      return;
+    }
+
     const canonNum = parseFloat(montoAlquiler);
     if (!montoAlquiler || isNaN(canonNum) || canonNum <= 0) {
       toast.error("Debes ingresar un canon válido mayor a 0.");
@@ -333,11 +342,11 @@ export function ContratoFormModal({
       return;
     }
 
-    const payload: CreateContratoInput = {
+    const payload: CreateContratoInput & { fechaInicioCobranza?: string | null } = {
       inquilinoId,
       unidadId,
       fechaInicio,
-      fechaInicioCobranza: esContratoHistorico ? fechaInicioCobranza : null,
+      fechaInicioCobranza: mostrarCorteCobranza ? fechaInicioCobranza || null : null,
       fechaFin,
       diaCobro: diaNum,
       montoAlquiler: canonNum,
@@ -356,6 +365,7 @@ export function ContratoFormModal({
 
   const isEditing = !!initialData;
   const esContratoHistorico = Boolean(fechaInicio && fechaInicio < primerDiaMesActualStr);
+  const mostrarCorteCobranza = esContratoHistorico || (isEditing && Boolean(initialData?.fechaInicioCobranza));
   const unidadSeleccionada = unidadesDisponibles.find((u) => u.id === unidadId);
 
   const getEstadoTexto = (estado: EstadoUnidad) => {
@@ -497,7 +507,15 @@ export function ContratoFormModal({
                   type="date"
                   required
                   value={fechaFin}
-                  onChange={(e) => setFechaFin(e.target.value)}
+                  onChange={(e) => {
+                    const nuevaFin = e.target.value;
+                    setFechaFin(nuevaFin);
+                    if (nuevaFin && fechaInicioCobranza > nuevaFin) {
+                      setFechaInicioCobranza(
+                        primerDiaMesActualStr <= nuevaFin ? primerDiaMesActualStr : nuevaFin
+                      );
+                    }
+                  }}
                   className="w-full pl-9 pr-3 h-11 text-xs sm:text-sm border border-slate-200 rounded-xl bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#175E38]/20 focus:border-[#175E38] transition-all"
                 />
               </div>
@@ -505,7 +523,7 @@ export function ContratoFormModal({
           </div>
 
           {/* Panel Contextual para Contratos Preexistentes con Antigüedad */}
-          {esContratoHistorico && !isEditing && (
+          {mostrarCorteCobranza && (
             <div className="bg-amber-50/50 border border-amber-200/70 rounded-xl p-3.5 transition-all">
               <div className="flex items-center gap-2.5 mb-2">
                 <div className="w-7 h-7 rounded-md bg-amber-100 text-amber-700 flex items-center justify-center shrink-0 border border-amber-200/60">
@@ -526,7 +544,9 @@ export function ContratoFormModal({
                     Fecha de Inicio de Facturación en Sistema (Corte)
                   </label>
                   <p className="text-xs text-amber-800/80 mt-0.5 leading-tight">
-                    Por defecto: mes actual. Los meses anteriores se consideran solventes sin deuda.
+                    {isEditing
+                      ? "Al modificar el corte se depurarán cuotas impagas previas sin afectar pagos ya registrados."
+                      : "Por defecto: próximo mes (mes actual solvente). Cámbiala si tiene meses previos pendientes."}
                   </p>
                 </div>
                 <div className="sm:col-span-5 relative">

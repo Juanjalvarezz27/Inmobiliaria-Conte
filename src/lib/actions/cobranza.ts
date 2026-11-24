@@ -342,7 +342,8 @@ export async function sincronizarCuotasMes(mes: number, ano: number) {
 
       for (const c of contratosVigentes) {
         const finMesPrev = new Date(Date.UTC(prevAno, prevMes, 0, 23, 59, 59, 999));
-        if (c.fechaInicio <= finMesPrev && !contratosConMesAnteriorPagado.has(c.id)) {
+        const fechaEfectivaInicio = c.fechaInicioCobranza ?? c.fechaInicio;
+        if (fechaEfectivaInicio <= finMesPrev && !contratosConMesAnteriorPagado.has(c.id)) {
           contratosNoElegiblesFuturo.add(c.id);
         }
       }

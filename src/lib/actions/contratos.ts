@@ -42,6 +42,7 @@ const createContratoSchema = z.object({
 });
 
 const updateContratoSchema = z.object({
+  fechaInicioCobranza: z.string().optional().nullable(),
   fechaFin: z.string().optional(),
   diaCobro: z.coerce.number().min(1).max(31).optional(),
   montoAlquiler: z.coerce.number().min(0).optional(),
@@ -496,15 +497,15 @@ export async function createContrato(data: CreateContratoInput) {
         }
       }
 
-      // Salvaguarda para contratos históricos: si la fecha de inicio es anterior al mes actual
-      // y no se especificó fecha de corte, se asigna el mes actual para no crear deudas vencidas fantasmas
+      // Salvaguarda para contratos históricos: si no se especifica corte, iniciar en el próximo mes solvente
       const ahora = new Date();
       const inicioMesActual = new Date(Date.UTC(ahora.getUTCFullYear(), ahora.getUTCMonth(), 1));
+      const inicioProximoMes = new Date(Date.UTC(ahora.getUTCFullYear(), ahora.getUTCMonth() + 1, 1));
       let fInicioCobranza: Date | null = null;
       if (parsed.fechaInicioCobranza) {
         fInicioCobranza = new Date(parsed.fechaInicioCobranza);
       } else if (fInicio < inicioMesActual) {
-        fInicioCobranza = inicioMesActual;
+        fInicioCobranza = fFin >= inicioProximoMes ? inicioProximoMes : inicioMesActual;
       }
 
       const contrato = await tx.contrato.create({
@@ -536,8 +537,12 @@ export async function createContrato(data: CreateContratoInput) {
         data: { estado: EstadoUnidad.OCUPADO },
       });
 
-      // 5. Pre-generar cronograma de cuotas mensuales acotado (devengadas + máx 1 mes de adelanto)
-      const periodos = obtenerPeriodosParaGenerarContrato(fInicio, fFin, fInicioCobranza);
+      // 5. Pregenerar cuotas devengadas y solo adelantar mes+1 si no nace con cuotas impagas previas
+      const periodosDevengados = obtenerPeriodosParaGenerarContrato(fInicio, fFin, fInicioCobranza, 0);
+      const periodos =
+        periodosDevengados.length === 0
+          ? obtenerPeriodosParaGenerarContrato(fInicio, fFin, fInicioCobranza, 1)
+          : periodosDevengados;
       const cuotasParaCrear = periodos.map(({ mes, ano }) => {
         const ultimoDiaMes = new Date(Date.UTC(ano, mes, 0)).getUTCDate();
         const diaEfectivo = Math.min(parsed.diaCobro, ultimoDiaMes);
@@ -724,10 +729,22 @@ export async function updateContrato(id: string, data: UpdateContratoInput) {
       const nuevoMonto = parsed.montoAlquiler !== undefined ? parsed.montoAlquiler : contratoPrevio.montoAlquiler;
       const nuevoDia = parsed.diaCobro !== undefined ? parsed.diaCobro : contratoPrevio.diaCobro;
       const nuevaFechaFin = parsed.fechaFin ? new Date(parsed.fechaFin) : contratoPrevio.fechaFin;
+      const nuevaFechaInicioCobranza =
+        parsed.fechaInicioCobranza !== undefined
+          ? parsed.fechaInicioCobranza
+            ? new Date(parsed.fechaInicioCobranza)
+            : null
+          : contratoPrevio.fechaInicioCobranza;
+
+      if (nuevaFechaInicioCobranza && nuevaFechaInicioCobranza > nuevaFechaFin) {
+        throw new Error("La fecha de corte de cobranza no puede ser posterior a la fecha de fin.");
+      }
 
       const cambioMonto = parsed.montoAlquiler !== undefined && parsed.montoAlquiler !== contratoPrevio.montoAlquiler;
       const cambioDia = parsed.diaCobro !== undefined && parsed.diaCobro !== contratoPrevio.diaCobro;
       const cambioFechaFin = parsed.fechaFin !== undefined && nuevaFechaFin.getTime() !== contratoPrevio.fechaFin.getTime();
+      const cambioFechaCorte =
+        (nuevaFechaInicioCobranza?.getTime() ?? null) !== (contratoPrevio.fechaInicioCobranza?.getTime() ?? null);
 
       const dataToUpdate: Record<string, unknown> = { ...parsed };
       delete dataToUpdate.aplicarDesdeMes;
@@ -735,6 +752,9 @@ export async function updateContrato(id: string, data: UpdateContratoInput) {
 
       if (parsed.fechaFin) {
         dataToUpdate.fechaFin = nuevaFechaFin;
+      }
+      if (parsed.fechaInicioCobranza !== undefined) {
+        dataToUpdate.fechaInicioCobranza = nuevaFechaInicioCobranza;
       }
       if (parsed.documentoUrl === "") {
         dataToUpdate.documentoUrl = null;
@@ -756,19 +776,72 @@ export async function updateContrato(id: string, data: UpdateContratoInput) {
         select: CONTRATO_LIST_SELECT,
       });
 
-      // 3. Manejo de cuotas: Preservación histórica de pagos y actualización de cuotas que faltan
-      if (cambioMonto || cambioDia || cambioFechaFin) {
+      // 3. Manejo de cuotas: Preservación histórica de pagos y sincronización con corte y correlatividad
+      if (cambioMonto || cambioDia || cambioFechaFin || cambioFechaCorte) {
         const ahora = new Date();
-        const mesActual = ahora.getMonth() + 1;
-        const anoActual = ahora.getFullYear();
+        const mesActual = ahora.getUTCMonth() + 1;
+        const anoActual = ahora.getUTCFullYear();
+        let pagosRestantes = [...contratoPrevio.pagos];
+
+        // Depurar cuotas impagas anteriores al nuevo corte sin tocar pagos registrados
+        if (cambioFechaCorte) {
+          const corteBase = nuevaFechaInicioCobranza ?? contratoPrevio.fechaInicio;
+          const corteAno = corteBase.getUTCFullYear();
+          const corteMes = corteBase.getUTCMonth() + 1;
+
+          await tx.pago.deleteMany({
+            where: {
+              contratoId: id,
+              montoPagado: 0,
+              estado: { not: EstadoPago.PAGADO },
+              OR: [
+                { periodoAno: { lt: corteAno } },
+                { periodoAno: corteAno, periodoMes: { lt: corteMes } },
+              ],
+            },
+          });
+
+          pagosRestantes = pagosRestantes.filter(
+            (p) =>
+              p.montoPagado > 0 ||
+              p.estado === EstadoPago.PAGADO ||
+              p.periodoAno > corteAno ||
+              (p.periodoAno === corteAno && p.periodoMes >= corteMes)
+          );
+        }
+
+        // Si se acortó fechaFin, eliminar cuotas futuras posteriores que nunca se pagaron
+        if (cambioFechaFin && nuevaFechaFin < contratoPrevio.fechaFin) {
+          const finAno = nuevaFechaFin.getUTCFullYear();
+          const finMes = nuevaFechaFin.getUTCMonth() + 1;
+
+          await tx.pago.deleteMany({
+            where: {
+              contratoId: id,
+              montoPagado: 0,
+              estado: { not: EstadoPago.PAGADO },
+              OR: [
+                { periodoAno: { gt: finAno } },
+                { periodoAno: finAno, periodoMes: { gt: finMes } },
+              ],
+            },
+          });
+
+          pagosRestantes = pagosRestantes.filter(
+            (p) =>
+              p.montoPagado > 0 ||
+              p.estado === EstadoPago.PAGADO ||
+              p.periodoAno < finAno ||
+              (p.periodoAno === finAno && p.periodoMes <= finMes)
+          );
+        }
 
         // Determinar período de corte efectivo
         let desdeMes = parsed.aplicarDesdeMes;
         let desdeAno = parsed.aplicarDesdeAno;
 
         if (!desdeMes || !desdeAno) {
-          // Si no se especificó, encontrar el primer período pendiente / no pagado
-          const pagosSinPagar = contratoPrevio.pagos
+          const pagosSinPagar = pagosRestantes
             .filter((p) => p.montoPagado === 0 && p.estado !== EstadoPago.PAGADO)
             .sort((a, b) => (a.periodoAno !== b.periodoAno ? a.periodoAno - b.periodoAno : a.periodoMes - b.periodoMes));
 
@@ -782,8 +855,7 @@ export async function updateContrato(id: string, data: UpdateContratoInput) {
         }
 
         // A) Actualizar cuotas existentes NO PAGADAS que sean >= al periodo efectivo
-        for (const pago of contratoPrevio.pagos) {
-          // REGLA DE ORO: Si ya se pagó (montoPagado > 0 o estado === PAGADO), se mantiene 100% INMUTABLE.
+        for (const pago of pagosRestantes) {
           if (pago.montoPagado > 0 || pago.estado === EstadoPago.PAGADO) {
             continue;
           }
@@ -808,17 +880,51 @@ export async function updateContrato(id: string, data: UpdateContratoInput) {
           }
         }
 
-        // B) Si se amplió fechaFin o faltan cuotas por generar en el cronograma acotado
+        // B) Sincronizar cuotas faltantes respetando la regla de correlatividad para mes+1
+        const periodosDevengados = obtenerPeriodosParaGenerarContrato(
+          contratoPrevio.fechaInicio,
+          nuevaFechaFin,
+          nuevaFechaInicioCobranza,
+          0
+        );
+        const mapaPagosRestantes = new Map(pagosRestantes.map((p) => [`${p.periodoAno}-${p.periodoMes}`, p]));
+        const tieneImpagosHastaMesActual =
+          pagosRestantes.some(
+            (p) =>
+              p.estado !== EstadoPago.PAGADO &&
+              (p.periodoAno < anoActual || (p.periodoAno === anoActual && p.periodoMes <= mesActual))
+          ) ||
+          periodosDevengados.some(({ mes, ano }) => {
+            const existente = mapaPagosRestantes.get(`${ano}-${mes}`);
+            return !existente || existente.estado !== EstadoPago.PAGADO;
+          });
+
+        // Si existen cuotas impagas hasta el mes actual, depurar cuotas futuras vacías prematuras
+        if (tieneImpagosHastaMesActual) {
+          await tx.pago.deleteMany({
+            where: {
+              contratoId: id,
+              montoPagado: 0,
+              comprobanteUrl: null,
+              estado: { not: EstadoPago.PAGADO },
+              OR: [
+                { periodoAno: { gt: anoActual } },
+                { periodoAno: anoActual, periodoMes: { gt: mesActual } },
+              ],
+            },
+          });
+        }
+
         const periodosTotales = obtenerPeriodosParaGenerarContrato(
           contratoPrevio.fechaInicio,
           nuevaFechaFin,
-          contratoPrevio.fechaInicioCobranza
+          nuevaFechaInicioCobranza,
+          tieneImpagosHastaMesActual ? 0 : 1
         );
-        const setPagosExistentes = new Set(contratoPrevio.pagos.map((p) => `${p.periodoAno}-${p.periodoMes}`));
 
         const nuevasCuotas = [];
         for (const { mes: pMes, ano: pAno } of periodosTotales) {
-          if (!setPagosExistentes.has(`${pAno}-${pMes}`)) {
+          if (!mapaPagosRestantes.has(`${pAno}-${pMes}`)) {
             const ultimoDia = new Date(Date.UTC(pAno, pMes, 0)).getUTCDate();
             const diaEfectivo = Math.min(nuevoDia, ultimoDia);
             const fechaVenc = new Date(Date.UTC(pAno, pMes - 1, diaEfectivo, 23, 59, 59, 999));
@@ -843,24 +949,6 @@ export async function updateContrato(id: string, data: UpdateContratoInput) {
           await tx.pago.createMany({
             data: nuevasCuotas,
             skipDuplicates: true,
-          });
-        }
-
-        // C) Si se acortó fechaFin, eliminar cuotas futuras posteriores que nunca se pagaron
-        if (cambioFechaFin && nuevaFechaFin < contratoPrevio.fechaFin) {
-          const finAno = nuevaFechaFin.getUTCFullYear();
-          const finMes = nuevaFechaFin.getUTCMonth() + 1;
-
-          await tx.pago.deleteMany({
-            where: {
-              contratoId: id,
-              montoPagado: 0,
-              estado: { not: EstadoPago.PAGADO },
-              OR: [
-                { periodoAno: { gt: finAno } },
-                { periodoAno: finAno, periodoMes: { gt: finMes } },
-              ],
-            },
           });
         }
       }
