@@ -26,6 +26,7 @@ import { Modal } from "@/components/ui/modal";
 import { ImageViewerModal } from "@/components/ui/image-viewer-modal";
 import { StatCard } from "@/components/ui/stat-card";
 import { WhatsAppIcon } from "@/components/icons/whatsapp-icon";
+import { getWhatsAppUrl } from "@/lib/formatters";
 import { EstadoAsistencia, CargoEmpleado } from "@prisma/client";
 import { obtenerHistorialAsistenciaEmpleadoAction } from "@/lib/actions/personal";
 import {
@@ -222,8 +223,13 @@ export function EmpleadoDetalleModal({
   const cargoConfig = CARGO_CONFIG[emp.cargo] || CARGO_CONFIG.OTRO;
   const cargoNombre = getCargoLabel(emp.cargo, emp.cargoPersonalizado);
   const nombreCompleto = `${emp.nombre} ${emp.apellido || ""}`.trim();
-  const cleanPhone = emp.telefono.replace(/[^\d+]/g, "");
-  const waUrl = cleanPhone ? `https://wa.me/${cleanPhone.replace("+", "")}` : null;
+  const waUrl = emp.telefono ? getWhatsAppUrl(emp.telefono) : null;
+  const correoAcceso = emp.usuario?.email || emp.email || "";
+  const claveInicial = emp.cedula.trim().toUpperCase();
+  const loginUrl = typeof window !== "undefined" ? `${window.location.origin}/home/login` : "/home/login";
+  const mensajeCredenciales = `Hola ${emp.nombre}, le compartimos sus credenciales de acceso al Portal del Trabajador de Inmobiliaria Conte C.A.\n\nEnlace de ingreso: ${loginUrl}\nUsuario: ${correoAcceso}\nContraseña inicial: ${claveInicial}\n\nSi ya personalizó su contraseña, ingrese con su clave actual.`;
+  const waCredencialesUrl =
+    emp.telefono && correoAcceso ? getWhatsAppUrl(emp.telefono, mensajeCredenciales) : null;
 
   return (
     <Modal
@@ -238,31 +244,46 @@ export function EmpleadoDetalleModal({
       <div className="space-y-4 sm:space-y-5">
         {/* Cabecera Principal de Identidad Reorganizada */}
         <div className="p-4 sm:p-5 rounded-2xl bg-white border border-slate-200/90 border-b-[3px] border-b-slate-300/90 shadow-2xs space-y-4">
-          {/* Identidad Principal: Iniciales compactas, Nombre y Cédula */}
-          <div className="flex items-center gap-3 min-w-0">
-            <div
-              className={`w-9 h-9 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center font-heading font-black text-xs sm:text-sm shrink-0 border shadow-2xs ${getCargoAvatarColors(
-                emp.cargo
-              )}`}
-            >
-              {getInitials(emp.nombre, emp.apellido)}
-            </div>
+          {/* Identidad Principal: Iniciales, Nombre, Cédula y Acceso rápido a credenciales */}
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 min-w-0">
+            <div className="flex items-center gap-3 min-w-0 flex-1">
+              <div
+                className={`w-9 h-9 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center font-heading font-black text-xs sm:text-sm shrink-0 border shadow-2xs ${getCargoAvatarColors(
+                  emp.cargo
+                )}`}
+              >
+                {getInitials(emp.nombre, emp.apellido)}
+              </div>
 
-            <div className="min-w-0 flex-1 flex items-center gap-2 flex-wrap">
-              <h2 className="text-base sm:text-lg font-black font-heading text-slate-900 tracking-tight truncate">
-                {nombreCompleto}
-              </h2>
+              <div className="min-w-0 flex-1 flex items-center gap-2 flex-wrap">
+                <h2 className="text-base sm:text-lg font-black font-heading text-slate-900 tracking-tight truncate">
+                  {nombreCompleto}
+                </h2>
 
-              <span className="font-mono text-xs font-bold text-slate-600 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded-md shadow-2xs">
-                C.I. {emp.cedula}
-              </span>
-
-              {!emp.activo && (
-                <span className="text-[10px] font-bold text-rose-700 bg-rose-50 border border-rose-200 px-1.5 py-0.5 rounded-md">
-                  Inactivo
+                <span className="font-mono text-xs font-bold text-slate-600 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded-md shadow-2xs shrink-0">
+                  C.I. {emp.cedula}
                 </span>
-              )}
+
+                {!emp.activo && (
+                  <span className="text-[10px] font-bold text-rose-700 bg-rose-50 border border-rose-200 px-1.5 py-0.5 rounded-md shrink-0">
+                    Inactivo
+                  </span>
+                )}
+              </div>
             </div>
+
+            {waCredencialesUrl && (
+              <a
+                href={waCredencialesUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                title="Compartir credenciales de acceso por WhatsApp"
+                className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#25D366]/15 hover:bg-[#25D366]/25 text-[#0d7340] border border-[#25D366]/35 text-xs font-bold transition-all shadow-2xs active:scale-95 w-full sm:w-auto shrink-0"
+              >
+                <WhatsAppIcon className="w-3.5 h-3.5 text-[#25D366] shrink-0" />
+                <span>Compartir Credenciales</span>
+              </a>
+            )}
           </div>
 
           {/* 3 Cajas de Datos Contextuales: Asignación, Contacto y Condiciones */}
