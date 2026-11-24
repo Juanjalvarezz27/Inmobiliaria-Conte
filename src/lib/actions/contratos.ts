@@ -464,17 +464,19 @@ export async function createContrato(data: CreateContratoInput) {
         throw new Error(`El espacio "${unidad.codigo}" ya se encuentra ocupado por otro contrato activo.`);
       }
 
-      // 2. Generar código único de contrato
+      // 2. Generar código único de contrato (robusto ante inserciones concurrentes)
       const year = fInicio.getFullYear();
-      const countYear = await tx.contrato.count({
-        where: {
-          createdAt: {
-            gte: new Date(`${year}-01-01T00:00:00.000Z`),
-            lte: new Date(`${year}-12-31T23:59:59.999Z`),
-          },
-        },
+      // Buscar el máximo consecutivo ya registrado para este año en lugar de COUNT,
+      // para evitar colisiones cuando dos requests simultáneos lean el mismo count antes de insertar
+      const ultimoContrato = await tx.contrato.findFirst({
+        where: { codigo: { startsWith: `CTR-${year}-` } },
+        orderBy: { codigo: "desc" },
+        select: { codigo: true },
       });
-      const consecutivo = String(countYear + 1).padStart(3, "0");
+      const ultimoConsecutivo = ultimoContrato
+        ? parseInt(ultimoContrato.codigo.split("-")[2] ?? "0", 10)
+        : 0;
+      const consecutivo = String(ultimoConsecutivo + 1).padStart(3, "0");
       const codigoContrato = `CTR-${year}-${consecutivo}`;
 
       // 3. Crear el contrato
