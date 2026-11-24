@@ -1,8 +1,8 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import Image from "next/image";
 import Link from "next/link";
+import { SmartImage } from "@/components/ui/smart-image";
 import {
   Store,
   ChevronLeft,
@@ -100,8 +100,8 @@ export function UnidadDetalleModal({
   // Estados de historial y diagnóstico de subdivisión
   const [historial, setHistorial] = useState<ContratoHistorialItem[]>([]);
   const [diagnostico, setDiagnostico] = useState<DiagnosticoSubdivision | null>(null);
-  const [isLoadingHistorial, setIsLoadingHistorial] = useState<boolean>(false);
   const [historialCargadoPara, setHistorialCargadoPara] = useState<string | null>(null);
+  const isLoadingHistorial = Boolean(isOpen && unidad?.id && historialCargadoPara !== unidad.id);
 
   // Estados de modales interactivos
   const [confirmEstadoModal, setConfirmEstadoModal] = useState<EstadoUnidad | null>(null);
@@ -123,20 +123,23 @@ export function UnidadDetalleModal({
 
   // Carga automática del historial de contratos y diagnóstico de subdivisión
   useEffect(() => {
-    if (isOpen && unidad?.id && historialCargadoPara !== unidad.id) {
-      setIsLoadingHistorial(true);
-      getHistorialInquilinosUnidadAction(unidad.id)
-        .then((res) => {
-          if (res.success && res.contratos) {
-            setHistorial(res.contratos as unknown as ContratoHistorialItem[]);
-            setDiagnostico(res.diagnostico || null);
-            setHistorialCargadoPara(unidad.id);
-          }
-        })
-        .finally(() => {
-          setIsLoadingHistorial(false);
-        });
-    }
+    if (!isOpen || !unidad?.id || historialCargadoPara === unidad.id) return;
+    let cancelled = false;
+    getHistorialInquilinosUnidadAction(unidad.id)
+      .then((res) => {
+        if (cancelled) return;
+        if (res.success && res.contratos) {
+          setHistorial(res.contratos as unknown as ContratoHistorialItem[]);
+          setDiagnostico(res.diagnostico || null);
+        }
+        setHistorialCargadoPara(unidad.id);
+      })
+      .catch(() => {
+        if (!cancelled) setHistorialCargadoPara(unidad.id);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [isOpen, unidad?.id, historialCargadoPara]);
 
   if (!unidad) return null;
@@ -221,13 +224,12 @@ export function UnidadDetalleModal({
                 <div className="space-y-2.5">
                   {/* Foto Principal */}
                   <div className="relative h-48 sm:h-56 w-full rounded-2xl overflow-hidden bg-slate-950 border border-slate-200 shadow-inner flex items-center justify-center">
-                    <Image
+                    <SmartImage
                       src={unidad.imagenes[fotoActivaIndex] || unidad.imagenes[0]}
                       alt={`Foto ${fotoActivaIndex + 1} de ${unidad.codigo}`}
                       fill
                       sizes="(max-width: 1024px) 100vw, 800px"
-                      priority
-                      unoptimized
+                      preload
                       className="object-contain"
                     />
 
@@ -279,12 +281,11 @@ export function UnidadDetalleModal({
                               : "border-slate-200 opacity-60 hover:opacity-100"
                           }`}
                         >
-                          <Image
+                          <SmartImage
                             src={img}
                             alt={`Miniatura ${idx + 1}`}
                             fill
                             sizes="80px"
-                            unoptimized
                             className="object-cover"
                           />
                         </button>

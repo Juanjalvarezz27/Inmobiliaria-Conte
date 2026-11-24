@@ -1,9 +1,9 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import Image from "next/image";
 import Link from "next/link";
 import { TipoPropiedad, EstadoUnidad } from "@prisma/client";
+import { SmartImage } from "@/components/ui/smart-image";
 import {
   Store,
   Plus,
@@ -60,7 +60,7 @@ interface EspaciosTabProps {
     count: number;
   } | null;
   propiedadesDesplegadas: Record<string, boolean>;
-  propiedadesCargadas: Record<string, boolean>;
+  propiedadesCargadas?: Record<string, boolean>;
   paginasPorPropiedad: Record<string, number>;
   isPending: boolean;
   onToggleDesplieguePropiedad: (propId: string) => void;
@@ -78,7 +78,7 @@ interface EspaciosTabProps {
   onIrAPropiedadesTab: () => void;
 }
 
-const PAGE_SIZE = 15;
+const PAGE_SIZE = 12;
 
 // Vista de espacios y locales agrupados por inmueble con acordeón suave
 export function EspaciosTab({
@@ -91,7 +91,6 @@ export function EspaciosTab({
   filtroEstadoUnidad,
   propiedadActivaFiltro,
   propiedadesDesplegadas,
-  propiedadesCargadas,
   paginasPorPropiedad,
   isPending,
   onToggleDesplieguePropiedad,
@@ -184,19 +183,18 @@ export function EspaciosTab({
           className="relative aspect-[16/9] w-full overflow-hidden bg-slate-100 border-b border-slate-100 cursor-pointer group/img"
           title="Clic para ver detalle y fotos"
         >
-          <Image
+          <SmartImage
             src={unidad.imagenes[0]}
             alt={`Foto de ${unidad.codigo}`}
             fill
-            sizes="(max-width: 768px) 100vw, (max-width: 1280px) 50vw, 33vw"
-            loading="lazy"
-            unoptimized
+            progressive
+            sizes="(max-width: 768px) 100vw, (max-width: 1280px) 50vw, (max-width: 1536px) 33vw, 25vw"
             className="object-cover group-hover/unitcard:scale-105 transition-transform duration-300"
           />
 
           {/* Overlay sutil al pasar el mouse */}
           <div className="absolute inset-0 bg-slate-950/0 group-hover/img:bg-slate-950/25 transition-colors flex items-center justify-center">
-            <span className="opacity-0 group-hover/img:opacity-100 transition-opacity px-2.5 py-1 rounded-lg bg-black/60 text-white text-xs font-semibold backdrop-blur-xs flex items-center gap-1.5 shadow-md">
+            <span className="opacity-0 group-hover/img:opacity-100 transition-opacity px-2.5 py-1 rounded-lg bg-black/75 text-white text-xs font-semibold flex items-center gap-1.5 shadow-md">
               <Eye className="w-3.5 h-3.5" />
               Ver detalle y fotos
             </span>
@@ -204,7 +202,7 @@ export function EspaciosTab({
 
           {/* Badge de Tipo en esquina superior izquierda */}
           <div className="absolute top-2.5 left-2.5 z-10">
-            <span className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-bold rounded-lg bg-white/95 text-slate-800 shadow-md backdrop-blur-xs border border-slate-200/60">
+            <span className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-bold rounded-lg bg-white/95 text-slate-800 shadow-md border border-slate-200/60">
               <Tag className="w-3 h-3 text-[#175E38]" />
               {TIPO_UNIDAD_LABEL[unidad.tipo]}
             </span>
@@ -216,7 +214,7 @@ export function EspaciosTab({
               variant={unidad.estado}
               dot
               size="sm"
-              className={`shadow-md backdrop-blur-xs ${
+              className={`shadow-md ${
                 unidad.estado === "INACTIVO"
                   ? "!bg-rose-100/95 !text-rose-900 !border-rose-300 font-extrabold shadow-rose-950/15"
                   : "bg-white/95"
@@ -234,7 +232,7 @@ export function EspaciosTab({
 
           {/* Indicador de fotos múltiples */}
           {unidad.imagenes.length > 1 && (
-            <div className="absolute bottom-2 right-2 z-10 bg-slate-950/75 group-hover/img:bg-[#175E38] text-white text-[10px] font-bold px-2 py-0.5 rounded-md backdrop-blur-xs flex items-center gap-1 shadow-xs transition-colors">
+            <div className="absolute bottom-2 right-2 z-10 bg-slate-950/80 group-hover/img:bg-[#175E38] text-white text-[10px] font-bold px-2 py-0.5 rounded-md flex items-center gap-1 shadow-xs transition-colors">
               <Camera className="w-3 h-3" />
               <span>{unidad.imagenes.length}</span>
             </div>
@@ -741,9 +739,6 @@ export function EspaciosTab({
             filtroPropiedad !== "TODAS" ||
             !!propiedadesDesplegadas[prop.id];
 
-          // Monta el DOM si está desplegada o si el usuario hizo clic previamente
-          const haSidoMontada = estaDesplegada || !!propiedadesCargadas[prop.id];
-
           return (
             <section
               key={prop.id}
@@ -775,7 +770,7 @@ export function EspaciosTab({
               >
                 {/* Información Principal */}
                 <div className="flex items-start sm:items-center gap-3 min-w-0">
-                  <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-white/95 text-slate-800 flex items-center justify-center shrink-0 border border-slate-200/90 shadow-2xs backdrop-blur-xs mt-0.5 sm:mt-0">
+                  <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-white/95 text-slate-800 flex items-center justify-center shrink-0 border border-slate-200/90 shadow-2xs mt-0.5 sm:mt-0">
                     <IconComp className="w-5 h-5 text-black" />
                   </div>
                   <div className="min-w-0 flex-1">
@@ -848,115 +843,95 @@ export function EspaciosTab({
                 </div>
               </div>
 
-              {/* Contenedor Animado con CSS Grid */}
-              <div
-                className={`grid transition-all duration-300 ease-in-out ${
-                  estaDesplegada
-                    ? "grid-rows-[1fr] opacity-100"
-                    : "grid-rows-[0fr] opacity-0 pointer-events-none"
-                }`}
-              >
-                <div className="overflow-hidden">
-                  {haSidoMontada ? (() => {
-                    const paginaActual = paginasPorPropiedad[prop.id] ?? 1;
-                    const totalPaginas = Math.ceil(grupo.unidades.length / PAGE_SIZE);
-                    const inicio = (paginaActual - 1) * PAGE_SIZE;
-                    const fin = inicio + PAGE_SIZE;
-                    const unidadesPagina = grupo.unidades.slice(inicio, fin);
+              {/* Contenedor de espacios: se desmonta al colapsar para liberar memoria de imágenes */}
+              {estaDesplegada && (() => {
+                const paginaActual = paginasPorPropiedad[prop.id] ?? 1;
+                const totalPaginas = Math.ceil(grupo.unidades.length / PAGE_SIZE);
+                const inicio = (paginaActual - 1) * PAGE_SIZE;
+                const fin = inicio + PAGE_SIZE;
+                const unidadesPagina = grupo.unidades.slice(inicio, fin);
 
-                    return (
-                      <div className="border-t border-slate-100">
-                        {/* Grid de espacios de la página actual */}
-                        <div className="p-4 sm:p-6 pt-2 sm:pt-2">
-                          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4 sm:gap-5">
-                            {unidadesPagina.map((unidad) => renderUnidadCard(unidad))}
-                          </div>
-                        </div>
-
-                        {/* Controles de paginación */}
-                        {totalPaginas > 1 && (
-                          <div className="px-4 sm:px-6 pb-4 sm:pb-5 flex items-center justify-between gap-3">
-                            <p className="text-xs text-slate-400 font-medium shrink-0">
-                              {inicio + 1}–{Math.min(fin, grupo.unidades.length)} de{" "}
-                              <span className="font-bold text-slate-600">{grupo.unidades.length}</span> espacios
-                            </p>
-
-                            <div className="flex items-center gap-1.5">
-                              {/* Anterior */}
-                              <button
-                                type="button"
-                                disabled={paginaActual === 1}
-                                onClick={() => onChangePaginaPropiedad(prop.id, paginaActual - 1)}
-                                className="w-8 h-8 rounded-lg border border-slate-200 bg-white text-slate-500 flex items-center justify-center transition-all hover:bg-slate-50 hover:border-slate-300 disabled:opacity-30 disabled:cursor-not-allowed shadow-2xs"
-                                aria-label="Página anterior"
-                              >
-                                <ChevronDown className="w-3.5 h-3.5 rotate-90" />
-                              </button>
-
-                              {/* Números de página */}
-                              {Array.from({ length: totalPaginas }, (_, i) => i + 1)
-                                .filter((p) => {
-                                  if (totalPaginas <= 5) return true;
-                                  return p === 1 || p === totalPaginas || Math.abs(p - paginaActual) <= 1;
-                                })
-                                .reduce<(number | "...")[]>((acc, p, idx, arr) => {
-                                  if (idx > 0 && typeof arr[idx - 1] === "number" && (p as number) - (arr[idx - 1] as number) > 1) {
-                                    acc.push("...");
-                                  }
-                                  acc.push(p);
-                                  return acc;
-                                }, [])
-                                .map((item, idx) =>
-                                  item === "..." ? (
-                                    <span key={`ellipsis-${idx}`} className="w-8 h-8 flex items-center justify-center text-xs text-slate-400">
-                                      ···
-                                    </span>
-                                  ) : (
-                                    <button
-                                      key={item}
-                                      type="button"
-                                      onClick={() => onChangePaginaPropiedad(prop.id, item as number)}
-                                      className={`w-8 h-8 rounded-lg border text-xs font-bold transition-all shadow-2xs ${
-                                        item === paginaActual
-                                          ? "bg-[#175E38] border-[#175E38] text-white shadow-sm"
-                                          : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50 hover:border-slate-300"
-                                      }`}
-                                      aria-label={`Ir a página ${item}`}
-                                      aria-current={item === paginaActual ? "page" : undefined}
-                                    >
-                                      {item}
-                                    </button>
-                                  )
-                                )}
-
-                              {/* Siguiente */}
-                              <button
-                                type="button"
-                                disabled={paginaActual === totalPaginas}
-                                onClick={() => onChangePaginaPropiedad(prop.id, paginaActual + 1)}
-                                className="w-8 h-8 rounded-lg border border-slate-200 bg-white text-slate-500 flex items-center justify-center transition-all hover:bg-slate-50 hover:border-slate-300 disabled:opacity-30 disabled:cursor-not-allowed shadow-2xs"
-                                aria-label="Página siguiente"
-                              >
-                                <ChevronDown className="w-3.5 h-3.5 -rotate-90" />
-                              </button>
-                            </div>
-                          </div>
-                        )}
+                return (
+                  <div className="border-t border-slate-100 animate-in fade-in duration-150">
+                    {/* Grid de espacios de la página actual */}
+                    <div className="p-4 sm:p-6 pt-3 sm:pt-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4 sm:gap-5">
+                        {unidadesPagina.map((unidad) => renderUnidadCard(unidad))}
                       </div>
-                    );
-                  })() : estaDesplegada ? (
-                    <div className="p-4 sm:p-5 border-t border-slate-100 flex items-center gap-3 text-slate-400">
-                      <div className="w-6 h-6 rounded-full border-2 border-slate-200 flex items-center justify-center shrink-0">
-                        <ChevronDown className="w-3.5 h-3.5" />
-                      </div>
-                      <p className="text-sm">
-                        Haz clic en el inmueble para cargar sus{" "}
-                        <span className="font-semibold">{grupo.unidades.length} {grupo.unidades.length === 1 ? "espacio" : "espacios"}</span>
-                      </p>
                     </div>
-                  ) : null}
-                </div>
-              </div>
+
+                    {/* Controles de paginación */}
+                    {totalPaginas > 1 && (
+                      <div className="px-4 sm:px-6 pb-4 sm:pb-5 flex items-center justify-between gap-3">
+                        <p className="text-xs text-slate-400 font-medium shrink-0">
+                          {inicio + 1}–{Math.min(fin, grupo.unidades.length)} de{" "}
+                          <span className="font-bold text-slate-600">{grupo.unidades.length}</span> espacios
+                        </p>
+
+                        <div className="flex items-center gap-1.5">
+                          {/* Anterior */}
+                          <button
+                            type="button"
+                            disabled={paginaActual === 1}
+                            onClick={() => onChangePaginaPropiedad(prop.id, paginaActual - 1)}
+                            className="w-8 h-8 rounded-lg border border-slate-200 bg-white text-slate-500 flex items-center justify-center transition-all hover:bg-slate-50 hover:border-slate-300 disabled:opacity-30 disabled:cursor-not-allowed shadow-2xs"
+                            aria-label="Página anterior"
+                          >
+                            <ChevronDown className="w-3.5 h-3.5 rotate-90" />
+                          </button>
+
+                          {/* Números de página */}
+                          {Array.from({ length: totalPaginas }, (_, i) => i + 1)
+                            .filter((p) => {
+                              if (totalPaginas <= 5) return true;
+                              return p === 1 || p === totalPaginas || Math.abs(p - paginaActual) <= 1;
+                            })
+                            .reduce<(number | "...")[]>((acc, p, idx, arr) => {
+                              if (idx > 0 && typeof arr[idx - 1] === "number" && (p as number) - (arr[idx - 1] as number) > 1) {
+                                acc.push("...");
+                              }
+                              acc.push(p);
+                              return acc;
+                            }, [])
+                            .map((item, idx) =>
+                              item === "..." ? (
+                                <span key={`ellipsis-${idx}`} className="w-8 h-8 flex items-center justify-center text-xs text-slate-400">
+                                  ···
+                                </span>
+                              ) : (
+                                <button
+                                  key={item}
+                                  type="button"
+                                  onClick={() => onChangePaginaPropiedad(prop.id, item as number)}
+                                  className={`w-8 h-8 rounded-lg border text-xs font-bold transition-all shadow-2xs ${
+                                    item === paginaActual
+                                      ? "bg-[#175E38] border-[#175E38] text-white shadow-sm"
+                                      : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50 hover:border-slate-300"
+                                  }`}
+                                  aria-label={`Ir a página ${item}`}
+                                  aria-current={item === paginaActual ? "page" : undefined}
+                                >
+                                  {item}
+                                </button>
+                              )
+                            )}
+
+                          {/* Siguiente */}
+                          <button
+                            type="button"
+                            disabled={paginaActual === totalPaginas}
+                            onClick={() => onChangePaginaPropiedad(prop.id, paginaActual + 1)}
+                            className="w-8 h-8 rounded-lg border border-slate-200 bg-white text-slate-500 flex items-center justify-center transition-all hover:bg-slate-50 hover:border-slate-300 disabled:opacity-30 disabled:cursor-not-allowed shadow-2xs"
+                            aria-label="Página siguiente"
+                          >
+                            <ChevronDown className="w-3.5 h-3.5 -rotate-90" />
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
             </section>
           );
         })}

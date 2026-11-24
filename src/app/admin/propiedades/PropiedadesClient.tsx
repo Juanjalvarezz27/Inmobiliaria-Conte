@@ -35,7 +35,6 @@ import {
   createUnidad,
   updateUnidad,
   deleteUnidad,
-  getUnidades,
   expandirInquilinoALocalCompletoAction,
   reunificarYReactivarMatrizAction,
   subdividirUnidadAction,
@@ -75,18 +74,14 @@ export function PropiedadesClient({
   const [filtroPropiedad, setFiltroPropiedad] = useState<string>("TODAS");
   const [filtroEstadoUnidad, setFiltroEstadoUnidad] = useState<string>("ACTIVOS");
   const [propiedadesDesplegadas, setPropiedadesDesplegadas] = useState<Record<string, boolean>>({});
-  const [propiedadesCargadas, setPropiedadesCargadas] = useState<Record<string, boolean>>({});
   const [paginasPorPropiedad, setPaginasPorPropiedad] = useState<Record<string, number>>({});
 
   const toggleDesplieguePropiedad = (propId: string) => {
-    setPropiedadesDesplegadas((prev) => {
-      const nuevoEstado = !prev[propId];
-      if (nuevoEstado) {
-        setPropiedadesCargadas((c) => ({ ...c, [propId]: true }));
-        setPaginasPorPropiedad((p) => ({ ...p, [propId]: 1 }));
-      }
-      return { ...prev, [propId]: nuevoEstado };
-    });
+    const nuevoEstado = !propiedadesDesplegadas[propId];
+    setPropiedadesDesplegadas((prev) => ({ ...prev, [propId]: nuevoEstado }));
+    if (nuevoEstado) {
+      setPaginasPorPropiedad((p) => ({ ...p, [propId]: 1 }));
+    }
   };
 
   const irAEspaciosDePropiedad = (propiedadId: string) => {
@@ -94,7 +89,6 @@ export function PropiedadesClient({
     setFiltroEstadoUnidad("ACTIVOS");
     setBusqueda("");
     setPropiedadesDesplegadas({ [propiedadId]: true });
-    setPropiedadesCargadas((c) => ({ ...c, [propiedadId]: true }));
     setPaginasPorPropiedad((p) => ({ ...p, [propiedadId]: 1 }));
     setActiveTab("unidades");
 
@@ -796,7 +790,6 @@ export function PropiedadesClient({
           filtroEstadoUnidad={filtroEstadoUnidad}
           propiedadActivaFiltro={propiedadActivaFiltro}
           propiedadesDesplegadas={propiedadesDesplegadas}
-          propiedadesCargadas={propiedadesCargadas}
           paginasPorPropiedad={paginasPorPropiedad}
           isPending={isPending}
           onToggleDesplieguePropiedad={toggleDesplieguePropiedad}

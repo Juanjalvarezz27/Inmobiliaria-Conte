@@ -13,7 +13,7 @@ import {
   Building2,
   CheckCircle2,
 } from "lucide-react";
-import Image from "next/image";
+import { SmartImage } from "@/components/ui/smart-image";
 import { toast } from "sonner";
 import { Select } from "@/components/ui";
 import { usePropiedadesUploadThing } from "@/lib/uploadthing";
@@ -428,12 +428,11 @@ export function UnidadForm({ propiedades, initialData, onSubmit, onCancel, isLoa
               <div className="flex justify-center">
                 <div className="w-60 sm:w-64 max-w-full">
                   <div className="group relative aspect-[4/3] rounded-xl overflow-hidden border border-slate-200/90 bg-slate-100 shadow-2xs hover:shadow-md transition-all">
-                    <Image
+                    <SmartImage
                       src={imagenes[0]}
                       alt="Foto 1"
                       fill
                       sizes="(max-width: 640px) 100vw, 260px"
-                      unoptimized
                       className="object-cover group-hover:scale-105 transition-transform duration-300"
                     />
                     <div className="absolute top-1.5 left-1.5 z-10 flex items-center gap-1 bg-[#175E38]/90 text-white text-[9px] font-bold px-2 py-0.5 rounded-md backdrop-blur-xs shadow-xs">
@@ -461,12 +460,11 @@ export function UnidadForm({ propiedades, initialData, onSubmit, onCancel, isLoa
                     key={url}
                     className="group relative aspect-[4/3] rounded-xl overflow-hidden border border-slate-200/90 bg-slate-100 shadow-2xs hover:shadow-md transition-all"
                   >
-                    <Image
+                    <SmartImage
                       src={url}
                       alt={`Foto ${idx + 1}`}
                       fill
                       sizes="(max-width: 640px) 50vw, 240px"
-                      unoptimized
                       className="object-cover group-hover:scale-105 transition-transform duration-300"
                     />
                     {idx === 0 && (
@@ -496,12 +494,11 @@ export function UnidadForm({ propiedades, initialData, onSubmit, onCancel, isLoa
                     key={url}
                     className="group relative aspect-[4/3] rounded-xl overflow-hidden border border-slate-200/90 bg-slate-100 shadow-2xs hover:shadow-md transition-all"
                   >
-                    <Image
+                    <SmartImage
                       src={url}
                       alt={`Foto ${idx + 1}`}
                       fill
                       sizes="(max-width: 640px) 33vw, 180px"
-                      unoptimized
                       className="object-cover group-hover:scale-105 transition-transform duration-300"
                     />
                     {idx === 0 && (
