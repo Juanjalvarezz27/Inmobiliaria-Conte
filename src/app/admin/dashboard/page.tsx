@@ -253,7 +253,7 @@ export default async function AdminDashboardPage() {
             const Icon = mod.icon;
             return (
               <Link
-                key={mod.href}
+                key={mod.title}
                 href={mod.href}
                 className="group relative overflow-hidden bg-gradient-to-b from-white via-white to-slate-50/60 rounded-2xl border border-slate-200/90 border-b-[3px] border-b-slate-300/90 shadow-[0_4px_20px_-2px_rgba(28,37,57,0.07),0_2px_6px_-1px_rgba(28,37,57,0.04)] hover:shadow-[0_16px_36px_-4px_rgba(28,37,57,0.13),0_6px_12px_-2px_rgba(28,37,57,0.06)] hover:-translate-y-1.5 transition-all duration-300 flex flex-col justify-between p-5 sm:p-5.5 cursor-pointer"
               >
