@@ -14,6 +14,10 @@ export default async function EmpleadoLayout({
     redirect("/home/login?expired=1");
   }
 
+  if (session.user.mustChangePassword) {
+    redirect("/auth/change-password");
+  }
+
   // Permitir acceso a EMPLEADO y ADMIN en modo auditoría
   if (session.user.rol !== "EMPLEADO" && session.user.rol !== "ADMIN") {
     redirect("/inquilino/dashboard?unauthorized=empleado");

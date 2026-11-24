@@ -14,6 +14,10 @@ export default async function AdminLayout({
     redirect("/home/login?expired=1");
   }
 
+  if (session.user.mustChangePassword) {
+    redirect("/auth/change-password");
+  }
+
   if (session.user.rol !== "ADMIN") {
     redirect(
       session.user.rol === "EMPLEADO"

@@ -14,6 +14,10 @@ export default async function InquilinoLayout({
     redirect("/home/login?expired=1");
   }
 
+  if (session.user.mustChangePassword) {
+    redirect("/auth/change-password");
+  }
+
   // Permitir acceso a INQUILINO y ADMIN
   if (session.user.rol !== "INQUILINO" && session.user.rol !== "ADMIN") {
     redirect("/empleado/dashboard?unauthorized=inquilino");

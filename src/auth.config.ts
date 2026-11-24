@@ -52,11 +52,6 @@ export const authConfig: NextAuthConfig = {
 
       // --- Protección granular por rol (RBAC) para usuarios autenticados ---
       if (isLoggedIn && !isExpiredSession) {
-        // Forzar cambio de clave inicial si mustChangePassword está activo
-        if (auth?.user?.mustChangePassword && pathname !== "/auth/change-password") {
-          return Response.redirect(new URL("/auth/change-password", nextUrl));
-        }
-
         const userRole = auth?.user?.rol;
 
         // Si intentan entrar a /home/dashboard genérico, redirigir a su portal específico
