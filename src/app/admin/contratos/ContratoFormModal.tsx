@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useRef, useEffect } from "react";
+import Image from "next/image";
 import {
   FileText,
   User,
@@ -14,6 +15,7 @@ import {
   UploadCloud,
   Loader2,
   ShieldCheck,
+  ImagePlus,
 } from "lucide-react";
 import { Modal } from "@/components/ui/modal";
 import { Select } from "@/components/ui/select";
@@ -42,6 +44,14 @@ import type { CreateContratoInput, UpdateContratoInput } from "@/lib/actions/con
 import { eliminarDocumentoContratoAction } from "@/lib/actions/contratos";
 import { OPCIONES_METODO_PAGO } from "@/lib/constants/pagos";
 
+
+interface FotoContratoPendiente {
+  id: string;
+  file: File;
+  previewUrl: string;
+}
+
+const MAX_FOTOS_CONTRATO = 2;
 
 interface ContratoFormModalProps {
   isOpen: boolean;
@@ -139,8 +149,38 @@ export function ContratoFormModal({
     final: string;
     ahorroPct: number;
   } | null>(null);
+  const [fotosPendientes, setFotosPendientes] = useState<FotoContratoPendiente[]>([]);
+  const previewUrlsRef = useRef<string[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
+
+  useEffect(() => {
+    const urlsRef = previewUrlsRef;
+    return () => {
+      urlsRef.current.forEach((url) => URL.revokeObjectURL(url));
+      urlsRef.current = [];
+    };
+  }, []);
+
+  const limpiarFotosPendientes = () => {
+    setFotosPendientes((prev) => {
+      prev.forEach((item) => URL.revokeObjectURL(item.previewUrl));
+      return [];
+    });
+    previewUrlsRef.current = [];
+  };
+
+  const eliminarFotoPendiente = (idToRemove: string) => {
+    setFotosPendientes((prev) => {
+      const target = prev.find((item) => item.id === idToRemove);
+      if (target) {
+        URL.revokeObjectURL(target.previewUrl);
+        previewUrlsRef.current = previewUrlsRef.current.filter((u) => u !== target.previewUrl);
+      }
+      return prev.filter((item) => item.id !== idToRemove);
+    });
+    setUploadError(null);
+  };
 
   // Cancela la compresión activa y restablece el estado del formulario
   const cancelarCompresion = (e: React.MouseEvent) => {
@@ -169,6 +209,7 @@ export function ContratoFormModal({
     setStatsCompresion(null);
     setProgresoCompresion(null);
     setUploadError(null);
+    limpiarFotosPendientes();
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
@@ -211,23 +252,9 @@ export function ContratoFormModal({
     },
   });
 
-  // Procesa, comprime y optimiza el archivo antes de enviarlo a UploadThing
-  const handleFileSelect = async (files: FileList | File[]) => {
-    const fileArray = Array.from(files);
-    if (fileArray.length === 0) return;
-
-    if (fileInputRef.current) {
-      fileInputRef.current.value = "";
-    }
-
-    const MAX_FOTOS_CONTRATO = 2;
-    const sonImagenes = fileArray.every((f) => f.type.startsWith("image/"));
-    if (sonImagenes && fileArray.length > MAX_FOTOS_CONTRATO) {
-      const msgLimite = `Solo puedes subir un máximo de ${MAX_FOTOS_CONTRATO} fotos por contrato. Si tiene más páginas, súbelo como PDF.`;
-      setUploadError(msgLimite);
-      toast.error(msgLimite);
-      return;
-    }
+  // Comprime un PDF o hasta 2 fotos en un solo PDF y lo sube a UploadThing
+  const procesarYSubirArchivos = async (archivos: File[]): Promise<string | null> => {
+    if (archivos.length === 0) return null;
 
     const controller = new AbortController();
     abortControllerRef.current = controller;
@@ -244,23 +271,20 @@ export function ContratoFormModal({
     try {
       const { file: pdfComprimido, pesoOriginal, pesoFinal, ahorroPct } =
         await comprimirDocumentoContrato(
-          fileArray,
+          archivos,
           (progreso) => {
             setProgresoCompresion(progreso);
           },
           controller.signal
         );
 
-      // Validación preventiva: no enviar a la red si supera el límite de 8 MB
       if (pdfComprimido.size > LIMITE_MAX_BYTES) {
         const pesoFinalStr = formatearBytes(pdfComprimido.size);
         const pesoOriginalStr = formatearBytes(pesoOriginal);
         const mensaje = `El documento pesa ${pesoFinalStr} tras compresión (original: ${pesoOriginalStr}) y supera el límite permitido de 8 MB. Por favor divide las páginas o utiliza un archivo más liviano.`;
         setUploadError(mensaje);
         toast.error(mensaje);
-        setIsCompressing(false);
-        setProgresoCompresion(null);
-        return;
+        return null;
       }
 
       setStatsCompresion({
@@ -277,10 +301,16 @@ export function ContratoFormModal({
 
       setIsCompressing(false);
       setProgresoCompresion(null);
-      await startUpload([pdfComprimido]);
+      const uploaded = await startUpload([pdfComprimido]);
+      const urlSubida = uploaded?.[0]?.ufsUrl || uploaded?.[0]?.url || null;
+      if (urlSubida) {
+        setDocumentoUrl(urlSubida);
+        limpiarFotosPendientes();
+      }
+      return urlSubida;
     } catch (err: unknown) {
       if (controller.signal.aborted) {
-        return;
+        return null;
       }
       const rawMsg = err instanceof Error ? err.message : "Error al procesar el archivo";
       const errorLegible =
@@ -292,6 +322,7 @@ export function ContratoFormModal({
 
       setUploadError(errorLegible);
       toast.error(errorLegible);
+      return null;
     } finally {
       setIsCompressing(false);
       setProgresoCompresion(null);
@@ -300,6 +331,71 @@ export function ContratoFormModal({
         fileInputRef.current.value = "";
       }
     }
+  };
+
+  // Maneja la selección incremental de fotos (máx. 2) o carga directa de 1 PDF
+  const handleFileSelect = async (files: FileList | File[]) => {
+    const fileArray = Array.from(files);
+    if (fileArray.length === 0) return;
+
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+
+    const sonImagenes = fileArray.every((f) => f.type.startsWith("image/"));
+    const sonPdf = fileArray.every(
+      (f) => f.type === "application/pdf" || f.name.toLowerCase().endsWith(".pdf")
+    );
+
+    if (!sonImagenes && !sonPdf) {
+      const msg = "Selecciona únicamente imágenes (JPG, PNG, WebP) o un archivo PDF.";
+      setUploadError(msg);
+      toast.error(msg);
+      return;
+    }
+
+    if (sonPdf) {
+      if (fileArray.length > 1) {
+        const msg = "Solo puedes subir un único archivo PDF por contrato.";
+        setUploadError(msg);
+        toast.error(msg);
+        return;
+      }
+      limpiarFotosPendientes();
+      await procesarYSubirArchivos([fileArray[0]]);
+      return;
+    }
+
+    const espacioDisponible = MAX_FOTOS_CONTRATO - fotosPendientes.length;
+    if (espacioDisponible <= 0) {
+      const msg = `Límite alcanzado: máximo ${MAX_FOTOS_CONTRATO} fotos por contrato.`;
+      setUploadError(msg);
+      toast.error(msg);
+      return;
+    }
+
+    if (fileArray.length > espacioDisponible) {
+      const msgLimite =
+        fotosPendientes.length > 0
+          ? `Ya tienes ${fotosPendientes.length} foto cargada; solo puedes agregar ${espacioDisponible} más (máx. ${MAX_FOTOS_CONTRATO}).`
+          : `Solo puedes subir un máximo de ${MAX_FOTOS_CONTRATO} fotos por contrato. Si tiene más páginas, súbelo como PDF.`;
+      setUploadError(msgLimite);
+      toast.error(msgLimite);
+      return;
+    }
+
+    const nuevasFotos: FotoContratoPendiente[] = fileArray.map((file, idx) => {
+      const previewUrl = URL.createObjectURL(file);
+      previewUrlsRef.current.push(previewUrl);
+      return {
+        id: `${Date.now()}-${idx}-${file.name}`,
+        file,
+        previewUrl,
+      };
+    });
+
+    setUploadError(null);
+    setFotosPendientes((prev) => [...prev, ...nuevasFotos]);
   };
 
   // Cerrar popover del calendario de cobro al hacer clic afuera
@@ -326,7 +422,7 @@ export function ContratoFormModal({
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!inquilinoId) {
@@ -381,6 +477,14 @@ export function ContratoFormModal({
       return;
     }
 
+    // Si hay fotos en espera sin subir, convertirlas a PDF y subirlas automáticamente antes de guardar
+    let documentoUrlFinal = documentoUrl;
+    if (!documentoUrlFinal && fotosPendientes.length > 0) {
+      const urlSubida = await procesarYSubirArchivos(fotosPendientes.map((f) => f.file));
+      if (!urlSubida) return;
+      documentoUrlFinal = urlSubida;
+    }
+
     const payload: CreateContratoInput & { fechaInicioCobranza?: string | null } = {
       inquilinoId,
       unidadId,
@@ -403,7 +507,7 @@ export function ContratoFormModal({
       depositoMetodoPago: !isEditing && depositoCobradoAlFirmar ? depositoMetodoPago : null,
       depositoReferencia: !isEditing && depositoCobradoAlFirmar && depositoReferencia.trim() ? depositoReferencia.trim() : null,
       moneda: "USD",
-      documentoUrl: documentoUrl || null,
+      documentoUrl: documentoUrlFinal || null,
       notas: notas.trim() || null,
     };
 
@@ -799,7 +903,11 @@ export function ContratoFormModal({
                   handleFileSelect(e.target.files);
                 }
               }}
-              accept=".pdf,image/jpeg,image/png,image/webp"
+              accept={
+                fotosPendientes.length > 0
+                  ? "image/jpeg,image/png,image/webp"
+                  : ".pdf,image/jpeg,image/png,image/webp"
+              }
               multiple
               className="hidden"
             />
@@ -833,15 +941,85 @@ export function ContratoFormModal({
                 </div>
                 <button
                   type="button"
-                  onClick={() => {
-                    setDocumentoUrl("");
-                    setStatsCompresion(null);
-                  }}
+                  onClick={limpiarArchivo}
                   className="p-2 text-rose-600 hover:bg-rose-100 rounded-xl transition-colors cursor-pointer"
                   title="Eliminar y subir otro archivo"
                 >
                   <Trash2 className="w-4 h-4" />
                 </button>
+              </div>
+            ) : fotosPendientes.length > 0 && !isCompressing && !isUploading ? (
+              <div className="p-3.5 sm:p-4 bg-emerald-50/45 border border-emerald-200/80 rounded-2xl space-y-3">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-xs font-bold text-slate-800">
+                    Fotos seleccionadas ({fotosPendientes.length}/{MAX_FOTOS_CONTRATO})
+                  </span>
+                  <span className="text-[11px] font-semibold text-[#175E38] bg-white px-2 py-0.5 rounded-md border border-emerald-200">
+                    {fotosPendientes.length === MAX_FOTOS_CONTRATO
+                      ? "Máximo alcanzado"
+                      : "Puedes agregar 1 foto más"}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3 max-w-md">
+                  {fotosPendientes.map((item, idx) => (
+                    <div
+                      key={item.id}
+                      className="group relative aspect-[4/3] rounded-xl overflow-hidden border border-slate-200 bg-white shadow-2xs"
+                    >
+                      <Image
+                        src={item.previewUrl}
+                        alt={`Página ${idx + 1}`}
+                        fill
+                        sizes="(max-width: 640px) 50vw, 220px"
+                        unoptimized
+                        className="object-cover"
+                      />
+                      <span className="absolute top-1.5 left-1.5 z-10 bg-[#175E38]/90 text-white text-[10px] font-bold px-2 py-0.5 rounded-md">
+                        Página {idx + 1}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => eliminarFotoPendiente(item.id)}
+                        title="Quitar foto"
+                        className="absolute top-1.5 right-1.5 z-10 w-7 h-7 rounded-lg bg-white/95 hover:bg-rose-50 text-slate-600 hover:text-rose-600 flex items-center justify-center shadow-md transition-all cursor-pointer"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-emerald-200/60">
+                  <div className="flex flex-wrap items-center gap-2">
+                    {fotosPendientes.length < MAX_FOTOS_CONTRATO && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (fileInputRef.current) fileInputRef.current.value = "";
+                          fileInputRef.current?.click();
+                        }}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white hover:bg-emerald-50 text-[#175E38] border border-emerald-300 text-xs font-bold transition-all cursor-pointer shadow-2xs"
+                      >
+                        <ImagePlus className="w-3.5 h-3.5" />
+                        <span>Agregar 2.ª foto</span>
+                      </button>
+                    )}
+
+                    <button
+                      type="button"
+                      onClick={() => procesarYSubirArchivos(fotosPendientes.map((f) => f.file))}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#175E38] hover:bg-[#124b2d] text-white text-xs font-bold transition-all cursor-pointer shadow-xs"
+                    >
+                      <UploadCloud className="w-3.5 h-3.5" />
+                      <span>Subir {fotosPendientes.length === 1 ? "foto" : "2 fotos"} ahora</span>
+                    </button>
+                  </div>
+
+                  <span className="text-[11px] text-slate-500">
+                    O se subirán automáticamente al guardar
+                  </span>
+                </div>
               </div>
             ) : (
               <div
