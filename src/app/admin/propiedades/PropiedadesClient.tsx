@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useTransition, useCallback, useMemo } from "react";
+import dynamic from "next/dynamic";
 import {
   Building2,
   Plus,
@@ -15,14 +16,43 @@ import { toast } from "sonner";
 import { PageHeader } from "@/components/ui/page-header";
 import { Modal } from "@/components/ui/modal";
 import { StatCard } from "@/components/ui/stat-card";
-import { PropiedadForm } from "./PropiedadForm";
-import { UnidadForm } from "./UnidadForm";
+import { Skeleton } from "@/components/ui/skeleton";
 import { PropiedadesTab } from "./PropiedadesTab";
-import { EspaciosTab } from "./EspaciosTab";
-import { UnidadDetalleModal } from "./UnidadDetalleModal";
 import { PropiedadesFiltrosBar } from "./PropiedadesFiltrosBar";
-import { EliminarPropiedadModal } from "./EliminarPropiedadModal";
-import { EliminarUnidadModal } from "./EliminarUnidadModal";
+
+// Carga diferida de pestaña de espacios y modales para aligerar el bundle inicial
+const EspaciosTab = dynamic(
+  () => import("./EspaciosTab").then((m) => m.EspaciosTab),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="space-y-4">
+        <Skeleton className="h-24 w-full rounded-2xl" />
+        <Skeleton className="h-24 w-full rounded-2xl" />
+      </div>
+    ),
+  }
+);
+const PropiedadForm = dynamic(
+  () => import("./PropiedadForm").then((m) => m.PropiedadForm),
+  { ssr: false }
+);
+const UnidadForm = dynamic(
+  () => import("./UnidadForm").then((m) => m.UnidadForm),
+  { ssr: false }
+);
+const UnidadDetalleModal = dynamic(
+  () => import("./UnidadDetalleModal").then((m) => m.UnidadDetalleModal),
+  { ssr: false }
+);
+const EliminarPropiedadModal = dynamic(
+  () => import("./EliminarPropiedadModal").then((m) => m.EliminarPropiedadModal),
+  { ssr: false }
+);
+const EliminarUnidadModal = dynamic(
+  () => import("./EliminarUnidadModal").then((m) => m.EliminarUnidadModal),
+  { ssr: false }
+);
 import {
   createPropiedad,
   updatePropiedad,
@@ -843,17 +873,19 @@ export function PropiedadesClient({
       </Modal>
 
       {/* Modal Eliminar / Archivar Propiedad */}
-      <EliminarPropiedadModal
-        isOpen={propiedadModal === "eliminar"}
-        onClose={() => {
-          setPropiedadModal(null);
-          setPropiedadSeleccionada(null);
-        }}
-        propiedad={propiedadSeleccionada}
-        unidades={unidades}
-        onEliminar={handleEliminarPropiedad}
-        isLoading={isPending}
-      />
+      {propiedadModal === "eliminar" && (
+        <EliminarPropiedadModal
+          isOpen={true}
+          onClose={() => {
+            setPropiedadModal(null);
+            setPropiedadSeleccionada(null);
+          }}
+          propiedad={propiedadSeleccionada}
+          unidades={unidades}
+          onEliminar={handleEliminarPropiedad}
+          isLoading={isPending}
+        />
+      )}
 
       {/* Modal Unidad / Espacio (Crear / Editar) */}
       <Modal
@@ -898,39 +930,43 @@ export function PropiedadesClient({
       </Modal>
 
       {/* Modal Eliminar / Inactivar Unidad */}
-      <EliminarUnidadModal
-        isOpen={unidadModal === "eliminar"}
-        onClose={() => {
-          setUnidadModal(null);
-          setUnidadSeleccionada(null);
-        }}
-        unidad={unidadSeleccionada}
-        onEliminar={handleEliminarUnidad}
-        isLoading={isPending}
-      />
+      {unidadModal === "eliminar" && (
+        <EliminarUnidadModal
+          isOpen={true}
+          onClose={() => {
+            setUnidadModal(null);
+            setUnidadSeleccionada(null);
+          }}
+          unidad={unidadSeleccionada}
+          onEliminar={handleEliminarUnidad}
+          isLoading={isPending}
+        />
+      )}
 
       {/* Modal Detalle de Espacio y Galería de Fotos */}
-      <UnidadDetalleModal
-        isOpen={unidadModal === "detalle" && !!unidadSeleccionada}
-        unidad={unidadSeleccionada}
-        onClose={() => {
-          setUnidadModal(null);
-          setUnidadSeleccionada(null);
-        }}
-        onEditar={() => {
-          setUnidadModal("editar");
-        }}
-        onCambiarEstado={async (unidad, nuevoEstado) => {
-          const ok = await handleCambiarEstadoUnidad(unidad, nuevoEstado);
-          if (ok) {
-            setUnidadSeleccionada((prev) => (prev ? { ...prev, estado: nuevoEstado } : null));
-          }
-          return ok;
-        }}
-        onExpandirInquilino={handleExpandirInquilino}
-        onReunificarMatriz={handleReunificarMatriz}
-        onSubdividirUnidad={handleSubdividirUnidad}
-      />
+      {unidadModal === "detalle" && !!unidadSeleccionada && (
+        <UnidadDetalleModal
+          isOpen={true}
+          unidad={unidadSeleccionada}
+          onClose={() => {
+            setUnidadModal(null);
+            setUnidadSeleccionada(null);
+          }}
+          onEditar={() => {
+            setUnidadModal("editar");
+          }}
+          onCambiarEstado={async (unidad, nuevoEstado) => {
+            const ok = await handleCambiarEstadoUnidad(unidad, nuevoEstado);
+            if (ok) {
+              setUnidadSeleccionada((prev) => (prev ? { ...prev, estado: nuevoEstado } : null));
+            }
+            return ok;
+          }}
+          onExpandirInquilino={handleExpandirInquilino}
+          onReunificarMatriz={handleReunificarMatriz}
+          onSubdividirUnidad={handleSubdividirUnidad}
+        />
+      )}
     </div>
   );
 }

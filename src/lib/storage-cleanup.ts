@@ -1,5 +1,10 @@
 import { prisma } from "@/lib/prisma";
-import { eliminarArchivosUploadThing } from "@/lib/uploadthing-server";
+import {
+  eliminarArchivosUploadThing,
+  extraerFileKey,
+  listarTodosArchivosUploadThing,
+  obtenerInstanciasUploadThing,
+} from "@/lib/uploadthing-server";
 
 // Opciones de configuración para la ejecución de limpieza
 export interface OpcionesLimpieza {
@@ -204,6 +209,187 @@ export async function purgarArchivosTransitorios(
     return resultado;
   } catch (error) {
     console.error("Error al ejecutar purga de archivos transitorios:", error);
+    resultado.errores.push(error instanceof Error ? error.message : String(error));
+    return resultado;
+  }
+}
+
+// Opciones para la conciliación de archivos huérfanos en UploadThing
+export interface OpcionesLimpiezaHuerfanos {
+  dryRun?: boolean;
+  minAntiguedadHoras?: number;
+}
+
+// Resumen por app de UploadThing tras la conciliación
+export interface DetalleHuerfanosApp {
+  app: string;
+  totalArchivos: number;
+  huerfanosDetectados: number;
+  huerfanosEliminados: number;
+  bytesHuerfanos: number;
+}
+
+// Resultado completo de la conciliación de huérfanos entre BD y UploadThing
+export interface ResultadoLimpiezaHuerfanos {
+  dryRun: boolean;
+  minAntiguedadHoras: number;
+  archivosEnUsoBD: number;
+  huerfanosDetectados: number;
+  huerfanosEliminados: number;
+  bytesLiberados: number;
+  porApp: DetalleHuerfanosApp[];
+  errores: string[];
+}
+
+/**
+ * Recopila todas las claves (fileKey) referenciadas actualmente en los modelos de la base de datos.
+ */
+export async function obtenerFileKeysEnUsoBD(): Promise<Set<string>> {
+  const [
+    unidades,
+    contratos,
+    pagos,
+    transaccionesPago,
+    transaccionesFinancieras,
+    empleados,
+    tareas,
+    novedades,
+    tickets,
+  ] = await Promise.all([
+    prisma.unidad.findMany({ where: { imagenes: { isEmpty: false } }, select: { imagenes: true } }),
+    prisma.contrato.findMany({
+      where: {
+        OR: [
+          { documentoUrl: { not: null } },
+          { depositoComprobanteUrl: { not: null } },
+          { depositoComprobanteLiquidacionUrl: { not: null } },
+        ],
+      },
+      select: { documentoUrl: true, depositoComprobanteUrl: true, depositoComprobanteLiquidacionUrl: true },
+    }),
+    prisma.pago.findMany({
+      where: {
+        OR: [
+          { comprobanteUrl: { not: null } },
+          { luzComprobanteUrl: { not: null } },
+          { aguaComprobanteUrl: { not: null } },
+        ],
+      },
+      select: { comprobanteUrl: true, luzComprobanteUrl: true, aguaComprobanteUrl: true },
+    }),
+    prisma.transaccionPago.findMany({ where: { comprobanteUrl: { not: null } }, select: { comprobanteUrl: true } }),
+    prisma.transaccionFinanciera.findMany({ where: { comprobanteUrl: { not: null } }, select: { comprobanteUrl: true } }),
+    prisma.empleado.findMany({ where: { contratoUrl: { not: null } }, select: { contratoUrl: true } }),
+    prisma.tareaEmpleado.findMany({ where: { evidencias: { isEmpty: false } }, select: { evidencias: true } }),
+    prisma.novedadMinuta.findMany({ where: { fotos: { isEmpty: false } }, select: { fotos: true } }),
+    prisma.ticketMantenimiento.findMany({
+      where: { OR: [{ fotosAveria: { isEmpty: false } }, { fotosFiniquito: { isEmpty: false } }] },
+      select: { fotosAveria: true, fotosFiniquito: true },
+    }),
+  ]);
+
+  const keys = new Set<string>();
+  const registrarUrl = (url: string | null | undefined) => {
+    if (!url) return;
+    const key = extraerFileKey(url);
+    if (key) keys.add(key);
+  };
+
+  for (const u of unidades) u.imagenes.forEach(registrarUrl);
+  for (const c of contratos) {
+    registrarUrl(c.documentoUrl);
+    registrarUrl(c.depositoComprobanteUrl);
+    registrarUrl(c.depositoComprobanteLiquidacionUrl);
+  }
+  for (const p of pagos) {
+    registrarUrl(p.comprobanteUrl);
+    registrarUrl(p.luzComprobanteUrl);
+    registrarUrl(p.aguaComprobanteUrl);
+  }
+  for (const tp of transaccionesPago) registrarUrl(tp.comprobanteUrl);
+  for (const tf of transaccionesFinancieras) registrarUrl(tf.comprobanteUrl);
+  for (const e of empleados) registrarUrl(e.contratoUrl);
+  for (const t of tareas) t.evidencias.forEach(registrarUrl);
+  for (const n of novedades) n.fotos.forEach(registrarUrl);
+  for (const tk of tickets) {
+    tk.fotosAveria.forEach(registrarUrl);
+    tk.fotosFiniquito.forEach(registrarUrl);
+  }
+
+  return keys;
+}
+
+/**
+ * Detecta y elimina archivos huérfanos en UploadThing (no referenciados en ninguna tabla de la BD).
+ */
+export async function limpiarArchivosHuerfanosUploadThing(
+  opciones: OpcionesLimpiezaHuerfanos = {}
+): Promise<ResultadoLimpiezaHuerfanos> {
+  const { dryRun = false, minAntiguedadHoras = 24 } = opciones;
+  const resultado: ResultadoLimpiezaHuerfanos = {
+    dryRun,
+    minAntiguedadHoras,
+    archivosEnUsoBD: 0,
+    huerfanosDetectados: 0,
+    huerfanosEliminados: 0,
+    bytesLiberados: 0,
+    porApp: [],
+    errores: [],
+  };
+
+  try {
+    const instancias = obtenerInstanciasUploadThing();
+    if (instancias.length === 0) {
+      resultado.errores.push("No hay tokens de UploadThing configurados.");
+      return resultado;
+    }
+
+    const keysEnUso = await obtenerFileKeysEnUsoBD();
+    resultado.archivosEnUsoBD = keysEnUso.size;
+    const fechaCorteMs = Date.now() - minAntiguedadHoras * 60 * 60 * 1000;
+    const BATCH_SIZE = 50;
+
+    for (const instancia of instancias) {
+      const archivos = await listarTodosArchivosUploadThing(instancia.api);
+      const huerfanos = archivos.filter((archivo) => {
+        if (keysEnUso.has(archivo.key)) return false;
+        return minAntiguedadHoras <= 0 || archivo.uploadedAt <= fechaCorteMs;
+      });
+
+      const bytesHuerfanos = huerfanos.reduce((acc, f) => acc + (f.size || 0), 0);
+      let eliminadosApp = 0;
+
+      if (!dryRun && huerfanos.length > 0) {
+        const keysHuerfanos = huerfanos.map((h) => h.key);
+        for (let i = 0; i < keysHuerfanos.length; i += BATCH_SIZE) {
+          const lote = keysHuerfanos.slice(i, i + BATCH_SIZE);
+          const resDelete = await instancia.api.deleteFiles(lote);
+          if (resDelete.success) {
+            eliminadosApp += resDelete.deletedCount ?? 0;
+          } else {
+            resultado.errores.push(`UploadThing rechazó la eliminación en [${instancia.nombre}] (lote ${i / BATCH_SIZE + 1}).`);
+          }
+        }
+      }
+
+      resultado.huerfanosDetectados += huerfanos.length;
+      resultado.huerfanosEliminados += eliminadosApp;
+      if (!dryRun && eliminadosApp > 0) {
+        resultado.bytesLiberados += bytesHuerfanos;
+      }
+
+      resultado.porApp.push({
+        app: instancia.nombre,
+        totalArchivos: archivos.length,
+        huerfanosDetectados: huerfanos.length,
+        huerfanosEliminados: eliminadosApp,
+        bytesHuerfanos,
+      });
+    }
+
+    return resultado;
+  } catch (error) {
+    console.error("Error al conciliar archivos huérfanos en UploadThing:", error);
     resultado.errores.push(error instanceof Error ? error.message : String(error));
     return resultado;
   }

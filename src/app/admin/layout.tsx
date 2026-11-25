@@ -1,4 +1,4 @@
-import { auth } from "@/auth";
+import { getCachedSession } from "@/lib/auth-guard";
 import { redirect } from "next/navigation";
 import { Navbar } from "@/components/layout/navbar";
 import { PageTransition } from "@/components/layout/page-transition";
@@ -8,7 +8,7 @@ export default async function AdminLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const session = await auth();
+  const session = await getCachedSession();
 
   if (!session?.user) {
     redirect("/home/login?expired=1");

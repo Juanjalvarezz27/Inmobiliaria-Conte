@@ -1,4 +1,3 @@
-import { PDFDocument } from "pdf-lib";
 import type { PDFDocumentProxy } from "pdfjs-dist";
 
 // ============================================================
@@ -354,6 +353,7 @@ async function comprimirImagenParaPdf(
 
 // Optimización estructural nativa de PDF con pdf-lib (solo streams, no imágenes)
 async function optimizarConPdfLib(archivo: File): Promise<File> {
+  const { PDFDocument } = await import("pdf-lib");
   const arrayBuffer = await archivo.arrayBuffer();
   const pdfDoc = await PDFDocument.load(arrayBuffer, { ignoreEncryption: true });
   const bytes = await pdfDoc.save({ useObjectStreams: true, addDefaultPage: false });
@@ -371,6 +371,7 @@ async function renderPdfAJpegsYReensamblar(
   onProgreso?: CallbackProgreso,
   signal?: AbortSignal
 ): Promise<File> {
+  const { PDFDocument } = await import("pdf-lib");
   const pdfSalida = await PDFDocument.create();
 
   const canvas = document.createElement("canvas");
@@ -465,6 +466,7 @@ async function convertirImagenesAPdfComprimido(
   onProgreso?: CallbackProgreso,
   signal?: AbortSignal
 ): Promise<File> {
+  const { PDFDocument } = await import("pdf-lib");
   const pdfDoc = await PDFDocument.create();
   const total = archivos.length;
 

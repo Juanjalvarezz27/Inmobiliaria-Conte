@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useState, useTransition, useMemo, useRef, useEffect } from "react";
+import React, { useState, useTransition, useMemo } from "react";
+import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import {
   Users,
@@ -14,7 +15,6 @@ import {
   FileText,
   UserCheck,
   ChevronDown,
-  Check,
   Layers,
   FileCheck,
 } from "lucide-react";
@@ -23,10 +23,21 @@ import { PageHeader } from "@/components/ui/page-header";
 import { StatCard } from "@/components/ui/stat-card";
 import { Modal } from "@/components/ui/modal";
 import { FilterDropdown, type FilterDropdownOption } from "@/components/ui/filter-dropdown";
-import { InquilinoFormModal } from "./InquilinoFormModal";
-import { InquilinoDetalleModal } from "./InquilinoDetalleModal";
-import { InquilinoAccesoModal } from "./InquilinoAccesoModal";
 import { InquilinoCard } from "./InquilinoCard";
+
+// Carga diferida de modales para reducir el JavaScript inicial de Inquilinos
+const InquilinoFormModal = dynamic(
+  () => import("./InquilinoFormModal").then((m) => m.InquilinoFormModal),
+  { ssr: false }
+);
+const InquilinoDetalleModal = dynamic(
+  () => import("./InquilinoDetalleModal").then((m) => m.InquilinoDetalleModal),
+  { ssr: false }
+);
+const InquilinoAccesoModal = dynamic(
+  () => import("./InquilinoAccesoModal").then((m) => m.InquilinoAccesoModal),
+  { ssr: false }
+);
 import {
   createInquilino,
   updateInquilino,
@@ -52,15 +63,18 @@ export function InquilinosClient({
   const router = useRouter();
   const [inquilinos, setInquilinos] = useState(initialInquilinos);
   const [stats, setStats] = useState(initialStats);
+  const [prevInitialInquilinos, setPrevInitialInquilinos] = useState(initialInquilinos);
+  const [prevInitialStats, setPrevInitialStats] = useState(initialStats);
 
-  // Sincronizar estado cuando el servidor refresca los datos tras una mutación
-  useEffect(() => {
+  // Sincroniza estado cuando el servidor refresca los datos tras una mutación sin efecto en cascada
+  if (prevInitialInquilinos !== initialInquilinos) {
+    setPrevInitialInquilinos(initialInquilinos);
     setInquilinos(initialInquilinos);
-  }, [initialInquilinos]);
-
-  useEffect(() => {
+  }
+  if (prevInitialStats !== initialStats) {
+    setPrevInitialStats(initialStats);
     setStats(initialStats);
-  }, [initialStats]);
+  }
   const [vistaArchivados, setVistaArchivados] = useState(false);
   const [busqueda, setBusqueda] = useState("");
   const [filtroTipo, setFiltroTipo] = useState<string>("TODOS");
@@ -588,21 +602,23 @@ export function InquilinosClient({
       )}
 
       {/* Modal Detalle / Ficha Técnica */}
-      <InquilinoDetalleModal
-        isOpen={modalMode === "detalle" && !!inquilinoSeleccionado}
-        inquilino={inquilinoSeleccionado}
-        onClose={() => {
-          setModalMode(null);
-          setInquilinoSeleccionado(null);
-        }}
-        onEditar={() => setModalMode("editar")}
-        onCrearContrato={() => {
-          if (inquilinoSeleccionado) {
-            router.push(`/admin/contratos?inquilinoId=${inquilinoSeleccionado.id}`);
-          }
-        }}
-        isLoading={isLoadingDetalle}
-      />
+      {modalMode === "detalle" && !!inquilinoSeleccionado && (
+        <InquilinoDetalleModal
+          isOpen={true}
+          inquilino={inquilinoSeleccionado}
+          onClose={() => {
+            setModalMode(null);
+            setInquilinoSeleccionado(null);
+          }}
+          onEditar={() => setModalMode("editar")}
+          onCrearContrato={() => {
+            if (inquilinoSeleccionado) {
+              router.push(`/admin/contratos?inquilinoId=${inquilinoSeleccionado.id}`);
+            }
+          }}
+          isLoading={isLoadingDetalle}
+        />
+      )}
 
       {/* Modal Archivar Inquilino */}
       <Modal
@@ -673,15 +689,17 @@ export function InquilinosClient({
       </Modal>
 
       {/* Modal de Gestión de Acceso Digital / Credenciales */}
-      <InquilinoAccesoModal
-        isOpen={modalMode === "acceso"}
-        onClose={() => {
-          setModalMode(null);
-          setInquilinoSeleccionado(null);
-          router.refresh();
-        }}
-        inquilino={inquilinoSeleccionado}
-      />
+      {modalMode === "acceso" && (
+        <InquilinoAccesoModal
+          isOpen={true}
+          onClose={() => {
+            setModalMode(null);
+            setInquilinoSeleccionado(null);
+            router.refresh();
+          }}
+          inquilino={inquilinoSeleccionado}
+        />
+      )}
     </div>
   );
 }

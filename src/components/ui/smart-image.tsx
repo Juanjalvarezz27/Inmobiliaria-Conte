@@ -5,8 +5,8 @@ import Image, { type ImageProps } from "next/image";
 import { ImageOff } from "lucide-react";
 import { Skeleton } from "./skeleton";
 
-// Límite de imágenes descargando o decodificando en paralelo para evitar picos de memoria
-const MAX_CONCURRENT_IMAGE_LOADS = 3;
+// Límite de imágenes descargando en paralelo para equilibrar fluidez y memoria
+const MAX_CONCURRENT_IMAGE_LOADS = 6;
 const SLOT_TIMEOUT_MS = 10000;
 
 let activeImageLoads = 0;
@@ -89,7 +89,7 @@ function SmartImageInner({
           observer.disconnect();
         }
       },
-      { rootMargin: "120px" }
+      { rootMargin: "250px" }
     );
 
     observer.observe(node);
@@ -141,7 +141,7 @@ function SmartImageInner({
           alt={alt}
           loading={loading ?? (progressive ? "lazy" : undefined)}
           decoding={decoding}
-          fetchPriority={fetchPriority ?? (progressive ? "low" : undefined)}
+          fetchPriority={fetchPriority}
           unoptimized={unoptimized}
           onLoad={() => {
             setIsLoaded(true);

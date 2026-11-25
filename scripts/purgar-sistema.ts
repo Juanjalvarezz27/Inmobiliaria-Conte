@@ -1,4 +1,13 @@
 import { PrismaClient } from "@prisma/client";
+import { limpiarArchivosHuerfanosUploadThing } from "../src/lib/storage-cleanup";
+
+if (!process.env.DATABASE_URL && typeof process.loadEnvFile === "function") {
+  try {
+    process.loadEnvFile(".env");
+  } catch {
+    // Ignora si no existe .env local
+  }
+}
 
 const prisma = new PrismaClient();
 
@@ -88,6 +97,15 @@ async function main() {
   console.log(`Usuarios en sistema:    ${totalUsuarios} (Solo ${ADMIN_EMAIL})`);
   console.log(`Propiedades registradas: ${totalPropiedades}`);
   console.log(`Contratos activos:       ${totalContratos}`);
+
+  // 4. Purga de archivos huérfanos en UploadThing para no dejar merma de pruebas
+  const resUploadThing = await limpiarArchivosHuerfanosUploadThing({ minAntiguedadHoras: 0 });
+  console.log("\n--- LIMPIEZA DE UPLOADTHING ---");
+  console.log(`Huérfanos eliminados:    ${resUploadThing.huerfanosEliminados}/${resUploadThing.huerfanosDetectados}`);
+  if (resUploadThing.errores.length > 0) {
+    console.warn("Avisos en limpieza de UploadThing:", resUploadThing.errores);
+  }
+
   console.log("=============================================================");
   console.log("El sistema ha quedado 100% limpio y listo para producción.");
   console.log("=============================================================");

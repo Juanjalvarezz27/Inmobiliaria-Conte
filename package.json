@@ -15,7 +15,8 @@
     "db:push": "prisma db push",
     "db:seed": "prisma db seed",
     "db:purge": "tsx scripts/purgar-sistema.ts",
-    "storage:clean": "tsx scripts/limpieza-almacenamiento.ts"
+    "storage:clean": "tsx scripts/limpieza-almacenamiento.ts",
+    "storage:clean:orphans": "tsx scripts/limpieza-almacenamiento.ts --solo-huerfanos --horas=0"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

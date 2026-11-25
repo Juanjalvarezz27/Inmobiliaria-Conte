@@ -1,12 +1,11 @@
 "use client";
 
-import React, { useState, useTransition, useMemo, useRef, useEffect } from "react";
+import React, { useState, useTransition, useMemo } from "react";
+import dynamic from "next/dynamic";
 import {
   FileText,
   Plus,
   Search,
-  User,
-  Store,
   Trash2,
   X,
   CheckCircle2,
@@ -14,9 +13,7 @@ import {
   XCircle,
   FileCheck,
   ChevronDown,
-  Check,
   Layers,
-  Calendar,
   Building2,
   MapPin,
   ArrowLeft,
@@ -26,10 +23,21 @@ import { PageHeader } from "@/components/ui/page-header";
 import { StatCard } from "@/components/ui/stat-card";
 import { ConfirmActionModal } from "@/components/ui/confirm-action-modal";
 import { FilterDropdown, type FilterDropdownOption } from "@/components/ui/filter-dropdown";
-import { ContratoFormModal } from "./ContratoFormModal";
-import { ContratoDetalleModal } from "./ContratoDetalleModal";
-import { FinalizarContratoModal } from "./FinalizarContratoModal";
 import { ContratoCard } from "./ContratoCard";
+
+// Carga diferida de modales pesados para reducir el bundle inicial de Contratos
+const ContratoFormModal = dynamic(
+  () => import("./ContratoFormModal").then((m) => m.ContratoFormModal),
+  { ssr: false }
+);
+const ContratoDetalleModal = dynamic(
+  () => import("./ContratoDetalleModal").then((m) => m.ContratoDetalleModal),
+  { ssr: false }
+);
+const FinalizarContratoModal = dynamic(
+  () => import("./FinalizarContratoModal").then((m) => m.FinalizarContratoModal),
+  { ssr: false }
+);
 import {
   createContrato,
   updateContrato,
@@ -870,49 +878,53 @@ export function ContratosClient({
       )}
 
       {/* Modal Detalle / Ficha de Contrato */}
-      <ContratoDetalleModal
-        isOpen={modalMode === "detalle" && !!contratoSeleccionado}
-        contrato={contratoSeleccionado}
-        onClose={() => {
-          setModalMode(null);
-          setContratoSeleccionado(null);
-        }}
-        onEditar={() => setModalMode("editar")}
-        onCambiarEstado={handleCambiarEstado}
-        onFinalizarORescindir={(c, modo) => {
-          setContratoSeleccionado(c);
-          setModalMode(modo);
-        }}
-        onContratoActualizado={(actualizado) => {
-          const nuevaLista = contratos.map((c) =>
-            c.id === actualizado.id ? actualizado : c
-          );
-          setContratos(nuevaLista);
-          setContratoSeleccionado(actualizado);
-        }}
-        isPending={isPending}
-        isLoadingPagos={isLoadingDetalle}
-      />
+      {modalMode === "detalle" && !!contratoSeleccionado && (
+        <ContratoDetalleModal
+          isOpen={true}
+          contrato={contratoSeleccionado}
+          onClose={() => {
+            setModalMode(null);
+            setContratoSeleccionado(null);
+          }}
+          onEditar={() => setModalMode("editar")}
+          onCambiarEstado={handleCambiarEstado}
+          onFinalizarORescindir={(c, modo) => {
+            setContratoSeleccionado(c);
+            setModalMode(modo);
+          }}
+          onContratoActualizado={(actualizado) => {
+            const nuevaLista = contratos.map((c) =>
+              c.id === actualizado.id ? actualizado : c
+            );
+            setContratos(nuevaLista);
+            setContratoSeleccionado(actualizado);
+          }}
+          isPending={isPending}
+          isLoadingPagos={isLoadingDetalle}
+        />
+      )}
 
       {/* Modal Unificado para Finalizar o Rescindir Contrato con Resolución Directa de Depósito */}
-      <FinalizarContratoModal
-        isOpen={(modalMode === "finalizar" || modalMode === "rescindir") && !!contratoSeleccionado}
-        onClose={() => {
-          setModalMode(null);
-          setContratoSeleccionado(null);
-        }}
-        contrato={contratoSeleccionado}
-        modo={modalMode === "rescindir" ? "rescindir" : "finalizar"}
-        onSuccess={(actualizado) => {
-          const nuevaLista = contratos.map((c) =>
-            c.id === actualizado.id ? actualizado : c
-          );
-          setContratos(nuevaLista);
-          recalcStats(nuevaLista);
-          setContratoSeleccionado(actualizado);
-          setModalMode(null);
-        }}
-      />
+      {(modalMode === "finalizar" || modalMode === "rescindir") && !!contratoSeleccionado && (
+        <FinalizarContratoModal
+          isOpen={true}
+          onClose={() => {
+            setModalMode(null);
+            setContratoSeleccionado(null);
+          }}
+          contrato={contratoSeleccionado}
+          modo={modalMode === "rescindir" ? "rescindir" : "finalizar"}
+          onSuccess={(actualizado) => {
+            const nuevaLista = contratos.map((c) =>
+              c.id === actualizado.id ? actualizado : c
+            );
+            setContratos(nuevaLista);
+            recalcStats(nuevaLista);
+            setContratoSeleccionado(actualizado);
+            setModalMode(null);
+          }}
+        />
+      )}
 
       {/* Modal de Confirmación: Eliminar Contrato Sin Historial */}
       <ConfirmActionModal

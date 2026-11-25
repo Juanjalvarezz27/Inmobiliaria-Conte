@@ -1,8 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
-import { purgarArchivosTransitorios } from "@/lib/storage-cleanup";
+import { limpiarArchivosHuerfanosUploadThing, purgarArchivosTransitorios } from "@/lib/storage-cleanup";
 
 export const dynamic = "force-dynamic";
+
+// Ejecuta purga de registros transitorios y conciliación de archivos huérfanos en UploadThing
+async function ejecutarLimpiezaCompleta(dias: number, dryRun: boolean) {
+  const [transitorios, huerfanos] = await Promise.all([
+    purgarArchivosTransitorios({ diasAntiguedad: dias, dryRun }),
+    limpiarArchivosHuerfanosUploadThing({ dryRun, minAntiguedadHoras: 24 }),
+  ]);
+
+  const tieneErrores = transitorios.errores.length > 0 || huerfanos.errores.length > 0;
+  return { payload: { ...transitorios, huerfanos }, tieneErrores };
+}
 
 // Función para validar autorización por CRON_SECRET o sesión de Administrador
 async function validarAutorizacion(req: NextRequest): Promise<{ ok: boolean; status: 200 | 401 | 403 }> {
@@ -51,16 +62,13 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    const resultado = await purgarArchivosTransitorios({
-      diasAntiguedad: dias,
-      dryRun,
-    });
+    const { payload, tieneErrores } = await ejecutarLimpiezaCompleta(dias, dryRun);
 
-    if (resultado.errores.length > 0) {
-      return NextResponse.json(resultado, { status: 500 });
+    if (tieneErrores) {
+      return NextResponse.json(payload, { status: 500 });
     }
 
-    return NextResponse.json(resultado);
+    return NextResponse.json(payload);
   } catch (error) {
     console.error("Error en GET /api/cron/limpieza-almacenamiento:", error);
     return NextResponse.json(
@@ -114,16 +122,13 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const resultado = await purgarArchivosTransitorios({
-      diasAntiguedad: dias,
-      dryRun,
-    });
+    const { payload, tieneErrores } = await ejecutarLimpiezaCompleta(dias, dryRun);
 
-    if (resultado.errores.length > 0) {
-      return NextResponse.json(resultado, { status: 500 });
+    if (tieneErrores) {
+      return NextResponse.json(payload, { status: 500 });
     }
 
-    return NextResponse.json(resultado);
+    return NextResponse.json(payload);
   } catch (error) {
     console.error("Error en POST /api/cron/limpieza-almacenamiento:", error);
     return NextResponse.json(
