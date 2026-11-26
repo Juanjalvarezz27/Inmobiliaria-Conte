@@ -1,4 +1,4 @@
-import { auth } from "@/auth";
+import { getCachedSession } from "@/lib/auth-guard";
 import Link from "next/link";
 import Image from "next/image";
 import {
@@ -34,7 +34,7 @@ interface ModuleCard {
 }
 
 export default async function AdminDashboardPage() {
-  const session = await auth();
+  const session = await getCachedSession();
 
   // Fecha actual formateada en español institucional
   const fechaHoy = new Intl.DateTimeFormat("es-ES", {

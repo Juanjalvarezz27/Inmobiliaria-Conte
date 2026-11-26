@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import { SmartImage } from "@/components/ui/smart-image";
 import {
@@ -22,6 +23,7 @@ import {
   Layers,
   AlertCircle,
   Scissors,
+  Share2,
 } from "lucide-react";
 import { Modal } from "@/components/ui/modal";
 import { ConfirmActionModal } from "@/components/ui/confirm-action-modal";
@@ -29,6 +31,11 @@ import { ExpandirInquilinoModal } from "./ExpandirInquilinoModal";
 import { SubdividirUnidadModal } from "./SubdividirUnidadModal";
 import { Badge } from "@/components/ui/badge";
 import { formatCurrency, TIPO_UNIDAD_LABEL, WhatsAppIcon, getWhatsAppUrl } from "./constants";
+import {
+  generarMensajeFichaUnidad,
+  prepararFotosUnidadParaCompartir,
+  soportaCompartirArchivos,
+} from "./compartir-unidad";
 import type { UnidadConPropiedad } from "./types";
 import {
   getHistorialInquilinosUnidadAction,
@@ -37,9 +44,15 @@ import {
 } from "@/lib/actions/unidades";
 import { EstadoUnidad } from "@prisma/client";
 
+const CompartirUnidadModal = dynamic(
+  () => import("./CompartirUnidadModal").then((m) => m.CompartirUnidadModal),
+  { ssr: false }
+);
+
 interface UnidadDetalleModalProps {
   isOpen: boolean;
   unidad: UnidadConPropiedad | null;
+  propiedadDireccion?: string | null;
   onClose: () => void;
   onEditar: () => void;
   onCambiarEstado?: (
@@ -86,6 +99,7 @@ interface ContratoHistorialItem {
 export function UnidadDetalleModal({
   isOpen,
   unidad,
+  propiedadDireccion,
   onClose,
   onEditar,
   onCambiarEstado,
@@ -108,6 +122,11 @@ export function UnidadDetalleModal({
   const [openExpandirModal, setOpenExpandirModal] = useState<boolean>(false);
   const [openReunificarModal, setOpenReunificarModal] = useState<boolean>(false);
   const [openSubdividirModal, setOpenSubdividirModal] = useState<boolean>(false);
+  const [openCompartirModal, setOpenCompartirModal] = useState<boolean>(false);
+  const [fotosCompartir, setFotosCompartir] = useState<{
+    unidadId: string;
+    files: File[];
+  } | null>(null);
   const [isProcessingAccion, setIsProcessingAccion] = useState<boolean>(false);
 
   // Resetear al cambiar de unidad
@@ -119,7 +138,53 @@ export function UnidadDetalleModal({
     setOpenExpandirModal(false);
     setOpenReunificarModal(false);
     setOpenSubdividirModal(false);
+    setOpenCompartirModal(false);
   }
+
+  // Precarga fotos en memoria solo para unidad disponible abierta (habilita Web Share instantáneo en iOS)
+  useEffect(() => {
+    if (
+      !isOpen ||
+      !unidad?.id ||
+      unidad.estado !== EstadoUnidad.DISPONIBLE ||
+      !unidad.imagenes?.length
+    ) {
+      return;
+    }
+
+    let cancelled = false;
+    const unidadIdActual = unidad.id;
+    prepararFotosUnidadParaCompartir(unidad.imagenes, unidad.codigo).then((files) => {
+      if (!cancelled && files.length > 0) {
+        setFotosCompartir({ unidadId: unidadIdActual, files });
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isOpen, unidad?.id, unidad?.estado, unidad?.imagenes, unidad?.codigo]);
+
+  const handleCompartirDisponible = async () => {
+    if (!unidad) return;
+    const precargadas =
+      fotosCompartir?.unidadId === unidad.id ? fotosCompartir.files : undefined;
+
+    if (precargadas && precargadas.length > 0 && soportaCompartirArchivos(precargadas)) {
+      try {
+        await navigator.share({
+          title: `${TIPO_UNIDAD_LABEL[unidad.tipo] || "Espacio"} ${unidad.codigo}`,
+          text: generarMensajeFichaUnidad(unidad, propiedadDireccion),
+          files: precargadas,
+        });
+        return;
+      } catch (err: unknown) {
+        if ((err as Error)?.name === "AbortError") return;
+      }
+    }
+
+    setOpenCompartirModal(true);
+  };
 
   // Carga automática del historial de contratos y diagnóstico de subdivisión
   useEffect(() => {
@@ -341,6 +406,137 @@ export function UnidadDetalleModal({
                 </div>
               </div>
 
+              {/* Sección Arrendatario Actual / Acciones de Espacio Disponible (prioritario en móvil) */}
+              {(() => {
+                const contratoActivo = unidad.contratos && unidad.contratos[0];
+                const inquilino = contratoActivo?.inquilino;
+
+                if (inquilino) {
+                  const urlWp = inquilino.telefono ? getWhatsAppUrl(inquilino.telefono) : null;
+                  return (
+                    <div className="rounded-2xl border border-slate-200/90 bg-white p-3.5 space-y-2.5 shadow-2xs">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <UserCheck className="w-4 h-4 text-[#175E38]" />
+                          <h4 className="text-xs font-bold text-slate-800 font-heading">
+                            Arrendatario Actual
+                          </h4>
+                        </div>
+                        <span className="font-mono text-[10px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-lg border border-slate-200">
+                          Contrato {contratoActivo.codigo}
+                        </span>
+                      </div>
+
+                      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pt-1 border-t border-slate-100">
+                        <div>
+                          <p className="text-sm font-black text-slate-900 font-heading">
+                            {inquilino.nombre} {inquilino.apellido || ""}
+                          </p>
+                          <p className="text-[11px] text-slate-400 font-mono mt-0.5">
+                            {inquilino.documentoIdentidad} • Tel: {inquilino.telefono}
+                          </p>
+                        </div>
+
+                        {urlWp && (
+                          <a
+                            href={urlWp}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-100 text-emerald-800 text-xs font-bold hover:bg-emerald-200 transition-colors w-fit"
+                          >
+                            <WhatsAppIcon className="w-3.5 h-3.5 text-[#25D366]" />
+                            <span>Contactar WhatsApp</span>
+                          </a>
+                        )}
+                      </div>
+
+                      {/* Oportunidad de expansión mostrada desde la propia subunidad */}
+                      {diagnostico?.esSubunidad &&
+                        diagnostico.puedeExpandir &&
+                        diagnostico.inquilinoParaExpandir?.subunidadId === unidad.id && (
+                          <div className="mt-3 p-3 bg-emerald-50/80 border border-emerald-200 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                            <div>
+                              <span className="text-[10px] font-black text-[#175E38] uppercase tracking-wider block">
+                                Oportunidad de Expansión Comercial
+                              </span>
+                              <p className="text-xs text-slate-700 mt-0.5">
+                                La otra parte del local se encuentra disponible. Puedes formalizar la
+                                expansión al local completo{" "}
+                                <strong>{diagnostico.inquilinoParaExpandir.matrizCodigo}</strong> (
+                                {diagnostico.inquilinoParaExpandir.areaTotalMatriz} m²).
+                              </p>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => setOpenExpandirModal(true)}
+                              className="w-full sm:w-auto px-3 py-2 sm:py-1.5 rounded-xl text-xs font-bold bg-[#175E38] hover:bg-[#124b2d] text-white shadow-xs shrink-0 cursor-pointer flex items-center justify-center gap-1.5 border-b-[2px] border-b-[#0e3a23]"
+                            >
+                              <Maximize2 className="w-3.5 h-3.5" />
+                              <span>Expandir</span>
+                            </button>
+                          </div>
+                        )}
+                    </div>
+                  );
+                }
+
+                return (
+                  <div className="rounded-2xl border border-emerald-200/80 bg-gradient-to-br from-emerald-50/55 via-white to-slate-50/80 p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <div className="w-9 h-9 rounded-xl bg-emerald-100/80 text-[#175E38] flex items-center justify-center shrink-0 border border-emerald-200/70">
+                        <User className="w-4 h-4" />
+                      </div>
+                      <div className="min-w-0">
+                        <h4 className="text-xs sm:text-sm font-bold text-slate-800 font-heading">
+                          {unidad.estado === "DISPONIBLE"
+                            ? "Espacio Disponible (Entrega inmediata)"
+                            : "Sin contrato activo registrado"}
+                        </h4>
+                        <p className="text-[11px] text-slate-500 leading-snug">
+                          {unidad.estado === "DISPONIBLE"
+                            ? "Envía la ficha y fotos al interesado o formaliza un contrato."
+                            : "Este espacio no se encuentra disponible actualmente."}
+                        </p>
+                      </div>
+                    </div>
+
+                    {unidad.estado === "DISPONIBLE" && (
+                      <div className="grid grid-cols-2 sm:flex sm:items-center gap-2 w-full sm:w-auto shrink-0">
+                        <button
+                          type="button"
+                          onClick={handleCompartirDisponible}
+                          className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#25D366] hover:bg-[#1ebe5b] text-white text-xs font-bold shadow-xs transition-all active:translate-y-0.5 border-b-[2px] border-b-[#179948] cursor-pointer whitespace-nowrap"
+                          title="Enviar ficha y foto(s) del local por WhatsApp"
+                        >
+                          <Share2 className="w-3.5 h-3.5 stroke-[2.4]" />
+                          <span>Compartir</span>
+                        </button>
+
+                        <Link
+                          href={`/admin/contratos?arrendarUnidadId=${unidad.id}`}
+                          className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#175E38] text-white text-xs font-bold hover:bg-[#124b2d] shadow-xs transition-all active:translate-y-0.5 border-b-[2px] border-b-[#0e3a23] whitespace-nowrap"
+                        >
+                          <span>Arrendar</span>
+                          <ArrowUpRight className="w-3.5 h-3.5 stroke-[2.5]" />
+                        </Link>
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
+
+              {/* Descripción si existe */}
+              {unidad.descripcion && (
+                <div className="bg-slate-50/70 rounded-2xl p-3.5 border border-slate-200/80">
+                  <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">
+                    Descripción y Especificaciones
+                  </h4>
+                  <p className="text-xs text-slate-600 leading-relaxed whitespace-pre-line">
+                    {unidad.descripcion}
+                  </p>
+                </div>
+              )}
+
               {/* SECCIÓN ESPECIAL: Diagnóstico de Subdivisión y Opciones de Expansión / Reunificación */}
               {diagnostico?.esMatriz && (
                 <>
@@ -479,125 +675,6 @@ export function UnidadDetalleModal({
                     </div>
                   </div>
                 )}
-
-              {/* Sección Arrendatario Actual */}
-              {(() => {
-                const contratoActivo = unidad.contratos && unidad.contratos[0];
-                const inquilino = contratoActivo?.inquilino;
-
-                if (inquilino) {
-                  const urlWp = inquilino.telefono ? getWhatsAppUrl(inquilino.telefono) : null;
-                  return (
-                    <div className="rounded-2xl border border-slate-200/90 bg-white p-3.5 space-y-2.5 shadow-2xs">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <UserCheck className="w-4 h-4 text-[#175E38]" />
-                          <h4 className="text-xs font-bold text-slate-800 font-heading">
-                            Arrendatario Actual
-                          </h4>
-                        </div>
-                        <span className="font-mono text-[10px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-lg border border-slate-200">
-                          Contrato {contratoActivo.codigo}
-                        </span>
-                      </div>
-
-                      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pt-1 border-t border-slate-100">
-                        <div>
-                          <p className="text-sm font-black text-slate-900 font-heading">
-                            {inquilino.nombre} {inquilino.apellido || ""}
-                          </p>
-                          <p className="text-[11px] text-slate-400 font-mono mt-0.5">
-                            {inquilino.documentoIdentidad} • Tel: {inquilino.telefono}
-                          </p>
-                        </div>
-
-                        {urlWp && (
-                          <a
-                            href={urlWp}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-100 text-emerald-800 text-xs font-bold hover:bg-emerald-200 transition-colors w-fit"
-                          >
-                            <WhatsAppIcon className="w-3.5 h-3.5 text-[#25D366]" />
-                            <span>Contactar WhatsApp</span>
-                          </a>
-                        )}
-                      </div>
-
-                      {/* Oportunidad de expansión mostrada desde la propia subunidad */}
-                      {diagnostico?.esSubunidad &&
-                        diagnostico.puedeExpandir &&
-                        diagnostico.inquilinoParaExpandir?.subunidadId === unidad.id && (
-                          <div className="mt-3 p-3 bg-emerald-50/80 border border-emerald-200 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                            <div>
-                              <span className="text-[10px] font-black text-[#175E38] uppercase tracking-wider block">
-                                Oportunidad de Expansión Comercial
-                              </span>
-                              <p className="text-xs text-slate-700 mt-0.5">
-                                La otra parte del local se encuentra disponible. Puedes formalizar la
-                                expansión al local completo{" "}
-                                <strong>{diagnostico.inquilinoParaExpandir.matrizCodigo}</strong> (
-                                {diagnostico.inquilinoParaExpandir.areaTotalMatriz} m²).
-                              </p>
-                            </div>
-                            <button
-                              type="button"
-                              onClick={() => setOpenExpandirModal(true)}
-                              className="w-full sm:w-auto px-3 py-2 sm:py-1.5 rounded-xl text-xs font-bold bg-[#175E38] hover:bg-[#124b2d] text-white shadow-xs shrink-0 cursor-pointer flex items-center justify-center gap-1.5 border-b-[2px] border-b-[#0e3a23]"
-                            >
-                              <Maximize2 className="w-3.5 h-3.5" />
-                              <span>Expandir</span>
-                            </button>
-                          </div>
-                        )}
-                    </div>
-                  );
-                }
-
-                return (
-                  <div className="rounded-2xl border border-slate-200/90 bg-slate-50/70 p-3.5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-2xs">
-                    <div className="flex items-center gap-2.5">
-                      <div className="w-8 h-8 rounded-xl bg-slate-100 text-slate-400 flex items-center justify-center shrink-0">
-                        <User className="w-4 h-4" />
-                      </div>
-                      <div>
-                        <h4 className="text-xs font-bold text-slate-700">
-                          {unidad.estado === "DISPONIBLE"
-                            ? "Sin arrendatario asignado (Espacio Disponible)"
-                            : "Sin contrato activo registrado"}
-                        </h4>
-                        <p className="text-[11px] text-slate-400">
-                          {unidad.estado === "DISPONIBLE"
-                            ? "Puedes formalizar un nuevo contrato de alquiler en cualquier momento."
-                            : "Este espacio no se encuentra disponible actualmente."}
-                        </p>
-                      </div>
-                    </div>
-
-                    {unidad.estado === "DISPONIBLE" && (
-                      <Link
-                        href={`/admin/contratos?arrendarUnidadId=${unidad.id}`}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#175E38] text-white text-xs font-bold hover:bg-[#124b2d] shadow-xs transition-all active:translate-y-0.5 shrink-0"
-                      >
-                        <span>Arrendar</span>
-                        <ArrowUpRight className="w-3.5 h-3.5 stroke-[2.5]" />
-                      </Link>
-                    )}
-                  </div>
-                );
-              })()}
-
-              {/* Descripción si existe */}
-              {unidad.descripcion && (
-                <div className="bg-slate-50/70 rounded-2xl p-3.5 border border-slate-200/80">
-                  <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">
-                    Descripción y Especificaciones
-                  </h4>
-                  <p className="text-xs text-slate-600 leading-relaxed whitespace-pre-line">
-                    {unidad.descripcion}
-                  </p>
-                </div>
-              )}
             </div>
           )}
 
@@ -941,6 +1018,18 @@ export function UnidadDetalleModal({
         }}
         isLoading={isProcessingAccion}
       />
+      {/* Modal de Compartir Ficha Comercial */}
+      {openCompartirModal && (
+        <CompartirUnidadModal
+          isOpen={true}
+          onClose={() => setOpenCompartirModal(false)}
+          unidad={unidad}
+          direccionPropiedad={propiedadDireccion}
+          fotosPrecargadas={
+            fotosCompartir?.unidadId === unidad.id ? fotosCompartir.files : undefined
+          }
+        />
+      )}
     </>
   );
 }

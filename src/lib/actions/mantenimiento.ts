@@ -1,7 +1,7 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
-import { auth } from "@/auth";
+import { getCachedSession } from "@/lib/auth-guard";
 import { revalidatePath } from "next/cache";
 import { after } from "next/server";
 import { z } from "zod";
@@ -127,7 +127,7 @@ export async function getTicketsAdmin({
   pagina?: number;
 }) {
   try {
-    const session = await auth();
+    const session = await getCachedSession();
     if (!session?.user?.id || session.user.rol !== "ADMIN") {
       throw new Error("Acceso denegado: Se requiere rol de Administrador.");
     }
@@ -361,7 +361,7 @@ export async function getTicketsAdmin({
 // -------------------------------------------------------------
 export async function getTicketsInquilino() {
   try {
-    const session = await auth();
+    const session = await getCachedSession();
     if (!session?.user?.id) throw new Error("No autenticado");
 
     let inquilino = await prisma.inquilino.findUnique({
@@ -507,7 +507,7 @@ export async function getTicketsInquilino() {
 // -------------------------------------------------------------
 export async function getTicketsEmpleado() {
   try {
-    const session = await auth();
+    const session = await getCachedSession();
     if (!session?.user?.id) throw new Error("No autenticado");
 
     let empleado = await prisma.empleado.findUnique({
@@ -626,7 +626,7 @@ export type CrearTicketInquilinoInput = z.input<typeof crearTicketInquilinoSchem
 
 export async function crearTicketInquilinoAction(input: CrearTicketInquilinoInput) {
   try {
-    const session = await auth();
+    const session = await getCachedSession();
     if (!session?.user?.id) throw new Error("No autenticado");
 
     const validacion = crearTicketInquilinoSchema.safeParse(input);
@@ -750,7 +750,7 @@ export type CrearTicketAdminInput = z.input<typeof crearTicketAdminSchema>;
 
 export async function crearTicketAdminAction(input: CrearTicketAdminInput) {
   try {
-    const session = await auth();
+    const session = await getCachedSession();
     if (!session?.user?.id || session.user.rol !== "ADMIN") {
       throw new Error("Acceso denegado: Se requiere rol de Administrador.");
     }
@@ -859,7 +859,7 @@ export async function asignarTecnicoAction(
   urgencia?: UrgenciaTicket
 ) {
   try {
-    const session = await auth();
+    const session = await getCachedSession();
     if (!session?.user?.id || session.user.rol !== "ADMIN") {
       throw new Error("Acceso denegado: Se requiere rol de Administrador.");
     }
@@ -945,7 +945,7 @@ export async function asignarTecnicoAction(
 // -------------------------------------------------------------
 export async function iniciarReparacionAction(ticketId: string) {
   try {
-    const session = await auth();
+    const session = await getCachedSession();
     if (!session?.user?.id) throw new Error("No autenticado");
 
     const usuario = await prisma.usuario.findUnique({
@@ -997,7 +997,7 @@ export type ResolverTicketInput = z.infer<typeof resolverTicketSchema>;
 
 export async function resolverTicketAction(input: ResolverTicketInput) {
   try {
-    const session = await auth();
+    const session = await getCachedSession();
     if (!session?.user?.id) throw new Error("No autenticado");
 
     const usuario = await prisma.usuario.findUnique({
@@ -1097,7 +1097,7 @@ export async function resolverTicketAction(input: ResolverTicketInput) {
 // -------------------------------------------------------------
 export async function cancelarTicketAction(ticketId: string, motivo: string) {
   try {
-    const session = await auth();
+    const session = await getCachedSession();
     if (!session?.user?.id || session.user.rol !== "ADMIN") {
       throw new Error("Acceso denegado: Se requiere rol de Administrador.");
     }
@@ -1154,7 +1154,7 @@ export async function cancelarTicketAction(ticketId: string, motivo: string) {
 // -------------------------------------------------------------
 export async function actualizarNotasAdminAction(ticketId: string, notasAdmin?: string) {
   try {
-    const session = await auth();
+    const session = await getCachedSession();
     if (!session?.user?.id || session.user.rol !== "ADMIN") {
       throw new Error("Acceso denegado: Se requiere rol de Administrador.");
     }
@@ -1183,7 +1183,7 @@ export async function actualizarUrgenciaTicketAction(
   urgencia: UrgenciaTicket
 ) {
   try {
-    const session = await auth();
+    const session = await getCachedSession();
     if (!session?.user?.id || session.user.rol !== "ADMIN") {
       throw new Error("Acceso denegado: Se requiere rol de Administrador.");
     }

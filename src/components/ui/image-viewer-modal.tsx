@@ -38,13 +38,6 @@ function isPdfUrl(url?: string): boolean {
   return cleanUrl.endsWith(".pdf") || cleanUrl.includes(".pdf");
 }
 
-// Comprueba si una URL corresponde a una imagen tradicional por extensión
-function isImageUrl(url?: string): boolean {
-  if (!url) return false;
-  const cleanUrl = url.split("?")[0].toLowerCase();
-  return /\.(jpe?g|png|webp|gif|svg|avif|bmp|ico)$/i.test(cleanUrl);
-}
-
 function ImageViewerContent({
   onClose,
   images = [],
@@ -59,61 +52,24 @@ function ImageViewerContent({
   const currentImg = images[activeIndex] || images[0];
   const tieneMultiples = images.length > 1;
 
+  const [prevImg, setPrevImg] = useState(currentImg);
   const [isPdf, setIsPdf] = useState<boolean>(() => isPdfUrl(currentImg));
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState<boolean>(() => !isPdfUrl(currentImg));
   const [hasError, setHasError] = useState(false);
+  const [retryNonce, setRetryNonce] = useState(0);
 
-  // Detectar formato del archivo actual (imagen vs PDF, incluyendo endpoints de CDN como UploadThing sin extensión)
-  const checkFileType = async (url: string) => {
-    if (!url) {
-      setIsLoading(false);
-      setHasError(true);
-      return;
-    }
-
-    if (isPdfUrl(url)) {
-      setIsPdf(true);
-      setIsLoading(false);
-      setHasError(false);
-      return;
-    }
-
-    if (isImageUrl(url)) {
-      setIsPdf(false);
-      setIsLoading(true);
-      setHasError(false);
-      return;
-    }
-
-    // URL sin extensión directa (ej: UploadThing ufs.sh/f/...)
-    setIsLoading(true);
+  // Sincroniza estado al cambiar de archivo sin petición HEAD previa bloqueante
+  if (prevImg !== currentImg) {
+    setPrevImg(currentImg);
+    const pdf = isPdfUrl(currentImg);
+    setIsPdf(pdf);
+    setIsLoading(!pdf);
     setHasError(false);
+    setRetryNonce(0);
+  }
 
-    try {
-      const res = await fetch(url, { method: "HEAD" });
-      const contentType = (res.headers.get("content-type") || "").toLowerCase();
-      const contentDisposition = (res.headers.get("content-disposition") || "").toLowerCase();
-
-      if (contentType.includes("application/pdf") || contentDisposition.includes(".pdf")) {
-        setIsPdf(true);
-        setIsLoading(false);
-        setHasError(false);
-      } else {
-        setIsPdf(false);
-      }
-    } catch {
-      // En caso de fallo de red en HEAD, asumir imagen para que el elemento intente cargarla
-      setIsPdf(false);
-    }
-  };
-
-  useEffect(() => {
-    checkFileType(currentImg);
-  }, [currentImg]);
-
-  // Manejo de error cuando el elemento <img> no puede decodificar el archivo
+  // Manejo de error cuando <img> no puede decodificar (detecta PDFs sin extensión bajo demanda)
   const handleImageError = async () => {
-    // Si falló como imagen, verificar rápidamente si en realidad es un PDF (ej: subido sin extensión)
     try {
       const res = await fetch(currentImg, { method: "HEAD" });
       const contentType = (res.headers.get("content-type") || "").toLowerCase();
@@ -356,7 +312,7 @@ function ImageViewerContent({
                     onClick={() => {
                       setHasError(false);
                       setIsLoading(true);
-                      checkFileType(currentImg);
+                      setRetryNonce((n) => n + 1);
                     }}
                     className="px-3 py-1.5 rounded-lg text-xs font-bold bg-white/10 hover:bg-white/20 text-white transition-all flex items-center gap-1.5 cursor-pointer"
                   >
@@ -378,7 +334,7 @@ function ImageViewerContent({
 
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              key={currentImg}
+              key={`${currentImg}-${retryNonce}`}
               src={currentImg}
               alt={title ? `${title} - Foto ${activeIndex + 1}` : `Fotografía ${activeIndex + 1}`}
               onLoad={() => setIsLoading(false)}

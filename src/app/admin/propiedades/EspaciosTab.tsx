@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import { TipoPropiedad, EstadoUnidad } from "@prisma/client";
 import { SmartImage } from "@/components/ui/smart-image";
@@ -22,7 +23,13 @@ import {
   MapPin,
   UserCheck,
   ArrowUpRight,
+  Share2,
 } from "lucide-react";
+
+const CompartirUnidadModal = dynamic(
+  () => import("./CompartirUnidadModal").then((m) => m.CompartirUnidadModal),
+  { ssr: false }
+);
 import { Badge } from "@/components/ui/badge";
 import {
   tipoPropiedadBadgeConfig,
@@ -106,8 +113,9 @@ export function EspaciosTab({
   onCambiarEstadoUnidad,
   onIrAPropiedadesTab,
 }: EspaciosTabProps) {
-  // Menú rápido de estado de espacio
+  // Menú rápido de estado de espacio y modal de compartir ficha
   const [menuEstadoUnidadId, setMenuEstadoUnidadId] = useState<string | null>(null);
+  const [unidadParaCompartir, setUnidadParaCompartir] = useState<UnidadConPropiedad | null>(null);
 
   // Cerrar menú rápido al hacer click afuera o presionar Escape
   useEffect(() => {
@@ -446,29 +454,43 @@ export function EspaciosTab({
                 </span>
               </div>
 
-              {/* Botón de acción directo para Arrendar */}
-              <div
-                className={`pt-1.5 border-t flex items-center justify-between gap-2 ${
-                  esInactivo ? "border-rose-100/90" : "border-slate-100"
-                }`}
-              >
-                <span
-                  className={`text-[10px] font-semibold ${
-                    esInactivo ? "text-rose-600" : "text-slate-400"
-                  }`}
-                >
-                  {esDisponible ? "Entrega inmediata" : esMantenimiento ? "En mantenimiento" : "Fuera de servicio"}
-                </span>
-                {esDisponible ? (
+              {/* Botones de acción directos para Compartir y Arrendar */}
+              {esDisponible ? (
+                <div className="pt-2 border-t border-slate-100 grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setUnidadParaCompartir(unidad);
+                    }}
+                    title="Compartir ficha y fotos por WhatsApp"
+                    className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-[#175E38] border border-emerald-200/90 text-[11px] font-bold transition-all shadow-2xs active:translate-y-0.5 cursor-pointer"
+                  >
+                    <Share2 className="w-3.5 h-3.5 stroke-[2.2] shrink-0" />
+                    <span>Compartir</span>
+                  </button>
                   <Link
                     href={`/admin/contratos?arrendarUnidadId=${unidad.id}`}
                     onClick={(e) => e.stopPropagation()}
-                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-[#175E38] hover:bg-[#124b2d] text-white text-[11px] font-bold transition-all shadow-xs active:translate-y-0.5 cursor-pointer"
+                    className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#175E38] hover:bg-[#124b2d] text-white text-[11px] font-bold transition-all shadow-xs active:translate-y-0.5 cursor-pointer"
                   >
-                    <Plus className="w-3 h-3 stroke-[2.5]" />
+                    <Plus className="w-3.5 h-3.5 stroke-[2.5] shrink-0" />
                     <span>Arrendar</span>
                   </Link>
-                ) : (
+                </div>
+              ) : (
+                <div
+                  className={`pt-1.5 border-t flex items-center justify-between gap-2 ${
+                    esInactivo ? "border-rose-100/90" : "border-slate-100"
+                  }`}
+                >
+                  <span
+                    className={`text-[10px] font-semibold ${
+                      esInactivo ? "text-rose-600" : "text-slate-400"
+                    }`}
+                  >
+                    {esMantenimiento ? "En mantenimiento" : "Fuera de servicio"}
+                  </span>
                   <span
                     className={`text-[10px] font-bold ${
                       esInactivo ? "text-rose-400" : "text-slate-400"
@@ -476,8 +498,8 @@ export function EspaciosTab({
                   >
                     —
                   </span>
-                )}
-              </div>
+                </div>
+              )}
             </div>
           );
         })()}
@@ -936,6 +958,18 @@ export function EspaciosTab({
           );
         })}
       </div>
+
+      {/* Modal para compartir ficha comercial y fotos de un espacio disponible */}
+      {unidadParaCompartir && (
+        <CompartirUnidadModal
+          isOpen={true}
+          onClose={() => setUnidadParaCompartir(null)}
+          unidad={unidadParaCompartir}
+          direccionPropiedad={
+            propiedades.find((p) => p.id === unidadParaCompartir.propiedadId)?.direccion ?? null
+          }
+        />
+      )}
     </div>
   );
 }

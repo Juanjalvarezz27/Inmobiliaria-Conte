@@ -85,7 +85,7 @@ export function CrearTicketAdminModal({
   const { startUpload, isUploading } = useOperacionesUploadThing("fotoTicket", {
     onClientUploadComplete: (res) => {
       if (res && res.length > 0) {
-        const urls = res.map((r: any) => r.ufsUrl || r.url).filter(Boolean);
+        const urls = res.map((r) => r.ufsUrl || r.url).filter(Boolean);
         setFotos((prev) => [...prev, ...urls].slice(0, MAX_FOTOS));
         toast.success(
           urls.length === 1
@@ -549,7 +549,7 @@ export function CrearTicketAdminModal({
                     key={i}
                     className="relative group aspect-square rounded-lg overflow-hidden border border-slate-200 bg-slate-100"
                   >
-                    <Image src={url} alt={`Foto ${i + 1}`} fill className="object-cover" />
+                    <Image src={url} alt={`Foto ${i + 1}`} fill sizes="96px" unoptimized className="object-cover" />
                     <button
                       type="button"
                       onClick={() => handleEliminarFoto(i)}

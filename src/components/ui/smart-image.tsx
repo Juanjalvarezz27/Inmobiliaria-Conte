@@ -5,12 +5,23 @@ import Image, { type ImageProps } from "next/image";
 import { ImageOff } from "lucide-react";
 import { Skeleton } from "./skeleton";
 
-// Límite de imágenes descargando en paralelo para equilibrar fluidez y memoria
+// Límite de imágenes descargando en paralelo y caché en memoria de URLs ya pintadas
 const MAX_CONCURRENT_IMAGE_LOADS = 6;
 const SLOT_TIMEOUT_MS = 10000;
+const MAX_LOADED_CACHE = 500;
 
 let activeImageLoads = 0;
 const pendingImageQueue: Array<() => void> = [];
+const loadedImageCache = new Set<string>();
+
+function markImageLoaded(src: string) {
+  if (!src) return;
+  if (loadedImageCache.size >= MAX_LOADED_CACHE) {
+    const oldest = loadedImageCache.values().next().value;
+    if (oldest) loadedImageCache.delete(oldest);
+  }
+  loadedImageCache.add(src);
+}
 
 function enqueueImageSlot(onGrant: () => void): () => void {
   let cancelled = false;
@@ -67,10 +78,11 @@ function SmartImageInner({
 }: SmartImageProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const releaseSlotRef = useRef<(() => void) | null>(null);
+  const alreadyLoaded = Boolean(src && loadedImageCache.has(src));
 
-  const [isInView, setIsInView] = useState(!progressive);
-  const [canLoad, setCanLoad] = useState(!progressive);
-  const [isLoaded, setIsLoaded] = useState(false);
+  const [isInView, setIsInView] = useState(!progressive || alreadyLoaded);
+  const [canLoad, setCanLoad] = useState(!progressive || alreadyLoaded);
+  const [isLoaded, setIsLoaded] = useState(alreadyLoaded);
   const [hasError, setHasError] = useState(false);
 
   // Observa visibilidad cercana al viewport antes de encolar la descarga
@@ -96,9 +108,9 @@ function SmartImageInner({
     return () => observer.disconnect();
   }, [progressive, isInView]);
 
-  // Solicita turno en la cola de concurrencia una vez visible
+  // Solicita turno en la cola de concurrencia una vez visible (omitido si ya fue cargada antes)
   useEffect(() => {
-    if (!progressive || !isInView) return;
+    if (!progressive || !isInView || canLoad) return;
 
     const release = enqueueImageSlot(() => {
       setCanLoad(true);
@@ -115,7 +127,7 @@ function SmartImageInner({
       releaseSlotRef.current?.();
       releaseSlotRef.current = null;
     };
-  }, [progressive, isInView]);
+  }, [progressive, isInView, canLoad]);
 
   const liberarTurno = () => {
     if (releaseSlotRef.current) {
@@ -144,6 +156,7 @@ function SmartImageInner({
           fetchPriority={fetchPriority}
           unoptimized={unoptimized}
           onLoad={() => {
+            markImageLoaded(src);
             setIsLoaded(true);
             liberarTurno();
           }}
@@ -151,9 +164,13 @@ function SmartImageInner({
             setHasError(true);
             liberarTurno();
           }}
-          className={`${className} transition-opacity duration-200 ${
-            isLoaded ? "opacity-100" : "opacity-0"
-          }`}
+          className={
+            alreadyLoaded
+              ? className
+              : `${className} transition-opacity duration-200 ${
+                  isLoaded ? "opacity-100" : "opacity-0"
+                }`
+          }
           {...rest}
         />
       ) : null}

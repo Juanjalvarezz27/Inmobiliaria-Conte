@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useTransition, useMemo, useEffect } from "react";
+import dynamic from "next/dynamic";
 import {
   TrendingUp,
   TrendingDown,
@@ -19,8 +20,6 @@ import {
 } from "lucide-react";
 import { PageHeader } from "@/components/ui/page-header";
 import { StatCard } from "@/components/ui/stat-card";
-import { ConfirmActionModal } from "@/components/ui/confirm-action-modal";
-import { ImageViewerModal } from "@/components/ui/image-viewer-modal";
 import { FilterDropdown, type FilterDropdownOption } from "@/components/ui/filter-dropdown";
 import { toast } from "sonner";
 import {
@@ -39,8 +38,6 @@ import {
   eliminarTransaccionFinanciera,
   type TransaccionInput,
 } from "@/lib/actions/finanzas";
-import { TransaccionFormModal } from "./TransaccionFormModal";
-import { CierreMesModal } from "./CierreMesModal";
 import { GraficaIngresosMes } from "./GraficaIngresosMes";
 import { GraficaEgresosMes } from "./GraficaEgresosMes";
 import { MovimientosDesplegable } from "./MovimientosDesplegable";
@@ -48,6 +45,24 @@ import {
   MESES,
   formatearMontoUSD,
 } from "./constants";
+
+// Carga diferida de modales (evita incluir pdf-lib y fontkit en el bundle inicial de Finanzas)
+const TransaccionFormModal = dynamic(
+  () => import("./TransaccionFormModal").then((m) => m.TransaccionFormModal),
+  { ssr: false }
+);
+const CierreMesModal = dynamic(
+  () => import("./CierreMesModal").then((m) => m.CierreMesModal),
+  { ssr: false }
+);
+const ConfirmActionModal = dynamic(
+  () => import("@/components/ui/confirm-action-modal").then((m) => m.ConfirmActionModal),
+  { ssr: false }
+);
+const ImageViewerModal = dynamic(
+  () => import("@/components/ui/image-viewer-modal").then((m) => m.ImageViewerModal),
+  { ssr: false }
+);
 
 interface FinanzasClientProps {
   estadisticasIniciales: EstadisticasFinanzas;
@@ -548,50 +563,58 @@ export function FinanzasClient({
 
       {/* Modales */}
       {/* 1. Modal de Formulario (Crear / Editar) */}
-      <TransaccionFormModal
-        isOpen={isFormModalOpen}
-        onClose={() => {
-          setIsFormModalOpen(false);
-          setTransaccionAEditar(null);
-        }}
-        transaccionAEditar={transaccionAEditar}
-        propiedades={propiedades}
-        onSubmit={handleGuardarTransaccion}
-        isLoading={isSubmitting}
-      />
+      {isFormModalOpen && (
+        <TransaccionFormModal
+          isOpen={true}
+          onClose={() => {
+            setIsFormModalOpen(false);
+            setTransaccionAEditar(null);
+          }}
+          transaccionAEditar={transaccionAEditar}
+          propiedades={propiedades}
+          onSubmit={handleGuardarTransaccion}
+          isLoading={isSubmitting}
+        />
+      )}
 
       {/* 2. Modal de Confirmación de Borrado */}
-      <ConfirmActionModal
-        isOpen={!!transaccionAEliminar}
-        onClose={() => setTransaccionAEliminar(null)}
-        onConfirm={handleConfirmarEliminar}
-        title="Eliminar Movimiento Financiero"
-        description={`¿Estás seguro de que deseas eliminar permanentemente el registro "${transaccionAEliminar?.concepto}" por monto de ${formatearMontoUSD(transaccionAEliminar?.monto || 0)}? Si posee una factura adjunta, será liberada de UploadThing.`}
-        confirmButtonText="Sí, Eliminar"
-        cancelButtonText="Cancelar"
-        variant="danger"
-        isLoading={isSubmitting}
-      />
+      {!!transaccionAEliminar && (
+        <ConfirmActionModal
+          isOpen={true}
+          onClose={() => setTransaccionAEliminar(null)}
+          onConfirm={handleConfirmarEliminar}
+          title="Eliminar Movimiento Financiero"
+          description={`¿Estás seguro de que deseas eliminar permanentemente el registro "${transaccionAEliminar?.concepto}" por monto de ${formatearMontoUSD(transaccionAEliminar?.monto || 0)}? Si posee una factura adjunta, será liberada de UploadThing.`}
+          confirmButtonText="Sí, Eliminar"
+          cancelButtonText="Cancelar"
+          variant="danger"
+          isLoading={isSubmitting}
+        />
+      )}
 
       {/* 3. Modal de Cierre de Mes Contable */}
-      <CierreMesModal
-        isOpen={isCierreModalOpen}
-        onClose={() => setIsCierreModalOpen(false)}
-        mes={mes}
-        ano={ano}
-      />
+      {isCierreModalOpen && (
+        <CierreMesModal
+          isOpen={true}
+          onClose={() => setIsCierreModalOpen(false)}
+          mes={mes}
+          ano={ano}
+        />
+      )}
 
       {/* 4. Visor de Imagen / Comprobante con Zoom */}
-      <ImageViewerModal
-        isOpen={!!viewerUrl}
-        onClose={() => {
-          setViewerUrl(null);
-          setViewerTitle("");
-        }}
-        images={viewerUrl ? [viewerUrl] : []}
-        title={viewerTitle}
-        subtitle="Comprobante de pago verificado • Inmobiliaria Conté"
-      />
+      {!!viewerUrl && (
+        <ImageViewerModal
+          isOpen={true}
+          onClose={() => {
+            setViewerUrl(null);
+            setViewerTitle("");
+          }}
+          images={viewerUrl ? [viewerUrl] : []}
+          title={viewerTitle}
+          subtitle="Comprobante de pago verificado • Inmobiliaria Conté"
+        />
+      )}
     </div>
   );
 }

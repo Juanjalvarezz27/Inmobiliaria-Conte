@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useTransition, useMemo, useRef, useEffect } from "react";
+import dynamic from "next/dynamic";
 import {
   DollarSign,
   CheckCircle2,
@@ -36,12 +37,29 @@ import {
   type RegistrarPagoInput,
 } from "@/lib/actions/cobranza";
 import type { PagoItem, EstadisticasCobranza, PropiedadOpcion } from "./types";
-import { PagoFormModal } from "./PagoFormModal";
-import { PagoDetalleModal } from "./PagoDetalleModal";
-import { ReciboModal } from "./ReciboModal";
-import { MorososHistoricosModal } from "./MorososHistoricosModal";
-import { ServiciosSolvenciaModal } from "./ServiciosSolvenciaModal";
 import { toast } from "sonner";
+
+// Carga diferida de modales pesados (evita incluir pdf-lib y fontkit en el bundle inicial de Cobranza)
+const PagoFormModal = dynamic(
+  () => import("./PagoFormModal").then((m) => m.PagoFormModal),
+  { ssr: false }
+);
+const PagoDetalleModal = dynamic(
+  () => import("./PagoDetalleModal").then((m) => m.PagoDetalleModal),
+  { ssr: false }
+);
+const ReciboModal = dynamic(
+  () => import("./ReciboModal").then((m) => m.ReciboModal),
+  { ssr: false }
+);
+const MorososHistoricosModal = dynamic(
+  () => import("./MorososHistoricosModal").then((m) => m.MorososHistoricosModal),
+  { ssr: false }
+);
+const ServiciosSolvenciaModal = dynamic(
+  () => import("./ServiciosSolvenciaModal").then((m) => m.ServiciosSolvenciaModal),
+  { ssr: false }
+);
 
 interface CobranzaClientProps {
   pagosIniciales: PagoItem[];
@@ -826,82 +844,92 @@ export function CobranzaClient({
       )}
 
       {/* Modal para Registrar Pago */}
-      <PagoFormModal
-        isOpen={Boolean(pagoAEditar)}
-        onClose={() => setPagoAEditar(null)}
-        pago={pagoAEditar}
-        onSubmit={handleRegistrarPago}
-        onRechazado={() => {
-          setPagoAEditar(null);
-          if (estadoFiltro === "POR_CONFIRMAR") {
-            setEstadoFiltro("TODOS");
-            setPagina(1);
-            recargarCobranzas(mes, ano, 1, propiedadId, "TODOS", busqueda);
-          } else {
-            recargarCobranzas(mes, ano, pagina);
-          }
-        }}
-        isLoading={isPending}
-      />
+      {Boolean(pagoAEditar) && (
+        <PagoFormModal
+          isOpen={true}
+          onClose={() => setPagoAEditar(null)}
+          pago={pagoAEditar}
+          onSubmit={handleRegistrarPago}
+          onRechazado={() => {
+            setPagoAEditar(null);
+            if (estadoFiltro === "POR_CONFIRMAR") {
+              setEstadoFiltro("TODOS");
+              setPagina(1);
+              recargarCobranzas(mes, ano, 1, propiedadId, "TODOS", busqueda);
+            } else {
+              recargarCobranzas(mes, ano, pagina);
+            }
+          }}
+          isLoading={isPending}
+        />
+      )}
 
       {/* Modal para Consultar Ficha Detallada */}
-      <PagoDetalleModal
-        isOpen={Boolean(pagoADetalle)}
-        onClose={() => setPagoADetalle(null)}
-        pago={pagoADetalle}
-        onAnular={handleAnularPago}
-        onEliminarTransaccion={handleEliminarTransaccion}
-        onRegistrarNuevo={(p) => {
-          if (estadoFiltro === "POR_CONFIRMAR") {
-            setEstadoFiltro("TODOS");
-          }
-          setPagoAEditar(p);
-        }}
-        onVerRecibo={(p) => setPagoARecibo(p)}
-        onGestionarServicios={(p) => setPagoAServicios(p)}
-        onRechazado={() => {
-          if (estadoFiltro === "POR_CONFIRMAR") {
-            setEstadoFiltro("TODOS");
-            setPagina(1);
-            recargarCobranzas(mes, ano, 1, propiedadId, "TODOS", busqueda);
-          } else {
-            recargarCobranzas(mes, ano, pagina);
-          }
-        }}
-        isLoading={isPending}
-      />
+      {Boolean(pagoADetalle) && (
+        <PagoDetalleModal
+          isOpen={true}
+          onClose={() => setPagoADetalle(null)}
+          pago={pagoADetalle}
+          onAnular={handleAnularPago}
+          onEliminarTransaccion={handleEliminarTransaccion}
+          onRegistrarNuevo={(p) => {
+            if (estadoFiltro === "POR_CONFIRMAR") {
+              setEstadoFiltro("TODOS");
+            }
+            setPagoAEditar(p);
+          }}
+          onVerRecibo={(p) => setPagoARecibo(p)}
+          onGestionarServicios={(p) => setPagoAServicios(p)}
+          onRechazado={() => {
+            if (estadoFiltro === "POR_CONFIRMAR") {
+              setEstadoFiltro("TODOS");
+              setPagina(1);
+              recargarCobranzas(mes, ano, 1, propiedadId, "TODOS", busqueda);
+            } else {
+              recargarCobranzas(mes, ano, pagina);
+            }
+          }}
+          isLoading={isPending}
+        />
+      )}
 
-      {/* Modal para Recibo de Cobranza (Próxima Integración con Facturación) */}
-      <ReciboModal
-        isOpen={Boolean(pagoARecibo)}
-        onClose={() => setPagoARecibo(null)}
-        pago={pagoARecibo}
-      />
+      {/* Modal para Recibo de Cobranza */}
+      {Boolean(pagoARecibo) && (
+        <ReciboModal
+          isOpen={true}
+          onClose={() => setPagoARecibo(null)}
+          pago={pagoARecibo}
+        />
+      )}
 
-      {/* Modal de Control de Servicios Públicos (Fase 27) */}
-      <ServiciosSolvenciaModal
-        isOpen={Boolean(pagoAServicios)}
-        onClose={() => setPagoAServicios(null)}
-        pago={pagoAServicios}
-        onActualizado={(pagoActualizado) => {
-          setPagos((prev) =>
-            prev.map((p) => (p.id === pagoActualizado.id ? { ...p, ...pagoActualizado } : p))
-          );
-          if (pagoADetalle && pagoADetalle.id === pagoActualizado.id) {
-            setPagoADetalle((prev) => (prev ? { ...prev, ...pagoActualizado } : null));
-          }
-        }}
-      />
+      {/* Modal de Control de Servicios Públicos */}
+      {Boolean(pagoAServicios) && (
+        <ServiciosSolvenciaModal
+          isOpen={true}
+          onClose={() => setPagoAServicios(null)}
+          pago={pagoAServicios}
+          onActualizado={(pagoActualizado) => {
+            setPagos((prev) =>
+              prev.map((p) => (p.id === pagoActualizado.id ? { ...p, ...pagoActualizado } : p))
+            );
+            if (pagoADetalle && pagoADetalle.id === pagoActualizado.id) {
+              setPagoADetalle((prev) => (prev ? { ...prev, ...pagoActualizado } : null));
+            }
+          }}
+        />
+      )}
 
-      {/* Modal de Morosos Históricos (Fase 25) */}
-      <MorososHistoricosModal
-        isOpen={isMorososModalOpen}
-        onClose={() => setIsMorososModalOpen(false)}
-        pagos={morososHistoricosList}
-        isLoading={isLoadingMorosos}
-        onVerFicha={(pagoId) => abrirDetalle(pagoId, false)}
-        onRegistrarPago={(pagoId) => abrirDetalle(pagoId, true)}
-      />
+      {/* Modal de Morosos Históricos */}
+      {isMorososModalOpen && (
+        <MorososHistoricosModal
+          isOpen={true}
+          onClose={() => setIsMorososModalOpen(false)}
+          pagos={morososHistoricosList}
+          isLoading={isLoadingMorosos}
+          onVerFicha={(pagoId) => abrirDetalle(pagoId, false)}
+          onRegistrarPago={(pagoId) => abrirDetalle(pagoId, true)}
+        />
+      )}
     </div>
   );
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useMemo } from "react";
+import dynamic from "next/dynamic";
 import Image from "next/image";
 import {
   Wrench,
@@ -37,11 +38,25 @@ import { PageHeader } from "@/components/ui/page-header";
 import { StatCard } from "@/components/ui/stat-card";
 import { FilterDropdown, type FilterDropdownOption } from "@/components/ui/filter-dropdown";
 import { EmptyState } from "@/components/ui/empty-state";
-import { ImageViewerModal } from "@/components/ui/image-viewer-modal";
 import { PaginacionLocal } from "@/components/ui/paginacion-local";
-import { AsignarTecnicoModal } from "./AsignarTecnicoModal";
-import { CrearTicketAdminModal } from "./CrearTicketAdminModal";
-import { TicketDetalleModal } from "./TicketDetalleModal";
+
+// Carga diferida de modales y visor para aligerar el bundle inicial de Mantenimiento
+const ImageViewerModal = dynamic(
+  () => import("@/components/ui/image-viewer-modal").then((m) => m.ImageViewerModal),
+  { ssr: false }
+);
+const AsignarTecnicoModal = dynamic(
+  () => import("./AsignarTecnicoModal").then((m) => m.AsignarTecnicoModal),
+  { ssr: false }
+);
+const CrearTicketAdminModal = dynamic(
+  () => import("./CrearTicketAdminModal").then((m) => m.CrearTicketAdminModal),
+  { ssr: false }
+);
+const TicketDetalleModal = dynamic(
+  () => import("./TicketDetalleModal").then((m) => m.TicketDetalleModal),
+  { ssr: false }
+);
 import {
   CATEGORIAS_TICKET,
   ESTADOS_TICKET,
@@ -705,50 +720,58 @@ export function AdminMantenimientoClient({
       )}
 
       {/* Modal Asignar Técnico */}
-      <AsignarTecnicoModal
-        isOpen={Boolean(ticketParaAsignar)}
-        onClose={() => setTicketParaAsignar(null)}
-        ticket={ticketParaAsignar}
-        tecnicos={tecnicos}
-        onSuccess={() => {
-          router.refresh();
-        }}
-      />
+      {Boolean(ticketParaAsignar) && (
+        <AsignarTecnicoModal
+          isOpen={true}
+          onClose={() => setTicketParaAsignar(null)}
+          ticket={ticketParaAsignar}
+          tecnicos={tecnicos}
+          onSuccess={() => {
+            router.refresh();
+          }}
+        />
+      )}
 
       {/* Modal Crear Ticket Directo Admin */}
-      <CrearTicketAdminModal
-        isOpen={modalCrearOpen}
-        onClose={() => setModalCrearOpen(false)}
-        propiedades={propiedades}
-        tecnicos={tecnicos}
-        onSuccess={() => {
-          router.refresh();
-        }}
-      />
+      {modalCrearOpen && (
+        <CrearTicketAdminModal
+          isOpen={true}
+          onClose={() => setModalCrearOpen(false)}
+          propiedades={propiedades}
+          tecnicos={tecnicos}
+          onSuccess={() => {
+            router.refresh();
+          }}
+        />
+      )}
 
       {/* Modal Detalle de Ticket */}
-      <TicketDetalleModal
-        isOpen={Boolean(ticketParaDetalle)}
-        onClose={() => setTicketParaDetalle(null)}
-        ticket={ticketParaDetalle}
-        onAbrirAsignar={(t) => {
-          setTicketParaDetalle(null);
-          setTicketParaAsignar(t);
-        }}
-        onVerFotos={abrirVisor}
-        onSuccess={() => {
-          router.refresh();
-        }}
-      />
+      {Boolean(ticketParaDetalle) && (
+        <TicketDetalleModal
+          isOpen={true}
+          onClose={() => setTicketParaDetalle(null)}
+          ticket={ticketParaDetalle}
+          onAbrirAsignar={(t) => {
+            setTicketParaDetalle(null);
+            setTicketParaAsignar(t);
+          }}
+          onVerFotos={abrirVisor}
+          onSuccess={() => {
+            router.refresh();
+          }}
+        />
+      )}
 
       {/* Visor de Fotos */}
-      <ImageViewerModal
-        isOpen={visorImagenes.isOpen}
-        onClose={() => setVisorImagenes((prev) => ({ ...prev, isOpen: false }))}
-        images={visorImagenes.images}
-        initialIndex={visorImagenes.index}
-        title={visorImagenes.title}
-      />
+      {visorImagenes.isOpen && (
+        <ImageViewerModal
+          isOpen={true}
+          onClose={() => setVisorImagenes((prev) => ({ ...prev, isOpen: false }))}
+          images={visorImagenes.images}
+          initialIndex={visorImagenes.index}
+          title={visorImagenes.title}
+        />
+      )}
     </div>
   );
 }

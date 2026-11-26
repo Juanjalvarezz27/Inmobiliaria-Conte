@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import dynamic from "next/dynamic";
 import {
   ShieldCheck,
   AlertTriangle,
@@ -36,11 +37,19 @@ import {
   CATEGORIA_NOVEDAD_CONFIG,
   parseNovedadTitulo,
 } from "@/lib/types/seguridad";
-import { NovedadFichaModal } from "@/app/empleado/minuta/NovedadFichaModal";
-import { ReportarNovedadModal } from "@/app/empleado/minuta/ReportarNovedadModal";
 import { eliminarIncidenciaAction } from "@/lib/actions/seguridad";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
+
+// Carga diferida de modales de seguridad para reducir el JS inicial
+const NovedadFichaModal = dynamic(
+  () => import("@/app/empleado/minuta/NovedadFichaModal").then((m) => m.NovedadFichaModal),
+  { ssr: false }
+);
+const ReportarNovedadModal = dynamic(
+  () => import("@/app/empleado/minuta/ReportarNovedadModal").then((m) => m.ReportarNovedadModal),
+  { ssr: false }
+);
 
 interface SeguridadClientProps {
   initialData: SeguridadDashboardData;
@@ -776,33 +785,37 @@ export function SeguridadClient({ initialData }: SeguridadClientProps) {
 
 
       {/* Modal de Ficha Detallada de Novedad (con carga diferida de fotos) */}
-      <NovedadFichaModal
-        novedad={novedadFicha}
-        isOpen={!!novedadFicha}
-        onClose={() => setNovedadFicha(null)}
-        onEditar={(item) => {
-          setIncidenciaAEditar(item);
-          setIsReportModalOpen(true);
-        }}
-        onEliminar={(item) => setIncidenciaAEliminar(item)}
-        esAdmin={true}
-      />
+      {!!novedadFicha && (
+        <NovedadFichaModal
+          novedad={novedadFicha}
+          isOpen={true}
+          onClose={() => setNovedadFicha(null)}
+          onEditar={(item) => {
+            setIncidenciaAEditar(item);
+            setIsReportModalOpen(true);
+          }}
+          onEliminar={(item) => setIncidenciaAEliminar(item)}
+          esAdmin={true}
+        />
+      )}
 
       {/* Modal de Registro y Edición de Novedades */}
-      <ReportarNovedadModal
-        isOpen={isReportModalOpen}
-        onClose={() => {
-          setIsReportModalOpen(false);
-          setIncidenciaAEditar(null);
-        }}
-        propiedadId={incidenciaAEditar?.propiedadId || initialData.propiedades[0]?.id || ""}
-        propiedades={initialData.propiedades}
-        esAdmin={true}
-        incidenciaAEditar={incidenciaAEditar}
-        onNovedadRegistrada={() => {
-          router.refresh();
-        }}
-      />
+      {isReportModalOpen && (
+        <ReportarNovedadModal
+          isOpen={true}
+          onClose={() => {
+            setIsReportModalOpen(false);
+            setIncidenciaAEditar(null);
+          }}
+          propiedadId={incidenciaAEditar?.propiedadId || initialData.propiedades[0]?.id || ""}
+          propiedades={initialData.propiedades}
+          esAdmin={true}
+          incidenciaAEditar={incidenciaAEditar}
+          onNovedadRegistrada={() => {
+            router.refresh();
+          }}
+        />
+      )}
 
       {/* Modal de Confirmación de Borrado */}
       {incidenciaAEliminar && (

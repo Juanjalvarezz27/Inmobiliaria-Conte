@@ -73,14 +73,15 @@ export function TicketDetalleModal({
   const [mostrarCancelar, setMostrarCancelar] = useState<boolean>(false);
   const [motivoCancelacion, setMotivoCancelacion] = useState<string>("");
   const [isCanceling, setIsCanceling] = useState<boolean>(false);
-  // Sincronizar notas cuando cambia el ticket
-  React.useEffect(() => {
-    if (ticket) {
-      setNotasAdmin(ticket.notasAdmin || "");
-      setMostrarCancelar(false);
-      setMotivoCancelacion("");
-    }
-  }, [ticket]);
+  const [prevTicket, setPrevTicket] = useState(ticket);
+
+  // Sincroniza notas al cambiar de ticket sin efecto en cascada
+  if (prevTicket !== ticket) {
+    setPrevTicket(ticket);
+    setNotasAdmin(ticket?.notasAdmin || "");
+    setMostrarCancelar(false);
+    setMotivoCancelacion("");
+  }
 
   if (!ticket) return null;
 
@@ -294,6 +295,7 @@ export function TicketDetalleModal({
                     alt={`Avería ${idx + 1}`}
                     fill
                     sizes="160px"
+                    unoptimized
                     className="object-cover transition-transform duration-300 group-hover:scale-105"
                   />
                   <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
@@ -405,6 +407,7 @@ export function TicketDetalleModal({
                         alt={`Finiquito ${idx + 1}`}
                         fill
                         sizes="160px"
+                        unoptimized
                         className="object-cover transition-transform duration-300 group-hover:scale-105"
                       />
                       <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">

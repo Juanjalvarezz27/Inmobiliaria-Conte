@@ -96,6 +96,7 @@ export function PropiedadesClient({
   stats: initialStats,
 }: PropiedadesClientProps) {
   const [activeTab, setActiveTab] = useState<Tab>("propiedades");
+  const [espaciosTabMontado, setEspaciosTabMontado] = useState(false);
   const [vistaPropiedadesArchivadas, setVistaPropiedadesArchivadas] = useState<boolean>(false);
   const [filtroTipo, setFiltroTipo] = useState<string>("TODOS");
   const [busqueda, setBusqueda] = useState<string>("");
@@ -120,6 +121,7 @@ export function PropiedadesClient({
     setBusqueda("");
     setPropiedadesDesplegadas({ [propiedadId]: true });
     setPaginasPorPropiedad((p) => ({ ...p, [propiedadId]: 1 }));
+    setEspaciosTabMontado(true);
     setActiveTab("unidades");
 
     // Scroll suave hacia el acordeón del inmueble seleccionado
@@ -764,7 +766,10 @@ export function PropiedadesClient({
       {/* Barra de Navegación, Búsqueda y Filtros Modulares */}
       <PropiedadesFiltrosBar
         activeTab={activeTab}
-        onTabChange={setActiveTab}
+        onTabChange={(tab) => {
+          if (tab === "unidades") setEspaciosTabMontado(true);
+          setActiveTab(tab);
+        }}
         totalPropiedades={propiedades.length}
         totalUnidades={unidades.length}
         busqueda={busqueda}
@@ -781,8 +786,8 @@ export function PropiedadesClient({
         estadosUnidadDisponibles={estadosUnidadDisponibles}
       />
 
-      {/* Contenido Pestaña Propiedades */}
-      {activeTab === "propiedades" && (
+      {/* Contenido Pestaña Propiedades (mantenida viva para alternar pestañas al instante) */}
+      <div className={activeTab === "propiedades" ? "block" : "hidden"}>
         <PropiedadesTab
           propiedades={propiedades}
           propiedadesFiltradas={propiedadesFiltradas}
@@ -806,43 +811,45 @@ export function PropiedadesClient({
             setFiltroTipo("TODOS");
           }}
         />
-      )}
+      </div>
 
-      {/* Contenido Pestaña Espacios */}
-      {activeTab === "unidades" && (
-        <EspaciosTab
-          unidades={unidades}
-          unidadesFiltradas={unidadesFiltradas}
-          propiedades={propiedades}
-          gruposPorPropiedad={gruposPorPropiedad}
-          busqueda={busqueda}
-          filtroPropiedad={filtroPropiedad}
-          filtroEstadoUnidad={filtroEstadoUnidad}
-          propiedadActivaFiltro={propiedadActivaFiltro}
-          propiedadesDesplegadas={propiedadesDesplegadas}
-          paginasPorPropiedad={paginasPorPropiedad}
-          isPending={isPending}
-          onToggleDesplieguePropiedad={toggleDesplieguePropiedad}
-          onChangePaginaPropiedad={(propId, page) =>
-            setPaginasPorPropiedad((p) => ({ ...p, [propId]: page }))
-          }
-          onSetFiltroPropiedad={setFiltroPropiedad}
-          onSetFiltroEstadoUnidad={setFiltroEstadoUnidad}
-          onLimpiarBusqueda={() => setBusqueda("")}
-          onAbrirCrearUnidad={abrirModalCrearUnidad}
-          onAbrirCrearPropiedad={() => abrirModalCrearPropiedad()}
-          onAbrirDetalleUnidad={abrirDetalleUnidad}
-          onEditarUnidad={(unidad) => {
-            setUnidadSeleccionada(unidad);
-            setUnidadModal("editar");
-          }}
-          onEliminarUnidad={(unidad) => {
-            setUnidadSeleccionada(unidad);
-            setUnidadModal("eliminar");
-          }}
-          onCambiarEstadoUnidad={handleCambiarEstadoUnidad}
-          onIrAPropiedadesTab={() => setActiveTab("propiedades")}
-        />
+      {/* Contenido Pestaña Espacios (carga diferida al primer uso y persistente al alternar) */}
+      {espaciosTabMontado && (
+        <div className={activeTab === "unidades" ? "block" : "hidden"}>
+          <EspaciosTab
+            unidades={unidades}
+            unidadesFiltradas={unidadesFiltradas}
+            propiedades={propiedades}
+            gruposPorPropiedad={gruposPorPropiedad}
+            busqueda={busqueda}
+            filtroPropiedad={filtroPropiedad}
+            filtroEstadoUnidad={filtroEstadoUnidad}
+            propiedadActivaFiltro={propiedadActivaFiltro}
+            propiedadesDesplegadas={propiedadesDesplegadas}
+            paginasPorPropiedad={paginasPorPropiedad}
+            isPending={isPending}
+            onToggleDesplieguePropiedad={toggleDesplieguePropiedad}
+            onChangePaginaPropiedad={(propId, page) =>
+              setPaginasPorPropiedad((p) => ({ ...p, [propId]: page }))
+            }
+            onSetFiltroPropiedad={setFiltroPropiedad}
+            onSetFiltroEstadoUnidad={setFiltroEstadoUnidad}
+            onLimpiarBusqueda={() => setBusqueda("")}
+            onAbrirCrearUnidad={abrirModalCrearUnidad}
+            onAbrirCrearPropiedad={() => abrirModalCrearPropiedad()}
+            onAbrirDetalleUnidad={abrirDetalleUnidad}
+            onEditarUnidad={(unidad) => {
+              setUnidadSeleccionada(unidad);
+              setUnidadModal("editar");
+            }}
+            onEliminarUnidad={(unidad) => {
+              setUnidadSeleccionada(unidad);
+              setUnidadModal("eliminar");
+            }}
+            onCambiarEstadoUnidad={handleCambiarEstadoUnidad}
+            onIrAPropiedadesTab={() => setActiveTab("propiedades")}
+          />
+        </div>
       )}
 
       {/* Modal Propiedad (Crear / Editar) */}
@@ -948,6 +955,9 @@ export function PropiedadesClient({
         <UnidadDetalleModal
           isOpen={true}
           unidad={unidadSeleccionada}
+          propiedadDireccion={
+            propiedades.find((p) => p.id === unidadSeleccionada.propiedadId)?.direccion ?? null
+          }
           onClose={() => {
             setUnidadModal(null);
             setUnidadSeleccionada(null);

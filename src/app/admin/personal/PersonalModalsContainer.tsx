@@ -1,15 +1,9 @@
 "use client";
 
 import React from "react";
+import dynamic from "next/dynamic";
 import { LogOut, Power } from "lucide-react";
 import { CargoEmpleado, EstadoTarea } from "@prisma/client";
-import { EmpleadoFormModal } from "./EmpleadoFormModal";
-import { AsistenciaModal } from "./AsistenciaModal";
-import { TareaFormModal } from "./TareaFormModal";
-import { TareaDetalleModal } from "./TareaDetalleModal";
-import { EmpleadoDetalleModal } from "./EmpleadoDetalleModal";
-import { ImageViewerModal } from "@/components/ui/image-viewer-modal";
-import { ConfirmActionModal } from "@/components/ui/confirm-action-modal";
 import {
   CARGO_CONFIG,
   type EmpleadoItem,
@@ -22,6 +16,36 @@ import {
   type RegistrarAsistenciaInput,
   type CreateTareaInput,
 } from "@/lib/actions/personal";
+
+// Carga diferida de modales operativos para reducir el JS inicial de Personal
+const EmpleadoFormModal = dynamic(
+  () => import("./EmpleadoFormModal").then((m) => m.EmpleadoFormModal),
+  { ssr: false }
+);
+const AsistenciaModal = dynamic(
+  () => import("./AsistenciaModal").then((m) => m.AsistenciaModal),
+  { ssr: false }
+);
+const TareaFormModal = dynamic(
+  () => import("./TareaFormModal").then((m) => m.TareaFormModal),
+  { ssr: false }
+);
+const TareaDetalleModal = dynamic(
+  () => import("./TareaDetalleModal").then((m) => m.TareaDetalleModal),
+  { ssr: false }
+);
+const EmpleadoDetalleModal = dynamic(
+  () => import("./EmpleadoDetalleModal").then((m) => m.EmpleadoDetalleModal),
+  { ssr: false }
+);
+const ImageViewerModal = dynamic(
+  () => import("@/components/ui/image-viewer-modal").then((m) => m.ImageViewerModal),
+  { ssr: false }
+);
+const ConfirmActionModal = dynamic(
+  () => import("@/components/ui/confirm-action-modal").then((m) => m.ConfirmActionModal),
+  { ssr: false }
+);
 
 export interface PersonalModalsContainerProps {
   // Empleado Form Modal
@@ -151,135 +175,151 @@ export function PersonalModalsContainer({
   return (
     <>
       {/* 1. Modal Formulario de Empleado */}
-      <EmpleadoFormModal
-        isOpen={modalEmpleadoOpen}
-        onClose={onCloseModalEmpleado}
-        empleadoAEditar={empleadoAEditar}
-        propiedadPreseleccionadaId={propiedadPreseleccionadaEmpleado}
-        propiedades={propiedades}
-        onSubmit={onSubmitEmpleado}
-        isLoading={isLoading}
-      />
+      {modalEmpleadoOpen && (
+        <EmpleadoFormModal
+          isOpen={true}
+          onClose={onCloseModalEmpleado}
+          empleadoAEditar={empleadoAEditar}
+          propiedadPreseleccionadaId={propiedadPreseleccionadaEmpleado}
+          propiedades={propiedades}
+          onSubmit={onSubmitEmpleado}
+          isLoading={isLoading}
+        />
+      )}
 
       {/* 2. Modal de Registro de Asistencia */}
-      <AsistenciaModal
-        isOpen={modalAsistenciaOpen}
-        onClose={onCloseModalAsistencia}
-        empleado={empleadoParaAsistencia}
-        registroEditar={registroParaAsistencia}
-        onSubmit={onSubmitAsistencia}
-        isLoading={isLoading}
-      />
+      {modalAsistenciaOpen && (
+        <AsistenciaModal
+          isOpen={true}
+          onClose={onCloseModalAsistencia}
+          empleado={empleadoParaAsistencia}
+          registroEditar={registroParaAsistencia}
+          onSubmit={onSubmitAsistencia}
+          isLoading={isLoading}
+        />
+      )}
 
       {/* 3. Modal de Creación de Tarea */}
-      <TareaFormModal
-        isOpen={modalTareaOpen}
-        onClose={onCloseModalTarea}
-        empleados={empleados}
-        propiedades={propiedades}
-        empleadoPreseleccionado={empleadoPreseleccionadoTarea}
-        propiedadPreseleccionadaId={propiedadPreseleccionadaTarea}
-        onSubmit={onSubmitTarea}
-        isLoading={isLoading}
-      />
+      {modalTareaOpen && (
+        <TareaFormModal
+          isOpen={true}
+          onClose={onCloseModalTarea}
+          empleados={empleados}
+          propiedades={propiedades}
+          empleadoPreseleccionado={empleadoPreseleccionadoTarea}
+          propiedadPreseleccionadaId={propiedadPreseleccionadaTarea}
+          onSubmit={onSubmitTarea}
+          isLoading={isLoading}
+        />
+      )}
 
       {/* 4. Modal de Detalle de Tarea */}
-      <TareaDetalleModal
-        isOpen={modalDetalleTareaOpen}
-        onClose={onCloseModalDetalleTarea}
-        tarea={tareaSeleccionada}
-        onActualizarEstado={onActualizarEstadoTarea}
-        onEliminarTarea={onEliminarTarea}
-        onVerFoto={onVerFoto}
-        isLoading={isLoading}
-      />
+      {modalDetalleTareaOpen && (
+        <TareaDetalleModal
+          isOpen={true}
+          onClose={onCloseModalDetalleTarea}
+          tarea={tareaSeleccionada}
+          onActualizarEstado={onActualizarEstadoTarea}
+          onEliminarTarea={onEliminarTarea}
+          onVerFoto={onVerFoto}
+          isLoading={isLoading}
+        />
+      )}
 
       {/* 5. Modal de Ficha Técnica del Empleado */}
-      <EmpleadoDetalleModal
-        isOpen={modalDetalleEmpleadoOpen}
-        onClose={onCloseModalDetalleEmpleado}
-        empleado={empleadoSeleccionadoDetalle}
-        scrollToSeccion={scrollToSeccionDetalle}
-        tareasEmpleado={tareasEmpleado}
-        onAsignarTarea={onAsignarTareaDesdeDetalle}
-        onRegistrarAsistencia={onRegistrarAsistenciaDesdeDetalle}
-        onEditarAsistencia={onEditarAsistenciaDesdeDetalle}
-        onSeleccionarTarea={onSeleccionarTareaDesdeDetalle}
-        onVerFoto={onVerFoto}
-      />
+      {modalDetalleEmpleadoOpen && (
+        <EmpleadoDetalleModal
+          isOpen={true}
+          onClose={onCloseModalDetalleEmpleado}
+          empleado={empleadoSeleccionadoDetalle}
+          scrollToSeccion={scrollToSeccionDetalle}
+          tareasEmpleado={tareasEmpleado}
+          onAsignarTarea={onAsignarTareaDesdeDetalle}
+          onRegistrarAsistencia={onRegistrarAsistenciaDesdeDetalle}
+          onEditarAsistencia={onEditarAsistenciaDesdeDetalle}
+          onSeleccionarTarea={onSeleccionarTareaDesdeDetalle}
+          onVerFoto={onVerFoto}
+        />
+      )}
 
       {/* 6. Visor de Fotos / Comprobantes */}
-      <ImageViewerModal
-        isOpen={imageViewerOpen}
-        onClose={onCloseImageViewer}
-        images={imageViewerUrls}
-        initialIndex={imageViewerIndex}
-        title="Evidencia Fotográfica de la Labor"
-        subtitle="Fotografía tomada en campo por el trabajador de mantenimiento"
-      />
+      {imageViewerOpen && (
+        <ImageViewerModal
+          isOpen={true}
+          onClose={onCloseImageViewer}
+          images={imageViewerUrls}
+          initialIndex={imageViewerIndex}
+          title="Evidencia Fotográfica de la Labor"
+          subtitle="Fotografía tomada en campo por el trabajador de mantenimiento"
+        />
+      )}
 
       {/* 7. Modal de Confirmación: Marcar Salida */}
-      <ConfirmActionModal
-        isOpen={Boolean(asistenciaParaSalida)}
-        onClose={onCloseConfirmSalida}
-        onConfirm={onConfirmSalida}
-        title="Registrar Salida de Jornada"
-        subtitle="Confirmación de marcaje operativo"
-        variant="warning"
-        icon={LogOut}
-        description="¿Confirmas el registro de salida para este colaborador? Se guardará la hora actual como la finalización formal de su jornada laboral de hoy."
-        itemDetails={
-          asistenciaParaSalida
-            ? [
-                { label: "Colaborador", value: asistenciaParaSalida.empleadoNombre },
-                { label: "Cargo", value: CARGO_CONFIG[asistenciaParaSalida.empleadoCargo].label },
-                {
-                  label: "Hora de Entrada",
-                  value: new Date(asistenciaParaSalida.horaEntrada).toLocaleTimeString("es-VE", {
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  }),
-                },
-              ]
-            : []
-        }
-        confirmButtonText="Marcar Salida"
-        cancelButtonText="Cancelar"
-        isLoading={isLoading}
-      />
+      {Boolean(asistenciaParaSalida) && (
+        <ConfirmActionModal
+          isOpen={true}
+          onClose={onCloseConfirmSalida}
+          onConfirm={onConfirmSalida}
+          title="Registrar Salida de Jornada"
+          subtitle="Confirmación de marcaje operativo"
+          variant="warning"
+          icon={LogOut}
+          description="¿Confirmas el registro de salida para este colaborador? Se guardará la hora actual como la finalización formal de su jornada laboral de hoy."
+          itemDetails={
+            asistenciaParaSalida
+              ? [
+                  { label: "Colaborador", value: asistenciaParaSalida.empleadoNombre },
+                  { label: "Cargo", value: CARGO_CONFIG[asistenciaParaSalida.empleadoCargo].label },
+                  {
+                    label: "Hora de Entrada",
+                    value: new Date(asistenciaParaSalida.horaEntrada).toLocaleTimeString("es-VE", {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    }),
+                  },
+                ]
+              : []
+          }
+          confirmButtonText="Marcar Salida"
+          cancelButtonText="Cancelar"
+          isLoading={isLoading}
+        />
+      )}
 
       {/* 8. Modal de Confirmación: Desactivar Trabajador */}
-      <ConfirmActionModal
-        isOpen={Boolean(empleadoParaDesactivar)}
-        onClose={onCloseConfirmDesactivar}
-        onConfirm={onConfirmDesactivar}
-        title="Desactivar Trabajador"
-        subtitle="Suspensión de cuenta y acceso operativo"
-        variant="danger"
-        icon={Power}
-        description="¿Confirmas la desactivación de este colaborador? Se suspenderá temporalmente su acceso al portal del empleado y no se le podrán asignar nuevas tareas."
-        itemDetails={
-          empleadoParaDesactivar
-            ? [
-                {
-                  label: "Colaborador",
-                  value: `${empleadoParaDesactivar.nombre} ${empleadoParaDesactivar.apellido || ""}`.trim(),
-                },
-                {
-                  label: "Cédula",
-                  value: empleadoParaDesactivar.cedula,
-                },
-                {
-                  label: "Cargo",
-                  value: CARGO_CONFIG[empleadoParaDesactivar.cargo].label,
-                },
-              ]
-            : []
-        }
-        confirmButtonText="Desactivar"
-        cancelButtonText="Cancelar"
-        isLoading={isLoading}
-      />
+      {Boolean(empleadoParaDesactivar) && (
+        <ConfirmActionModal
+          isOpen={true}
+          onClose={onCloseConfirmDesactivar}
+          onConfirm={onConfirmDesactivar}
+          title="Desactivar Trabajador"
+          subtitle="Suspensión de cuenta y acceso operativo"
+          variant="danger"
+          icon={Power}
+          description="¿Confirmas la desactivación de este colaborador? Se suspenderá temporalmente su acceso al portal del empleado y no se le podrán asignar nuevas tareas."
+          itemDetails={
+            empleadoParaDesactivar
+              ? [
+                  {
+                    label: "Colaborador",
+                    value: `${empleadoParaDesactivar.nombre} ${empleadoParaDesactivar.apellido || ""}`.trim(),
+                  },
+                  {
+                    label: "Cédula",
+                    value: empleadoParaDesactivar.cedula,
+                  },
+                  {
+                    label: "Cargo",
+                    value: CARGO_CONFIG[empleadoParaDesactivar.cargo].label,
+                  },
+                ]
+              : []
+          }
+          confirmButtonText="Desactivar"
+          cancelButtonText="Cancelar"
+          isLoading={isLoading}
+        />
+      )}
     </>
   );
 }

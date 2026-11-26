@@ -1,6 +1,6 @@
 "use server";
 
-import { auth } from "@/auth";
+import { getCachedSession } from "@/lib/auth-guard";
 import { prisma } from "@/lib/prisma";
 import {
   EstadoPago,
@@ -32,7 +32,7 @@ export interface NavbarBadges {
 // Obtiene los conteos de pendientes operativos para el navbar segun el rol de la sesion
 export async function getNavbarBadgesAction(): Promise<NavbarBadges> {
   try {
-    const session = await auth();
+    const session = await getCachedSession();
     if (!session?.user?.id || !session.user.rol) {
       return {};
     }
