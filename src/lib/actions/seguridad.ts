@@ -30,6 +30,8 @@ import {
 import { formatearHora12, formatearFechaCorta, getRangosDiaVenezuela, getRangosMesVenezuela } from "@/lib/date-utils";
 import { requireAdminSession } from "@/lib/auth-guard";
 import { getWhatsAppUrl } from "@/lib/formatters";
+import { resolverTelefonoAdmin } from "@/lib/constants/contacto";
+import { obtenerTelefonoAdminActivo } from "@/lib/admin-contacto";
 import { PaginationParams, PaginatedResult } from "@/types/pagination";
 import { resolvePagination, createPaginatedResponse } from "@/lib/pagination-helper";
 import { Prisma } from "@prisma/client";
@@ -117,7 +119,7 @@ export async function getGuardiaDiarioDataAction(
         incidenciasHoy: [],
         fechaHoy: inicioHoy.toISOString(),
         esAdmin: false,
-        adminTelefono: process.env.ADMIN_WHATSAPP_PHONE || "04120000000",
+        adminTelefono: resolverTelefonoAdmin(process.env.ADMIN_WHATSAPP_PHONE),
       };
     }
 
@@ -181,13 +183,7 @@ export async function getGuardiaDiarioDataAction(
   });
 
   // Consultar teléfono del administrador para despacho rápido desde la bitácora
-  const adminUsuario = await prisma.usuario.findFirst({
-    where: { rol: "ADMIN", activo: true },
-    select: { telefono: true },
-    orderBy: { createdAt: "asc" },
-  });
-  const adminTelefono =
-    adminUsuario?.telefono || process.env.ADMIN_WHATSAPP_PHONE || "04120000000";
+  const adminTelefono = await obtenerTelefonoAdminActivo();
 
   return {
     propiedadAsignada,
@@ -325,13 +321,7 @@ export async function registrarIncidenciaAction(formData: {
     const categoriaLabel = CATEGORIA_NOVEDAD_CONFIG[categoria]?.label || categoria;
 
     // Buscar teléfono del administrador oficial para el despacho
-    const adminUsuario = await prisma.usuario.findFirst({
-      where: { rol: "ADMIN", activo: true },
-      select: { telefono: true, nombre: true },
-      orderBy: { createdAt: "asc" },
-    });
-    const adminTelefono =
-      adminUsuario?.telefono || process.env.ADMIN_WHATSAPP_PHONE || "04120000000";
+    const adminTelefono = await obtenerTelefonoAdminActivo();
 
     // Formatear texto oficial para WhatsApp con tono corporativo sobrio (sin emojis)
     const textoParte = [

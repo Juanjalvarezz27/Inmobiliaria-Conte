@@ -17,6 +17,8 @@ import { enviarNotificacionTicketResuelto } from "@/lib/email-templates/notifica
 import { enviarNotificacionTicketFiniquitadoAdmin } from "@/lib/email-templates/notificacion-ticket-finiquitado-admin";
 import { enviarNotificacionTicketCanceladoReasignado } from "@/lib/email-templates/notificacion-ticket-cancelado-reasignado";
 import { CATEGORIAS_TICKET } from "@/lib/constants/mantenimiento";
+import { resolverTelefonoAdmin } from "@/lib/constants/contacto";
+import { obtenerTelefonoAdminActivo } from "@/lib/admin-contacto";
 
 /**
  * Helper para despachar tareas asíncronas secundarias en segundo plano (emails)
@@ -397,11 +399,11 @@ export async function getTicketsInquilino() {
         locales: [],
         propiedades: [],
         inquilinoNombre: session.user.nombre || "Inquilino",
-        adminTelefono: "04120000000",
+        adminTelefono: resolverTelefonoAdmin(process.env.ADMIN_WHATSAPP_PHONE),
       };
     }
 
-    const [ticketsRegistrados, adminUsuario] = await Promise.all([
+    const [ticketsRegistrados, adminTelefono] = await Promise.all([
       prisma.ticketMantenimiento.findMany({
         where: { inquilinoId: inquilino.id },
         orderBy: { createdAt: "desc" },
@@ -411,14 +413,8 @@ export async function getTicketsInquilino() {
           empleado: { select: { id: true, nombre: true, apellido: true, cargo: true } },
         },
       }),
-      prisma.usuario.findFirst({
-        where: { rol: "ADMIN", activo: true },
-        select: { telefono: true },
-        orderBy: { createdAt: "asc" },
-      }),
+      obtenerTelefonoAdminActivo(),
     ]);
-
-    const adminTelefono = adminUsuario?.telefono || process.env.ADMIN_WHATSAPP_PHONE || "04120000000";
 
     // Extraer locales arrendados elegibles para reportar fallas
     const locales = inquilino.contratos.map((c) => ({
@@ -497,7 +493,7 @@ export async function getTicketsInquilino() {
       locales: [],
       propiedades: [],
       inquilinoNombre: "",
-      adminTelefono: "04120000000",
+      adminTelefono: resolverTelefonoAdmin(process.env.ADMIN_WHATSAPP_PHONE),
     };
   }
 }

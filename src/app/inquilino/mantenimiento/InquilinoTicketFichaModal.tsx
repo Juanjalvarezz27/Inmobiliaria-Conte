@@ -32,6 +32,10 @@ import {
 import { CategoriaTicket, EstadoTicket } from "@prisma/client";
 import { formatearFechaNumerica } from "@/lib/date-utils";
 import { WhatsAppIcon, getWhatsAppUrl } from "@/lib/formatters";
+import {
+  ADMIN_TELEFONO_DEFECTO,
+  resolverTelefonoAdmin,
+} from "@/lib/constants/contacto";
 import type { TicketItem } from "@/lib/actions/mantenimiento";
 
 interface InquilinoTicketFichaModalProps {
@@ -68,7 +72,7 @@ export function InquilinoTicketFichaModal({
   onClose,
   ticket,
   onVerFotos,
-  adminTelefono = "04120000000",
+  adminTelefono = ADMIN_TELEFONO_DEFECTO,
 }: InquilinoTicketFichaModalProps) {
   if (!ticket) return null;
 
@@ -338,7 +342,7 @@ export function InquilinoTicketFichaModal({
         <div className="pt-3 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-end gap-2">
           <a
             href={getWhatsAppUrl(
-              adminTelefono,
+              resolverTelefonoAdmin(adminTelefono),
               `Hola Administración Conté, les escribo por mi ticket de mantenimiento ${ticket.codigo} (${ticket.titulo}) de ${ticket.unidad ? ticket.unidad.codigo : "inmueble"} en ${ticket.propiedad.nombre}.`
             )}
             target="_blank"

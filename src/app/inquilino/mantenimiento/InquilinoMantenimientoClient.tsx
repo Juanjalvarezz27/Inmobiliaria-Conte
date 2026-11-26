@@ -52,6 +52,10 @@ import {
 import type { TicketItem } from "@/lib/actions/mantenimiento";
 import { formatearFechaNumerica } from "@/lib/date-utils";
 import { WhatsAppIcon, getWhatsAppUrl } from "@/lib/formatters";
+import {
+  ADMIN_TELEFONO_DEFECTO,
+  resolverTelefonoAdmin,
+} from "@/lib/constants/contacto";
 
 interface InquilinoMantenimientoClientProps {
   ticketsIniciales: TicketItem[];
@@ -97,8 +101,9 @@ export function InquilinoMantenimientoClient({
   locales,
   propiedades,
   inquilinoNombre,
-  adminTelefono = "04120000000",
+  adminTelefono = ADMIN_TELEFONO_DEFECTO,
 }: InquilinoMantenimientoClientProps) {
+  const telefonoAdminActivo = resolverTelefonoAdmin(adminTelefono);
   const router = useRouter();
   const [modalReportarOpen, setModalReportarOpen] = useState(false);
   const [ticketParaFicha, setTicketParaFicha] = useState<TicketItem | null>(null);
@@ -575,7 +580,7 @@ export function InquilinoMantenimientoClient({
                         {/* Botón 2: Contactar Administración por WhatsApp */}
                         <a
                           href={getWhatsAppUrl(
-                            adminTelefono,
+                            telefonoAdminActivo,
                             `Hola Administración Conté, les escribo por mi ticket de mantenimiento ${ticket.codigo} (${ticket.titulo}) de ${ticket.unidad ? ticket.unidad.codigo : "inmueble"} en ${ticket.propiedad.nombre}.`
                           )}
                           target="_blank"
@@ -624,7 +629,7 @@ export function InquilinoMantenimientoClient({
         onClose={() => setTicketParaFicha(null)}
         ticket={ticketParaFicha}
         onVerFotos={abrirVisor}
-        adminTelefono={adminTelefono}
+        adminTelefono={telefonoAdminActivo}
       />
 
       {/* Modal Visor de Imágenes */}

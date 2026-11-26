@@ -1,5 +1,6 @@
 import { PrismaClient, Rol } from "@prisma/client";
 import bcrypt from "bcryptjs";
+import { ADMIN_TELEFONO_DEFECTO } from "../src/lib/constants/contacto";
 
 const prisma = new PrismaClient();
 
@@ -28,7 +29,7 @@ async function main() {
       nombre: "Fabian",
       apellido: "Conte",
       cedula: "V-27306275",
-      telefono: "04120000000",
+      telefono: ADMIN_TELEFONO_DEFECTO,
       direccion: "Oficina Administrativa Central",
       ubicacion: "Sede Principal",
       rol: Rol.ADMIN,

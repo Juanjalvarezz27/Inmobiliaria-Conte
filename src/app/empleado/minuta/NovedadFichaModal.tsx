@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { Modal, ImageViewerModal } from "@/components/ui";
 import { WhatsAppIcon, getWhatsAppUrl } from "@/lib/formatters";
+import { resolverTelefonoAdmin } from "@/lib/constants/contacto";
 import {
   type IncidenciaItem,
   CATEGORIA_NOVEDAD_CONFIG,
@@ -67,7 +68,7 @@ export function NovedadFichaModal({
           )
         : null)
     : getWhatsAppUrl(
-        adminTelefono || "04120000000",
+        resolverTelefonoAdmin(adminTelefono),
         [
           "*NOVEDAD DE SEGURIDAD — INMOBILIARIA CONTÉ*",
           `*Inmueble:* ${novedad.propiedadNombre}`,
