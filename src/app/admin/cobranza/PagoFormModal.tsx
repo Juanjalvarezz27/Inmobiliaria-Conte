@@ -24,7 +24,8 @@ import { Modal } from "@/components/ui/modal";
 import { Select } from "@/components/ui/select";
 import { useOperacionesUploadThing } from "@/lib/uploadthing";
 import { toast } from "sonner";
-import { MetodoPago, EstadoPago, MonedaTransaccion } from "@prisma/client";
+import { MetodoPago, EstadoPago, MonedaTransaccion, TasaReferenciaBcv } from "@prisma/client";
+import { resolverTasaSegunReferencia } from "@/lib/bcv-utils";
 import { comprimirImagen, formatearBytes, PRESETS_COMPRESION } from "@/lib/file-compressor";
 import type { PagoItem } from "./types";
 import { rechazarComprobanteReportadoAction, type RegistrarPagoInput } from "@/lib/actions/cobranza";
@@ -57,6 +58,11 @@ function PagoFormContent({
 }: PagoFormContentProps) {
   const saldoRestante = Math.max(0, Number((pago.montoEsperado - pago.montoPagado).toFixed(2)));
   const esPorConfirmar = Boolean(pago.comprobanteUrl && pago.estado !== EstadoPago.PAGADO);
+  const tasaRefContrato: TasaReferenciaBcv =
+    pago.contrato?.tasaReferenciaBcv ?? TasaReferenciaBcv.USD;
+  const esTasaEur = tasaRefContrato === TasaReferenciaBcv.EUR;
+  const sufijoTasa = esTasaEur ? "Bs/€" : "Bs/$";
+  const etiquetaTasaBcv = esTasaEur ? "Euro BCV (€)" : "Dólar BCV ($)";
 
   // Extraer el monto especifico reportado por el inquilino en las notas si existe
   const matchMontoReportado = pago.notas?.match(/\(\$([0-9]+(?:\.[0-9]{1,2})?)\)/);
@@ -83,6 +89,7 @@ function PagoFormContent({
   const [tasaBcv, setTasaBcv] = useState<string>(
     pago.tasaBcv ? pago.tasaBcv.toString() : "914.0218"
   );
+  const [tasaDolarDia, setTasaDolarDia] = useState<number | null>(pago.tasaDolarBcvDia ?? null);
   const [cargandoTasa, setCargandoTasa] = useState(false);
   const [editandoTasaManual, setEditandoTasaManual] = useState(false);
   const [esTasaFallback, setEsTasaFallback] = useState(false);
@@ -127,41 +134,47 @@ function PagoFormContent({
   );
 
   // Consultar la tasa BCV oficial para la fecha seleccionada
-  const consultarTasaBcv = async (fechaParam?: string) => {
-    setCargandoTasa(true);
+  const consultarTasaBcv = async (fechaParam?: string, soloDolarDia = false) => {
+    if (!soloDolarDia) setCargandoTasa(true);
     try {
       const fechaAUsar = fechaParam ?? fechaPago;
       const url = fechaAUsar ? `/api/bcv?fecha=${fechaAUsar}` : "/api/bcv";
       const res = await fetch(url);
       const json = await res.json();
       if (json.success && json.data?.tasa) {
-        setEsTasaFallback(!!json.data.esFallback);
-        const nuevaTasa = json.data.tasa;
-        if (!editandoTasaManual || fechaParam) {
-          setTasaBcv(nuevaTasa.toString());
-          if (monedaRef.current === MonedaTransaccion.VES && !pago.montoBs && montoUsd) {
-            setMontoBs((parseFloat(montoUsd) * nuevaTasa).toFixed(2));
+        if (json.data.tasa > 0) {
+          setTasaDolarDia(json.data.tasa);
+        }
+        if (!soloDolarDia) {
+          setEsTasaFallback(!!json.data.esFallback);
+          const nuevaTasa =
+            resolverTasaSegunReferencia(json.data, tasaRefContrato) || json.data.tasa;
+          if (!editandoTasaManual || fechaParam) {
+            setTasaBcv(nuevaTasa.toString());
+            if (monedaRef.current === MonedaTransaccion.VES && !pago.montoBs && montoUsd) {
+              setMontoBs((parseFloat(montoUsd) * nuevaTasa).toFixed(2));
+            }
           }
         }
       }
     } catch (e) {
       console.warn("No se pudo cargar la tasa BCV:", e);
     } finally {
-      setCargandoTasa(false);
+      if (!soloDolarDia) setCargandoTasa(false);
     }
   };
 
   useEffect(() => {
     if (!pago.tasaBcv) {
-      consultarTasaBcv(fechaPago);
+      consultarTasaBcv(fechaPago, false);
+    } else if (esTasaEur && !pago.tasaDolarBcvDia) {
+      consultarTasaBcv(fechaPago, true);
     }
   }, []);
 
   const handleCambioFecha = (nuevaFecha: string) => {
     setFechaPago(nuevaFecha);
-    if (!editandoTasaManual) {
-      consultarTasaBcv(nuevaFecha);
-    }
+    consultarTasaBcv(nuevaFecha, editandoTasaManual);
   };
 
   // Alternar entre Bolivares y Dolares con conversion de valores
@@ -360,6 +373,7 @@ function PagoFormContent({
           : montoNumero,
       montoBs: montoBsFinal,
       tasaBcv: tasaNum > 0 ? tasaNum : null,
+      tasaDolarBcvDia: tasaDolarDia && tasaDolarDia > 0 ? tasaDolarDia : null,
     };
 
     setIsSubmitting(true);
@@ -563,7 +577,7 @@ function PagoFormContent({
               <div>
                 <div className="flex items-center justify-between mb-1.5">
                   <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-                    Tasa Oficial BCV <span className="text-rose-500">*</span>
+                    Tasa {etiquetaTasaBcv} <span className="text-rose-500">*</span>
                   </label>
                   <button
                     type="button"
@@ -583,7 +597,7 @@ function PagoFormContent({
                       min="0.0001"
                       value={tasaBcv}
                       onChange={(e) => setTasaBcv(e.target.value)}
-                      placeholder="Tasa en Bs/USD"
+                      placeholder={`Tasa en ${sufijoTasa}`}
                       required
                       className="w-full h-11 px-3.5 rounded-xl border border-amber-300 bg-amber-50/50 text-sm font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all font-mono"
                     />
@@ -601,7 +615,7 @@ function PagoFormContent({
                           ? `${tasaNum.toLocaleString("es-VE", {
                               minimumFractionDigits: 2,
                               maximumFractionDigits: 4,
-                            })} Bs/$`
+                            })} ${sufijoTasa}`
                           : "Consultando..."}
                       </span>
                       {esTasaFallback && (
@@ -624,14 +638,26 @@ function PagoFormContent({
               </div>
 
               {/* Banner de Contravalor en USD en vivo */}
-              <div className="sm:col-span-2 p-3 bg-slate-50/80 border border-slate-200/80 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
-                <span className="text-slate-600 font-semibold flex items-center gap-1.5">
-                  <AlertCircle className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                  <span>Equivalente Imputado al Canon:</span>
-                </span>
-                <span className="font-heading font-black text-slate-900 text-base">
-                  ${montoNumero.toFixed(2)} USD
-                </span>
+              <div className="sm:col-span-2 p-3 bg-slate-50/80 border border-slate-200/80 rounded-xl flex flex-col gap-1 text-xs">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <span className="text-slate-600 font-semibold flex items-center gap-1.5">
+                    <AlertCircle className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                    <span>Equivalente Imputado al Canon:</span>
+                  </span>
+                  <span className="font-heading font-black text-slate-900 text-base">
+                    ${montoNumero.toFixed(2)} USD
+                  </span>
+                </div>
+                {esTasaEur && tasaDolarDia && tasaDolarDia > 0 && parseFloat(montoBs) > 0 && (
+                  <div className="flex flex-wrap items-center justify-between gap-1.5 text-[11px] text-indigo-700 bg-indigo-50/80 border border-indigo-200/70 rounded-lg px-2.5 py-1.5 mt-1">
+                    <span className="font-semibold">
+                      Equivalente real Finanzas (Tasa $ BCV: {tasaDolarDia.toFixed(2)} Bs/$):
+                    </span>
+                    <strong className="font-bold shrink-0">
+                      ${(parseFloat(montoBs) / tasaDolarDia).toFixed(2)} USD
+                    </strong>
+                  </div>
+                )}
               </div>
             </>
           ) : (
@@ -700,7 +726,7 @@ function PagoFormContent({
                           ? `${tasaNum.toLocaleString("es-VE", {
                               minimumFractionDigits: 2,
                               maximumFractionDigits: 4,
-                            })} Bs/$`
+                            })} ${sufijoTasa}`
                           : "—"}
                       </span>
                     </div>

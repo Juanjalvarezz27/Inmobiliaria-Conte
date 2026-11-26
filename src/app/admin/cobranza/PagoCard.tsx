@@ -186,6 +186,14 @@ export function PagoCard({
               <Store className="w-3 h-3 text-slate-400 shrink-0" />
               <span className="truncate">{unidad.codigo}</span>
             </span>
+            {pago.contrato?.tasaReferenciaBcv === "EUR" && (
+              <span
+                className="inline-flex items-center px-1.5 py-0.5 rounded-md bg-indigo-50 text-indigo-700 font-bold text-[10px] border border-indigo-200/80 shrink-0"
+                title="Cobro en Bolívares indexado a Tasa Euro BCV"
+              >
+                € BCV
+              </span>
+            )}
           </div>
         </div>
 

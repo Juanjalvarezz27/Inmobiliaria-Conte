@@ -511,7 +511,7 @@ export function MovimientosDesplegable({
                                     </p>
                                   )}
 
-                                  {/* Desktop Only: Propiedad & Método en Desktop */}
+                                    {/* Desktop Only: Propiedad & Método en Desktop */}
                                   <div className="hidden sm:flex items-center gap-1.5 text-xs text-slate-500 truncate">
                                     {item.propiedadNombre && (
                                       <span className="truncate">{item.propiedadNombre}</span>
@@ -532,6 +532,12 @@ export function MovimientosDesplegable({
                                       )}
                                     </span>
                                   </div>
+
+                                  {item.notas && (
+                                    <p className="text-[11px] text-indigo-700 bg-indigo-50/70 border border-indigo-200/60 rounded-lg px-2 py-0.5 mt-1 truncate">
+                                      {item.notas}
+                                    </p>
+                                  )}
                                 </div>
                               </div>
 

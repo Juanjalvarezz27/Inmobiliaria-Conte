@@ -36,7 +36,7 @@ import { formatUSD, formatBS } from "@/lib/formatters";
 import { MESES } from "@/lib/date-utils";
 import type { PagoItem } from "@/app/admin/cobranza/types";
 import type { ResumenFinancieroInquilino } from "@/lib/actions/inquilinoPortal";
-import type { TasaBcvResponse } from "@/lib/bcv";
+import { resolverTasaSegunReferencia, type TasaBcvResponse } from "@/lib/bcv-utils";
 import { ReportarPagoModal } from "./ReportarPagoModal";
 import { ServiciosSolvenciaModal } from "@/app/admin/cobranza/ServiciosSolvenciaModal";
 import { construirReciboPdf } from "@/app/admin/cobranza/generarReciboPdf";
@@ -94,7 +94,13 @@ export function InquilinoPagosClient({
       const json = await res.json();
       if (json.success && json.data?.tasa) {
         setTasaBcv(json.data);
-        toast.success(`Tasa BCV actualizada: Bs. ${json.data.tasa.toLocaleString("es-VE", { minimumFractionDigits: 2, maximumFractionDigits: 4 })}`);
+        const msgEur =
+          tieneContratosEur && json.data.tasaEur
+            ? ` · Euro BCV: Bs. ${json.data.tasaEur.toLocaleString("es-VE", { minimumFractionDigits: 2, maximumFractionDigits: 4 })}`
+            : "";
+        toast.success(
+          `Tasa BCV actualizada — Dólar: Bs. ${json.data.tasa.toLocaleString("es-VE", { minimumFractionDigits: 2, maximumFractionDigits: 4 })}${msgEur}`
+        );
       } else {
         toast.error("No se pudo obtener la tasa actualizada.");
       }
@@ -135,6 +141,42 @@ export function InquilinoPagosClient({
       window.removeEventListener("keydown", handleKeyDown);
     };
   }, [motivoActivoId]);
+
+  // Detección de tasas BCV requeridas por los contratos del inquilino
+  const { tieneContratosUsd, tieneContratosEur, compromisoTotalBs } = useMemo(() => {
+    let hayUsd = false;
+    let hayEur = false;
+    const contratosCanon = new Map<string, { canon: number; ref: "USD" | "EUR" }>();
+
+    for (const p of pagos) {
+      const ref = p.contrato?.tasaReferenciaBcv === "EUR" ? "EUR" : "USD";
+      if (ref === "EUR") hayEur = true;
+      else hayUsd = true;
+
+      if (!contratosCanon.has(p.contratoId) && (p.contrato?.estado === "ACTIVO" || p.contrato?.estado === "POR_VENCER" || !p.contrato?.estado)) {
+        contratosCanon.set(p.contratoId, {
+          canon: p.contrato?.montoAlquiler || p.montoEsperado || 0,
+          ref,
+        });
+      }
+    }
+
+    if (!hayUsd && !hayEur) hayUsd = true;
+
+    let totalBs = 0;
+    if (tasaBcv) {
+      contratosCanon.forEach(({ canon, ref }) => {
+        const tasa = resolverTasaSegunReferencia(tasaBcv, ref);
+        if (tasa > 0) totalBs += canon * tasa;
+      });
+    }
+
+    return {
+      tieneContratosUsd: hayUsd,
+      tieneContratosEur: hayEur,
+      compromisoTotalBs: Number(totalBs.toFixed(2)),
+    };
+  }, [pagos, tasaBcv]);
 
   // Años disponibles en el historial
   const anosDisponibles = useMemo(() => {
@@ -302,6 +344,7 @@ export function InquilinoPagosClient({
       unidadTipo?: string;
       propiedadNombre: string;
       propiedadCiudad?: string;
+      tasaReferenciaBcv: "USD" | "EUR";
       canon: number;
       pagos: PagoItem[];
       totalPendienteUSD: number;
@@ -322,6 +365,7 @@ export function InquilinoPagosClient({
           unidadTipo: unidad?.tipo,
           propiedadNombre: unidad?.propiedad?.nombre || "Inmueble",
           propiedadCiudad: unidad?.propiedad?.ciudad,
+          tasaReferenciaBcv: pago.contrato?.tasaReferenciaBcv === "EUR" ? "EUR" : "USD",
           canon: pago.montoEsperado || pago.contrato?.montoAlquiler || 0,
           pagos: [],
           totalPendienteUSD: 0,
@@ -469,21 +513,35 @@ export function InquilinoPagosClient({
             </div>
           </div>
 
-          <div className="relative z-10 bg-white/10 border border-white/15 rounded-xl px-4 py-2.5 sm:text-right shrink-0 backdrop-blur-xs flex items-center gap-3">
-            <div>
-              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-300 block">
-                1 USD =
-              </span>
-              <span className="text-lg sm:text-xl font-black font-heading text-white">
-                Bs. {tasaBcv.tasa.toLocaleString("es-VE", { minimumFractionDigits: 2, maximumFractionDigits: 4 })}
-              </span>
+          <div className="relative z-10 bg-white/10 border border-white/15 rounded-xl px-3.5 sm:px-4 py-2.5 sm:text-right w-full sm:w-auto sm:shrink-0 backdrop-blur-xs flex items-center justify-between gap-3 sm:gap-4">
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-2 min-w-0">
+              {tieneContratosUsd && (
+                <div>
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-300 block">
+                    1 USD (Dólar BCV) =
+                  </span>
+                  <span className="text-base sm:text-xl font-black font-heading text-white whitespace-nowrap">
+                    Bs. {tasaBcv.tasa.toLocaleString("es-VE", { minimumFractionDigits: 2, maximumFractionDigits: 4 })}
+                  </span>
+                </div>
+              )}
+              {tieneContratosEur && tasaBcv.tasaEur && tasaBcv.tasaEur > 0 && (
+                <div className={tieneContratosUsd ? "sm:pl-4 sm:border-l sm:border-white/15" : ""}>
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-300 block">
+                    1 EUR (Euro BCV) =
+                  </span>
+                  <span className="text-base sm:text-xl font-black font-heading text-white whitespace-nowrap">
+                    Bs. {tasaBcv.tasaEur.toLocaleString("es-VE", { minimumFractionDigits: 2, maximumFractionDigits: 4 })}
+                  </span>
+                </div>
+              )}
             </div>
             <button
               type="button"
               onClick={refrescarTasaBcv}
               disabled={actualizandoTasa}
               title="Sincronizar tasa oficial BCV"
-              className="p-2 rounded-lg bg-white/10 hover:bg-white/20 active:scale-95 text-slate-200 hover:text-white transition-all disabled:opacity-50 cursor-pointer"
+              className="p-2 rounded-lg bg-white/10 hover:bg-white/20 active:scale-95 text-slate-200 hover:text-white transition-all disabled:opacity-50 cursor-pointer shrink-0"
             >
               <RotateCw className={`w-4 h-4 ${actualizandoTasa ? "animate-spin text-emerald-400" : ""}`} />
             </button>
@@ -497,8 +555,8 @@ export function InquilinoPagosClient({
           title="Compromiso Mensual"
           value={formatUSD(resumen.montoCanonTotal)}
           subtitle={
-            tasaBcv?.tasa && resumen.montoCanonTotal
-              ? `Equivalente: ${formatBS(resumen.montoCanonTotal * tasaBcv.tasa)}`
+            compromisoTotalBs > 0
+              ? `Equivalente: ${formatBS(compromisoTotalBs)}`
               : "Canon regular pactado"
           }
           icon={DollarSign}
@@ -696,6 +754,9 @@ export function InquilinoPagosClient({
           {/* Acordeones Desplegables por Local / Contrato */}
           {gruposPorLocal.map((grupo) => {
             const estaAbierto = isLocalAbierto(grupo.contratoId);
+            const tasaGrupo = resolverTasaSegunReferencia(tasaBcv, grupo.tasaReferenciaBcv);
+            const etiquetaTasaGrupo =
+              grupo.tasaReferenciaBcv === "EUR" ? "Tasa Euro BCV" : "Tasa Dólar BCV";
 
             return (
               <div
@@ -730,26 +791,36 @@ export function InquilinoPagosClient({
                       {/* Metadatos y Badges del Local */}
                       <div className="flex items-center gap-2 mt-1.5 flex-wrap">
                         {/* Canon mensual */}
-                        <span className="text-xs font-semibold text-slate-500 flex items-center gap-1">
+                        <span className="text-xs font-semibold text-slate-500 flex flex-wrap items-center gap-x-1 gap-y-0.5">
                           <span>Canon:</span>
                           <strong className="text-slate-800 font-bold">{formatUSD(grupo.canon)}</strong>
-                          {tasaBcv?.tasa && (
+                          {tasaGrupo > 0 && (
                             <span className="text-[11px] text-slate-400 font-normal">
-                              ({formatBS(grupo.canon * tasaBcv.tasa)})
+                              ({formatBS(grupo.canon * tasaGrupo)} · {etiquetaTasaGrupo})
                             </span>
                           )}
                         </span>
 
-                        <span className="text-slate-300">|</span>
+                        <span
+                          className={`text-[10px] font-bold px-2 py-0.5 rounded-md border ${
+                            grupo.tasaReferenciaBcv === "EUR"
+                              ? "bg-indigo-50 text-indigo-700 border-indigo-200"
+                              : "bg-emerald-50 text-emerald-700 border-emerald-200"
+                          }`}
+                        >
+                          {grupo.tasaReferenciaBcv === "EUR" ? "€ BCV" : "$ BCV"}
+                        </span>
+
+                        <span className="hidden sm:inline text-slate-300">|</span>
 
                         {/* Estado de solvencia del Local */}
                         {grupo.totalPendienteUSD > 0 ? (
                           <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-black bg-amber-50 text-amber-800 border border-amber-200 shadow-2xs">
                             <Clock className="w-3 h-3 text-amber-600 shrink-0" />
                             <span>Por Pagar: {formatUSD(grupo.totalPendienteUSD)}</span>
-                            {tasaBcv?.tasa && (
+                            {tasaGrupo > 0 && (
                               <span className="text-[10px] opacity-85">
-                                ({formatBS(grupo.totalPendienteUSD * tasaBcv.tasa)})
+                                ({formatBS(grupo.totalPendienteUSD * tasaGrupo)})
                               </span>
                             )}
                           </span>
@@ -1060,9 +1131,9 @@ export function InquilinoPagosClient({
                                         <span className="text-sm font-extrabold text-slate-900 block">
                                           {formatUSD(pago.montoEsperado)}
                                         </span>
-                                        {tasaBcv?.tasa && (
+                                        {tasaGrupo > 0 && (
                                           <span className="text-[10px] font-bold text-slate-500 block mt-0.5">
-                                            {formatBS(pago.montoEsperado * tasaBcv.tasa)}
+                                            {formatBS(pago.montoEsperado * tasaGrupo)}
                                           </span>
                                         )}
                                       </div>
@@ -1082,10 +1153,12 @@ export function InquilinoPagosClient({
                                         <span className="text-sm font-extrabold block">
                                           {formatUSD(saldoPendiente)}
                                         </span>
-                                        {tasaBcv?.tasa && saldoPendiente > 0 && (
+                                        {tasaGrupo > 0 && saldoPendiente > 0 && (
                                           <span className="text-[10px] font-black text-amber-900 bg-amber-100/90 border border-amber-200 px-1.5 py-0.5 rounded-md inline-flex items-center gap-1 mt-0.5">
-                                            <span>{formatBS(saldoPendiente * tasaBcv.tasa)}</span>
-                                            <span className="text-[9px] font-medium text-amber-700">(BCV hoy)</span>
+                                            <span>{formatBS(saldoPendiente * tasaGrupo)}</span>
+                                            <span className="text-[9px] font-medium text-amber-700">
+                                              ({grupo.tasaReferenciaBcv === "EUR" ? "€ BCV" : "$ BCV"})
+                                            </span>
                                           </span>
                                         )}
                                       </div>

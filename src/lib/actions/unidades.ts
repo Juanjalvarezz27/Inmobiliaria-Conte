@@ -3,7 +3,7 @@
 import { prisma } from "@/lib/prisma";
 import { requireAdminSession, assertAdminSession } from "@/lib/auth-guard";
 import { revalidatePath } from "next/cache";
-import { Prisma, EstadoUnidad, TipoUnidad, EstadoContrato } from "@prisma/client";
+import { Prisma, EstadoUnidad, TipoUnidad, EstadoContrato, EstadoPago, TasaReferenciaBcv } from "@prisma/client";
 import { eliminarArchivosUploadThing } from "@/lib/uploadthing-server";
 import { PaginationParams, PaginatedResult } from "@/types/pagination";
 import { resolvePagination, createPaginatedResponse } from "@/lib/pagination-helper";
@@ -14,6 +14,7 @@ export interface CreateUnidadInput {
   piso?: string;
   areaMt2?: number;
   precioAlquiler?: number;
+  tasaReferenciaBcv?: TasaReferenciaBcv;
   descripcion?: string;
   estado?: EstadoUnidad;
   imagenes?: string[];
@@ -26,6 +27,7 @@ export interface UpdateUnidadInput {
   piso?: string;
   areaMt2?: number;
   precioAlquiler?: number;
+  tasaReferenciaBcv?: TasaReferenciaBcv;
   descripcion?: string;
   estado?: EstadoUnidad;
   imagenes?: string[];
@@ -40,6 +42,7 @@ const UNIDAD_SELECT = Prisma.validator<Prisma.UnidadSelect>()({
   piso: true,
   areaMt2: true,
   precioAlquiler: true,
+  tasaReferenciaBcv: true,
   descripcion: true,
   estado: true,
   imagenes: true,
@@ -50,6 +53,7 @@ const UNIDAD_SELECT = Prisma.validator<Prisma.UnidadSelect>()({
       nombre: true,
       tipo: true,
       ciudad: true,
+      tasaReferenciaBcv: true,
     },
   },
   contratos: {
@@ -66,6 +70,7 @@ const UNIDAD_SELECT = Prisma.validator<Prisma.UnidadSelect>()({
       fechaFin: true,
       montoAlquiler: true,
       moneda: true,
+      tasaReferenciaBcv: true,
       inquilino: {
         select: {
           id: true,
@@ -214,6 +219,15 @@ export async function createUnidad(data: CreateUnidadInput) {
   if (!authCheck.ok) return { success: false, error: authCheck.error };
 
   try {
+    let tasaEfectiva = data.tasaReferenciaBcv;
+    if (!tasaEfectiva) {
+      const prop = await prisma.propiedad.findUnique({
+        where: { id: data.propiedadId },
+        select: { tasaReferenciaBcv: true },
+      });
+      tasaEfectiva = prop?.tasaReferenciaBcv ?? TasaReferenciaBcv.USD;
+    }
+
     const nuevaUnidad = await prisma.unidad.create({
       data: {
         codigo: data.codigo.trim(),
@@ -221,6 +235,7 @@ export async function createUnidad(data: CreateUnidadInput) {
         piso: data.piso?.trim() || null,
         areaMt2: data.areaMt2 ? Number(data.areaMt2) : null,
         precioAlquiler: data.precioAlquiler ? Number(data.precioAlquiler) : null,
+        tasaReferenciaBcv: tasaEfectiva,
         descripcion: data.descripcion?.trim() || null,
         estado: data.estado || EstadoUnidad.DISPONIBLE,
         imagenes: data.imagenes || [],
@@ -309,6 +324,7 @@ export async function updateUnidad(id: string, data: UpdateUnidadInput) {
         ...(data.precioAlquiler !== undefined && {
           precioAlquiler: data.precioAlquiler ? Number(data.precioAlquiler) : null,
         }),
+        ...(data.tasaReferenciaBcv && { tasaReferenciaBcv: data.tasaReferenciaBcv }),
         ...(data.descripcion !== undefined && { descripcion: data.descripcion?.trim() || null }),
         ...(data.estado && { estado: data.estado }),
         ...(data.imagenes && { imagenes: data.imagenes }),
@@ -1029,6 +1045,7 @@ export async function subdividirUnidadAction(
             typeof parteA.precioAlquiler === "number" && !isNaN(parteA.precioAlquiler)
               ? parteA.precioAlquiler
               : null,
+          tasaReferenciaBcv: matriz.tasaReferenciaBcv,
           descripcion:
             parteA.descripcion?.trim() ||
             `Subunidad A creada a partir de la división del espacio matriz ${matriz.codigo}.`,
@@ -1078,6 +1095,7 @@ export async function subdividirUnidadAction(
             typeof parteB.precioAlquiler === "number" && !isNaN(parteB.precioAlquiler)
               ? parteB.precioAlquiler
               : null,
+          tasaReferenciaBcv: matriz.tasaReferenciaBcv,
           descripcion:
             parteB.descripcion?.trim() ||
             `Subunidad B creada a partir de la división del espacio matriz ${matriz.codigo}.`,
@@ -1126,4 +1144,85 @@ export async function subdividirUnidadAction(
     return { success: false, error: "Ocurrió un error inesperado al procesar la división del local." };
   }
 }
+
+// Actualiza la tasa de referencia BCV de un espacio y opcionalmente la propaga a su contrato activo y cuotas no pagadas
+export async function actualizarTasaReferenciaUnidadAction(input: {
+  unidadId: string;
+  tasaReferenciaBcv: TasaReferenciaBcv;
+  aplicarAContratoActivo?: boolean;
+}) {
+  const authCheck = await requireAdminSession();
+  if (!authCheck.ok) return { success: false as const, error: authCheck.error };
+
+  try {
+    const resTx = await prisma.$transaction(async (tx) => {
+      const unidad = await tx.unidad.findUnique({
+        where: { id: input.unidadId },
+        select: {
+          id: true,
+          codigo: true,
+          contratos: {
+            where: { estado: { in: [EstadoContrato.ACTIVO, EstadoContrato.POR_VENCER] } },
+            orderBy: { createdAt: "desc" },
+            take: 1,
+            select: { id: true, codigo: true },
+          },
+        },
+      });
+
+      if (!unidad) {
+        return { success: false as const, error: "Espacio no encontrado." };
+      }
+
+      let cuotasActualizadas = 0;
+      const contratoActivo = unidad.contratos[0];
+
+      if (input.aplicarAContratoActivo && contratoActivo) {
+        await tx.contrato.update({
+          where: { id: contratoActivo.id },
+          data: { tasaReferenciaBcv: input.tasaReferenciaBcv },
+        });
+
+        // Solo se actualizan cuotas no pagadas; las pagadas y abonos previos quedan intactos
+        const cuotasRes = await tx.pago.updateMany({
+          where: {
+            contratoId: contratoActivo.id,
+            estado: { not: EstadoPago.PAGADO },
+          },
+          data: {
+            tasaReferenciaUsada: null,
+          },
+        });
+        cuotasActualizadas = cuotasRes.count;
+      }
+
+      const actualizada = await tx.unidad.update({
+        where: { id: input.unidadId },
+        data: { tasaReferenciaBcv: input.tasaReferenciaBcv },
+        select: UNIDAD_SELECT,
+      });
+
+      return {
+        success: true as const,
+        data: actualizada,
+        cuotasActualizadas,
+        contratoCodigo: input.aplicarAContratoActivo ? contratoActivo?.codigo : undefined,
+      };
+    });
+
+    if (resTx.success) {
+      revalidatePath("/admin/propiedades");
+      revalidatePath("/admin/contratos");
+      revalidatePath("/admin/cobranza");
+      revalidatePath("/inquilino/pagos");
+      revalidatePath("/inquilino/dashboard");
+    }
+
+    return resTx;
+  } catch (error) {
+    console.error("Error al actualizar tasa BCV del espacio:", error);
+    return { success: false as const, error: "No se pudo actualizar la tasa de cobro del espacio." };
+  }
+}
+
 

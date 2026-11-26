@@ -16,6 +16,7 @@ export interface NotificacionPagoReportadoParams {
   montoReportado: number;
   montoBs?: number | null;
   tasaBcv?: number | null;
+  tasaReferenciaBcv?: "USD" | "EUR";
   metodoPago: MetodoPago;
   referencia: string;
   fechaPago: string;
@@ -41,6 +42,7 @@ export async function enviarNotificacionPagoReportadoAdmin(
       montoReportado,
       montoBs,
       tasaBcv,
+      tasaReferenciaBcv = "USD",
       metodoPago,
       referencia,
       fechaPago,
@@ -65,6 +67,7 @@ export async function enviarNotificacionPagoReportadoAdmin(
 
     const mesNombre = MESES[periodoMes - 1] || `Mes ${periodoMes}`;
     const metodoLabel = NOMBRES_METODOS[metodoPago] || metodoPago;
+    const etiquetaTasa = tasaReferenciaBcv === "EUR" ? "Bs/€ (Euro BCV)" : "Bs/$ (Dólar BCV)";
 
     const fechaTransferenciaFormateada = (() => {
       try {
@@ -155,7 +158,7 @@ export async function enviarNotificacionPagoReportadoAdmin(
                       ${
                         montoBs && tasaBcv
                           ? `<div style="font-size: 13px; font-weight: 800; color: #1E293B; margin-top: 3px;">
-                               Bs. ${montoBs.toLocaleString("es-VE", { minimumFractionDigits: 2 })} <span style="font-size: 11px; font-weight: 500; color: #64748B;">(Tasa BCV: ${tasaBcv.toFixed(2)} Bs/$)</span>
+                               Bs. ${montoBs.toLocaleString("es-VE", { minimumFractionDigits: 2 })} <span style="font-size: 11px; font-weight: 500; color: #64748B;">(Tasa BCV: ${tasaBcv.toFixed(2)} ${etiquetaTasa})</span>
                              </div>`
                           : ""
                       }

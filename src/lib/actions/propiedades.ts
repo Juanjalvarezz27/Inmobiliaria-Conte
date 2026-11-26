@@ -3,7 +3,7 @@
 import { prisma } from "@/lib/prisma";
 import { requireAdminSession } from "@/lib/auth-guard";
 import { revalidatePath, revalidateTag, unstable_cache } from "next/cache";
-import { Prisma, TipoPropiedad, TipoUnidad, EstadoContrato, EstadoUnidad } from "@prisma/client";
+import { Prisma, TipoPropiedad, TipoUnidad, EstadoContrato, EstadoUnidad, TasaReferenciaBcv } from "@prisma/client";
 import { eliminarArchivosUploadThing } from "@/lib/uploadthing-server";
 import { extraerCoordenadasDeTexto } from "@/lib/geo-utils";
 
@@ -20,6 +20,7 @@ export interface CreatePropiedadInput {
   latitud?: number | null;
   longitud?: number | null;
   radioMetros?: number;
+  tasaReferenciaBcv?: TasaReferenciaBcv;
   // Campos opcionales para autogenerar la unidad si es una propiedad independiente
   unidadInicial?: {
     areaMt2?: number;
@@ -41,6 +42,8 @@ export interface UpdatePropiedadInput {
   latitud?: number | null;
   longitud?: number | null;
   radioMetros?: number;
+  tasaReferenciaBcv?: TasaReferenciaBcv;
+  aplicarAUnidades?: boolean;
 }
 
 // Proyección mínima y optimizada: solo trae los campos necesarios para la UI y la gestión
@@ -58,6 +61,7 @@ const PROPIEDAD_SELECT = {
   latitud: true,
   longitud: true,
   radioMetros: true,
+  tasaReferenciaBcv: true,
   activo: true,
 } as const;
 
@@ -101,6 +105,7 @@ export async function getPropiedadById(id: string) {
             piso: true,
             areaMt2: true,
             precioAlquiler: true,
+            tasaReferenciaBcv: true,
             descripcion: true,
             estado: true,
             imagenes: true,
@@ -130,6 +135,8 @@ export async function createPropiedad(data: CreatePropiedadInput) {
     ];
     const esIndividual = tiposIndividuales.includes(data.tipo);
 
+    const tasaDefault = data.tasaReferenciaBcv ?? TasaReferenciaBcv.USD;
+
     if (esIndividual && data.unidadInicial) {
       const result = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
         const propiedad = await tx.propiedad.create({
@@ -146,6 +153,7 @@ export async function createPropiedad(data: CreatePropiedadInput) {
             latitud: data.latitud ?? null,
             longitud: data.longitud ?? null,
             radioMetros: data.radioMetros ?? 200,
+            tasaReferenciaBcv: tasaDefault,
           },
           select: PROPIEDAD_SELECT,
         });
@@ -161,6 +169,7 @@ export async function createPropiedad(data: CreatePropiedadInput) {
                 : TipoUnidad.LOCAL,
             areaMt2: data.unidadInicial?.areaMt2 || null,
             precioAlquiler: data.unidadInicial?.precioAlquiler || null,
+            tasaReferenciaBcv: tasaDefault,
             imagenes: data.unidadInicial?.imagenes || [],
             propiedadId: propiedad.id,
           },
@@ -188,6 +197,7 @@ export async function createPropiedad(data: CreatePropiedadInput) {
         latitud: data.latitud ?? null,
         longitud: data.longitud ?? null,
         radioMetros: data.radioMetros ?? 200,
+        tasaReferenciaBcv: tasaDefault,
       },
       select: PROPIEDAD_SELECT,
     });
@@ -207,23 +217,35 @@ export async function updatePropiedad(id: string, data: UpdatePropiedadInput) {
   if (!authCheck.ok) return { success: false, error: authCheck.error };
 
   try {
-    const actualizada = await prisma.propiedad.update({
-      where: { id },
-      data: {
-        ...(data.nombre && { nombre: data.nombre.trim() }),
-        ...(data.tipo && { tipo: data.tipo }),
-        ...(data.direccion && { direccion: data.direccion.trim() }),
-        ...(data.ciudad && { ciudad: data.ciudad.trim() }),
-        ...(data.descripcion !== undefined && { descripcion: data.descripcion?.trim() || null }),
-        ...(data.numPisos !== undefined && { numPisos: data.numPisos }),
-        ...(data.areaTotalM2 !== undefined && { areaTotalM2: data.areaTotalM2 }),
-        ...(data.propietario !== undefined && { propietario: data.propietario?.trim() || null }),
-        ...(data.telefonoContacto !== undefined && { telefonoContacto: data.telefonoContacto?.trim() || null }),
-        ...(data.latitud !== undefined && { latitud: data.latitud }),
-        ...(data.longitud !== undefined && { longitud: data.longitud }),
-        ...(data.radioMetros !== undefined && { radioMetros: data.radioMetros }),
-      },
-      select: PROPIEDAD_SELECT,
+    const actualizada = await prisma.$transaction(async (tx) => {
+      const prop = await tx.propiedad.update({
+        where: { id },
+        data: {
+          ...(data.nombre && { nombre: data.nombre.trim() }),
+          ...(data.tipo && { tipo: data.tipo }),
+          ...(data.direccion && { direccion: data.direccion.trim() }),
+          ...(data.ciudad && { ciudad: data.ciudad.trim() }),
+          ...(data.descripcion !== undefined && { descripcion: data.descripcion?.trim() || null }),
+          ...(data.numPisos !== undefined && { numPisos: data.numPisos }),
+          ...(data.areaTotalM2 !== undefined && { areaTotalM2: data.areaTotalM2 }),
+          ...(data.propietario !== undefined && { propietario: data.propietario?.trim() || null }),
+          ...(data.telefonoContacto !== undefined && { telefonoContacto: data.telefonoContacto?.trim() || null }),
+          ...(data.latitud !== undefined && { latitud: data.latitud }),
+          ...(data.longitud !== undefined && { longitud: data.longitud }),
+          ...(data.radioMetros !== undefined && { radioMetros: data.radioMetros }),
+          ...(data.tasaReferenciaBcv && { tasaReferenciaBcv: data.tasaReferenciaBcv }),
+        },
+        select: PROPIEDAD_SELECT,
+      });
+
+      if (data.aplicarAUnidades && data.tasaReferenciaBcv) {
+        await tx.unidad.updateMany({
+          where: { propiedadId: id },
+          data: { tasaReferenciaBcv: data.tasaReferenciaBcv },
+        });
+      }
+
+      return prop;
     });
 
     revalidatePath("/admin/propiedades");

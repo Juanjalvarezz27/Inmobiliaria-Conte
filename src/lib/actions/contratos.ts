@@ -11,6 +11,7 @@ import {
   EstadoUnidad,
   MetodoPago,
   Prisma,
+  TasaReferenciaBcv,
 } from "@prisma/client";
 import { PaginationParams, PaginatedResult } from "@/types/pagination";
 import { resolvePagination, createPaginatedResponse } from "@/lib/pagination-helper";
@@ -37,6 +38,7 @@ const createContratoSchema = z.object({
   depositoMetodoPago: z.nativeEnum(MetodoPago).optional().nullable(),
   depositoReferencia: z.string().optional().nullable(),
   moneda: z.string().default("USD"),
+  tasaReferenciaBcv: z.nativeEnum(TasaReferenciaBcv).optional(),
   documentoUrl: z.string().url("URL de documento inválida").optional().nullable().or(z.literal("")),
   notas: z.string().optional().nullable(),
   mesesAdeudadosPrevios: z
@@ -55,6 +57,7 @@ const updateContratoSchema = z.object({
   fechaFin: z.string().optional(),
   diaCobro: z.coerce.number().min(1).max(31).optional(),
   montoAlquiler: z.coerce.number().min(0).optional(),
+  tasaReferenciaBcv: z.nativeEnum(TasaReferenciaBcv).optional(),
   depositoGarantia: z.coerce.number().min(0).optional().nullable(),
   documentoUrl: z.string().optional().nullable().or(z.literal("")),
   notas: z.string().optional().nullable(),
@@ -139,6 +142,7 @@ const CONTRATO_LIST_SELECT = {
   depositoReferenciaLiquidacion: true,
   depositoComprobanteLiquidacionUrl: true,
   moneda: true,
+  tasaReferenciaBcv: true,
   estado: true,
   documentoUrl: true,
   notas: true,
@@ -392,6 +396,7 @@ export async function getUnidadesDisponiblesParaContrato() {
         piso: true,
         areaMt2: true,
         precioAlquiler: true,
+        tasaReferenciaBcv: true,
         propiedad: {
           select: {
             id: true,
@@ -463,7 +468,7 @@ export async function createContrato(data: CreateContratoInput) {
       // 1. Validar que la unidad no esté ocupada por otro contrato
       const unidad = await tx.unidad.findUnique({
         where: { id: parsed.unidadId },
-        select: { id: true, codigo: true, estado: true },
+        select: { id: true, codigo: true, estado: true, tasaReferenciaBcv: true },
       });
 
       if (!unidad) {
@@ -555,6 +560,7 @@ export async function createContrato(data: CreateContratoInput) {
           depositoMetodoPago,
           depositoReferencia,
           moneda: parsed.moneda || "USD",
+          tasaReferenciaBcv: parsed.tasaReferenciaBcv ?? unidad.tasaReferenciaBcv ?? TasaReferenciaBcv.USD,
           estado: EstadoContrato.ACTIVO,
           documentoUrl: parsed.documentoUrl || null,
           notas: parsed.notas || null,
@@ -822,6 +828,19 @@ export async function updateContrato(id: string, data: UpdateContratoInput) {
         data: dataToUpdate,
         select: CONTRATO_LIST_SELECT,
       });
+
+      if (
+        parsed.tasaReferenciaBcv &&
+        parsed.tasaReferenciaBcv !== contratoPrevio.tasaReferenciaBcv
+      ) {
+        await tx.pago.updateMany({
+          where: {
+            contratoId: id,
+            estado: { not: EstadoPago.PAGADO },
+          },
+          data: { tasaReferenciaUsada: null },
+        });
+      }
 
       // 3. Manejo de cuotas: Preservación histórica de pagos y sincronización con corte y correlatividad
       if (cambioMonto || cambioDia || cambioFechaFin || cambioFechaCorte) {

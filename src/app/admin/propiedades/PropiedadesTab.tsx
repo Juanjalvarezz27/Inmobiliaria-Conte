@@ -258,6 +258,16 @@ export function PropiedadesTab({
                           <Icon className="w-3.5 h-3.5" />
                           {badgeInfo.label}
                         </span>
+                        <span
+                          className={`inline-flex items-center px-2 py-1 text-[10px] font-bold rounded-lg border ${
+                            propiedad.tasaReferenciaBcv === "EUR"
+                              ? "bg-indigo-50 text-indigo-700 border-indigo-200"
+                              : "bg-emerald-50 text-[#175E38] border-emerald-200"
+                          }`}
+                          title="Tasa BCV por defecto para cobros en Bolívares"
+                        >
+                          {propiedad.tasaReferenciaBcv === "EUR" ? "€ BCV" : "$ BCV"}
+                        </span>
                         {esArchivada && (
                           <span className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-bold rounded-lg bg-amber-50 text-amber-800 border border-amber-200 shadow-2xs">
                             <Archive className="w-3 h-3 text-amber-600" />

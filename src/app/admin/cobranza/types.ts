@@ -2,6 +2,7 @@ import type {
   EstadoPago,
   MetodoPago,
   MonedaTransaccion,
+  TasaReferenciaBcv,
   TipoPropiedad,
   TipoUnidad,
   EstadoContrato,
@@ -17,6 +18,9 @@ export interface TransaccionPagoItem {
   montoOriginal?: number | null;
   montoBs?: number | null;
   tasaBcv?: number | null;
+  tasaReferenciaUsada?: TasaReferenciaBcv | null;
+  tasaDolarBcvDia?: number | null;
+  montoUsdFinanzas?: number | null;
   fechaPago: string;
   metodoPago: MetodoPago;
   referencia: string | null;
@@ -37,6 +41,9 @@ export interface PagoItem {
   montoOriginal?: number | null;
   montoBs?: number | null;
   tasaBcv?: number | null;
+  tasaReferenciaUsada?: TasaReferenciaBcv | null;
+  tasaDolarBcvDia?: number | null;
+  montoUsdFinanzas?: number | null;
   fechaVencimiento: string;
   fechaPago: string | null;
   metodoPago: MetodoPago | null;
@@ -66,6 +73,7 @@ export interface PagoItem {
     codigo: string;
     diaCobro: number;
     moneda: string;
+    tasaReferenciaBcv?: TasaReferenciaBcv;
     fechaInicio?: string;
     fechaFin?: string;
     montoAlquiler?: number;
@@ -80,6 +88,7 @@ export interface PagoItem {
       piso?: string | null;
       areaMt2?: number | null;
       precioAlquiler?: number | null;
+      tasaReferenciaBcv?: TasaReferenciaBcv;
       descripcion?: string | null;
       imagenes?: string[];
       propiedad: {

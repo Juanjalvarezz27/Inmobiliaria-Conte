@@ -332,6 +332,18 @@ export function InquilinoContratoClient({
                     <div className="space-y-2 text-xs">
                       <div className="bg-slate-50 rounded-xl p-3 border border-slate-200/70 space-y-1.5">
                         <div className="flex items-center justify-between">
+                          <span className="text-slate-600 font-semibold">Tasa BCV (pagos en Bs):</span>
+                          <span
+                            className={`font-bold px-2 py-0.5 rounded-md border text-[11px] ${
+                              contratoActual.tasaReferenciaBcv === "EUR"
+                                ? "bg-indigo-50 text-indigo-700 border-indigo-200"
+                                : "bg-emerald-50 text-[#175E38] border-emerald-200"
+                            }`}
+                          >
+                            {contratoActual.tasaReferenciaBcv === "EUR" ? "Euro BCV (€)" : "Dólar BCV ($)"}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between">
                           <span className="text-slate-600 font-semibold">Día de corte mensual:</span>
                           <span className="font-bold text-slate-900">Día {contratoActual.diaCobro} de cada mes</span>
                         </div>

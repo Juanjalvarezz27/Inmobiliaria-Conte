@@ -6,10 +6,10 @@ import { requireAdminSession } from "@/lib/auth-guard";
 import { revalidatePath } from "next/cache";
 import { after } from "next/server";
 import { z } from "zod";
-import { EstadoContrato, EstadoPago, MetodoPago, MonedaTransaccion, Prisma, TransaccionPago } from "@prisma/client";
+import { EstadoContrato, EstadoPago, MetodoPago, MonedaTransaccion, Prisma, TasaReferenciaBcv, TransaccionPago } from "@prisma/client";
 import { eliminarArchivosUploadThing } from "@/lib/uploadthing-server";
 import { getPropiedadesOpciones } from "./propiedades";
-import { obtenerFechaHoyVenezuela } from "@/lib/bcv";
+import { getTasaBcvOficial, getTasaBcvPorFecha, obtenerFechaHoyVenezuela, resolverTasaSegunReferencia } from "@/lib/bcv";
 import type { PagoItem, EstadisticasCobranza } from "@/app/admin/cobranza/types";
 import { enviarNotificacionPagoConfirmadoInquilino } from "@/lib/email-templates/notificacion-pago-confirmado";
 import { enviarNotificacionPagoRechazadoInquilino } from "@/lib/email-templates/notificacion-pago-rechazado";
@@ -48,6 +48,7 @@ const registrarPagoSchema = z.object({
   montoOriginal: z.coerce.number().positive().optional().nullable(),
   montoBs: z.coerce.number().positive().optional().nullable(),
   tasaBcv: z.coerce.number().positive().optional().nullable(),
+  tasaDolarBcvDia: z.coerce.number().positive().optional().nullable(),
   referencia: z.string().optional().nullable(),
   comprobanteUrl: z.string().optional().nullable().or(z.literal("")),
   notas: z.string().optional().nullable(),
@@ -67,6 +68,9 @@ const PAGO_SELECT = {
   montoOriginal: true,
   montoBs: true,
   tasaBcv: true,
+  tasaReferenciaUsada: true,
+  tasaDolarBcvDia: true,
+  montoUsdFinanzas: true,
   fechaVencimiento: true,
   fechaPago: true,
   metodoPago: true,
@@ -94,6 +98,9 @@ const PAGO_SELECT = {
       montoOriginal: true,
       montoBs: true,
       tasaBcv: true,
+      tasaReferenciaUsada: true,
+      tasaDolarBcvDia: true,
+      montoUsdFinanzas: true,
       fechaPago: true,
       metodoPago: true,
       referencia: true,
@@ -111,6 +118,7 @@ const PAGO_SELECT = {
       codigo: true,
       diaCobro: true,
       moneda: true,
+      tasaReferenciaBcv: true,
       fechaInicio: true,
       fechaFin: true,
       montoAlquiler: true,
@@ -126,6 +134,7 @@ const PAGO_SELECT = {
           piso: true,
           areaMt2: true,
           precioAlquiler: true,
+          tasaReferenciaBcv: true,
           descripcion: true,
           imagenes: true,
           propiedad: {
@@ -183,6 +192,9 @@ function serializePagoItem(
     montoOriginal: p.montoOriginal,
     montoBs: p.montoBs,
     tasaBcv: p.tasaBcv,
+    tasaReferenciaUsada: p.tasaReferenciaUsada ?? null,
+    tasaDolarBcvDia: p.tasaDolarBcvDia ?? null,
+    montoUsdFinanzas: p.montoUsdFinanzas ?? null,
     fechaVencimiento: p.fechaVencimiento.toISOString(),
     fechaPago: p.fechaPago ? p.fechaPago.toISOString() : null,
     metodoPago: p.metodoPago,
@@ -211,6 +223,9 @@ function serializePagoItem(
           montoOriginal: t.montoOriginal,
           montoBs: t.montoBs,
           tasaBcv: t.tasaBcv,
+          tasaReferenciaUsada: t.tasaReferenciaUsada ?? null,
+          tasaDolarBcvDia: t.tasaDolarBcvDia ?? null,
+          montoUsdFinanzas: t.montoUsdFinanzas ?? null,
           fechaPago: t.fechaPago.toISOString(),
           metodoPago: t.metodoPago,
           referencia: t.referencia,
@@ -906,6 +921,7 @@ export async function registrarPago(input: RegistrarPagoInput) {
       montoOriginal,
       montoBs,
       tasaBcv,
+      tasaDolarBcvDia,
     } = validado.data;
 
     const fechaPagoDate = new Date(fechaPago);
@@ -913,6 +929,20 @@ export async function registrarPago(input: RegistrarPagoInput) {
     const monedaEfectiva = monedaOriginal || (esMonedaNacional ? MonedaTransaccion.VES : MonedaTransaccion.USD);
     const montoBsEfectivo = montoBs || (esMonedaNacional && tasaBcv ? Number((montoPagado * tasaBcv).toFixed(2)) : null);
     const montoOriginalEfectivo = montoOriginal || (esMonedaNacional && montoBsEfectivo ? montoBsEfectivo : montoPagado);
+
+    // Resolver tasa Dólar BCV del día fuera de la transacción para calcular equivalencia en Finanzas
+    let tasaDolarEfectiva = tasaDolarBcvDia ?? null;
+    if (esMonedaNacional && !tasaDolarEfectiva) {
+      try {
+        const fechaDiaStr = fechaPago.split("T")[0];
+        const tasaDia = await getTasaBcvPorFecha(fechaDiaStr);
+        if (tasaDia?.tasa > 0) {
+          tasaDolarEfectiva = tasaDia.tasa;
+        }
+      } catch {
+        tasaDolarEfectiva = null;
+      }
+    }
 
     const pagoActualizado = await prisma.$transaction(async (tx) => {
       const pagoActual = await tx.pago.findUnique({
@@ -974,6 +1004,16 @@ export async function registrarPago(input: RegistrarPagoInput) {
         );
       }
 
+      const tasaRefContrato = pagoActual.contrato.tasaReferenciaBcv ?? TasaReferenciaBcv.USD;
+      const tasaDolarTx =
+        esMonedaNacional
+          ? (tasaRefContrato === TasaReferenciaBcv.USD ? (tasaBcv || tasaDolarEfectiva) : tasaDolarEfectiva)
+          : null;
+      const montoUsdFinanzasTx =
+        esMonedaNacional && tasaRefContrato === TasaReferenciaBcv.EUR && montoBsEfectivo && tasaDolarTx && tasaDolarTx > 0
+          ? Number((montoBsEfectivo / tasaDolarTx).toFixed(2))
+          : montoPagado;
+
       // 1. Asentar la transacción individual en el Libro Mayor
       await tx.transaccionPago.create({
         data: {
@@ -983,6 +1023,9 @@ export async function registrarPago(input: RegistrarPagoInput) {
           montoOriginal: montoOriginalEfectivo,
           montoBs: montoBsEfectivo,
           tasaBcv: tasaBcv || null,
+          tasaReferenciaUsada: esMonedaNacional ? tasaRefContrato : null,
+          tasaDolarBcvDia: tasaDolarTx,
+          montoUsdFinanzas: montoUsdFinanzasTx,
           fechaPago: fechaPagoDate,
           metodoPago,
           referencia: referencia ? referencia.trim() : null,
@@ -994,10 +1037,11 @@ export async function registrarPago(input: RegistrarPagoInput) {
       // 2. Sumar todos los abonos registrados para esta cuota mensual
       const sumaAbonos = await tx.transaccionPago.aggregate({
         where: { pagoId },
-        _sum: { monto: true },
+        _sum: { monto: true, montoUsdFinanzas: true },
       });
 
       const totalAbonado = Number((sumaAbonos._sum.monto || 0).toFixed(2));
+      const totalFinanzasUsd = Number((sumaAbonos._sum.montoUsdFinanzas ?? totalAbonado).toFixed(2));
 
       // 3. Evaluar estado del canon según el acumulado de abonos
       let nuevoEstado: EstadoPago = EstadoPago.PENDIENTE;
@@ -1019,6 +1063,9 @@ export async function registrarPago(input: RegistrarPagoInput) {
           montoOriginal: montoOriginalEfectivo,
           montoBs: montoBsEfectivo,
           tasaBcv: tasaBcv || null,
+          tasaReferenciaUsada: esMonedaNacional ? tasaRefContrato : null,
+          tasaDolarBcvDia: tasaDolarTx,
+          montoUsdFinanzas: totalFinanzasUsd,
           fechaPago: fechaPagoDate,
           metodoPago,
           referencia: referencia ? referencia.trim() : null,
@@ -1148,10 +1195,11 @@ export async function eliminarTransaccionPago(transaccionId: string) {
       // 2. Recalcular suma total de abonos restantes
       const suma = await tx.transaccionPago.aggregate({
         where: { pagoId: transaccion.pagoId },
-        _sum: { monto: true },
+        _sum: { monto: true, montoUsdFinanzas: true },
       });
 
       const nuevoMontoPagado = Number((suma._sum.monto || 0).toFixed(2));
+      const nuevoMontoUsdFinanzas = Number((suma._sum.montoUsdFinanzas ?? nuevoMontoPagado).toFixed(2));
       const pagoActual = await tx.pago.findUnique({
         where: { id: transaccion.pagoId },
       });
@@ -1178,11 +1226,15 @@ export async function eliminarTransaccionPago(transaccionId: string) {
         where: { id: transaccion.pagoId },
         data: {
           montoPagado: nuevoMontoPagado,
+          montoUsdFinanzas: nuevoMontoPagado > 0 ? nuevoMontoUsdFinanzas : null,
           estado: nuevoEstado,
           fechaPago: ultimaTransaccion ? ultimaTransaccion.fechaPago : null,
           metodoPago: ultimaTransaccion ? ultimaTransaccion.metodoPago : null,
           referencia: ultimaTransaccion ? ultimaTransaccion.referencia : null,
           comprobanteUrl: ultimaTransaccion ? ultimaTransaccion.comprobanteUrl : null,
+          tasaBcv: ultimaTransaccion ? ultimaTransaccion.tasaBcv : null,
+          tasaReferenciaUsada: ultimaTransaccion ? ultimaTransaccion.tasaReferenciaUsada : null,
+          tasaDolarBcvDia: ultimaTransaccion ? ultimaTransaccion.tasaDolarBcvDia : null,
         },
         select: PAGO_SELECT,
       });
@@ -1251,6 +1303,12 @@ export async function anularPago(pagoId: string) {
         where: { id: pagoId },
         data: {
           montoPagado: 0,
+          montoBs: null,
+          montoOriginal: null,
+          tasaBcv: null,
+          tasaReferenciaUsada: null,
+          tasaDolarBcvDia: null,
+          montoUsdFinanzas: null,
           fechaPago: null,
           metodoPago: null,
           referencia: null,
@@ -1615,6 +1673,17 @@ export async function enviarAvisoMoraAction(pagoId: string) {
       return { success: false, error: "Esta cuota ya se encuentra solventada y liquidada." };
     }
 
+    const tasaRefMora = pago.contrato.tasaReferenciaBcv ?? TasaReferenciaBcv.USD;
+    let tasaMoraEfectiva = pago.tasaBcv ?? null;
+    if (!tasaMoraEfectiva || tasaMoraEfectiva <= 0) {
+      try {
+        const tasasHoy = await getTasaBcvOficial();
+        tasaMoraEfectiva = resolverTasaSegunReferencia(tasasHoy, tasaRefMora) || null;
+      } catch {
+        tasaMoraEfectiva = null;
+      }
+    }
+
     const resEmail = await enviarNotificacionAvisoMora({
       inquilinoNombre: `${pago.contrato.inquilino.nombre} ${pago.contrato.inquilino.apellido || ""}`.trim(),
       inquilinoEmail: pago.contrato.inquilino.email,
@@ -1625,7 +1694,8 @@ export async function enviarAvisoMoraAction(pagoId: string) {
       montoTotalEsperado: pago.montoEsperado,
       montoPagado: pago.montoPagado,
       saldoRestante,
-      tasaBcv: pago.tasaBcv,
+      tasaBcv: tasaMoraEfectiva,
+      tasaReferenciaBcv: tasaRefMora,
       fechaVencimiento: pago.fechaVencimiento,
     });
 

@@ -22,13 +22,14 @@ import {
   type UpdateUnidadInput,
   eliminarImagenUploadThingAction,
 } from "@/lib/actions/unidades";
-import { EstadoUnidad, TipoPropiedad, TipoUnidad } from "@prisma/client";
+import { EstadoUnidad, TipoPropiedad, TipoUnidad, TasaReferenciaBcv } from "@prisma/client";
 import { comprimirImagenes, formatearBytes, PRESETS_COMPRESION } from "@/lib/file-compressor";
 
 interface PropiedadBasica {
   id: string;
   nombre: string;
   tipo: TipoPropiedad;
+  tasaReferenciaBcv?: TasaReferenciaBcv;
 }
 
 interface Props {
@@ -41,6 +42,7 @@ interface Props {
     piso: string | null;
     areaMt2: number | null;
     precioAlquiler: number | null;
+    tasaReferenciaBcv?: TasaReferenciaBcv;
     descripcion: string | null;
     estado: EstadoUnidad;
     imagenes: string[];
@@ -69,15 +71,18 @@ const TIPOS_UNIDAD: { value: TipoUnidad; label: string }[] = [
 ];
 
 export function UnidadForm({ propiedades, initialData, onSubmit, onCancel, isLoading }: Props) {
-  const [propiedadId, setPropiedadId] = useState(
-    initialData?.propiedadId ?? (propiedades[0]?.id ?? "")
-  );
+  const propInicialId = initialData?.propiedadId ?? (propiedades[0]?.id ?? "");
+  const propInicial = propiedades.find((p) => p.id === propInicialId);
+  const [propiedadId, setPropiedadId] = useState(propInicialId);
   const [tipo, setTipo] = useState<TipoUnidad>(initialData?.tipo ?? TipoUnidad.LOCAL);
   const [codigo, setCodigo] = useState(initialData?.codigo ?? "");
   const [piso, setPiso] = useState(initialData?.piso ?? "");
   const [areaMt2, setAreaMt2] = useState(initialData?.areaMt2?.toString() ?? "");
   const [precioAlquiler, setPrecioAlquiler] = useState(
     initialData?.precioAlquiler?.toString() ?? ""
+  );
+  const [tasaReferenciaBcv, setTasaReferenciaBcv] = useState<TasaReferenciaBcv>(
+    initialData?.tasaReferenciaBcv ?? propInicial?.tasaReferenciaBcv ?? TasaReferenciaBcv.USD
   );
   const [descripcion, setDescripcion] = useState(initialData?.descripcion ?? "");
   const [estado, setEstado] = useState<EstadoUnidad>(
@@ -176,6 +181,7 @@ export function UnidadForm({ propiedades, initialData, onSubmit, onCancel, isLoa
       piso: piso.trim() || undefined,
       areaMt2: areaMt2 ? parseFloat(areaMt2) : undefined,
       precioAlquiler: precioAlquiler ? parseFloat(precioAlquiler) : undefined,
+      tasaReferenciaBcv,
       descripcion: descripcion.trim() || undefined,
       estado,
       imagenes,
@@ -192,7 +198,15 @@ export function UnidadForm({ propiedades, initialData, onSubmit, onCancel, isLoa
         <Select
           id="unidad-propiedad"
           value={propiedadId}
-          onChange={setPropiedadId}
+          onChange={(nuevoPropId) => {
+            setPropiedadId(nuevoPropId);
+            if (!initialData?.id) {
+              const propSel = propiedades.find((p) => p.id === nuevoPropId);
+              if (propSel?.tasaReferenciaBcv) {
+                setTasaReferenciaBcv(propSel.tasaReferenciaBcv);
+              }
+            }
+          }}
           required
           icon={<Building2 className="w-4 h-4" />}
           placeholder="Seleccionar propiedad..."
@@ -327,6 +341,39 @@ export function UnidadForm({ propiedades, initialData, onSubmit, onCancel, isLoa
               / mes
             </div>
           </div>
+        </div>
+      </div>
+
+      {/* Tasa Oficial BCV para cobros en Bolívares de este espacio */}
+      <div className="space-y-1.5">
+        <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+          Tasa Oficial BCV para Cobros en Bolívares
+        </label>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+          <button
+            type="button"
+            onClick={() => setTasaReferenciaBcv(TasaReferenciaBcv.USD)}
+            className={`px-3 py-2.5 rounded-xl border text-left transition-all cursor-pointer ${
+              tasaReferenciaBcv === TasaReferenciaBcv.USD
+                ? "border-[#175E38] bg-emerald-50/70 ring-2 ring-[#175E38]/20"
+                : "border-slate-200 bg-white hover:bg-slate-50"
+            }`}
+          >
+            <div className="text-xs font-bold text-slate-900">Dólar BCV ($)</div>
+            <div className="text-[10.5px] text-slate-500">Canon $ × Tasa Dólar BCV</div>
+          </button>
+          <button
+            type="button"
+            onClick={() => setTasaReferenciaBcv(TasaReferenciaBcv.EUR)}
+            className={`px-3 py-2.5 rounded-xl border text-left transition-all cursor-pointer ${
+              tasaReferenciaBcv === TasaReferenciaBcv.EUR
+                ? "border-indigo-600 bg-indigo-50/70 ring-2 ring-indigo-500/20"
+                : "border-slate-200 bg-white hover:bg-slate-50"
+            }`}
+          >
+            <div className="text-xs font-bold text-slate-900">Euro BCV (€)</div>
+            <div className="text-[10.5px] text-slate-500">Canon $ × Tasa Euro BCV</div>
+          </button>
         </div>
       </div>
 

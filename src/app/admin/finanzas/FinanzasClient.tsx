@@ -12,7 +12,6 @@ import {
   FileSpreadsheet,
   RotateCw,
   Calendar,
-  Sparkles,
   Coins,
   ChevronDown,
   LineChart,
@@ -111,8 +110,9 @@ export function FinanzasClient({
   const [isPending, startTransition] = useTransition();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Tasa BCV del día para visualización ejecutiva
+  // Tasa BCV del día para visualización ejecutiva (USD y EUR)
   const [tasaBcvHoy, setTasaBcvHoy] = useState<number | null>(null);
+  const [tasaBcvEurHoy, setTasaBcvEurHoy] = useState<number | null>(null);
 
   // Visibilidad colapsable de gráficas para mayor ligereza visual
   const [mostrarGraficos, setMostrarGraficos] = useState(true);
@@ -127,6 +127,9 @@ export function FinanzasClient({
         const json = await res.json();
         if (json.success && json.data?.tasa) {
           setTasaBcvHoy(json.data.tasa);
+          if (json.data.tasaEur && json.data.tasaEur > 0) {
+            setTasaBcvEurHoy(json.data.tasaEur);
+          }
         }
       } catch (e) {
         console.warn("No se pudo cargar la tasa BCV:", e);
@@ -382,8 +385,8 @@ export function FinanzasClient({
         </div>
 
         {/* Insignia Oficial de Tasa BCV del Día */}
-        <div className="flex items-center justify-between sm:justify-end gap-2 shrink-0 pt-2 md:pt-0 border-t border-slate-100 md:border-t-0">
-          <div className="flex items-center gap-2 px-3 py-1.5 bg-emerald-50/90 border border-emerald-200/90 rounded-xl text-xs font-semibold text-emerald-950 shadow-2xs">
+        <div className="flex items-center justify-between sm:justify-end gap-2 md:shrink-0 pt-2 md:pt-0 border-t border-slate-100 md:border-t-0">
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1 px-3 py-1.5 bg-emerald-50/90 border border-emerald-200/90 rounded-xl text-xs font-semibold text-emerald-950 shadow-2xs">
             <Coins className="w-3.5 h-3.5 text-[#175E38] shrink-0" />
             <span className="text-slate-500 font-medium text-[11px]">BCV Oficial:</span>
             <span className="font-mono font-bold text-[#175E38]">
@@ -391,6 +394,14 @@ export function FinanzasClient({
                 ? `${tasaBcvHoy.toLocaleString("es-VE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Bs/$`
                 : "Consultando..."}
             </span>
+            {tasaBcvEurHoy && (
+              <>
+                <span className="text-slate-300">|</span>
+                <span className="font-mono font-bold text-indigo-700">
+                  {tasaBcvEurHoy.toLocaleString("es-VE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Bs/€
+                </span>
+              </>
+            )}
           </div>
         </div>
       </div>

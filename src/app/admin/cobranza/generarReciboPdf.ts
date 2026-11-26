@@ -319,6 +319,17 @@ export async function construirReciboPdf(pago: PagoItem): Promise<Blob> {
     page.drawText(`#${pago.referencia}`, { x: margenX + 85, y: seccionPagoY - 27, size: 8.5, font: fontSemiBold, color: textoDark });
   }
 
+  if (pago.montoBs && pago.tasaBcv) {
+    const tasaRef = pago.tasaReferenciaUsada ?? contrato.tasaReferenciaBcv ?? "USD";
+    const sufijo = tasaRef === "EUR" ? "Bs/€ (Euro BCV)" : "Bs/$ (Dólar BCV)";
+    const yBs = pago.referencia ? seccionPagoY - 40 : seccionPagoY - 27;
+    page.drawText("Monto en Bs.:", { x: margenX, y: yBs, size: 8.5, font: fontRegular, color: textoGris });
+    page.drawText(
+      `Bs. ${pago.montoBs.toLocaleString("es-VE", { minimumFractionDigits: 2 })} (@ ${pago.tasaBcv.toFixed(2)} ${sufijo})`,
+      { x: margenX + 85, y: yBs, size: 8, font: fontSemiBold, color: textoDark }
+    );
+  }
+
   // Lado Derecho: Totales
   const bloqueTotalesX = margenDer - 170;
   page.drawText("Subtotal / Canon:", { x: bloqueTotalesX, y: seccionPagoY - 5, size: 8.5, font: fontRegular, color: textoGris });

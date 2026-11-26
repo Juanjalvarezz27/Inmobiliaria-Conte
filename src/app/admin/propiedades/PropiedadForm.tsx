@@ -23,7 +23,7 @@ import {
   Link2,
   ExternalLink,
 } from "lucide-react";
-import { TipoPropiedad } from "@prisma/client";
+import { TipoPropiedad, TasaReferenciaBcv } from "@prisma/client";
 import { type CreatePropiedadInput, type UpdatePropiedadInput, resolverCoordenadasUrl } from "@/lib/actions/propiedades";
 import { PhoneInput } from "@/components/ui";
 import { extraerCoordenadasDeTexto } from "@/lib/geo-utils";
@@ -44,6 +44,7 @@ interface Props {
     latitud?: number | null;
     longitud?: number | null;
     radioMetros?: number;
+    tasaReferenciaBcv?: TasaReferenciaBcv;
   };
   defaultTipo?: TipoPropiedad;
   onSubmit: (data: CreatePropiedadInput | UpdatePropiedadInput) => void;
@@ -225,6 +226,10 @@ export function PropiedadForm({ initialData, defaultTipo, onSubmit, onCancel, is
       : ""
   );
   const [isResolviendoUrl, setIsResolviendoUrl] = useState<boolean>(false);
+  const [tasaReferenciaBcv, setTasaReferenciaBcv] = useState<TasaReferenciaBcv>(
+    initialData?.tasaReferenciaBcv ?? TasaReferenciaBcv.USD
+  );
+  const [aplicarAUnidades, setAplicarAUnidades] = useState<boolean>(false);
 
   // Sincronizar estado si initialData cambia o se carga
   useEffect(() => {
@@ -320,6 +325,9 @@ export function PropiedadForm({ initialData, defaultTipo, onSubmit, onCancel, is
         latitud: latitud ? parseFloat(latitud) : null,
         longitud: longitud ? parseFloat(longitud) : null,
         radioMetros: radioMetros ? parseInt(radioMetros) : 200,
+        tasaReferenciaBcv,
+        aplicarAUnidades:
+          initialData.tasaReferenciaBcv !== tasaReferenciaBcv ? aplicarAUnidades : false,
       });
     } else {
       const inputData: CreatePropiedadInput = {
@@ -335,6 +343,7 @@ export function PropiedadForm({ initialData, defaultTipo, onSubmit, onCancel, is
         latitud: latitud ? parseFloat(latitud) : undefined,
         longitud: longitud ? parseFloat(longitud) : undefined,
         radioMetros: radioMetros ? parseInt(radioMetros) : 200,
+        tasaReferenciaBcv,
       };
 
       if (esIndividual && (areaMt2 || precioAlquiler)) {
@@ -536,6 +545,57 @@ export function PropiedadForm({ initialData, defaultTipo, onSubmit, onCancel, is
               />
             </div>
           </div>
+        </div>
+
+        {/* Tasa Oficial BCV por Defecto para los Espacios de la Propiedad */}
+        <div className="pt-2 border-t border-slate-100 space-y-2.5">
+          <div>
+            <span className="block text-[11px] font-bold uppercase tracking-wide text-slate-700">
+              Tasa Oficial BCV por Defecto (Cobros en Bolívares)
+            </span>
+            <p className="text-[11px] text-slate-400 mt-0.5">
+              Define si los alquileres de esta propiedad se indexan al Dólar BCV o al Euro BCV. Luego podrás ajustarlo individualmente en cada espacio.
+            </p>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+            <button
+              type="button"
+              onClick={() => setTasaReferenciaBcv(TasaReferenciaBcv.USD)}
+              className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
+                tasaReferenciaBcv === TasaReferenciaBcv.USD
+                  ? "border-[#175E38] bg-emerald-50/70 ring-2 ring-[#175E38]/20"
+                  : "border-slate-200 bg-white hover:bg-slate-50"
+              }`}
+            >
+              <div className="text-xs font-bold text-slate-900">Dólar BCV ($)</div>
+              <div className="text-[11px] text-slate-500 mt-0.5">Canon $ × Tasa Dólar BCV</div>
+            </button>
+            <button
+              type="button"
+              onClick={() => setTasaReferenciaBcv(TasaReferenciaBcv.EUR)}
+              className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
+                tasaReferenciaBcv === TasaReferenciaBcv.EUR
+                  ? "border-indigo-600 bg-indigo-50/70 ring-2 ring-indigo-500/20"
+                  : "border-slate-200 bg-white hover:bg-slate-50"
+              }`}
+            >
+              <div className="text-xs font-bold text-slate-900">Euro BCV (€)</div>
+              <div className="text-[11px] text-slate-500 mt-0.5">Canon $ × Tasa Euro BCV</div>
+            </button>
+          </div>
+          {initialData && initialData.tasaReferenciaBcv !== tasaReferenciaBcv && (
+            <label className="flex items-start gap-2.5 p-2.5 rounded-xl bg-amber-50/80 border border-amber-200 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={aplicarAUnidades}
+                onChange={(e) => setAplicarAUnidades(e.target.checked)}
+                className="mt-0.5 rounded border-amber-300 text-[#175E38] focus:ring-[#175E38]"
+              />
+              <span className="text-[11px] text-amber-900 leading-snug">
+                Aplicar también esta tasa predeterminada a todos los espacios existentes de esta propiedad (no modifica contratos ni cuotas ya registradas).
+              </span>
+            </label>
+          )}
         </div>
 
         {/* Geoposicionamiento GPS para control de asistencia (Opcional) */}

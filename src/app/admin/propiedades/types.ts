@@ -1,4 +1,4 @@
-import { TipoPropiedad, TipoUnidad, EstadoUnidad, EstadoContrato, TipoPersona } from "@prisma/client";
+import { TipoPropiedad, TipoUnidad, EstadoUnidad, EstadoContrato, TipoPersona, TasaReferenciaBcv } from "@prisma/client";
 
 // Tipos compartidos para el módulo de Propiedades y Espacios
 
@@ -16,6 +16,7 @@ export type PropiedadConConteo = {
   latitud?: number | null;
   longitud?: number | null;
   radioMetros?: number;
+  tasaReferenciaBcv?: TasaReferenciaBcv;
   activo?: boolean;
   createdAt?: Date;
   updatedAt?: Date;
@@ -40,6 +41,7 @@ export type ContratoResumenUnidad = {
   fechaFin: Date | string;
   montoAlquiler: number;
   moneda: string;
+  tasaReferenciaBcv?: TasaReferenciaBcv;
   inquilino: InquilinoContratoResumen;
 };
 
@@ -50,6 +52,7 @@ export type UnidadConPropiedad = {
   piso: string | null;
   areaMt2: number | null;
   precioAlquiler: number | null;
+  tasaReferenciaBcv?: TasaReferenciaBcv;
   descripcion: string | null;
   estado: EstadoUnidad;
   imagenes: string[];
@@ -61,6 +64,7 @@ export type UnidadConPropiedad = {
     nombre: string;
     tipo: TipoPropiedad;
     ciudad: string;
+    tasaReferenciaBcv?: TasaReferenciaBcv;
   };
   contratos?: ContratoResumenUnidad[];
   _count?: { contratos: number };

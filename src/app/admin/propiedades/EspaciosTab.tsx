@@ -524,13 +524,30 @@ export function EspaciosTab({
               >
                 {contratoActivo ? "Canon Acordado" : "Precio Mensual"}
               </span>
-              <span
-                className={`text-base sm:text-lg font-black font-heading ${
-                  unidad.estado === "INACTIVO" ? "text-rose-950" : "text-slate-900"
-                }`}
-              >
-                {formatCurrency(precioMostrar)}
-              </span>
+              <div className="flex items-center gap-2">
+                {(() => {
+                  const refBcv = contratoActivo?.tasaReferenciaBcv ?? unidad.tasaReferenciaBcv ?? "USD";
+                  return (
+                    <span
+                      className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md border ${
+                        refBcv === "EUR"
+                          ? "bg-indigo-50 text-indigo-700 border-indigo-200"
+                          : "bg-emerald-50 text-[#175E38] border-emerald-200"
+                      }`}
+                      title={refBcv === "EUR" ? "Cobro indexado a Tasa Euro BCV" : "Cobro indexado a Tasa Dólar BCV"}
+                    >
+                      {refBcv === "EUR" ? "€ BCV" : "$ BCV"}
+                    </span>
+                  );
+                })()}
+                <span
+                  className={`text-base sm:text-lg font-black font-heading ${
+                    unidad.estado === "INACTIVO" ? "text-rose-950" : "text-slate-900"
+                  }`}
+                >
+                  {formatCurrency(precioMostrar)}
+                </span>
+              </div>
             </div>
           );
         })()}

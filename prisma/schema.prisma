@@ -41,6 +41,11 @@ enum EstadoUnidad {
   INACTIVO
 }
 
+enum TasaReferenciaBcv {
+  USD
+  EUR
+}
+
 model Usuario {
   id           String   @id @default(cuid())
   email        String   @unique
@@ -77,8 +82,9 @@ model Propiedad {
   telefonoContacto String?       // Teléfono de contacto o administración del inmueble
   latitud          Float?        // Latitud geográfica del inmueble para validación de presencia
   longitud         Float?        // Longitud geográfica del inmueble para validación de presencia
-  radioMetros      Int           @default(200) // Radio de tolerancia de presencia física en metros
-  activo          Boolean       @default(true)
+  radioMetros      Int                @default(200) // Radio de tolerancia de presencia física en metros
+  tasaReferenciaBcv TasaReferenciaBcv @default(USD) // Tasa oficial BCV por defecto para cobros en Bs
+  activo           Boolean            @default(true)
 
   unidades                 Unidad[]
   transaccionesFinancieras TransaccionFinanciera[]
@@ -100,7 +106,8 @@ model Unidad {
   tipo           TipoUnidad   @default(LOCAL)
   piso           String?      // Ej: "Planta Baja", "Piso 4"
   areaMt2        Float?       // Área en m²
-  precioAlquiler Float?       // Canon de arrendamiento mensual
+  precioAlquiler Float?            // Canon de arrendamiento mensual en USD
+  tasaReferenciaBcv TasaReferenciaBcv @default(USD) // Tasa oficial BCV usada para indexar cobros en Bs
   descripcion    String?
   estado         EstadoUnidad @default(DISPONIBLE)
   imagenes       String[]     // Fotos de la unidad
@@ -185,7 +192,8 @@ model Contrato {
   depositoReferenciaLiquidacion     String?        // Referencia bancaria del reembolso
   depositoMotivoLiquidacion         String?        // Motivo de retención o deducción
   depositoComprobanteLiquidacionUrl String?        // Comprobante de la devolución o facturas de reparaciones
-  moneda                            String         @default("USD")
+  moneda                            String            @default("USD")
+  tasaReferenciaBcv                 TasaReferenciaBcv @default(USD) // Tasa BCV (USD o EUR) para pagos en Bs
 
   estado                            EstadoContrato @default(ACTIVO)
   documentoUrl                      String?        // Enlace al contrato PDF firmado en UploadThing
@@ -237,9 +245,12 @@ model Pago {
   montoPagado      Float              @default(0)
   monedaOriginal   MonedaTransaccion? @default(USD)
   montoOriginal    Float?             // Monto real en Bs o USD reportado/pagado
-  montoBs          Float?             // Monto equivalente o pagado en Bolívares (congelado en fecha de pago)
-  tasaBcv          Float?             // Tasa oficial BCV congelada en la fecha del pago/reporte
-  fechaVencimiento DateTime
+  montoBs              Float?              // Monto equivalente o pagado en Bolívares (congelado en fecha de pago)
+  tasaBcv              Float?              // Tasa oficial BCV congelada en la fecha del pago/reporte
+  tasaReferenciaUsada  TasaReferenciaBcv?  // Tasa BCV utilizada (USD o EUR) en el cálculo en Bolívares
+  tasaDolarBcvDia      Float?              // Tasa Dólar BCV del día para equivalencia contable en Finanzas
+  montoUsdFinanzas     Float?              // Ingreso real equivalente en USD para consolidación de Finanzas
+  fechaVencimiento     DateTime
   fechaPago        DateTime?
   metodoPago       MetodoPago?
   referencia       String?
@@ -278,9 +289,12 @@ model TransaccionPago {
   monto          Float              // Monto de este abono específico en USD
   monedaOriginal MonedaTransaccion? @default(USD)
   montoOriginal  Float?             // Monto real en Bs o USD ingresado
-  montoBs        Float?             // Monto en Bolívares congelado en la fecha del abono
-  tasaBcv        Float?             // Tasa oficial BCV congelada en la fecha del abono
-  fechaPago      DateTime           @default(now()) // Fecha en que se recibió el abono
+  montoBs              Float?             // Monto en Bolívares congelado en la fecha del abono
+  tasaBcv              Float?             // Tasa oficial BCV congelada en la fecha del abono
+  tasaReferenciaUsada  TasaReferenciaBcv? // Tasa BCV utilizada (USD o EUR) en este abono
+  tasaDolarBcvDia      Float?             // Tasa Dólar BCV del día para equivalencia contable
+  montoUsdFinanzas     Float?             // Equivalente real en USD para consolidación de Finanzas
+  fechaPago            DateTime           @default(now()) // Fecha en que se recibió el abono
   metodoPago     MetodoPago         // Efectivo, Zelle, Transferencia, etc.
   referencia     String?            // Número de referencia bancaria o recibo
   comprobanteUrl String?            // URL de la captura o voucher de este abono
@@ -358,6 +372,7 @@ model HistorialTasaBcv {
   fechaStr           String   @unique // Formato YYYY-MM-DD para búsqueda O(1)
   fecha              DateTime @default(now()) // Timestamp exacto de registro
   tasa               Float    // Tasa oficial en Bs/USD (ej: 899.2705)
+  tasaEur            Float?   // Tasa oficial en Bs/EUR publicada por el BCV
   fuente             String   @default("Banco Central de Venezuela")
   esOficial          Boolean  @default(true)
   createdAt          DateTime @default(now())

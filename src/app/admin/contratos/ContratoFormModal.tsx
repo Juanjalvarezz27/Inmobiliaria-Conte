@@ -34,7 +34,7 @@ import {
 } from "@/lib/file-compressor";
 import { toast } from "sonner";
 import { formatCurrency } from "@/lib/formatters";
-import { EstadoUnidad, MetodoPago } from "@prisma/client";
+import { EstadoUnidad, MetodoPago, TasaReferenciaBcv } from "@prisma/client";
 import type {
   InquilinoSelector,
   UnidadDisponible,
@@ -125,6 +125,11 @@ export function ContratoFormModal({
       : unidadPreseleccionadaObj?.precioAlquiler
       ? String(unidadPreseleccionadaObj.precioAlquiler)
       : ""
+  );
+  const [tasaReferenciaBcv, setTasaReferenciaBcv] = useState<TasaReferenciaBcv>(
+    initialData?.tasaReferenciaBcv ??
+      unidadPreseleccionadaObj?.tasaReferenciaBcv ??
+      TasaReferenciaBcv.USD
   );
   const [depositoGarantia, setDepositoGarantia] = useState<string>(
     initialData?.depositoGarantia ? String(initialData.depositoGarantia) : ""
@@ -420,6 +425,9 @@ export function ContratoFormModal({
     if (u?.precioAlquiler && (!montoAlquiler || montoAlquiler === "0" || !initialData)) {
       setMontoAlquiler(String(u.precioAlquiler));
     }
+    if (u?.tasaReferenciaBcv && !initialData) {
+      setTasaReferenciaBcv(u.tasaReferenciaBcv);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -507,6 +515,7 @@ export function ContratoFormModal({
       depositoMetodoPago: !isEditing && depositoCobradoAlFirmar ? depositoMetodoPago : null,
       depositoReferencia: !isEditing && depositoCobradoAlFirmar && depositoReferencia.trim() ? depositoReferencia.trim() : null,
       moneda: "USD",
+      tasaReferenciaBcv,
       documentoUrl: documentoUrlFinal || null,
       notas: notas.trim() || null,
     };
@@ -726,6 +735,44 @@ export function ContratoFormModal({
                     </span>
                   </p>
                 )}
+            </div>
+
+            {/* Tasa Oficial BCV de indexación para pagos en Bolívares */}
+            <div className="sm:col-span-3">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3 rounded-xl border border-slate-200 bg-slate-50/80">
+                <div>
+                  <span className="block text-[11px] font-semibold uppercase tracking-wide text-slate-600">
+                    Tasa Oficial BCV (Pagos en Bolívares)
+                  </span>
+                  <span className="text-[11px] text-slate-400">
+                    El canon sigue siendo en USD, multiplicado por esta tasa BCV al calcular Bolívares.
+                  </span>
+                </div>
+                <div className="inline-flex rounded-xl bg-white p-1 border border-slate-200 shrink-0 self-start sm:self-center">
+                  <button
+                    type="button"
+                    onClick={() => setTasaReferenciaBcv(TasaReferenciaBcv.USD)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                      tasaReferenciaBcv === TasaReferenciaBcv.USD
+                        ? "bg-[#175E38] text-white shadow-xs"
+                        : "text-slate-600 hover:bg-slate-100"
+                    }`}
+                  >
+                    Dólar BCV ($)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setTasaReferenciaBcv(TasaReferenciaBcv.EUR)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                      tasaReferenciaBcv === TasaReferenciaBcv.EUR
+                        ? "bg-indigo-600 text-white shadow-xs"
+                        : "text-slate-600 hover:bg-slate-100"
+                    }`}
+                  >
+                    Euro BCV (€)
+                  </button>
+                </div>
+              </div>
             </div>
 
             {/* Día de Cobro del Mes (1 a 31) con Calendario */}

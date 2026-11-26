@@ -42,7 +42,7 @@ import {
   type DiagnosticoSubdivision,
   type SubunidadParteInput,
 } from "@/lib/actions/unidades";
-import { EstadoUnidad } from "@prisma/client";
+import { EstadoUnidad, TasaReferenciaBcv } from "@prisma/client";
 
 const CompartirUnidadModal = dynamic(
   () => import("./CompartirUnidadModal").then((m) => m.CompartirUnidadModal),
@@ -68,6 +68,11 @@ interface UnidadDetalleModalProps {
   onSubdividirUnidad?: (
     matrizId: string,
     partes: SubunidadParteInput[]
+  ) => Promise<boolean | void> | void;
+  onCambiarTasaReferencia?: (
+    unidadId: string,
+    nuevaTasa: TasaReferenciaBcv,
+    aplicarAContratoActivo: boolean
   ) => Promise<boolean | void> | void;
 }
 
@@ -106,10 +111,19 @@ export function UnidadDetalleModal({
   onExpandirInquilino,
   onReunificarMatriz,
   onSubdividirUnidad,
+  onCambiarTasaReferencia,
 }: UnidadDetalleModalProps) {
   const [tabActiva, setTabActiva] = useState<"info" | "historial">("info");
   const [fotoActivaIndex, setFotoActivaIndex] = useState<number>(0);
   const [prevUnidadId, setPrevUnidadId] = useState(unidad?.id);
+
+  // Estados locales para ajuste directo de Tasa BCV desde la ficha del espacio
+  const tasaActualUnidad: TasaReferenciaBcv =
+    unidad?.tasaReferenciaBcv ?? TasaReferenciaBcv.USD;
+  const [tasaSeleccionadaFicha, setTasaSeleccionadaFicha] =
+    useState<TasaReferenciaBcv>(tasaActualUnidad);
+  const [aplicarAContratoFicha, setAplicarAContratoFicha] = useState<boolean>(false);
+  const [guardandoTasaFicha, setGuardandoTasaFicha] = useState<boolean>(false);
 
   // Estados de historial y diagnóstico de subdivisión
   const [historial, setHistorial] = useState<ContratoHistorialItem[]>([]);
@@ -139,6 +153,8 @@ export function UnidadDetalleModal({
     setOpenReunificarModal(false);
     setOpenSubdividirModal(false);
     setOpenCompartirModal(false);
+    setTasaSeleccionadaFicha(unidad?.tasaReferenciaBcv ?? TasaReferenciaBcv.USD);
+    setAplicarAContratoFicha(false);
   }
 
   // Precarga fotos en memoria solo para unidad disponible abierta (habilita Web Share instantáneo en iOS)
@@ -405,6 +421,96 @@ export function UnidadDetalleModal({
                   </div>
                 </div>
               </div>
+
+              {/* Ajuste directo de Tasa Oficial BCV (Dólar o Euro) desde la ficha del espacio */}
+              {onCambiarTasaReferencia && (
+                <div className="rounded-2xl border border-slate-200/90 bg-slate-50/70 p-3.5 space-y-2.5">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                    <div>
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block">
+                        Tasa Oficial BCV para Cobros en Bolívares
+                      </span>
+                      <p className="text-xs text-slate-600 mt-0.5">
+                        El monto del canon se mantiene en USD, pero su cálculo en Bs se indexa a la tasa seleccionada.
+                      </p>
+                    </div>
+                    <div className="inline-flex rounded-xl bg-white p-1 border border-slate-200 shrink-0 self-start sm:self-center">
+                      <button
+                        type="button"
+                        onClick={() => setTasaSeleccionadaFicha(TasaReferenciaBcv.USD)}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                          tasaSeleccionadaFicha === TasaReferenciaBcv.USD
+                            ? "bg-[#175E38] text-white shadow-xs"
+                            : "text-slate-600 hover:bg-slate-100"
+                        }`}
+                      >
+                        Dólar BCV ($)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setTasaSeleccionadaFicha(TasaReferenciaBcv.EUR)}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                          tasaSeleccionadaFicha === TasaReferenciaBcv.EUR
+                            ? "bg-indigo-600 text-white shadow-xs"
+                            : "text-slate-600 hover:bg-slate-100"
+                        }`}
+                      >
+                        Euro BCV (€)
+                      </button>
+                    </div>
+                  </div>
+
+                  {tasaSeleccionadaFicha !== tasaActualUnidad && (
+                    <div className="pt-2 border-t border-slate-200/80 space-y-2.5">
+                      {unidad.contratos && unidad.contratos[0] && (
+                        <label className="flex items-start gap-2.5 p-2.5 rounded-xl bg-amber-50 border border-amber-200 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={aplicarAContratoFicha}
+                            onChange={(e) => setAplicarAContratoFicha(e.target.checked)}
+                            className="mt-0.5 rounded border-amber-300 text-[#175E38] focus:ring-[#175E38]"
+                          />
+                          <span className="text-[11px] text-amber-900 leading-snug">
+                            Aplicar también al contrato activo (<strong>{unidad.contratos[0].codigo}</strong>) y a todas sus cuotas <strong>no pagadas</strong> (pasadas y futuras). Las cuotas ya pagadas no se alteran.
+                          </span>
+                        </label>
+                      )}
+                      <div className="flex flex-wrap items-center justify-end gap-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setTasaSeleccionadaFicha(tasaActualUnidad);
+                            setAplicarAContratoFicha(false);
+                          }}
+                          className="px-3 py-1.5 rounded-xl text-xs font-semibold text-slate-600 bg-white border border-slate-200 hover:bg-slate-100 cursor-pointer"
+                        >
+                          Cancelar
+                        </button>
+                        <button
+                          type="button"
+                          disabled={guardandoTasaFicha}
+                          onClick={async () => {
+                            setGuardandoTasaFicha(true);
+                            try {
+                              await onCambiarTasaReferencia(
+                                unidad.id,
+                                tasaSeleccionadaFicha,
+                                aplicarAContratoFicha
+                              );
+                              setAplicarAContratoFicha(false);
+                            } finally {
+                              setGuardandoTasaFicha(false);
+                            }
+                          }}
+                          className="px-3.5 py-1.5 rounded-xl text-xs font-bold text-white bg-[#175E38] hover:bg-[#124b2d] cursor-pointer disabled:opacity-50"
+                        >
+                          {guardandoTasaFicha ? "Guardando..." : "Guardar Tasa del Espacio"}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* Sección Arrendatario Actual / Acciones de Espacio Disponible (prioritario en móvil) */}
               {(() => {

@@ -33,7 +33,7 @@ import {
   Store,
 } from "lucide-react";
 import { formatBS } from "@/lib/formatters";
-import type { TasaBcvResponse } from "@/lib/bcv";
+import { resolverTasaSegunReferencia, type TasaBcvResponse } from "@/lib/bcv-utils";
 
 interface ReportarPagoModalProps {
   isOpen: boolean;
@@ -81,10 +81,12 @@ export function ReportarPagoModal({
   });
   const [notas, setNotas] = useState<string>("");
 
-  // Detección de moneda nacional y cálculo en tiempo real
+  // Detección de moneda nacional y cálculo en tiempo real según tasa asignada al contrato (USD o EUR BCV)
   const esMetodoVES =
     metodoPago === MetodoPago.PAGO_MOVIL || metodoPago === MetodoPago.TRANSFERENCIA;
-  const tasaBcvValor = tasaBcvActual?.tasa || 0;
+  const tasaRefCuota = cuotaSeleccionada?.contrato?.tasaReferenciaBcv === "EUR" ? "EUR" : "USD";
+  const esTasaEur = tasaRefCuota === "EUR";
+  const tasaBcvValor = resolverTasaSegunReferencia(tasaBcvActual, tasaRefCuota);
   const montoBsCalculado =
     tasaBcvValor > 0 && montoReportado > 0
       ? Number((montoReportado * tasaBcvValor).toFixed(2))
@@ -158,12 +160,13 @@ export function ReportarPagoModal({
     },
   });
 
-  // Al cambiar la cuota seleccionada, actualizar monto
+  // Al cambiar la cuota seleccionada, actualizar monto y limpiar montoBs previo
   const handleCambioCuota = (nuevaCuotaId: string) => {
     setPagoId(nuevaCuotaId);
+    setMontoBs("");
     const c = pagosPendientes.find((p) => p.id === nuevaCuotaId);
     if (c) {
-      setMontoReportado(Math.max(0, c.montoEsperado - c.montoPagado));
+      setMontoReportado(Math.max(0, Number((c.montoEsperado - c.montoPagado).toFixed(2))));
     }
   };
 
@@ -266,6 +269,10 @@ export function ReportarPagoModal({
             ? Number(montoBs || montoBsCalculado)
             : undefined,
         tasaBcv: esMetodoVES && tasaBcvValor > 0 ? tasaBcvValor : undefined,
+        tasaDolarBcvDia:
+          esMetodoVES && tasaBcvActual?.tasa && tasaBcvActual.tasa > 0
+            ? tasaBcvActual.tasa
+            : undefined,
         fechaPago,
         metodoPago,
         referencia: referencia.trim(),
@@ -438,10 +445,10 @@ export function ReportarPagoModal({
                     </div>
                     <div>
                       <span className="text-[11px] font-black uppercase tracking-wider text-emerald-950 block leading-tight">
-                        Cálculo en Bolívares (Tasa Oficial BCV)
+                        Cálculo en Bolívares ({esTasaEur ? "Tasa Euro BCV" : "Tasa Dólar BCV"})
                       </span>
                       <span className="text-[10px] text-emerald-700 font-medium">
-                        1 USD = Bs. {tasaBcvValor ? tasaBcvValor.toLocaleString("es-VE", { minimumFractionDigits: 2, maximumFractionDigits: 4 }) : "—"}
+                        {esTasaEur ? "1 EUR (BCV)" : "1 USD (BCV)"} = Bs. {tasaBcvValor ? tasaBcvValor.toLocaleString("es-VE", { minimumFractionDigits: 2, maximumFractionDigits: 4 }) : "—"}
                       </span>
                     </div>
                   </div>

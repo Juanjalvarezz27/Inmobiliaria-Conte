@@ -10,9 +10,10 @@ import {
   MetodoPago,
   MonedaTransaccion,
   Prisma,
+  TasaReferenciaBcv,
 } from "@prisma/client";
 import { eliminarArchivosUploadThing } from "@/lib/uploadthing-server";
-import { getTasaBcvOficial, getTasaBcvCierreMes, getTasaBcvPorFecha } from "@/lib/bcv";
+import { getTasaBcvCierreMes, getTasaBcvPorFecha } from "@/lib/bcv";
 import type {
   FinanzasDataResponse,
   FiltrosFinanzas,
@@ -49,6 +50,40 @@ const transaccionSchema = z.object({
 });
 
 export type TransaccionInput = z.infer<typeof transaccionSchema>;
+
+// Resuelve el ingreso equivalente en USD real (Tasa $ BCV) y genera nota si se cobró a Tasa Euro BCV
+function resolverIngresoUsdFinanzas(p: {
+  montoPagado: number;
+  montoOriginal?: number | null;
+  montoBs?: number | null;
+  tasaBcv?: number | null;
+  tasaReferenciaUsada?: TasaReferenciaBcv | null;
+  tasaDolarBcvDia?: number | null;
+  montoUsdFinanzas?: number | null;
+  contrato?: { tasaReferenciaBcv?: TasaReferenciaBcv | null } | null;
+}): { montoUsdReal: number; notaEquivalencia: string | null } {
+  const usaEquivalenteEuro =
+    p.montoUsdFinanzas !== null &&
+    p.montoUsdFinanzas !== undefined &&
+    p.montoUsdFinanzas > 0 &&
+    (p.tasaReferenciaUsada === TasaReferenciaBcv.EUR ||
+      p.contrato?.tasaReferenciaBcv === TasaReferenciaBcv.EUR);
+
+  if (usaEquivalenteEuro && p.montoUsdFinanzas) {
+    const montoUsdReal = Number(p.montoUsdFinanzas.toFixed(2));
+    const bs = p.montoBs || p.montoOriginal || 0;
+    const bsTexto = bs > 0 ? `Bs. ${bs.toLocaleString("es-VE", { minimumFractionDigits: 2 })}` : "";
+    const tasaEurTxt = p.tasaBcv ? ` @ ${p.tasaBcv.toFixed(2)} Bs/€` : "";
+    const tasaUsdTxt = p.tasaDolarBcvDia ? ` (@ ${p.tasaDolarBcvDia.toFixed(2)} Bs/$)` : "";
+    const notaEquivalencia =
+      Math.abs(montoUsdReal - p.montoPagado) >= 0.01
+        ? `Canon $${p.montoPagado.toFixed(2)} a Tasa Euro BCV (${bsTexto}${tasaEurTxt}) → Equiv. Tasa Dólar BCV: $${montoUsdReal.toFixed(2)} USD${tasaUsdTxt}`
+        : null;
+    return { montoUsdReal, notaEquivalencia };
+  }
+
+  return { montoUsdReal: Number(p.montoPagado.toFixed(2)), notaEquivalencia: null };
+}
 
 export async function getFinanzasData(
   filtros: FiltrosFinanzas
@@ -92,9 +127,17 @@ export async function getFinanzasData(
           montoOriginal: true,
           montoBs: true,
           tasaBcv: true,
+          tasaReferenciaUsada: true,
+          tasaDolarBcvDia: true,
+          montoUsdFinanzas: true,
           fechaPago: true,
           fechaVencimiento: true,
           createdAt: true,
+          contrato: {
+            select: {
+              tasaReferenciaBcv: true,
+            },
+          },
         },
       }),
       prisma.transaccionFinanciera.findMany({
@@ -140,20 +183,21 @@ export async function getFinanzasData(
     const conteoCategorias: Record<string, { total: number; conteo: number }> = {};
 
     for (const p of pagosMes) {
-      totalIngresosAlquiler += p.montoPagado;
+      const { montoUsdReal } = resolverIngresoUsdFinanzas(p);
+      totalIngresosAlquiler += montoUsdReal;
       conteoCobranzas += 1;
 
       if (p.monedaOriginal === MonedaTransaccion.VES) {
         totalIngresosVes += p.montoOriginal || p.montoBs || (p.montoPagado * (p.tasaBcv || 1));
-        totalIngresosVesEquivUsd += p.montoPagado;
+        totalIngresosVesEquivUsd += montoUsdReal;
       } else {
-        totalIngresosUsd += p.montoPagado;
+        totalIngresosUsd += montoUsdReal;
       }
 
       const fechaRaw = p.fechaPago || p.fechaVencimiento || p.createdAt;
       const diaNum = getPartesFechaVenezuela(fechaRaw).dia;
       if (diaNum >= 1 && diaNum <= diasEnMes) {
-        diasDelMes[diaNum - 1].ingresos += p.montoPagado;
+        diasDelMes[diaNum - 1].ingresos += montoUsdReal;
         diasDelMes[diaNum - 1].conteoIngresos += 1;
       }
     }
@@ -543,12 +587,16 @@ export async function getCierreMesData(mes: number, ano: number) {
         montoOriginal: true,
         montoBs: true,
         tasaBcv: true,
+        tasaReferenciaUsada: true,
+        tasaDolarBcvDia: true,
+        montoUsdFinanzas: true,
         fechaPago: true,
         fechaVencimiento: true,
         createdAt: true,
         contrato: {
           select: {
             codigo: true,
+            tasaReferenciaBcv: true,
             inquilino: {
               select: {
                 nombre: true,
@@ -658,25 +706,27 @@ export async function getCierreMesData(mes: number, ano: number) {
           movimientos: [],
         };
       }
+      const { montoUsdReal, notaEquivalencia } = resolverIngresoUsdFinanzas(p);
       const esVes = p.monedaOriginal === MonedaTransaccion.VES;
       const montoBsPago = p.montoOriginal || p.montoBs || (p.montoPagado * (p.tasaBcv || tasaBcvReferencial));
-      propiedadesMap[propId].ingresos += p.montoPagado;
-      totalIngresosGeneral += p.montoPagado;
+      propiedadesMap[propId].ingresos += montoUsdReal;
+      totalIngresosGeneral += montoUsdReal;
       if (esVes) {
         propiedadesMap[propId].ingresosVes += montoBsPago;
         totalIngresosVesGeneral += montoBsPago;
       } else {
-        propiedadesMap[propId].ingresosUsd += p.montoPagado;
-        totalIngresosUsdGeneral += p.montoPagado;
+        propiedadesMap[propId].ingresosUsd += montoUsdReal;
+        totalIngresosUsdGeneral += montoUsdReal;
       }
 
       const fechaObj = p.fechaPago || p.fechaVencimiento || p.createdAt;
       const inq = p.contrato?.inquilino;
       const inqNombre = inq ? `${inq.nombre}${inq.apellido ? ` ${inq.apellido}` : ""}` : "";
       const unidCodigo = p.contrato?.unidad?.codigo;
+      const sufijoNotaEuro = notaEquivalencia ? ` [Canon $${p.montoPagado.toFixed(2)} a Tasa € BCV]` : "";
       const concepto = unidCodigo
-        ? `Cobro Alquiler (${unidCodigo})${inqNombre ? ` - ${inqNombre}` : ""}`
-        : `Cobro de Alquiler${inqNombre ? ` - ${inqNombre}` : ""}`;
+        ? `Cobro Alquiler (${unidCodigo})${inqNombre ? ` - ${inqNombre}` : ""}${sufijoNotaEuro}`
+        : `Cobro de Alquiler${inqNombre ? ` - ${inqNombre}` : ""}${sufijoNotaEuro}`;
 
       propiedadesMap[propId].movimientos.push({
         id: `pago-${p.id}`,
@@ -688,7 +738,7 @@ export async function getCierreMesData(mes: number, ano: number) {
         montoOriginal: p.montoOriginal || (p.montoBs ? p.montoBs : p.montoPagado),
         montoBs: p.montoBs || null,
         tasaBcv: p.tasaBcv || null,
-        montoUsd: Number(p.montoPagado.toFixed(2)),
+        montoUsd: montoUsdReal,
       });
     }
 
@@ -833,6 +883,9 @@ export async function getMovimientosDetalladosPeriodo(params: {
         montoOriginal: true,
         montoBs: true,
         tasaBcv: true,
+        tasaReferenciaUsada: true,
+        tasaDolarBcvDia: true,
+        montoUsdFinanzas: true,
         fechaPago: true,
         fechaVencimiento: true,
         createdAt: true,
@@ -843,6 +896,7 @@ export async function getMovimientosDetalladosPeriodo(params: {
         contrato: {
           select: {
             codigo: true,
+            tasaReferenciaBcv: true,
             inquilino: {
               select: {
                 nombre: true,
@@ -890,6 +944,7 @@ export async function getMovimientosDetalladosPeriodo(params: {
 
     // A) Pagos de alquiler devengados
     for (const p of pagos) {
+      const { montoUsdReal, notaEquivalencia } = resolverIngresoUsdFinanzas(p);
       const fecha = p.fechaPago || p.fechaVencimiento || p.createdAt;
       const fechaIso = fecha.toISOString();
       const dia = getPartesFechaVenezuela(fecha).dia;
@@ -900,13 +955,14 @@ export async function getMovimientosDetalladosPeriodo(params: {
       const inqDoc = inq?.documentoIdentidad || null;
       const propNombre = p.contrato?.unidad?.propiedad?.nombre || null;
       const unidCodigo = p.contrato?.unidad?.codigo || null;
+      const notasCombinadas = [notaEquivalencia, p.notas].filter(Boolean).join(" · ") || null;
 
       ingresos.push({
         id: `pago-${p.id}`,
         tipo: "ALQUILER",
         concepto: "Cobranza de Alquiler",
         contratoCodigo: p.contrato?.codigo || null,
-        monto: Number(p.montoPagado.toFixed(2)),
+        monto: montoUsdReal,
         monedaOriginal: p.monedaOriginal || MonedaTransaccion.USD,
         montoOriginal: p.montoOriginal || (p.montoBs ? p.montoBs : null),
         tasaBcv: p.tasaBcv || null,
@@ -919,7 +975,7 @@ export async function getMovimientosDetalladosPeriodo(params: {
         metodoPago: p.metodoPago || null,
         referencia: p.referencia || null,
         comprobanteUrl: p.comprobanteUrl || null,
-        notas: p.notas || null,
+        notas: notasCombinadas,
       });
     }
 

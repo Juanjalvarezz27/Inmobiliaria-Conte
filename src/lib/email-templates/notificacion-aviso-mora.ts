@@ -12,6 +12,7 @@ export interface NotificacionAvisoMoraParams {
   montoPagado: number;
   saldoRestante: number;
   tasaBcv?: number | null;
+  tasaReferenciaBcv?: "USD" | "EUR";
   fechaVencimiento: string | Date;
 }
 
@@ -29,8 +30,11 @@ export async function enviarNotificacionAvisoMora(
       periodoAno,
       saldoRestante,
       tasaBcv,
+      tasaReferenciaBcv = "USD",
       fechaVencimiento,
     } = params;
+
+    const etiquetaTasa = tasaReferenciaBcv === "EUR" ? "Bs/€ (Euro BCV)" : "Bs/$ (Dólar BCV)";
 
     if (!inquilinoEmail || !inquilinoEmail.includes("@")) {
       return { success: false, error: "El inquilino no tiene un correo electronico valido." };
@@ -79,7 +83,7 @@ export async function enviarNotificacionAvisoMora(
         ${
           contravalorBs
             ? `<div style="font-size: 12px; color: #b91c1c; font-weight: 700; margin-top: 4px;">
-                Contravalor referencial: Bs. ${Number(contravalorBs).toLocaleString("es-VE", { minimumFractionDigits: 2 })} @ Tasa BCV: ${tasaBcv?.toFixed(2)} Bs/$
+                Contravalor referencial: Bs. ${Number(contravalorBs).toLocaleString("es-VE", { minimumFractionDigits: 2 })} @ Tasa BCV: ${tasaBcv?.toFixed(2)} ${etiquetaTasa}
               </div>`
             : ""
         }

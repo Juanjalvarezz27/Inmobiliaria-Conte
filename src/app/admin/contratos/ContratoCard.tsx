@@ -254,9 +254,20 @@ export function ContratoCard({
 
             {/* Canon Destacado */}
             <div className="bg-emerald-50/70 border border-emerald-200/90 rounded-xl p-2.5 flex flex-col justify-between text-right">
-              <span className="text-[10px] font-extrabold text-emerald-800 uppercase tracking-wider block">
-                Canon
-              </span>
+              <div className="flex items-center justify-end gap-1.5">
+                <span
+                  className={`text-[9px] font-bold px-1.5 py-0.5 rounded border ${
+                    c.tasaReferenciaBcv === "EUR"
+                      ? "bg-indigo-50 text-indigo-700 border-indigo-200"
+                      : "bg-white text-emerald-800 border-emerald-200"
+                  }`}
+                >
+                  {c.tasaReferenciaBcv === "EUR" ? "€ BCV" : "$ BCV"}
+                </span>
+                <span className="text-[10px] font-extrabold text-emerald-800 uppercase tracking-wider">
+                  Canon
+                </span>
+              </div>
               <div className="mt-0.5">
                 <span className="text-base sm:text-lg font-black text-[#175E38] font-heading tracking-tight">
                   {formatCurrency(c.montoAlquiler)}

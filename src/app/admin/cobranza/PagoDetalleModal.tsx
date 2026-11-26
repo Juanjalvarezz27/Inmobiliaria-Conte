@@ -666,7 +666,7 @@ export function PagoDetalleModal({
                 </p>
                 {pago.montoBs && pago.tasaBcv ? (
                   <span className="block text-blue-900 font-black text-xs mt-1 bg-blue-100/70 border border-blue-200/80 px-2 py-0.5 rounded-md inline-block">
-                    Bs. {pago.montoBs.toLocaleString("es-VE", { minimumFractionDigits: 2 })} (Tasa oficial congelada: {pago.tasaBcv.toFixed(2)} Bs/$)
+                    Bs. {pago.montoBs.toLocaleString("es-VE", { minimumFractionDigits: 2 })} (Tasa {(pago.tasaReferenciaUsada ?? pago.contrato?.tasaReferenciaBcv) === "EUR" ? "Euro BCV" : "Dólar BCV"}: {pago.tasaBcv.toFixed(2)} {(pago.tasaReferenciaUsada ?? pago.contrato?.tasaReferenciaBcv) === "EUR" ? "Bs/€" : "Bs/$"})
                   </span>
                 ) : null}
               </div>
@@ -935,7 +935,7 @@ export function PagoDetalleModal({
                           </span>
                           {tx.montoBs && tx.tasaBcv ? (
                             <span className="text-[10px] font-bold text-emerald-800 bg-emerald-50 border border-emerald-200/60 px-1.5 py-0.2 rounded-sm inline-block mt-0.5">
-                              Bs. {tx.montoBs.toLocaleString("es-VE", { minimumFractionDigits: 2 })} (Tasa: {tx.tasaBcv.toFixed(2)} Bs/$)
+                              Bs. {tx.montoBs.toLocaleString("es-VE", { minimumFractionDigits: 2 })} (Tasa: {tx.tasaBcv.toFixed(2)} {(tx.tasaReferenciaUsada ?? pago.contrato?.tasaReferenciaBcv) === "EUR" ? "Bs/€" : "Bs/$"})
                             </span>
                           ) : null}
                         </div>

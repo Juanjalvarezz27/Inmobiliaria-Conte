@@ -68,11 +68,12 @@ import {
   expandirInquilinoALocalCompletoAction,
   reunificarYReactivarMatrizAction,
   subdividirUnidadAction,
+  actualizarTasaReferenciaUnidadAction,
   type CreateUnidadInput,
   type UpdateUnidadInput,
   type SubunidadParteInput,
 } from "@/lib/actions/unidades";
-import { TipoPropiedad, TipoUnidad, EstadoUnidad } from "@prisma/client";
+import { TipoPropiedad, TipoUnidad, EstadoUnidad, TasaReferenciaBcv } from "@prisma/client";
 import {
   TIPO_PROPIEDAD_LABEL,
   TIPO_PROPIEDAD_PLURAL,
@@ -389,16 +390,26 @@ export function PropiedadesClient({
 
   const handleEditarPropiedad = (data: CreatePropiedadInput | UpdatePropiedadInput) => {
     if (!propiedadSeleccionada) return;
+    const updatePayload = data as UpdatePropiedadInput;
     startTransition(async () => {
       try {
-        const res = await updatePropiedad(propiedadSeleccionada.id, data as UpdatePropiedadInput);
+        const res = await updatePropiedad(propiedadSeleccionada.id, updatePayload);
         if (res.success && res.data) {
           const actualizada = res.data;
           const updated = propiedades.map((p) =>
             p.id === actualizada.id ? { ...actualizada, _count: p._count } : p
           );
+          let updatedUnidades = unidades;
+          if (updatePayload.aplicarAUnidades && updatePayload.tasaReferenciaBcv) {
+            updatedUnidades = unidades.map((u) =>
+              u.propiedadId === actualizada.id
+                ? { ...u, tasaReferenciaBcv: updatePayload.tasaReferenciaBcv }
+                : u
+            );
+            setUnidades(updatedUnidades);
+          }
           setPropiedades(updated);
-          recalcStats(unidades, updated);
+          recalcStats(updatedUnidades, updated);
           setPropiedadModal(null);
           setPropiedadSeleccionada(null);
           toast.success("Propiedad actualizada exitosamente.");
@@ -656,6 +667,44 @@ export function PropiedadesClient({
       }
     } catch {
       toast.error("Error al reunificar el espacio.");
+      return false;
+    }
+  };
+
+  const handleCambiarTasaReferenciaUnidad = async (
+    unidadId: string,
+    nuevaTasa: TasaReferenciaBcv,
+    aplicarAContratoActivo: boolean
+  ): Promise<boolean> => {
+    try {
+      const res = await actualizarTasaReferenciaUnidadAction({
+        unidadId,
+        tasaReferenciaBcv: nuevaTasa,
+        aplicarAContratoActivo,
+      });
+
+      if (res.success && res.data) {
+        const actualizada = res.data as UnidadConPropiedad;
+        const updatedUnidades = unidades.map((u) =>
+          u.id === unidadId ? actualizada : u
+        );
+        setUnidades(updatedUnidades);
+        setUnidadSeleccionada(actualizada);
+        const etiquetaTasa = nuevaTasa === TasaReferenciaBcv.EUR ? "Euro BCV (€)" : "Dólar BCV ($)";
+        if (aplicarAContratoActivo && res.contratoCodigo) {
+          toast.success(
+            `Espacio y contrato ${res.contratoCodigo} actualizados a ${etiquetaTasa} (${res.cuotasActualizadas} cuota(s) no pagadas actualizadas).`
+          );
+        } else {
+          toast.success(`Tasa de cobro del espacio actualizada a ${etiquetaTasa}.`);
+        }
+        return true;
+      } else {
+        toast.error(res.error || "No se pudo actualizar la tasa de cobro.");
+        return false;
+      }
+    } catch {
+      toast.error("Error al cambiar la tasa de cobro del espacio.");
       return false;
     }
   };
@@ -975,6 +1024,7 @@ export function PropiedadesClient({
           onExpandirInquilino={handleExpandirInquilino}
           onReunificarMatriz={handleReunificarMatriz}
           onSubdividirUnidad={handleSubdividirUnidad}
+          onCambiarTasaReferencia={handleCambiarTasaReferenciaUnidad}
         />
       )}
     </div>

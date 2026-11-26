@@ -151,7 +151,9 @@ export function ContratoDetalleModal({
               <span className="text-xl sm:text-2xl font-black font-heading text-slate-900 block leading-tight">
                 {formatCurrency(contrato.montoAlquiler)}
               </span>
-              <span className="text-[11px] text-slate-400 font-medium">USD / mes</span>
+              <span className="text-[11px] text-slate-500 font-medium">
+                USD / mes · {contrato.tasaReferenciaBcv === "EUR" ? "Tasa Euro BCV (€)" : "Tasa Dólar BCV ($)"}
+              </span>
             </div>
           </div>
         </div>

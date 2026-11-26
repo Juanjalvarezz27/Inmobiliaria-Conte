@@ -4,6 +4,7 @@ import {
   EstadoPago,
   EstadoUnidad,
   MetodoPago,
+  TasaReferenciaBcv,
   TipoPersona,
   TipoPropiedad,
   TipoUnidad,
@@ -33,6 +34,7 @@ export type ContratoConRelaciones = {
   depositoMotivoLiquidacion: string | null;
   depositoComprobanteLiquidacionUrl: string | null;
   moneda: string;
+  tasaReferenciaBcv?: TasaReferenciaBcv;
   estado: EstadoContrato;
   documentoUrl: string | null;
   notas: string | null;
@@ -94,6 +96,7 @@ export type UnidadDisponible = {
   piso: string | null;
   areaMt2: number | null;
   precioAlquiler: number | null;
+  tasaReferenciaBcv?: TasaReferenciaBcv;
   propiedad: {
     id: string;
     nombre: string;
